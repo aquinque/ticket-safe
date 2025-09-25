@@ -86,7 +86,7 @@ const About = () => {
           <div className="container mx-auto px-4">
             <div className="max-w-4xl mx-auto text-center">
               <Badge variant="secondary" className="mb-4">
-                À propos de RESEAT
+                À propos de Ticket Safe
               </Badge>
               <h1 className="text-4xl md:text-5xl font-bold mb-6">
                 Révolutionner la revente de tickets{" "}
@@ -95,7 +95,7 @@ const About = () => {
                 </span>
               </h1>
               <p className="text-lg text-muted-foreground mb-8 max-w-3xl mx-auto">
-                RESEAT est née d'une conviction simple : la revente de tickets doit être équitable, 
+                Ticket Safe est née d'une conviction simple : la revente de tickets doit être équitable, 
                 transparente et au service de la communauté étudiante. Nous créons une alternative 
                 éthique aux plateformes traditionnelles.
               </p>
@@ -201,7 +201,7 @@ const About = () => {
             <div className="max-w-4xl mx-auto">
               <div className="text-center mb-12">
                 <h2 className="text-3xl font-bold mb-4">
-                  Pourquoi RESEAT ?
+                  Pourquoi Ticket Safe ?
                 </h2>
                 <p className="text-lg text-muted-foreground">
                   Une alternative éthique face aux géants du marché
@@ -216,7 +216,7 @@ const About = () => {
                       <div className="w-10 h-10 bg-gradient-hero rounded-lg flex items-center justify-center">
                         <Heart className="w-5 h-5 text-white" />
                       </div>
-                      <h3 className="text-xl font-bold">RESEAT</h3>
+                      <h3 className="text-xl font-bold">Ticket Safe</h3>
                     </div>
                     
                     <div className="space-y-3">
@@ -288,7 +288,7 @@ const About = () => {
           <div className="container mx-auto px-4">
             <div className="max-w-3xl mx-auto text-center">
               <h2 className="text-3xl font-bold mb-4">
-                Rejoins la révolution RESEAT
+                Rejoins la révolution Ticket Safe
               </h2>
               <p className="text-lg text-white/90 mb-8">
                 Participe à la construction d'une communauté étudiante plus équitable 

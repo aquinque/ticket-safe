@@ -287,7 +287,7 @@ const Sell = () => {
               {/* Guidelines */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Règles RESEAT</CardTitle>
+                  <CardTitle>Règles Ticket Safe</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3 text-sm">
                   <div className="flex items-start gap-2">

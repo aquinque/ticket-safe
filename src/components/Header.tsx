@@ -25,7 +25,7 @@ const Header = () => {
             <div className="w-8 h-8 bg-gradient-hero rounded-lg flex items-center justify-center">
               <Ticket className="w-5 h-5 text-white" />
             </div>
-            <span className="bg-gradient-hero bg-clip-text text-transparent">RESEAT</span>
+            <span className="bg-gradient-hero bg-clip-text text-transparent">Ticket Safe</span>
           </Link>
 
           {/* Desktop Navigation */}

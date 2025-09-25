@@ -269,7 +269,7 @@ const Profile = () => {
                 <CardHeader>
                   <CardTitle>Historique des achats</CardTitle>
                   <CardDescription>
-                    Tous tes tickets achetés sur RESEAT
+                    Tous tes tickets achetés sur Ticket Safe
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -309,7 +309,7 @@ const Profile = () => {
                 <CardHeader>
                   <CardTitle>Historique des ventes</CardTitle>
                   <CardDescription>
-                    Tous tes tickets mis en vente sur RESEAT
+                    Tous tes tickets mis en vente sur Ticket Safe
                   </CardDescription>
                 </CardHeader>
                 <CardContent>

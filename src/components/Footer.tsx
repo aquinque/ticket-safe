@@ -12,7 +12,7 @@ const Footer = () => {
               <div className="w-8 h-8 bg-gradient-hero rounded-lg flex items-center justify-center">
                 <Ticket className="w-5 h-5 text-white" />
               </div>
-              <span className="font-bold text-xl">RESEAT</span>
+              <span className="font-bold text-xl">Ticket Safe</span>
             </div>
             <p className="text-sm text-background/70">
               La plateforme étudiante de revente de tickets équitable. 
@@ -75,7 +75,7 @@ const Footer = () => {
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-sm text-background/70">
                 <Mail className="w-4 h-4" />
-                <span>hello@reseat.fr</span>
+                <span>hello@ticketsafe.fr</span>
               </div>
               <p className="text-sm text-background/70">
                 École Centrale Paris
@@ -88,7 +88,7 @@ const Footer = () => {
 
         <div className="border-t border-background/20 mt-8 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-sm text-background/70">
-            © 2024 RESEAT. Tous droits réservés.
+            © 2024 Ticket Safe. Tous droits réservés.
           </p>
           <p className="text-sm text-background/70">
             Fait avec ❤️ par des étudiants, pour des étudiants
