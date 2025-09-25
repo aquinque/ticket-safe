@@ -83,8 +83,8 @@ const mockEvents = [
 
 const EventsSection = () => {
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCampus, setSelectedCampus] = useState("");
-  const [selectedType, setSelectedType] = useState("");
+  const [selectedCampus, setSelectedCampus] = useState("all-campus");
+  const [selectedType, setSelectedType] = useState("all-types");
   const [sortBy, setSortBy] = useState("date");
 
   // Extract unique campuses and types for filters
@@ -96,8 +96,8 @@ const EventsSection = () => {
     .filter(event => {
       const matchesSearch = event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            event.location.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesCampus = !selectedCampus || event.campus === selectedCampus;
-      const matchesType = !selectedType || event.type === selectedType;
+      const matchesCampus = selectedCampus === "all-campus" || event.campus === selectedCampus;
+      const matchesType = selectedType === "all-types" || event.type === selectedType;
       return matchesSearch && matchesCampus && matchesType;
     })
     .sort((a, b) => {
@@ -148,7 +148,7 @@ const EventsSection = () => {
                 <SelectValue placeholder="Campus" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Tous les campus</SelectItem>
+                <SelectItem value="all-campus">Tous les campus</SelectItem>
                 {campuses.map(campus => (
                   <SelectItem key={campus} value={campus}>{campus}</SelectItem>
                 ))}
@@ -162,7 +162,7 @@ const EventsSection = () => {
                 <SelectValue placeholder="Type" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Tous les types</SelectItem>
+                <SelectItem value="all-types">Tous les types</SelectItem>
                 {eventTypes.map(type => (
                   <SelectItem key={type} value={type}>{type}</SelectItem>
                 ))}
