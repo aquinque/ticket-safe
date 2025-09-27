@@ -36,19 +36,35 @@ const Hero = () => {
           </p>
 
           {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12 animate-slide-up">
-            <Button variant="hero" size="lg" asChild>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16 animate-slide-up">
+            <Button variant="hero" size="lg" className="shadow-glow hover:shadow-glow" asChild>
               <Link to="/events">
                 <Search className="w-5 h-5" />
                 Trouver des événements
                 <ArrowRight className="w-5 h-5" />
               </Link>
             </Button>
-            <Button variant="outline-primary" size="lg" asChild>
+            <Button variant="outline-primary" size="lg" className="backdrop-blur-sm border-2" asChild>
               <Link to="/sell">
                 Vendre mes tickets
               </Link>
             </Button>
+          </div>
+
+          {/* Stats Banner */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-12 max-w-2xl mx-auto">
+            <div className="text-center">
+              <div className="text-3xl font-bold bg-gradient-hero bg-clip-text text-transparent">500+</div>
+              <p className="text-sm text-muted-foreground">Événements</p>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl font-bold bg-gradient-hero bg-clip-text text-transparent">10k+</div>
+              <p className="text-sm text-muted-foreground">Étudiants</p>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl font-bold bg-gradient-hero bg-clip-text text-transparent">Prix -20%</div>
+              <p className="text-sm text-muted-foreground">Maximum</p>
+            </div>
           </div>
 
           {/* Trust Indicators */}

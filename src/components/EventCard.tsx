@@ -51,35 +51,38 @@ const EventCard = ({
   };
 
   return (
-    <Card className="group overflow-hidden bg-gradient-card hover:shadow-hover transition-all duration-300 hover:-translate-y-1">
+    <Card className="group overflow-hidden bg-card border-0 hover:shadow-hover transition-all duration-300 hover:-translate-y-2 shadow-card">
       {/* Event Image */}
-      <div className="relative h-48 bg-gradient-hero overflow-hidden">
+      <div className="relative h-52 bg-gradient-purple-blue overflow-hidden">
         {image ? (
           <img 
             src={image} 
             alt={title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
           />
         ) : (
-          <div className="w-full h-full bg-gradient-hero flex items-center justify-center">
-            <Ticket className="w-12 h-12 text-white/60" />
+          <div className="w-full h-full bg-gradient-purple-blue flex items-center justify-center">
+            <Ticket className="w-16 h-16 text-white/70" />
           </div>
         )}
         
         {/* Campus Badge */}
         <Badge 
           variant="secondary" 
-          className="absolute top-3 left-3 bg-white/90 text-foreground backdrop-blur-sm"
+          className="absolute top-4 left-4 bg-white/95 text-foreground backdrop-blur-md shadow-soft"
         >
           {campus}
         </Badge>
 
         {/* Type Badge */}
         <Badge 
-          className={`absolute top-3 right-3 ${getTypeColor(type)} backdrop-blur-sm border`}
+          className={`absolute top-4 right-4 ${getTypeColor(type)} backdrop-blur-md shadow-soft border`}
         >
           {type}
         </Badge>
+
+        {/* Gradient Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
       </div>
 
       <CardHeader className="pb-3">
@@ -123,7 +126,7 @@ const EventCard = ({
       <CardFooter className="pt-0">
         <Button 
           variant="outline-primary" 
-          className="w-full group-hover:bg-primary group-hover:text-white"
+          className="w-full group-hover:bg-gradient-hero group-hover:text-white group-hover:border-transparent shadow-soft group-hover:shadow-glow transition-all duration-300"
           asChild
         >
           <Link to={`/events/${id}`}>

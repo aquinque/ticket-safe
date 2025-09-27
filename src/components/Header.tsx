@@ -17,7 +17,7 @@ const Header = () => {
   ];
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border bg-background/80 backdrop-blur-md">
+    <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur-lg shadow-soft">
       <div className="container mx-auto px-4">
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
@@ -45,10 +45,12 @@ const Header = () => {
 
           {/* Desktop CTA */}
           <div className="hidden md:flex items-center gap-3">
-            <Button variant="outline" size="sm" asChild>
-              <Link to="/login">Connexion</Link>
+            <Button variant="ghost" size="sm" asChild>
+              <Link to="/login" className="text-muted-foreground hover:text-primary">
+                Connexion
+              </Link>
             </Button>
-            <Button variant="hero" size="sm" asChild>
+            <Button variant="hero" size="sm" className="shadow-glow hover:shadow-glow" asChild>
               <Link to="/profile">
                 <User className="w-4 h-4" />
                 Mon compte
