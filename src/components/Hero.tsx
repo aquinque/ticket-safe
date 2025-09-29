@@ -6,12 +6,6 @@ import heroImage from "@/assets/hero-bg.jpg";
 const Hero = () => {
   return (
     <section className="relative overflow-hidden">
-      {/* Background Image */}
-      <div 
-        className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-10"
-        style={{ backgroundImage: `url(${heroImage})` }}
-      />
-      
       {/* Background Gradient Overlay */}
       <div className="absolute inset-0 bg-gradient-hero opacity-5" />
 
