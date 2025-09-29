@@ -19,18 +19,18 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
     
-    /* Ticket Safe Brand Colors - Fresh & Modern */
-    --primary: 216 100% 65%; /* Vibrant Blue #4A90E2 */
+    /* Ticket Safe Brand Colors - Blue Anthracite Theme */
+    --primary: 215 25% 27%; /* Blue Anthracite #3A4A5C */
     --primary-foreground: 0 0% 100%;
-    --primary-hover: 216 100% 60%;
+    --primary-hover: 215 30% 32%;
     
-    --secondary: 258 90% 66%; /* Rich Purple #7C3AED */
+    --secondary: 215 20% 35%; /* Lighter Blue Anthracite */
     --secondary-foreground: 0 0% 100%;
-    --secondary-hover: 258 90% 61%;
+    --secondary-hover: 215 25% 40%;
     
-    --accent: 158 68% 50%; /* Fresh Green #10B981 */
+    --accent: 215 35% 45%; /* Accent Blue Anthracite */
     --accent-foreground: 0 0% 100%;
-    --accent-hover: 158 68% 45%;
+    --accent-hover: 215 40% 50%;
     
     /* Neutral System */
     --muted: 210 20% 96%;
@@ -44,16 +44,16 @@ All colors MUST be HSL.
     --destructive-foreground: 0 0% 100%;
     
     /* Ticket Safe Gradients */
-    --gradient-hero: linear-gradient(135deg, hsl(216 100% 65%) 0%, hsl(258 90% 66%) 50%, hsl(158 68% 50%) 100%);
+    --gradient-hero: linear-gradient(135deg, hsl(215 25% 27%) 0%, hsl(215 20% 35%) 50%, hsl(215 35% 45%) 100%);
     --gradient-card: linear-gradient(145deg, hsl(var(--card)) 0%, hsl(var(--background)) 100%);
-    --gradient-accent: linear-gradient(135deg, hsl(158 68% 50%) 0%, hsl(216 100% 65%) 100%);
-    --gradient-purple-blue: linear-gradient(135deg, hsl(258 90% 66%) 0%, hsl(216 100% 65%) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(215 35% 45%) 0%, hsl(215 25% 27%) 100%);
+    --gradient-purple-blue: linear-gradient(135deg, hsl(215 20% 35%) 0%, hsl(215 25% 27%) 100%);
     
     /* Modern Shadows */
-    --shadow-soft: 0 2px 12px 0 hsl(216 100% 65% / 0.08);
-    --shadow-card: 0 4px 20px 0 hsl(216 100% 65% / 0.12);
-    --shadow-hover: 0 8px 40px 0 hsl(216 100% 65% / 0.25);
-    --shadow-glow: 0 0 30px hsl(258 90% 66% / 0.3);
+    --shadow-soft: 0 2px 12px 0 hsl(215 25% 27% / 0.08);
+    --shadow-card: 0 4px 20px 0 hsl(215 25% 27% / 0.12);
+    --shadow-hover: 0 8px 40px 0 hsl(215 25% 27% / 0.25);
+    --shadow-glow: 0 0 30px hsl(215 35% 45% / 0.3);
     
     /* Animations */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
