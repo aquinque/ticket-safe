@@ -20,19 +20,19 @@ const Hero = () => {
           {/* Main Heading */}
           <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold mb-6 animate-fade-in">
             <span className="bg-gradient-hero bg-clip-text text-transparent">
-              Revends ton ticket.
+              Resell your ticket.
             </span>
             <br />
             <span className="text-foreground">
-              Trouve ta place.
+              Find your spot.
             </span>
           </h1>
 
           {/* Subtitle */}
           <p className="text-lg md:text-xl text-muted-foreground mb-8 max-w-2xl mx-auto animate-slide-up">
-            La plateforme étudiante de revente de tickets équitable. 
-            Rachète et revends tes places pour les événements étudiants en toute sécurité, 
-            avec un prix plafonné à +20% maximum.
+            The fair student ticket resale platform. 
+            Buy and sell your tickets for student events safely, 
+            with prices capped at maximum +20%.
           </p>
 
           {/* CTA Buttons */}
@@ -40,13 +40,13 @@ const Hero = () => {
             <Button variant="hero" size="lg" className="shadow-glow hover:shadow-glow" asChild>
               <Link to="/events">
                 <Search className="w-5 h-5" />
-                Trouver des événements
+                Find Events
                 <ArrowRight className="w-5 h-5" />
               </Link>
             </Button>
             <Button variant="outline-primary" size="lg" className="backdrop-blur-sm border-2" asChild>
               <Link to="/sell">
-                Vendre mes tickets
+                Sell My Tickets
               </Link>
             </Button>
           </div>
@@ -55,15 +55,15 @@ const Hero = () => {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-12 max-w-2xl mx-auto">
             <div className="text-center">
               <div className="text-3xl font-bold bg-gradient-hero bg-clip-text text-transparent">500+</div>
-              <p className="text-sm text-muted-foreground">Événements</p>
+              <p className="text-sm text-muted-foreground">Events</p>
             </div>
             <div className="text-center">
               <div className="text-3xl font-bold bg-gradient-hero bg-clip-text text-transparent">10k+</div>
-              <p className="text-sm text-muted-foreground">Étudiants</p>
+              <p className="text-sm text-muted-foreground">Students</p>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-bold bg-gradient-hero bg-clip-text text-transparent">Prix -20%</div>
-              <p className="text-sm text-muted-foreground">Maximum</p>
+              <div className="text-3xl font-bold bg-gradient-hero bg-clip-text text-transparent">+20%</div>
+              <p className="text-sm text-muted-foreground">Max Price</p>
             </div>
           </div>
 
@@ -73,9 +73,9 @@ const Hero = () => {
               <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
                 <Shield className="w-6 h-6 text-primary" />
               </div>
-              <h3 className="font-semibold text-foreground">Paiement sécurisé</h3>
+              <h3 className="font-semibold text-foreground">Secure Payment</h3>
               <p className="text-sm text-muted-foreground text-center">
-                Transactions protégées et remboursement garanti
+                Protected transactions and guaranteed refunds
               </p>
             </div>
 
@@ -83,9 +83,9 @@ const Hero = () => {
               <div className="w-12 h-12 bg-secondary/10 rounded-xl flex items-center justify-center">
                 <Users className="w-6 h-6 text-secondary" />
               </div>
-              <h3 className="font-semibold text-foreground">Prix équitables</h3>
+              <h3 className="font-semibold text-foreground">Fair Pricing</h3>
               <p className="text-sm text-muted-foreground text-center">
-                Maximum +20% du prix initial, fini la spéculation
+                Maximum +20% of original price, no more speculation
               </p>
             </div>
 
@@ -93,9 +93,9 @@ const Hero = () => {
               <div className="w-12 h-12 bg-accent/10 rounded-xl flex items-center justify-center">
                 <Search className="w-6 h-6 text-accent" />
               </div>
-              <h3 className="font-semibold text-foreground">Facile à utiliser</h3>
+              <h3 className="font-semibold text-foreground">Easy to Use</h3>
               <p className="text-sm text-muted-foreground text-center">
-                Interface intuitive spécialement conçue pour les étudiants
+                Intuitive interface specially designed for students
               </p>
             </div>
           </div>

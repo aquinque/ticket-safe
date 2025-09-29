@@ -119,11 +119,11 @@ const EventsSection = () => {
         {/* Header */}
         <div className="text-center mb-12">
           <h2 className="text-3xl md:text-4xl font-bold mb-4">
-            Événements disponibles
+            Available Events
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Découvre tous les événements étudiants avec des tickets en revente.
-            Filtres par école, date ou type d'événement pour trouver ton bonheur !
+            Discover all student events with tickets for resale.
+            Filter by school, date or event type to find what you're looking for!
           </p>
         </div>
 
@@ -134,7 +134,7 @@ const EventsSection = () => {
             <div className="lg:col-span-2 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <Input
-                placeholder="Rechercher un événement..."
+                placeholder="Search for an event..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -148,7 +148,7 @@ const EventsSection = () => {
                 <SelectValue placeholder="Campus" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all-campus">Tous les campus</SelectItem>
+                <SelectItem value="all-campus">All campuses</SelectItem>
                 {campuses.map(campus => (
                   <SelectItem key={campus} value={campus}>{campus}</SelectItem>
                 ))}
@@ -162,7 +162,7 @@ const EventsSection = () => {
                 <SelectValue placeholder="Type" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all-types">Tous les types</SelectItem>
+                <SelectItem value="all-types">All types</SelectItem>
                 {eventTypes.map(type => (
                   <SelectItem key={type} value={type}>{type}</SelectItem>
                 ))}
@@ -173,12 +173,12 @@ const EventsSection = () => {
             <Select value={sortBy} onValueChange={setSortBy}>
               <SelectTrigger>
                 <Calendar className="w-4 h-4 mr-2" />
-                <SelectValue placeholder="Trier par" />
+                <SelectValue placeholder="Sort by" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="date">Date</SelectItem>
-                <SelectItem value="price">Prix</SelectItem>
-                <SelectItem value="availability">Disponibilité</SelectItem>
+                <SelectItem value="price">Price</SelectItem>
+                <SelectItem value="availability">Availability</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -195,7 +195,7 @@ const EventsSection = () => {
         {filteredEvents.length > 0 && (
           <div className="text-center">
             <Button variant="outline" size="lg">
-              Voir plus d'événements
+              Load More Events
             </Button>
           </div>
         )}
@@ -206,9 +206,9 @@ const EventsSection = () => {
             <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
               <Search className="w-8 h-8 text-muted-foreground" />
             </div>
-            <h3 className="text-xl font-semibold mb-2">Aucun événement trouvé</h3>
+            <h3 className="text-xl font-semibold mb-2">No events found</h3>
             <p className="text-muted-foreground">
-              Essaie d'ajuster tes filtres ou reviens plus tard pour voir de nouveaux événements.
+              Try adjusting your filters or come back later to see new events.
             </p>
           </div>
         )}

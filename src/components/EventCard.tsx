@@ -108,7 +108,7 @@ const EventCard = ({
         <div className="flex items-center gap-2 text-sm">
           <Users className="w-4 h-4 text-muted-foreground" />
           <span className="text-muted-foreground">
-            {availableTickets} tickets disponibles sur {totalTickets}
+            {availableTickets} tickets available out of {totalTickets}
           </span>
         </div>
 
@@ -118,7 +118,7 @@ const EventCard = ({
             {price}€
           </span>
           <span className="text-sm text-muted-foreground">
-            par ticket
+            per ticket
           </span>
         </div>
       </CardContent>
@@ -130,7 +130,7 @@ const EventCard = ({
           asChild
         >
           <Link to={`/events/${id}`}>
-            Voir les tickets
+            View Tickets
           </Link>
         </Button>
       </CardFooter>

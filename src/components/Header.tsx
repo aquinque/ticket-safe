@@ -10,10 +10,10 @@ const Header = () => {
   const isActive = (path: string) => location.pathname === path;
 
   const navItems = [
-    { path: "/", label: "Accueil" },
-    { path: "/events", label: "Événements" },
-    { path: "/sell", label: "Vendre" },
-    { path: "/about", label: "À propos" },
+    { path: "/", label: "Home" },
+    { path: "/events", label: "Events" },
+    { path: "/sell", label: "Sell" },
+    { path: "/about", label: "About" },
   ];
 
   return (
@@ -47,13 +47,13 @@ const Header = () => {
           <div className="hidden md:flex items-center gap-3">
             <Button variant="ghost" size="sm" asChild>
               <Link to="/login" className="text-muted-foreground hover:text-primary">
-                Connexion
+                Login
               </Link>
             </Button>
             <Button variant="hero" size="sm" className="shadow-glow hover:shadow-glow" asChild>
               <Link to="/profile">
                 <User className="w-4 h-4" />
-                Mon compte
+                My Account
               </Link>
             </Button>
           </div>
@@ -87,10 +87,10 @@ const Header = () => {
               ))}
               <div className="flex flex-col gap-2 mt-4 pt-4 border-t border-border">
                 <Button variant="outline" size="sm" asChild>
-                  <Link to="/login">Connexion</Link>
+                  <Link to="/login">Login</Link>
                 </Button>
                 <Button variant="hero" size="sm" asChild>
-                  <Link to="/profile">Mon compte</Link>
+                  <Link to="/profile">My Account</Link>
                 </Button>
               </div>
             </nav>
