@@ -33,7 +33,7 @@ const Sell = () => {
     const selling = parseFloat(sellingPrice);
 
     if (original && selling) {
-      const maxAllowed = original * 1.2; // +20% maximum
+      const maxAllowed = original * 1.5; // +50% maximum
       const percentage = ((selling - original) / original) * 100;
       
       setPriceValidation({
@@ -70,7 +70,7 @@ const Sell = () => {
             </h1>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
               Revends tes tickets en toute simplicité. Respecte notre politique équitable : 
-              maximum +20% du prix initial pour éviter la spéculation.
+              maximum +50% du prix initial pour éviter la spéculation.
             </p>
           </div>
 
@@ -198,7 +198,7 @@ const Sell = () => {
                           <AlertDescription>
                             {priceValidation.isValid ? (
                               <>
-                                Prix respectant la règle des +20% 
+                                Prix respectant la règle des +50% 
                                 <Badge variant="secondary" className="ml-2">
                                   +{priceValidation.percentage.toFixed(1)}%
                                 </Badge>
@@ -261,9 +261,9 @@ const Sell = () => {
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Prix maximum (+20%):</span>
+                      <span className="text-muted-foreground">Prix maximum (+50%):</span>
                       <span className="font-medium text-accent">
-                        {formData.originalPrice ? `${(parseFloat(formData.originalPrice) * 1.2).toFixed(2)}€` : "-"}
+                        {formData.originalPrice ? `${(parseFloat(formData.originalPrice) * 1.5).toFixed(2)}€` : "-"}
                       </span>
                     </div>
                     <div className="flex justify-between">
@@ -292,7 +292,7 @@ const Sell = () => {
                 <CardContent className="space-y-3 text-sm">
                   <div className="flex items-start gap-2">
                     <CheckCircle2 className="w-4 h-4 text-accent mt-0.5 flex-shrink-0" />
-                    <span>Maximum +20% du prix initial</span>
+                    <span>Maximum +50% du prix initial</span>
                   </div>
                   <div className="flex items-start gap-2">
                     <CheckCircle2 className="w-4 h-4 text-accent mt-0.5 flex-shrink-0" />
