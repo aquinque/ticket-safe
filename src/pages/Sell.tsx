@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,9 +9,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Upload, AlertCircle, CheckCircle2, Calculator } from "lucide-react";
+import { useEvents } from "@/hooks/useEvents";
+import { Event } from "@/integrations/supabase/types/events";
 
 const Sell = () => {
+  const { data: events, isLoading: eventsLoading } = useEvents();
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  
   const [formData, setFormData] = useState({
+    eventId: "",
     eventTitle: "",
     originalPrice: "",
     sellingPrice: "",
@@ -43,6 +49,23 @@ const Sell = () => {
       });
     } else {
       setPriceValidation(null);
+    }
+  };
+
+  const handleEventSelect = (eventId: string) => {
+    const event = events?.find(e => e.id === eventId);
+    if (event) {
+      setSelectedEvent(event);
+      const newFormData = {
+        ...formData,
+        eventId: event.id,
+        eventTitle: event.name,
+        originalPrice: event.original_price.toString(),
+        eventDate: new Date(event.date).toISOString().split('T')[0],
+      };
+      setFormData(newFormData);
+      // Reset selling price when event changes
+      handlePriceChange(event.original_price.toString(), formData.sellingPrice);
     }
   };
 
@@ -88,13 +111,35 @@ const Sell = () => {
                   {/* Event Details */}
                   <div className="space-y-4">
                     <div>
-                      <Label htmlFor="eventTitle">Nom de l'événement</Label>
-                      <Input
-                        id="eventTitle"
-                        placeholder="Ex: Soirée de rentrée ECP 2024"
-                        value={formData.eventTitle}
-                        onChange={(e) => handleInputChange("eventTitle", e.target.value)}
-                      />
+                      <Label htmlFor="event">Sélectionne ton événement</Label>
+                      <Select 
+                        value={formData.eventId} 
+                        onValueChange={handleEventSelect}
+                        disabled={eventsLoading}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder={eventsLoading ? "Chargement..." : "Choisis un événement"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {events?.map((event) => (
+                            <SelectItem key={event.id} value={event.id}>
+                              <div className="flex flex-col">
+                                <span className="font-medium">{event.name}</span>
+                                <span className="text-xs text-muted-foreground">
+                                  {new Date(event.date).toLocaleDateString('fr-FR', { 
+                                    day: 'numeric', 
+                                    month: 'long', 
+                                    year: 'numeric' 
+                                  })} • {event.location} • {event.original_price}€
+                                </span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Le prix initial sera automatiquement renseigné
+                      </p>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -156,8 +201,12 @@ const Sell = () => {
                           type="number"
                           placeholder="25"
                           value={formData.originalPrice}
-                          onChange={(e) => handleInputChange("originalPrice", e.target.value)}
+                          disabled
+                          className="bg-muted"
                         />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Automatiquement défini
+                        </p>
                       </div>
 
                       <div>
@@ -314,7 +363,7 @@ const Sell = () => {
                 variant="hero" 
                 size="lg" 
                 className="w-full"
-                disabled={!priceValidation?.isValid || !formData.eventTitle || !formData.originalPrice}
+                disabled={!priceValidation?.isValid || !formData.eventId || !formData.sellingPrice}
               >
                 Publier mes tickets
               </Button>
