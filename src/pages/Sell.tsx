@@ -9,11 +9,37 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Upload, AlertCircle, CheckCircle2, Calculator } from "lucide-react";
-import { useEvents } from "@/hooks/useEvents";
 import { Event } from "@/integrations/supabase/types/events";
 
 const Sell = () => {
-  const { data: events, isLoading: eventsLoading } = useEvents();
+  // Mock events for now (until Supabase is configured)
+  const mockEvents = [
+    {
+      id: "1",
+      name: "Soirée de rentrée ECP 2024",
+      date: "2024-10-15T20:00:00",
+      location: "Le Showcase, Paris",
+      original_price: 25,
+      image_url: null,
+      category: "Soirée",
+      is_active: true,
+      created_at: new Date().toISOString(),
+    },
+    {
+      id: "2",
+      name: "Gala des Mines - Grande Soirée",
+      date: "2024-11-08T19:30:00",
+      location: "Pavillon Dauphine, Paris",
+      original_price: 45,
+      image_url: null,
+      category: "Gala",
+      is_active: true,
+      created_at: new Date().toISOString(),
+    },
+  ];
+  
+  const events = mockEvents;
+  const eventsLoading = false;
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   
   const [formData, setFormData] = useState({
