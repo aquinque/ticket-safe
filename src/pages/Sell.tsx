@@ -48,6 +48,7 @@ const Sell = () => {
     originalPrice: "",
     sellingPrice: "",
     quantity: "1",
+    school: "",
     campus: "",
     eventType: "",
     eventDate: "",
@@ -170,21 +171,48 @@ const Sell = () => {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <Label htmlFor="campus">Campus / School</Label>
-                        <Select value={formData.campus} onValueChange={(value) => handleInputChange("campus", value)}>
+                        <Label htmlFor="school">School</Label>
+                        <Select value={formData.school} onValueChange={(value) => {
+                          handleInputChange("school", value);
+                          // Reset campus when school changes
+                          if (value !== "escp") {
+                            handleInputChange("campus", "");
+                          }
+                        }}>
                           <SelectTrigger>
-                            <SelectValue placeholder="Select" />
+                            <SelectValue placeholder="Select a school" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="paris">Paris</SelectItem>
-                            <SelectItem value="turin">Turin</SelectItem>
-                            <SelectItem value="madrid">Madrid</SelectItem>
-                            <SelectItem value="londres">Londres</SelectItem>
-                            <SelectItem value="berlin">Berlin</SelectItem>
+                            <SelectItem value="escp">ESCP Business School</SelectItem>
+                            <SelectItem value="hec">HEC Paris</SelectItem>
+                            <SelectItem value="essec">ESSEC Business School</SelectItem>
+                            <SelectItem value="edhec">EDHEC Business School</SelectItem>
+                            <SelectItem value="em-lyon">EM Lyon</SelectItem>
+                            <SelectItem value="other">Other</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
 
+                      {formData.school === "escp" && (
+                        <div>
+                          <Label htmlFor="campus">Campus</Label>
+                          <Select value={formData.campus} onValueChange={(value) => handleInputChange("campus", value)}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select a campus" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="paris">Paris</SelectItem>
+                              <SelectItem value="turin">Turin</SelectItem>
+                              <SelectItem value="madrid">Madrid</SelectItem>
+                              <SelectItem value="londres">London</SelectItem>
+                              <SelectItem value="berlin">Berlin</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <Label htmlFor="eventType">Event Type</Label>
                         <Select value={formData.eventType} onValueChange={(value) => handleInputChange("eventType", value)}>
