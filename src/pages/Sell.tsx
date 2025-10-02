@@ -16,7 +16,7 @@ const Sell = () => {
   const mockEvents = [
     {
       id: "1",
-      name: "Soirée de rentrée ECP 2024",
+      name: "Soirée de rentrée ESCP 2024",
       date: "2024-10-15T20:00:00",
       location: "Le Showcase, Paris",
       original_price: 25,
@@ -176,12 +176,11 @@ const Sell = () => {
                             <SelectValue placeholder="Sélectionner" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="ecp-paris">ECP Paris</SelectItem>
-                            <SelectItem value="mines-paristech">Mines ParisTech</SelectItem>
-                            <SelectItem value="hec-paris">HEC Paris</SelectItem>
-                            <SelectItem value="epitech">EPITECH</SelectItem>
-                            <SelectItem value="escp">ESCP Business School</SelectItem>
-                            <SelectItem value="other">Autre</SelectItem>
+                            <SelectItem value="paris">Paris</SelectItem>
+                            <SelectItem value="turin">Turin</SelectItem>
+                            <SelectItem value="madrid">Madrid</SelectItem>
+                            <SelectItem value="londres">Londres</SelectItem>
+                            <SelectItem value="berlin">Berlin</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
