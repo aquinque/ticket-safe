@@ -19,61 +19,61 @@ const About = () => {
   const features = [
     {
       icon: Shield,
-      title: "Éthique et transparence",
-      description: "Plafond de +20% pour éviter la spéculation, contrairement aux plateformes traditionnelles."
+      title: "Ethics and Transparency",
+      description: "+50% cap to prevent speculation, unlike traditional platforms."
     },
     {
       icon: Users,
-      title: "Communauté étudiante",
-      description: "Conçu par et pour les étudiants, avec une interface adaptée à leurs besoins."
+      title: "Student Community",
+      description: "Designed by and for students, with an interface tailored to their needs."
     },
     {
       icon: Target,
-      title: "Simplicité d'usage",
-      description: "Processus de vente et d'achat optimisé pour une expérience fluide."
+      title: "Ease of Use",
+      description: "Optimized buying and selling process for a smooth experience."
     },
   ];
 
   const roadmapSteps = [
     {
       phase: "Phase 1",
-      title: "ECP Paris",
-      description: "Lancement pilote avec l'École Centrale Paris",
+      title: "ESCP",
+      description: "Pilot launch with ESCP Business School",
       status: "active",
-      features: ["Événements étudiants ECP", "Système de vérification", "Paiements sécurisés"]
+      features: ["ESCP Student Events", "Verification System", "Secure Payments"]
     },
     {
       phase: "Phase 2", 
-      title: "Expansion Grandes Écoles",
-      description: "Partenariats avec les BDE des principales écoles",
+      title: "Business Schools Expansion",
+      description: "Partnerships with student associations from top schools",
       status: "planned",
-      features: ["HEC, ESCP, Mines", "Réseau inter-écoles", "Événements croisés"]
+      features: ["HEC, ESCP, Mines", "Inter-school Network", "Cross Events"]
     },
     {
       phase: "Phase 3",
-      title: "Événements publics",
-      description: "Ouverture aux concerts et événements grand public",
+      title: "Public Events",
+      description: "Opening to concerts and general public events",
       status: "future",
-      features: ["Concerts publics", "Festivals", "Théâtres et spectacles"]
+      features: ["Public Concerts", "Festivals", "Theaters and Shows"]
     }
   ];
 
   const values = [
     {
-      title: "Équité",
-      description: "Prix plafonnés pour éviter la spéculation excessive"
+      title: "Fairness",
+      description: "Capped prices to prevent excessive speculation"
     },
     {
-      title: "Sécurité", 
-      description: "Paiements protégés et transactions vérifiées"
+      title: "Security", 
+      description: "Protected payments and verified transactions"
     },
     {
-      title: "Communauté",
-      description: "Favoriser les liens entre étudiants des différentes écoles"
+      title: "Community",
+      description: "Foster connections between students from different schools"
     },
     {
       title: "Innovation",
-      description: "Alternative éthique aux géants comme Ticketmaster"
+      description: "Ethical alternative to giants like Ticketmaster"
     }
   ];
 
@@ -86,18 +86,19 @@ const About = () => {
           <div className="container mx-auto px-4">
             <div className="max-w-4xl mx-auto text-center">
               <Badge variant="secondary" className="mb-4">
-                À propos de Ticket Safe
+                About Ticket Safe
               </Badge>
               <h1 className="text-4xl md:text-5xl font-bold mb-6">
-                Révolutionner la revente de tickets{" "}
+                Revolutionizing{" "}
                 <span className="bg-gradient-hero bg-clip-text text-transparent">
-                  étudiants
+                  student
                 </span>
+                {" "}ticket resale
               </h1>
               <p className="text-lg text-muted-foreground mb-8 max-w-3xl mx-auto">
-                Ticket Safe est née d'une conviction simple : la revente de tickets doit être équitable, 
-                transparente et au service de la communauté étudiante. Nous créons une alternative 
-                éthique aux plateformes traditionnelles.
+                Ticket Safe was born from a simple belief: ticket resale must be fair, 
+                transparent and serve the student community. We create an ethical 
+                alternative to traditional platforms.
               </p>
             </div>
           </div>
@@ -108,11 +109,11 @@ const About = () => {
           <div className="container mx-auto px-4">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
               <div>
-                <h2 className="text-3xl font-bold mb-6">Notre mission</h2>
+                <h2 className="text-3xl font-bold mb-6">Our Mission</h2>
                 <p className="text-lg text-muted-foreground mb-6">
-                  Permettre aux étudiants de revendre et racheter leurs tickets d'événements 
-                  en toute simplicité, avec un système équitable qui évite la spéculation 
-                  tout en garantissant la sécurité des transactions.
+                  Enable students to resell and buy their event tickets 
+                  with ease, through a fair system that prevents speculation 
+                  while ensuring transaction security.
                 </p>
                 <div className="space-y-4">
                   {features.map((feature, index) => (
@@ -131,7 +132,7 @@ const About = () => {
 
               <div className="relative">
                 <div className="bg-gradient-hero rounded-2xl p-8 text-white">
-                  <h3 className="text-2xl font-bold mb-4">Nos valeurs</h3>
+                  <h3 className="text-2xl font-bold mb-4">Our Values</h3>
                   <div className="grid grid-cols-2 gap-4">
                     {values.map((value, index) => (
                       <div key={index} className="space-y-2">
@@ -150,9 +151,9 @@ const About = () => {
         <section className="py-16 bg-muted/30">
           <div className="container mx-auto px-4">
             <div className="text-center mb-12">
-              <h2 className="text-3xl font-bold mb-4">Notre feuille de route</h2>
+              <h2 className="text-3xl font-bold mb-4">Our Roadmap</h2>
               <p className="text-lg text-muted-foreground">
-                Un développement progressif et maîtrisé pour créer la meilleure expérience
+                Progressive and controlled development to create the best experience
               </p>
             </div>
 
@@ -172,7 +173,7 @@ const About = () => {
                       </Badge>
                       {step.status === 'active' && (
                         <Badge variant="default" className="bg-accent">
-                          En cours
+                          In Progress
                         </Badge>
                       )}
                     </div>
@@ -201,10 +202,10 @@ const About = () => {
             <div className="max-w-4xl mx-auto">
               <div className="text-center mb-12">
                 <h2 className="text-3xl font-bold mb-4">
-                  Pourquoi Ticket Safe ?
+                  Why Ticket Safe?
                 </h2>
                 <p className="text-lg text-muted-foreground">
-                  Une alternative éthique face aux géants du marché
+                  An ethical alternative to market giants
                 </p>
               </div>
 
@@ -222,23 +223,23 @@ const About = () => {
                     <div className="space-y-3">
                       <div className="flex items-start gap-2">
                         <CheckCircle2 className="w-4 h-4 text-accent mt-0.5" />
-                        <span className="text-sm">Prix plafonné à +20% maximum</span>
+                        <span className="text-sm">Price capped at +50% maximum</span>
                       </div>
                       <div className="flex items-start gap-2">
                         <CheckCircle2 className="w-4 h-4 text-accent mt-0.5" />
-                        <span className="text-sm">Commission fixe de 5%</span>
+                        <span className="text-sm">Fixed 5% commission</span>
                       </div>
                       <div className="flex items-start gap-2">
                         <CheckCircle2 className="w-4 h-4 text-accent mt-0.5" />
-                        <span className="text-sm">Communauté étudiante vérifiée</span>
+                        <span className="text-sm">Verified student community</span>
                       </div>
                       <div className="flex items-start gap-2">
                         <CheckCircle2 className="w-4 h-4 text-accent mt-0.5" />
-                        <span className="text-sm">Interface mobile-first</span>
+                        <span className="text-sm">Mobile-first interface</span>
                       </div>
                       <div className="flex items-start gap-2">
                         <CheckCircle2 className="w-4 h-4 text-accent mt-0.5" />
-                        <span className="text-sm">Support réactif et humain</span>
+                        <span className="text-sm">Responsive and human support</span>
                       </div>
                     </div>
                   </CardContent>
@@ -251,29 +252,29 @@ const About = () => {
                       <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center">
                         <TrendingUp className="w-5 h-5 text-muted-foreground" />
                       </div>
-                      <h3 className="text-xl font-bold text-muted-foreground">Autres plateformes</h3>
+                      <h3 className="text-xl font-bold text-muted-foreground">Other platforms</h3>
                     </div>
                     
                     <div className="space-y-3 text-muted-foreground">
                       <div className="flex items-start gap-2">
                         <div className="w-4 h-4 border border-muted-foreground rounded-full mt-0.5" />
-                        <span className="text-sm">Aucune limite de prix (spéculation)</span>
+                        <span className="text-sm">No price limits (speculation)</span>
                       </div>
                       <div className="flex items-start gap-2">
                         <div className="w-4 h-4 border border-muted-foreground rounded-full mt-0.5" />
-                        <span className="text-sm">Commissions variables et élevées</span>
+                        <span className="text-sm">Variable and high commissions</span>
                       </div>
                       <div className="flex items-start gap-2">
                         <div className="w-4 h-4 border border-muted-foreground rounded-full mt-0.5" />
-                        <span className="text-sm">Tous publics mélangés</span>
+                        <span className="text-sm">Mixed general public</span>
                       </div>
                       <div className="flex items-start gap-2">
                         <div className="w-4 h-4 border border-muted-foreground rounded-full mt-0.5" />
-                        <span className="text-sm">Interfaces complexes</span>
+                        <span className="text-sm">Complex interfaces</span>
                       </div>
                       <div className="flex items-start gap-2">
                         <div className="w-4 h-4 border border-muted-foreground rounded-full mt-0.5" />
-                        <span className="text-sm">Support automatisé</span>
+                        <span className="text-sm">Automated support</span>
                       </div>
                     </div>
                   </CardContent>
@@ -288,23 +289,23 @@ const About = () => {
           <div className="container mx-auto px-4">
             <div className="max-w-3xl mx-auto text-center">
               <h2 className="text-3xl font-bold mb-4">
-                Rejoins la révolution Ticket Safe
+                Join the Ticket Safe revolution
               </h2>
               <p className="text-lg text-white/90 mb-8">
-                Participe à la construction d'une communauté étudiante plus équitable 
-                et solidaire. Chaque ticket vendu ou acheté contribue à notre mission.
+                Participate in building a fairer and more supportive student community. 
+                Every ticket sold or bought contributes to our mission.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Button variant="secondary" size="lg" asChild>
                   <Link to="/events">
                     <School className="w-5 h-5" />
-                    Découvrir les événements
+                    Discover events
                     <ArrowRight className="w-5 h-5" />
                   </Link>
                 </Button>
                 <Button variant="outline" size="lg" className="border-white text-white hover:bg-white hover:text-primary" asChild>
                   <Link to="/sell">
-                    Vendre mes tickets
+                    Sell my tickets
                   </Link>
                 </Button>
               </div>

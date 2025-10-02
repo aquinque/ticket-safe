@@ -115,11 +115,11 @@ const Sell = () => {
           {/* Header */}
           <div className="text-center mb-12">
             <h1 className="text-4xl font-bold mb-4">
-              Vendre mes tickets
+              Sell my tickets
             </h1>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Revends tes tickets en toute simplicité. Respecte notre politique équitable : 
-              maximum +50% du prix initial pour éviter la spéculation.
+              Resell your tickets with ease. Respect our fair policy: 
+              maximum +50% of the initial price to prevent speculation.
             </p>
           </div>
 
@@ -128,23 +128,23 @@ const Sell = () => {
             <div className="lg:col-span-2">
               <Card>
                 <CardHeader>
-                  <CardTitle>Informations du ticket</CardTitle>
+                  <CardTitle>Ticket Information</CardTitle>
                   <CardDescription>
-                    Remplis les détails de ton événement et de tes tickets à vendre
+                    Fill in your event details and tickets for sale
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   {/* Event Details */}
                   <div className="space-y-4">
                     <div>
-                      <Label htmlFor="event">Sélectionne ton événement</Label>
+                      <Label htmlFor="event">Select your event</Label>
                       <Select 
                         value={formData.eventId} 
                         onValueChange={handleEventSelect}
                         disabled={eventsLoading}
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder={eventsLoading ? "Chargement..." : "Choisis un événement"} />
+                          <SelectValue placeholder={eventsLoading ? "Loading..." : "Choose an event"} />
                         </SelectTrigger>
                         <SelectContent>
                           {events?.map((event) => (
@@ -164,16 +164,16 @@ const Sell = () => {
                         </SelectContent>
                       </Select>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Le prix initial sera automatiquement renseigné
+                        The initial price will be automatically filled
                       </p>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <Label htmlFor="campus">Campus / École</Label>
+                        <Label htmlFor="campus">Campus / School</Label>
                         <Select value={formData.campus} onValueChange={(value) => handleInputChange("campus", value)}>
                           <SelectTrigger>
-                            <SelectValue placeholder="Sélectionner" />
+                            <SelectValue placeholder="Select" />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="paris">Paris</SelectItem>
@@ -186,25 +186,25 @@ const Sell = () => {
                       </div>
 
                       <div>
-                        <Label htmlFor="eventType">Type d'événement</Label>
+                        <Label htmlFor="eventType">Event Type</Label>
                         <Select value={formData.eventType} onValueChange={(value) => handleInputChange("eventType", value)}>
                           <SelectTrigger>
-                            <SelectValue placeholder="Sélectionner" />
+                            <SelectValue placeholder="Select" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="soiree">Soirée</SelectItem>
+                            <SelectItem value="soiree">Party</SelectItem>
                             <SelectItem value="gala">Gala</SelectItem>
                             <SelectItem value="concert">Concert</SelectItem>
                             <SelectItem value="wei">WEI</SelectItem>
-                            <SelectItem value="conference">Conférence</SelectItem>
-                            <SelectItem value="sport">Événement sportif</SelectItem>
+                            <SelectItem value="conference">Conference</SelectItem>
+                            <SelectItem value="sport">Sports Event</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
                     </div>
 
                     <div>
-                      <Label htmlFor="eventDate">Date de l'événement</Label>
+                      <Label htmlFor="eventDate">Event Date</Label>
                       <Input
                         id="eventDate"
                         type="date"
@@ -216,11 +216,11 @@ const Sell = () => {
 
                   {/* Pricing */}
                   <div className="space-y-4">
-                    <h3 className="text-lg font-semibold">Prix des tickets</h3>
+                    <h3 className="text-lg font-semibold">Ticket Prices</h3>
                     
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
-                        <Label htmlFor="originalPrice">Prix initial (€)</Label>
+                        <Label htmlFor="originalPrice">Original Price (€)</Label>
                         <Input
                           id="originalPrice"
                           type="number"
@@ -230,12 +230,12 @@ const Sell = () => {
                           className="bg-muted"
                         />
                         <p className="text-xs text-muted-foreground mt-1">
-                          Automatiquement défini
+                          Automatically set
                         </p>
                       </div>
 
                       <div>
-                        <Label htmlFor="sellingPrice">Prix de vente (€)</Label>
+                        <Label htmlFor="sellingPrice">Selling Price (€)</Label>
                         <Input
                           id="sellingPrice"
                           type="number"
@@ -246,7 +246,7 @@ const Sell = () => {
                       </div>
 
                       <div>
-                        <Label htmlFor="quantity">Nombre de tickets</Label>
+                        <Label htmlFor="quantity">Number of Tickets</Label>
                         <Select value={formData.quantity} onValueChange={(value) => handleInputChange("quantity", value)}>
                           <SelectTrigger>
                             <SelectValue />
@@ -272,14 +272,14 @@ const Sell = () => {
                           <AlertDescription>
                             {priceValidation.isValid ? (
                               <>
-                                Prix respectant la règle des +50% 
+                                Price respecting the +50% rule 
                                 <Badge variant="secondary" className="ml-2">
                                   +{priceValidation.percentage.toFixed(1)}%
                                 </Badge>
                               </>
                             ) : (
                               <>
-                                Prix trop élevé ! Maximum autorisé: {priceValidation.maxPrice.toFixed(2)}€ 
+                                Price too high! Maximum allowed: {priceValidation.maxPrice.toFixed(2)}€ 
                                 <Badge variant="destructive" className="ml-2">
                                   +{priceValidation.percentage.toFixed(1)}%
                                 </Badge>
@@ -293,10 +293,10 @@ const Sell = () => {
 
                   {/* Description */}
                   <div>
-                    <Label htmlFor="description">Description (optionnel)</Label>
+                    <Label htmlFor="description">Description (optional)</Label>
                     <Textarea
                       id="description"
-                      placeholder="Ajoute des détails sur l'événement, les conditions de vente..."
+                      placeholder="Add details about the event, selling conditions..."
                       value={formData.description}
                       onChange={(e) => handleInputChange("description", e.target.value)}
                     />
@@ -304,11 +304,11 @@ const Sell = () => {
 
                   {/* File Upload */}
                   <div>
-                    <Label>Photos du ticket (optionnel)</Label>
+                    <Label>Ticket Photos (optional)</Label>
                     <div className="border-2 border-dashed border-muted rounded-lg p-8 text-center hover:border-primary/50 transition-colors cursor-pointer">
                       <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
                       <p className="text-sm text-muted-foreground">
-                        Clique pour ajouter des photos de tes tickets
+                        Click to add photos of your tickets
                       </p>
                     </div>
                   </div>
@@ -323,30 +323,30 @@ const Sell = () => {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Calculator className="w-5 h-5" />
-                    Calculateur de prix
+                    Price Calculator
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Prix initial:</span>
+                      <span className="text-muted-foreground">Original price:</span>
                       <span className="font-medium">
                         {formData.originalPrice ? `${formData.originalPrice}€` : "-"}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Prix maximum (+50%):</span>
+                      <span className="text-muted-foreground">Maximum price (+50%):</span>
                       <span className="font-medium text-accent">
                         {formData.originalPrice ? `${(parseFloat(formData.originalPrice) * 1.5).toFixed(2)}€` : "-"}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Nombre de tickets:</span>
+                      <span className="text-muted-foreground">Number of tickets:</span>
                       <span className="font-medium">{formData.quantity}</span>
                     </div>
                     <hr className="border-border" />
                     <div className="flex justify-between text-lg font-semibold">
-                      <span>Total estimé:</span>
+                      <span>Estimated total:</span>
                       <span className="text-primary">
                         {formData.sellingPrice ? 
                           `${(parseFloat(formData.sellingPrice) * parseInt(formData.quantity)).toFixed(2)}€` : 
@@ -361,24 +361,24 @@ const Sell = () => {
               {/* Guidelines */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Règles Ticket Safe</CardTitle>
+                  <CardTitle>Ticket Safe Rules</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3 text-sm">
                   <div className="flex items-start gap-2">
                     <CheckCircle2 className="w-4 h-4 text-accent mt-0.5 flex-shrink-0" />
-                    <span>Maximum +50% du prix initial</span>
+                    <span>Maximum +50% of initial price</span>
                   </div>
                   <div className="flex items-start gap-2">
                     <CheckCircle2 className="w-4 h-4 text-accent mt-0.5 flex-shrink-0" />
-                    <span>Paiement sécurisé garanti</span>
+                    <span>Guaranteed secure payment</span>
                   </div>
                   <div className="flex items-start gap-2">
                     <CheckCircle2 className="w-4 h-4 text-accent mt-0.5 flex-shrink-0" />
-                    <span>Commission de 5% sur la vente</span>
+                    <span>5% commission on sale</span>
                   </div>
                   <div className="flex items-start gap-2">
                     <CheckCircle2 className="w-4 h-4 text-accent mt-0.5 flex-shrink-0" />
-                    <span>Remboursement si événement annulé</span>
+                    <span>Refund if event cancelled</span>
                   </div>
                 </CardContent>
               </Card>
@@ -390,7 +390,7 @@ const Sell = () => {
                 className="w-full"
                 disabled={!priceValidation?.isValid || !formData.eventId || !formData.sellingPrice}
               >
-                Publier mes tickets
+                Publish my tickets
               </Button>
             </div>
           </div>
