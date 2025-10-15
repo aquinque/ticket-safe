@@ -29,14 +29,14 @@ const Auth = () => {
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
 
-  // Redirect if already logged in
+  // Redirect if already logged in (only after auth is loaded)
   useEffect(() => {
-    if (user) {
-      navigate("/profile");
+    if (!authLoading && user) {
+      navigate("/profile", { replace: true });
     }
-  }, [user, navigate]);
+  }, [user, authLoading, navigate]);
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -140,22 +140,23 @@ const Auth = () => {
             user_email: email.trim()
           });
           
-          // Generic error message to prevent account enumeration
           toast.error("Invalid credentials. Please check your email and password.");
           setLoading(false);
           return;
         }
 
-        if (data.user) {
+        if (data.user && data.session) {
           // Reset failed login attempts on success
           await supabase.rpc('reset_failed_login', {
             user_email: email.trim()
           });
           
           toast.success("Welcome back!");
-          // Small delay to let auth state propagate
-          await new Promise(resolve => setTimeout(resolve, 200));
-          navigate("/profile");
+          
+          // Wait for state to settle before navigating
+          setTimeout(() => {
+            navigate("/profile", { replace: true });
+          }, 100);
         }
       } else {
         // Client-side validation for signup
@@ -225,7 +226,6 @@ const Auth = () => {
         });
 
         if (error) {
-          // Generic error message to prevent account enumeration
           if (error.message.includes("already registered") || error.message.includes("User already registered")) {
             toast.error("Unable to create account. Please try logging in.");
             setIsLogin(true);
@@ -236,11 +236,13 @@ const Auth = () => {
           return;
         }
 
-        if (data.user) {
+        if (data.user && data.session) {
           toast.success("Account created successfully!");
-          // Small delay to let auth state propagate
-          await new Promise(resolve => setTimeout(resolve, 200));
-          navigate("/profile");
+          
+          // Wait for state to settle before navigating
+          setTimeout(() => {
+            navigate("/profile", { replace: true });
+          }, 100);
         }
       }
     } catch (error: any) {

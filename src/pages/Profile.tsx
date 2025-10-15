@@ -37,12 +37,20 @@ const Profile = () => {
   const [purchases, setPurchases] = useState<any[]>([]);
   const [sales, setSales] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
+  // Redirect to auth if not logged in (only after auth is loaded)
   useEffect(() => {
-    if (!user) {
-      navigate("/auth");
+    if (!authLoading && !user) {
+      navigate("/auth", { replace: true });
+    }
+  }, [user, authLoading, navigate]);
+
+  // Fetch user data when user is available
+  useEffect(() => {
+    // Don't fetch if still loading auth or no user
+    if (authLoading || !user) {
       return;
     }
 
@@ -160,7 +168,7 @@ const Profile = () => {
     return () => {
       mounted = false;
     };
-  }, [user, navigate]);
+  }, [user, authLoading]);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -193,15 +201,24 @@ const Profile = () => {
     }
   };
 
-  if (loading) {
+  // Show loading state while auth is loading
+  if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-background">
         <Header />
         <main className="py-16 flex items-center justify-center">
-          <p className="text-muted-foreground">Loading profile...</p>
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading your profile...</p>
+          </div>
         </main>
       </div>
     );
+  }
+
+  // Don't render if no user (will redirect)
+  if (!user) {
+    return null;
   }
 
   return (

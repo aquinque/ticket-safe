@@ -9,10 +9,11 @@ export const useAuth = () => {
 
   useEffect(() => {
     let mounted = true;
+    let authSubscription: any = null;
 
-    // Initialize auth state
     const initAuth = async () => {
       try {
+        // Get current session
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
@@ -32,22 +33,31 @@ export const useAuth = () => {
       }
     };
 
+    // Initialize auth state first
     initAuth();
 
-    // Set up auth state listener for changes
+    // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      (event, session) => {
         if (mounted) {
           setSession(session);
           setUser(session?.user ?? null);
-          setLoading(false);
+          
+          // Only set loading to false if we're not already loaded
+          if (loading) {
+            setLoading(false);
+          }
         }
       }
     );
 
+    authSubscription = subscription;
+
     return () => {
       mounted = false;
-      subscription.unsubscribe();
+      if (authSubscription) {
+        authSubscription.unsubscribe();
+      }
     };
   }, []);
 
