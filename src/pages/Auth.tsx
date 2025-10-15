@@ -124,8 +124,14 @@ const Auth = () => {
           return;
         }
 
-        if (university && university.length > 200) {
-          toast.error("University name must be less than 200 characters");
+        if (!university || !university.trim()) {
+          toast.error("School is required");
+          setLoading(false);
+          return;
+        }
+
+        if (university.length > 200) {
+          toast.error("School name must be less than 200 characters");
           setLoading(false);
           return;
         }
@@ -222,14 +228,22 @@ const Auth = () => {
                 <div className="space-y-2">
                   <Label htmlFor="university">
                     <GraduationCap className="w-4 h-4 inline mr-2" />
-                    University (Optional)
+                    School
                   </Label>
                   <Input
                     id="university"
                     type="text"
-                    placeholder="Auto-detected from email"
+                    placeholder="Type 'escp' for ESCP Business School"
                     value={university}
-                    onChange={(e) => setUniversity(e.target.value)}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setUniversity(value);
+                      // Auto-suggest ESCP Business School
+                      if (value.toLowerCase().includes('escp') && value.toLowerCase() !== 'escp business school') {
+                        setUniversity('ESCP Business School');
+                      }
+                    }}
+                    required={!isLogin}
                   />
                 </div>
               </>

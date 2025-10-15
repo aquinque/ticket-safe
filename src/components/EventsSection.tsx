@@ -87,8 +87,8 @@ const EventsSection = () => {
   const [selectedType, setSelectedType] = useState("all-types");
   const [sortBy, setSortBy] = useState("date");
 
-  // Extract unique campuses and types for filters
-  const campuses = [...new Set(mockEvents.map(event => event.campus))];
+  // ESCP official campuses only
+  const campuses = ["Paris", "Berlin", "London", "Madrid", "Turin"];
   const eventTypes = [...new Set(mockEvents.map(event => event.type))];
 
   // Filter and sort events
