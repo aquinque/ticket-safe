@@ -45,14 +45,10 @@ const Hero = () => {
           </div>
 
           {/* Stats Banner */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-12 max-w-xl mx-auto">
+          <div className="max-w-xs mx-auto mb-12">
             <div className="text-center">
               <div className="text-3xl font-bold bg-gradient-hero bg-clip-text text-transparent">10k+</div>
               <p className="text-sm text-muted-foreground">Active Students</p>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold bg-gradient-hero bg-clip-text text-transparent">25+</div>
-              <p className="text-sm text-muted-foreground">Universities</p>
             </div>
           </div>
 
