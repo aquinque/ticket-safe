@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { toast } from "sonner";
 import { Loader2, Mail, Lock, User, GraduationCap, CheckCircle2, XCircle } from "lucide-react";
 import { z } from "zod";
+import { useAuth } from "@/hooks/useAuth";
 
 const passwordSchema = z.string()
   .min(12, 'Password must be at least 12 characters')
@@ -23,7 +24,16 @@ const Auth = () => {
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [university, setUniversity] = useState("");
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
   const navigate = useNavigate();
+  const { user } = useAuth();
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user) {
+      navigate("/");
+    }
+  }, [user, navigate]);
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -57,6 +67,32 @@ const Auth = () => {
   };
 
   const passwordStrength = getPasswordStrength(password);
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      if (!validateEmail(email)) {
+        toast.error("Please enter a valid email address");
+        setLoading(false);
+        return;
+      }
+
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth`,
+      });
+
+      if (error) throw error;
+
+      toast.success("Password reset email sent! Check your inbox.");
+      setShowForgotPassword(false);
+    } catch (error: any) {
+      toast.error(error.message || "Failed to send password reset email");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -100,7 +136,15 @@ const Auth = () => {
           await supabase.rpc('increment_failed_login', {
             user_email: email.trim()
           });
-          throw error;
+          
+          // Check if account exists
+          if (error.message.includes("Invalid login credentials")) {
+            toast.error("Invalid email or password. If you don't have an account, please sign up first.");
+          } else {
+            toast.error(error.message);
+          }
+          setLoading(false);
+          return;
         }
 
         // Reset failed login attempts on success
@@ -108,8 +152,10 @@ const Auth = () => {
           user_email: email.trim()
         });
         
-        toast.success("Welcome back!");
-        navigate("/");
+        toast.success("Welcome back! Redirecting...");
+        setTimeout(() => {
+          window.location.href = "/";
+        }, 500);
       } else {
         // Client-side validation for signup
         if (!validateEmail(email)) {
@@ -177,18 +223,25 @@ const Auth = () => {
           },
         });
 
-        if (error) throw error;
+        if (error) {
+          if (error.message.includes("already registered") || error.message.includes("User already registered")) {
+            toast.error("Account already exists - please log in instead.");
+            setIsLogin(true);
+          } else {
+            throw error;
+          }
+          setLoading(false);
+          return;
+        }
+        
         toast.success("Account created successfully! Redirecting...");
-        navigate("/");
+        setTimeout(() => {
+          window.location.href = "/";
+        }, 500);
       }
     } catch (error: any) {
-      if (error.message.includes("already registered")) {
-        toast.error("This email is already registered. Please login instead.");
-      } else if (error.message.includes("Invalid login credentials")) {
-        toast.error("Invalid email or password");
-      } else {
-        toast.error(error.message || "An error occurred");
-      }
+      console.error("Auth error:", error);
+      toast.error(error.message || "An error occurred");
     } finally {
       setLoading(false);
     }
@@ -208,7 +261,38 @@ const Auth = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleAuth} className="space-y-4">
+          {showForgotPassword ? (
+            <form onSubmit={handleForgotPassword} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="reset-email">
+                  <Mail className="w-4 h-4 inline mr-2" />
+                  Email Address
+                </Label>
+                <Input
+                  id="reset-email"
+                  type="email"
+                  placeholder="your.email@university.edu"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Send Reset Link
+              </Button>
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={() => setShowForgotPassword(false)}
+                  className="text-sm text-primary hover:underline"
+                >
+                  Back to login
+                </button>
+              </div>
+            </form>
+          ) : (
+            <form onSubmit={handleAuth} className="space-y-4">
             {!isLogin && (
               <>
                 <div className="space-y-2">
@@ -317,26 +401,45 @@ const Auth = () => {
                       <span>Special character (!@#$...)</span>
                     </div>
                   </div>
-                </div>
-              )}
-            </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isLogin ? "Sign In" : "Create Account"}
-            </Button>
-          </form>
+                 </div>
+               )}
+             </div>
+             <Button type="submit" className="w-full" disabled={loading}>
+               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+               {isLogin ? "Sign In" : "Create Account"}
+             </Button>
+           </form>
+          )}
 
-          <div className="mt-4 text-center text-sm">
-            <button
-              type="button"
-              onClick={() => setIsLogin(!isLogin)}
-              className="text-primary hover:underline"
-            >
-              {isLogin 
-                ? "Don't have an account? Sign up" 
-                : "Already have an account? Sign in"}
-            </button>
-          </div>
+           {!showForgotPassword && (
+             <>
+               {isLogin && (
+                 <div className="mt-3 text-center">
+                   <button
+                     type="button"
+                     onClick={() => setShowForgotPassword(true)}
+                     className="text-sm text-primary hover:underline"
+                   >
+                     Forgot your password?
+                   </button>
+                 </div>
+               )}
+               <div className="mt-4 text-center text-sm">
+                 <button
+                   type="button"
+                   onClick={() => {
+                     setIsLogin(!isLogin);
+                     setShowForgotPassword(false);
+                   }}
+                   className="text-primary hover:underline"
+                 >
+                   {isLogin 
+                     ? "Don't have an account? Sign up" 
+                     : "Already have an account? Sign in"}
+                 </button>
+               </div>
+             </>
+           )}
         </CardContent>
       </Card>
     </div>

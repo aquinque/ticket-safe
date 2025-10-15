@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Menu, X, Ticket, User, LogOut } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,9 +14,30 @@ import {
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [userName, setUserName] = useState<string>("");
   const location = useLocation();
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (user) {
+      // Fetch user profile to get their name
+      const fetchUserProfile = async () => {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', user.id)
+          .single();
+        
+        if (data && !error) {
+          setUserName(data.full_name);
+        }
+      };
+      fetchUserProfile();
+    } else {
+      setUserName("");
+    }
+  }, [user]);
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -66,7 +88,7 @@ const Header = () => {
                 <DropdownMenuTrigger asChild>
                   <Button variant="hero" size="sm" className="shadow-glow hover:shadow-glow">
                     <User className="w-4 h-4 mr-2" />
-                    My Account
+                    {userName ? `Welcome, ${userName.split(' ')[0]}!` : "My Account"}
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">

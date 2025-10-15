@@ -1,5 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,73 +22,108 @@ import {
   XCircle
 } from "lucide-react";
 
-// Mock user data
-const userData = {
-  name: "Alexandre Martin",
-  email: "alexandre.martin@student.ecp.fr",
-  campus: "ECP Paris",
-  memberSince: "2024-01-15",
-  totalPurchases: 8,
-  totalSales: 5,
-  totalSaved: 45,
-};
-
-// Mock transaction history
-const purchases = [
-  {
-    id: "p1",
-    eventTitle: "Soirée de rentrée ECP 2024",
-    date: "2024-10-15",
-    price: 25,
-    quantity: 1,
-    status: "confirmed",
-    campus: "ECP Paris"
-  },
-  {
-    id: "p2", 
-    eventTitle: "Concert Live - Artiste Surprise",
-    date: "2024-10-22",
-    price: 35,
-    quantity: 2,
-    status: "confirmed", 
-    campus: "ECP Paris"
-  },
-  {
-    id: "p3",
-    eventTitle: "Gala des Mines",
-    date: "2024-11-08",
-    price: 45,
-    quantity: 1,
-    status: "pending",
-    campus: "Mines ParisTech"
-  }
-];
-
-const sales = [
-  {
-    id: "s1",
-    eventTitle: "After Work Étudiants", 
-    date: "2024-10-18",
-    originalPrice: 20,
-    salePrice: 22,
-    quantity: 2,
-    status: "sold",
-    campus: "HEC Paris"
-  },
-  {
-    id: "s2",
-    eventTitle: "WEI 2024 - Weekend d'intégration",
-    date: "2024-11-15", 
-    originalPrice: 120,
-    salePrice: 135,
-    quantity: 1,
-    status: "active",
-    campus: "ECP Paris"
-  }
-];
-
 const Profile = () => {
   const [activeTab, setActiveTab] = useState("overview");
+  const [userData, setUserData] = useState({
+    name: "",
+    email: "",
+    campus: "",
+    memberSince: "",
+    totalPurchases: 0,
+    totalSales: 0,
+    totalSaved: 0,
+  });
+  const [purchases, setPurchases] = useState<any[]>([]);
+  const [sales, setSales] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!user) {
+      navigate("/auth");
+      return;
+    }
+
+    const fetchUserData = async () => {
+      try {
+        // Fetch user profile
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+
+        if (profileError) throw profileError;
+
+        // Fetch purchases (transactions where user is buyer)
+        const { data: purchaseData, error: purchaseError } = await supabase
+          .from('transactions')
+          .select(`
+            *,
+            ticket:tickets(
+              event:events(title, university, date)
+            )
+          `)
+          .eq('buyer_id', user.id)
+          .order('created_at', { ascending: false });
+
+        // Fetch sales (tickets sold by user)
+        const { data: saleData, error: saleError } = await supabase
+          .from('tickets')
+          .select(`
+            *,
+            event:events(title, university, date),
+            transactions(*)
+          `)
+          .eq('seller_id', user.id)
+          .order('created_at', { ascending: false });
+
+        if (!profileError && profile) {
+          setUserData({
+            name: profile.full_name || "",
+            email: profile.email || user.email || "",
+            campus: profile.university || "",
+            memberSince: profile.created_at || "",
+            totalPurchases: purchaseData?.length || 0,
+            totalSales: saleData?.filter(s => s.status === 'sold').length || 0,
+            totalSaved: 0, // Calculate based on actual data if needed
+          });
+        }
+
+        if (!purchaseError && purchaseData) {
+          setPurchases(purchaseData.map(p => ({
+            id: p.id,
+            eventTitle: p.ticket?.event?.title || "Unknown Event",
+            date: p.ticket?.event?.date || p.created_at,
+            price: p.amount,
+            quantity: p.quantity,
+            status: p.status === 'completed' ? 'confirmed' : p.status,
+            campus: p.ticket?.event?.university || "Unknown"
+          })));
+        }
+
+        if (!saleError && saleData) {
+          setSales(saleData.map(s => ({
+            id: s.id,
+            eventTitle: s.event?.title || "Unknown Event",
+            date: s.event?.date || s.created_at,
+            originalPrice: s.original_price,
+            salePrice: s.selling_price,
+            quantity: s.quantity,
+            status: s.status,
+            campus: s.event?.university || "Unknown"
+          })));
+        }
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUserData();
+  }, [user, navigate]);
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -117,6 +155,17 @@ const Profile = () => {
         return <Clock className="w-4 h-4 text-muted-foreground" />;
     }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="py-16 flex items-center justify-center">
+          <p className="text-muted-foreground">Loading profile...</p>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -216,8 +265,11 @@ const Profile = () => {
                       Achats récents
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    {purchases.slice(0, 3).map((purchase) => (
+                   <CardContent className="space-y-4">
+                     {purchases.length === 0 ? (
+                       <p className="text-sm text-muted-foreground text-center py-4">No purchases yet</p>
+                     ) : (
+                       purchases.slice(0, 3).map((purchase) => (
                       <div key={purchase.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
                         <div className="space-y-1">
                           <h4 className="font-medium text-sm">{purchase.eventTitle}</h4>
@@ -229,11 +281,11 @@ const Profile = () => {
                         <div className="text-right">
                           <div className="font-medium">{purchase.price}€</div>
                           {getStatusBadge(purchase.status)}
-                        </div>
-                      </div>
-                    ))}
-                  </CardContent>
-                </Card>
+                         </div>
+                       </div>
+                     )))}
+                   </CardContent>
+                 </Card>
 
                 {/* Recent Sales */}
                 <Card>
@@ -243,8 +295,11 @@ const Profile = () => {
                       Ventes récentes
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    {sales.map((sale) => (
+                   <CardContent className="space-y-4">
+                     {sales.length === 0 ? (
+                       <p className="text-sm text-muted-foreground text-center py-4">No sales yet</p>
+                     ) : (
+                       sales.map((sale) => (
                       <div key={sale.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
                         <div className="space-y-1">
                           <h4 className="font-medium text-sm">{sale.eventTitle}</h4>
@@ -256,13 +311,13 @@ const Profile = () => {
                         <div className="text-right">
                           <div className="font-medium">{sale.salePrice}€</div>
                           {getStatusBadge(sale.status)}
-                        </div>
-                      </div>
-                    ))}
-                  </CardContent>
-                </Card>
-              </div>
-            </TabsContent>
+                         </div>
+                       </div>
+                     )))}
+                   </CardContent>
+                 </Card>
+               </div>
+             </TabsContent>
 
             <TabsContent value="purchases" className="space-y-6">
               <Card>
@@ -272,9 +327,12 @@ const Profile = () => {
                     Tous tes tickets achetés sur Ticket Safe
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {purchases.map((purchase) => (
+                 <CardContent>
+                   <div className="space-y-4">
+                     {purchases.length === 0 ? (
+                       <p className="text-center text-muted-foreground py-8">You haven't made any purchases yet.</p>
+                     ) : (
+                       purchases.map((purchase) => (
                       <div key={purchase.id} className="flex items-center gap-4 p-4 border border-border rounded-lg hover:bg-muted/30 transition-colors">
                         {getStatusIcon(purchase.status)}
                         
@@ -296,13 +354,13 @@ const Profile = () => {
                         <div className="text-right">
                           <div className="font-semibold text-lg">{purchase.price}€</div>
                           {getStatusBadge(purchase.status)}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
+                         </div>
+                       </div>
+                     )))}
+                   </div>
+                 </CardContent>
+               </Card>
+             </TabsContent>
 
             <TabsContent value="sales" className="space-y-6">
               <Card>
@@ -312,9 +370,12 @@ const Profile = () => {
                     Tous tes tickets mis en vente sur Ticket Safe
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {sales.map((sale) => (
+                 <CardContent>
+                   <div className="space-y-4">
+                     {sales.length === 0 ? (
+                       <p className="text-center text-muted-foreground py-8">You haven't listed any tickets for sale yet.</p>
+                     ) : (
+                       sales.map((sale) => (
                       <div key={sale.id} className="flex items-center gap-4 p-4 border border-border rounded-lg hover:bg-muted/30 transition-colors">
                         {getStatusIcon(sale.status)}
                         
@@ -346,14 +407,14 @@ const Profile = () => {
                             +{(((sale.salePrice - sale.originalPrice) / sale.originalPrice) * 100).toFixed(1)}%
                           </div>
                           {getStatusBadge(sale.status)}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
+                         </div>
+                       </div>
+                     )))}
+                   </div>
+                 </CardContent>
+               </Card>
+             </TabsContent>
+           </Tabs>
         </div>
       </main>
     </div>
