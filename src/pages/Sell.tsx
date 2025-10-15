@@ -13,28 +13,32 @@ import { Event } from "@/integrations/supabase/types/events";
 
 const Sell = () => {
   // Mock events for now (until Supabase is configured)
-  const mockEvents = [
+  const mockEvents: Event[] = [
     {
       id: "1",
-      name: "Soirée de rentrée ESCP 2024",
+      title: "Soirée de rentrée ESCP 2024",
+      description: "Grande soirée de rentrée",
       date: "2024-10-15T20:00:00",
       location: "Le Showcase, Paris",
-      original_price: 25,
+      university: "ESCP",
       image_url: null,
       category: "Soirée",
       is_active: true,
       created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     },
     {
       id: "2",
-      name: "Gala des Mines - Grande Soirée",
+      title: "Gala des Mines - Grande Soirée",
+      description: "Gala annuel",
       date: "2024-11-08T19:30:00",
       location: "Pavillon Dauphine, Paris",
-      original_price: 45,
+      university: "Mines",
       image_url: null,
       category: "Gala",
       is_active: true,
       created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     },
   ];
   
@@ -86,13 +90,12 @@ const Sell = () => {
       const newFormData = {
         ...formData,
         eventId: event.id,
-        eventTitle: event.name,
-        originalPrice: event.original_price.toString(),
+        eventTitle: event.title,
+        school: event.university,
+        eventType: event.category,
         eventDate: new Date(event.date).toISOString().split('T')[0],
       };
       setFormData(newFormData);
-      // Reset selling price when event changes
-      handlePriceChange(event.original_price.toString(), formData.sellingPrice);
     }
   };
 
@@ -151,13 +154,13 @@ const Sell = () => {
                           {events?.map((event) => (
                             <SelectItem key={event.id} value={event.id}>
                               <div className="flex flex-col">
-                                <span className="font-medium">{event.name}</span>
+                                <span className="font-medium">{event.title}</span>
                                 <span className="text-xs text-muted-foreground">
                                   {new Date(event.date).toLocaleDateString('fr-FR', { 
                                     day: 'numeric', 
                                     month: 'long', 
                                     year: 'numeric' 
-                                  })} • {event.location} • {event.original_price}€
+                                  })} • {event.location}
                                 </span>
                               </div>
                             </SelectItem>

@@ -8,6 +8,8 @@ import Events from "./pages/Events";
 import Sell from "./pages/Sell";
 import About from "./pages/About";
 import Profile from "./pages/Profile";
+import Auth from "./pages/Auth";
+import Contact from "./pages/Contact";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -25,7 +27,8 @@ const App = () => (
           <Route path="/sell" element={<Sell />} />
           <Route path="/about" element={<About />} />
           <Route path="/profile" element={<Profile />} />
-          <Route path="/login" element={<Profile />} /> {/* Redirect to profile for demo */}
+          <Route path="/auth" element={<Auth />} />
+          <Route path="/contact" element={<Contact />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

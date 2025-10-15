@@ -1,11 +1,13 @@
 export interface Event {
   id: string;
-  name: string;
+  title: string;
+  description: string | null;
   date: string;
   location: string;
-  original_price: number;
+  category: string;
+  university: string;
   image_url: string | null;
-  category: string | null;
   is_active: boolean;
   created_at: string;
+  updated_at: string;
 }

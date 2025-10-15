@@ -1,19 +1,35 @@
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Menu, X, Ticket, User } from "lucide-react";
+import { Menu, X, Ticket, User, LogOut } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
+  const { user, signOut } = useAuth();
+  const navigate = useNavigate();
 
   const isActive = (path: string) => location.pathname === path;
 
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/auth");
+  };
+
   const navItems = [
     { path: "/", label: "Home" },
-    { path: "/events", label: "Events" },
-    { path: "/sell", label: "Sell" },
+    { path: "/events", label: "Marketplace" },
+    { path: "/sell", label: "Sell Tickets" },
     { path: "/about", label: "About" },
+    { path: "/contact", label: "Contact" },
   ];
 
   return (
@@ -45,17 +61,39 @@ const Header = () => {
 
           {/* Desktop CTA */}
           <div className="hidden md:flex items-center gap-3">
-            <Button variant="ghost" size="sm" asChild>
-              <Link to="/login" className="text-muted-foreground hover:text-primary">
-                Login
-              </Link>
-            </Button>
-            <Button variant="hero" size="sm" className="shadow-glow hover:shadow-glow" asChild>
-              <Link to="/profile">
-                <User className="w-4 h-4" />
-                My Account
-              </Link>
-            </Button>
+            {user ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="hero" size="sm" className="shadow-glow hover:shadow-glow">
+                    <User className="w-4 h-4 mr-2" />
+                    My Account
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => navigate("/profile")}>
+                    Profile
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleSignOut}>
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Sign Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <>
+                <Button variant="ghost" size="sm" asChild>
+                  <Link to="/auth" className="text-muted-foreground hover:text-primary">
+                    Login
+                  </Link>
+                </Button>
+                <Button variant="hero" size="sm" className="shadow-glow hover:shadow-glow" asChild>
+                  <Link to="/auth">
+                    Sign Up
+                  </Link>
+                </Button>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -86,12 +124,36 @@ const Header = () => {
                 </Link>
               ))}
               <div className="flex flex-col gap-2 mt-4 pt-4 border-t border-border">
-                <Button variant="outline" size="sm" asChild>
-                  <Link to="/login">Login</Link>
-                </Button>
-                <Button variant="hero" size="sm" asChild>
-                  <Link to="/profile">My Account</Link>
-                </Button>
+                {user ? (
+                  <>
+                    <Button variant="outline" size="sm" asChild onClick={() => setIsMenuOpen(false)}>
+                      <Link to="/profile">
+                        <User className="w-4 w-4 mr-2" />
+                        My Account
+                      </Link>
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => {
+                        handleSignOut();
+                        setIsMenuOpen(false);
+                      }}
+                    >
+                      <LogOut className="w-4 h-4 mr-2" />
+                      Sign Out
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button variant="outline" size="sm" asChild onClick={() => setIsMenuOpen(false)}>
+                      <Link to="/auth">Login</Link>
+                    </Button>
+                    <Button variant="hero" size="sm" asChild onClick={() => setIsMenuOpen(false)}>
+                      <Link to="/auth">Sign Up</Link>
+                    </Button>
+                  </>
+                )}
               </div>
             </nav>
           </div>
