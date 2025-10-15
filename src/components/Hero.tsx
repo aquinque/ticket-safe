@@ -24,9 +24,8 @@ const Hero = () => {
 
           {/* Subtitle */}
           <p className="text-lg md:text-xl text-muted-foreground mb-8 max-w-2xl mx-auto animate-slide-up">
-            The fair student ticket resale platform. 
-            Buy and sell your tickets for student events safely, 
-            with prices capped at maximum +20%.
+            The easiest and safest way to buy and sell student event tickets. 
+            Instant transactions, verified users, and secure payments—all in one platform.
           </p>
 
           {/* CTA Buttons */}
@@ -48,16 +47,16 @@ const Hero = () => {
           {/* Stats Banner */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-12 max-w-2xl mx-auto">
             <div className="text-center">
-              <div className="text-3xl font-bold bg-gradient-hero bg-clip-text text-transparent">500+</div>
-              <p className="text-sm text-muted-foreground">Events</p>
-            </div>
-            <div className="text-center">
               <div className="text-3xl font-bold bg-gradient-hero bg-clip-text text-transparent">10k+</div>
-              <p className="text-sm text-muted-foreground">Students</p>
+              <p className="text-sm text-muted-foreground">Active Students</p>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-bold bg-gradient-hero bg-clip-text text-transparent">+20%</div>
-              <p className="text-sm text-muted-foreground">Max Price</p>
+              <div className="text-3xl font-bold bg-gradient-hero bg-clip-text text-transparent">25+</div>
+              <p className="text-sm text-muted-foreground">Universities</p>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl font-bold bg-gradient-hero bg-clip-text text-transparent">15k+</div>
+              <p className="text-sm text-muted-foreground">Verified Transactions</p>
             </div>
           </div>
 
@@ -77,9 +76,9 @@ const Hero = () => {
               <div className="w-12 h-12 bg-secondary/10 rounded-xl flex items-center justify-center">
                 <Users className="w-6 h-6 text-secondary" />
               </div>
-              <h3 className="font-semibold text-foreground">Fair Pricing</h3>
+              <h3 className="font-semibold text-foreground">Lightning Fast</h3>
               <p className="text-sm text-muted-foreground text-center">
-                Maximum +20% of original price, no more speculation
+                List your ticket in seconds and connect with buyers instantly
               </p>
             </div>
 
