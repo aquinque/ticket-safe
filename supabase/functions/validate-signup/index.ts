@@ -19,7 +19,9 @@ serve(async (req) => {
 
     const { email, fullName, university } = await req.json();
 
-    console.log('Validating signup data:', { email, fullName, university });
+    // Log sanitized data only (domain, not full email)
+    const emailDomain = email?.split('@')[1] || 'unknown';
+    console.log('Validating signup', { domain: emailDomain, timestamp: Date.now() });
 
     // Validation errors array
     const errors: string[] = [];
@@ -52,7 +54,7 @@ serve(async (req) => {
     }
 
     if (errors.length > 0) {
-      console.error('Validation errors:', errors);
+      console.error('Validation failed with error count:', errors.length);
       return new Response(
         JSON.stringify({ valid: false, errors }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

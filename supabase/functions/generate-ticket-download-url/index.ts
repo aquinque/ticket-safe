@@ -42,7 +42,7 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Generating download URL for ticket ${ticketId}, user ${user.id}`);
+    console.log('Download URL request received', { timestamp: Date.now() });
 
     // Verify purchase using security definer function
     const { data: fileUrl, error: fileError } = await supabase

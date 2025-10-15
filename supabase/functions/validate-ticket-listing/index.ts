@@ -35,13 +35,21 @@ serve(async (req) => {
       errors.push('School name must be less than 200 characters');
     }
 
-    // Campus validation
-    if (!campus || typeof campus !== 'string') {
-      errors.push('Campus is required');
-    } else if (campus.trim().length === 0) {
-      errors.push('Campus cannot be empty');
-    } else if (campus.length > 200) {
-      errors.push('Campus name must be less than 200 characters');
+    // Campus validation - required for ESCP schools
+    if (school && school.toLowerCase() === 'escp') {
+      if (!campus || typeof campus !== 'string' || campus.trim().length === 0) {
+        errors.push('Campus is required for ESCP');
+      } else {
+        // Validate campus against whitelist for ESCP
+        const validCampuses = ['paris', 'turin', 'madrid', 'londres', 'london', 'berlin'];
+        if (!validCampuses.includes(campus.toLowerCase())) {
+          errors.push('Invalid campus for ESCP. Must be one of: Paris, Turin, Madrid, Londres, Berlin');
+        }
+      }
+    } else if (campus && typeof campus === 'string') {
+      if (campus.length > 200) {
+        errors.push('Campus name must be less than 200 characters');
+      }
     }
 
     // Event type validation
@@ -111,7 +119,7 @@ serve(async (req) => {
     }
 
     if (errors.length > 0) {
-      console.error('Validation errors:', errors);
+      console.error('Ticket validation failed with error count:', errors.length);
       return new Response(
         JSON.stringify({ valid: false, errors }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
