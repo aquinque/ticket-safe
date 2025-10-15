@@ -20,7 +20,7 @@ const About = () => {
     {
       icon: Shield,
       title: "Ethics and Transparency",
-      description: "+50% cap to prevent speculation, unlike traditional platforms."
+      description: "Prices are regulated to stay fair for everyone—low enough for buyers to afford easily, yet allowing sellers to resell without losing money. This balance prevents speculation while keeping resale simple and fair for both sides."
     },
     {
       icon: Users,
@@ -223,7 +223,7 @@ const About = () => {
                     <div className="space-y-3">
                       <div className="flex items-start gap-2">
                         <CheckCircle2 className="w-4 h-4 text-accent mt-0.5" />
-                        <span className="text-sm">Price capped at +50% maximum</span>
+                        <span className="text-sm">Regulated pricing—fair for buyers and sellers</span>
                       </div>
                       <div className="flex items-start gap-2">
                         <CheckCircle2 className="w-4 h-4 text-accent mt-0.5" />
