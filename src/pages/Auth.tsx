@@ -31,7 +31,7 @@ const Auth = () => {
   // Redirect if already logged in
   useEffect(() => {
     if (user) {
-      navigate("/");
+      navigate("/profile");
     }
   }, [user, navigate]);
 
@@ -152,9 +152,9 @@ const Auth = () => {
           user_email: email.trim()
         });
         
-        toast.success("Welcome back! Redirecting...");
+        toast.success("Welcome back! Redirecting to your profile...");
         setTimeout(() => {
-          window.location.href = "/";
+          window.location.href = "/profile";
         }, 500);
       } else {
         // Client-side validation for signup
@@ -215,7 +215,7 @@ const Auth = () => {
           email: email.trim(),
           password,
           options: {
-            emailRedirectTo: `${window.location.origin}/`,
+            emailRedirectTo: `${window.location.origin}/profile`,
             data: {
               full_name: fullName.trim(),
               university: detectedUniversity.trim(),
@@ -234,9 +234,9 @@ const Auth = () => {
           return;
         }
         
-        toast.success("Account created successfully! Redirecting...");
+        toast.success("Account created successfully! Redirecting to your profile...");
         setTimeout(() => {
-          window.location.href = "/";
+          window.location.href = "/profile";
         }, 500);
       }
     } catch (error: any) {

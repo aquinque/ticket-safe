@@ -267,7 +267,7 @@ const Profile = () => {
                   </CardHeader>
                    <CardContent className="space-y-4">
                      {purchases.length === 0 ? (
-                       <p className="text-sm text-muted-foreground text-center py-4">No purchases yet</p>
+                       <p className="text-sm text-muted-foreground text-center py-4">You don't have any transactions yet</p>
                      ) : (
                        purchases.slice(0, 3).map((purchase) => (
                       <div key={purchase.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
@@ -297,7 +297,7 @@ const Profile = () => {
                   </CardHeader>
                    <CardContent className="space-y-4">
                      {sales.length === 0 ? (
-                       <p className="text-sm text-muted-foreground text-center py-4">No sales yet</p>
+                       <p className="text-sm text-muted-foreground text-center py-4">You don't have any transactions yet</p>
                      ) : (
                        sales.map((sale) => (
                       <div key={sale.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
@@ -330,7 +330,7 @@ const Profile = () => {
                  <CardContent>
                    <div className="space-y-4">
                      {purchases.length === 0 ? (
-                       <p className="text-center text-muted-foreground py-8">You haven't made any purchases yet.</p>
+                       <p className="text-center text-muted-foreground py-8">You don't have any transactions yet</p>
                      ) : (
                        purchases.map((purchase) => (
                       <div key={purchase.id} className="flex items-center gap-4 p-4 border border-border rounded-lg hover:bg-muted/30 transition-colors">
@@ -373,7 +373,7 @@ const Profile = () => {
                  <CardContent>
                    <div className="space-y-4">
                      {sales.length === 0 ? (
-                       <p className="text-center text-muted-foreground py-8">You haven't listed any tickets for sale yet.</p>
+                       <p className="text-center text-muted-foreground py-8">You don't have any transactions yet</p>
                      ) : (
                        sales.map((sale) => (
                       <div key={sale.id} className="flex items-center gap-4 p-4 border border-border rounded-lg hover:bg-muted/30 transition-colors">
