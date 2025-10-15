@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { BackButton } from "@/components/BackButton";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import { useAuth } from "@/hooks/useAuth";
@@ -175,6 +176,9 @@ const Profile = () => {
       <Header />
       <main className="py-16">
         <div className="container mx-auto px-4 max-w-6xl">
+          <div className="mb-6">
+            <BackButton />
+          </div>
           {/* Profile Header */}
           <div className="mb-8">
             <Card className="bg-gradient-card">

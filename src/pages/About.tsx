@@ -1,4 +1,5 @@
 import Header from "@/components/Header";
+import { BackButton } from "@/components/BackButton";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -84,6 +85,9 @@ const About = () => {
         {/* Hero Section */}
         <section className="py-20 bg-gradient-card">
           <div className="container mx-auto px-4">
+            <div className="mb-6">
+              <BackButton />
+            </div>
             <div className="max-w-4xl mx-auto text-center">
               <Badge variant="secondary" className="mb-4">
                 About Ticket Safe

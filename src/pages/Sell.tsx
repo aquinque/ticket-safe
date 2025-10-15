@@ -1,5 +1,6 @@
 import { useState } from "react";
 import Header from "@/components/Header";
+import { BackButton } from "@/components/BackButton";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -161,6 +162,9 @@ const Sell = () => {
       <Header />
       <main className="py-16">
         <div className="container mx-auto px-4 max-w-4xl">
+          <div className="mb-6">
+            <BackButton />
+          </div>
           {/* Header */}
           <div className="text-center mb-12">
             <h1 className="text-4xl font-bold mb-4">
