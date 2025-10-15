@@ -25,7 +25,6 @@ serve(async (req) => {
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     
     if (userError || !user) {
-      console.error('Authentication error:', userError);
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -35,21 +34,17 @@ serve(async (req) => {
     const { ticketId } = await req.json();
 
     if (!ticketId) {
-      console.error('Missing ticketId');
       return new Response(
         JSON.stringify({ error: 'Ticket ID is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('Download URL request received', { timestamp: Date.now() });
-
     // Verify purchase using security definer function
     const { data: fileUrl, error: fileError } = await supabase
       .rpc('get_purchased_ticket_file', { ticket_id: ticketId });
 
     if (fileError) {
-      console.error('Error fetching ticket file:', fileError);
       return new Response(
         JSON.stringify({ error: 'Error fetching ticket file' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -57,7 +52,6 @@ serve(async (req) => {
     }
 
     if (!fileUrl) {
-      console.error('No file found or user not authorized');
       return new Response(
         JSON.stringify({ error: 'Ticket not found or not purchased' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -77,14 +71,11 @@ serve(async (req) => {
       .createSignedUrl(fileUrl, 3600);
 
     if (signedUrlError) {
-      console.error('Error generating signed URL:', signedUrlError);
       return new Response(
         JSON.stringify({ error: 'Error generating download URL' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
-    console.log('Successfully generated signed URL');
 
     return new Response(
       JSON.stringify({ downloadUrl: signedUrlData.signedUrl }),
@@ -92,7 +83,6 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Unexpected error:', error);
     const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
     return new Response(
       JSON.stringify({ error: errorMessage }),

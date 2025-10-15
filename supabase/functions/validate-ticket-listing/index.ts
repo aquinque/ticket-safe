@@ -13,8 +13,6 @@ serve(async (req) => {
   try {
     const { eventName, school, campus, eventType, eventDate, originalPrice, sellingPrice, quantity, description } = await req.json();
 
-    console.log('Validating ticket listing data');
-
     const errors: string[] = [];
 
     // Event name validation
@@ -119,14 +117,11 @@ serve(async (req) => {
     }
 
     if (errors.length > 0) {
-      console.error('Ticket validation failed with error count:', errors.length);
       return new Response(
         JSON.stringify({ valid: false, errors }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
-    console.log('Validation successful');
 
     return new Response(
       JSON.stringify({ valid: true }),
@@ -134,7 +129,6 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Unexpected error:', error);
     const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
     return new Response(
       JSON.stringify({ valid: false, errors: [errorMessage] }),

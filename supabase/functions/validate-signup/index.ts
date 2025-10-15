@@ -19,10 +19,6 @@ serve(async (req) => {
 
     const { email, fullName, university } = await req.json();
 
-    // Log sanitized data only (domain, not full email)
-    const emailDomain = email?.split('@')[1] || 'unknown';
-    console.log('Validating signup', { domain: emailDomain, timestamp: Date.now() });
-
     // Validation errors array
     const errors: string[] = [];
 
@@ -54,7 +50,6 @@ serve(async (req) => {
     }
 
     if (errors.length > 0) {
-      console.error('Validation failed with error count:', errors.length);
       return new Response(
         JSON.stringify({ valid: false, errors }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -66,7 +61,6 @@ serve(async (req) => {
       .rpc('validate_university_email', { email_address: email });
 
     if (domainError) {
-      console.error('Domain validation error:', domainError);
       return new Response(
         JSON.stringify({ valid: false, errors: ['Error validating email domain'] }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -74,14 +68,11 @@ serve(async (req) => {
     }
 
     if (!isValidDomain) {
-      console.error('Invalid university email domain');
       return new Response(
         JSON.stringify({ valid: false, errors: ['Please use a valid university email address'] }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
-    console.log('Validation successful');
 
     return new Response(
       JSON.stringify({ valid: true }),
@@ -89,7 +80,6 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Unexpected error:', error);
     const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
     return new Response(
       JSON.stringify({ valid: false, errors: [errorMessage] }),
