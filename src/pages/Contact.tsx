@@ -1,7 +1,7 @@
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { BackButton } from "@/components/BackButton";
-import { Mail, MessageSquare, HelpCircle } from "lucide-react";
+import { Mail, HelpCircle } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 const Contact = () => {
@@ -20,7 +20,7 @@ const Contact = () => {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-8 mb-12">
+          <div className="max-w-2xl mx-auto mb-12">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -38,23 +38,6 @@ const Contact = () => {
                 >
                   ticketsafe.friendly@gmail.com
                 </a>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <MessageSquare className="w-5 h-5 text-primary" />
-                  Live Chat
-                </CardTitle>
-                <CardDescription>
-                  Chat with our support team in real-time
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">
-                  Available Monday - Friday, 9AM - 6PM
-                </p>
               </CardContent>
             </Card>
           </div>
