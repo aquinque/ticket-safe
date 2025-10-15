@@ -116,7 +116,10 @@ const Profile = () => {
           })));
         }
       } catch (error) {
-        console.error("Error fetching user data:", error);
+        if (import.meta.env.DEV) {
+          console.error("Error fetching user data:", error);
+        }
+        // In production, silently handle the error or send to logging service
       } finally {
         setLoading(false);
       }
