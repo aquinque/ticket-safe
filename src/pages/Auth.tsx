@@ -36,28 +36,25 @@ const Auth = () => {
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (!validateEmail(email)) {
-      toast.error("Please enter a valid email address");
-      return;
-    }
-
-    if (!isLogin && !isUniversityEmail(email)) {
-      toast.error("Please use your university email address");
-      return;
-    }
-
-    if (password.length < 6) {
-      toast.error("Password must be at least 6 characters");
-      return;
-    }
-
     setLoading(true);
 
     try {
       if (isLogin) {
+        // Client-side validation for login
+        if (!validateEmail(email)) {
+          toast.error("Please enter a valid email address");
+          setLoading(false);
+          return;
+        }
+
+        if (password.length < 6) {
+          toast.error("Password must be at least 6 characters");
+          setLoading(false);
+          return;
+        }
+
         const { error } = await supabase.auth.signInWithPassword({
-          email,
+          email: email.trim(),
           password,
         });
 
@@ -65,22 +62,60 @@ const Auth = () => {
         toast.success("Welcome back!");
         navigate("/");
       } else {
-        if (!fullName.trim()) {
-          toast.error("Please enter your full name");
+        // Client-side validation for signup
+        if (!validateEmail(email)) {
+          toast.error("Please enter a valid email address");
+          setLoading(false);
+          return;
+        }
+
+        if (!fullName.trim() || fullName.length > 100) {
+          toast.error("Please enter a valid full name (max 100 characters)");
+          setLoading(false);
+          return;
+        }
+
+        if (university && university.length > 200) {
+          toast.error("University name must be less than 200 characters");
+          setLoading(false);
+          return;
+        }
+
+        if (password.length < 6) {
+          toast.error("Password must be at least 6 characters");
           setLoading(false);
           return;
         }
 
         const detectedUniversity = university || getUniversityFromEmail(email);
 
+        // Server-side validation via Edge Function
+        const { data: validationData, error: validationError } = await supabase.functions.invoke(
+          'validate-signup',
+          {
+            body: {
+              email: email.trim(),
+              fullName: fullName.trim(),
+              university: detectedUniversity.trim(),
+            },
+          }
+        );
+
+        if (validationError || !validationData?.valid) {
+          const errors = validationData?.errors || ['Validation failed'];
+          toast.error(errors[0]);
+          setLoading(false);
+          return;
+        }
+
         const { error } = await supabase.auth.signUp({
-          email,
+          email: email.trim(),
           password,
           options: {
             emailRedirectTo: `${window.location.origin}/`,
             data: {
-              full_name: fullName,
-              university: detectedUniversity,
+              full_name: fullName.trim(),
+              university: detectedUniversity.trim(),
             },
           },
         });

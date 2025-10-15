@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,6 +10,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Upload, AlertCircle, CheckCircle2, Calculator } from "lucide-react";
 import { Event } from "@/integrations/supabase/types/events";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const Sell = () => {
   // Mock events for now (until Supabase is configured)
@@ -64,6 +66,8 @@ const Sell = () => {
     maxPrice: number;
     percentage: number;
   } | null>(null);
+  
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handlePriceChange = (originalPrice: string, sellingPrice: string) => {
     const original = parseFloat(originalPrice);
@@ -108,6 +112,47 @@ const Sell = () => {
         field === "originalPrice" ? value : formData.originalPrice,
         field === "sellingPrice" ? value : formData.sellingPrice
       );
+    }
+  };
+
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
+
+    try {
+      // Server-side validation via Edge Function
+      const { data: validationData, error: validationError } = await supabase.functions.invoke(
+        'validate-ticket-listing',
+        {
+          body: {
+            eventName: formData.eventTitle,
+            school: formData.school,
+            campus: formData.campus,
+            eventType: formData.eventType,
+            eventDate: formData.eventDate,
+            originalPrice: formData.originalPrice,
+            sellingPrice: formData.sellingPrice,
+            quantity: formData.quantity,
+            description: formData.description,
+          },
+        }
+      );
+
+      if (validationError || !validationData?.valid) {
+        const errors = validationData?.errors || ['Validation failed'];
+        toast.error(errors[0]);
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Validation passed - proceed with ticket creation
+      toast.success("Ticket listing validated successfully!");
+      
+      // TODO: Implement actual ticket creation logic with file upload to private bucket
+      
+    } catch (error: any) {
+      toast.error(error.message || "An error occurred");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -419,9 +464,10 @@ const Sell = () => {
                 variant="hero" 
                 size="lg" 
                 className="w-full"
-                disabled={!priceValidation?.isValid || !formData.eventId || !formData.sellingPrice}
+                disabled={!priceValidation?.isValid || !formData.eventId || !formData.sellingPrice || isSubmitting}
+                onClick={handleSubmit}
               >
-                Publish my tickets
+                {isSubmitting ? "Validating..." : "Publish my tickets"}
               </Button>
             </div>
           </div>

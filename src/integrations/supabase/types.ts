@@ -236,16 +236,48 @@ export type Database = {
           },
         ]
       }
+      verified_university_domains: {
+        Row: {
+          active: boolean
+          created_at: string
+          domain: string
+          id: string
+          university_name: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          domain: string
+          id?: string
+          university_name: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          domain?: string
+          id?: string
+          university_name?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      get_purchased_ticket_file: {
+        Args: { ticket_id: string }
+        Returns: string
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: boolean
+      }
+      validate_university_email: {
+        Args: { email_address: string }
         Returns: boolean
       }
     }
