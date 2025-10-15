@@ -137,12 +137,8 @@ const Auth = () => {
             user_email: email.trim()
           });
           
-          // Check if account exists
-          if (error.message.includes("Invalid login credentials")) {
-            toast.error("Invalid email or password. If you don't have an account, please sign up first.");
-          } else {
-            toast.error(error.message);
-          }
+          // Generic error message to prevent account enumeration
+          toast.error("Invalid credentials. Please check your email and password.");
           setLoading(false);
           return;
         }
@@ -224,11 +220,12 @@ const Auth = () => {
         });
 
         if (error) {
+          // Generic error message to prevent account enumeration
           if (error.message.includes("already registered") || error.message.includes("User already registered")) {
-            toast.error("Account already exists - please log in instead.");
+            toast.error("Unable to create account. Please try logging in.");
             setIsLogin(true);
           } else {
-            throw error;
+            toast.error("Unable to create account. Please verify your information.");
           }
           setLoading(false);
           return;
@@ -240,8 +237,8 @@ const Auth = () => {
         }, 500);
       }
     } catch (error: any) {
-      console.error("Auth error:", error);
-      toast.error(error.message || "An error occurred");
+      // Generic error message to prevent information disclosure
+      toast.error("An error occurred during authentication. Please try again.");
     } finally {
       setLoading(false);
     }
