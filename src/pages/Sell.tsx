@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import { BackButton } from "@/components/BackButton";
 import { Button } from "@/components/ui/button";
@@ -9,151 +10,183 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Upload, AlertCircle, CheckCircle2, Calculator } from "lucide-react";
+import { Upload, AlertCircle, CheckCircle2, Calculator, Info } from "lucide-react";
 import { Event } from "@/integrations/supabase/types/events";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/useAuth";
 
 const Sell = () => {
-  // Mock events for now (until Supabase is configured)
-  const mockEvents: Event[] = [
-    {
-      id: "1",
-      title: "Soirée de rentrée ESCP 2024",
-      description: "Grande soirée de rentrée",
-      date: "2024-10-15T20:00:00",
-      location: "Le Showcase, Paris",
-      university: "ESCP",
-      campus: "Paris",
-      image_url: null,
-      category: "Soirée",
-      is_active: true,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-    {
-      id: "2",
-      title: "Gala des Mines - Grande Soirée",
-      description: "Gala annuel",
-      date: "2024-11-08T19:30:00",
-      location: "Pavillon Dauphine, Paris",
-      university: "Mines",
-      campus: "Paris",
-      image_url: null,
-      category: "Gala",
-      is_active: true,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    },
-  ];
-  
-  const events = mockEvents;
-  const eventsLoading = false;
+  const navigate = useNavigate();
+  const { user, loading: authLoading } = useAuth();
+  const [events, setEvents] = useState<Event[]>([]);
+  const [eventsLoading, setEventsLoading] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate('/auth');
+    }
+  }, [user, authLoading, navigate]);
+
+  // Fetch events from database
+  useEffect(() => {
+    const fetchEvents = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('events')
+          .select('*')
+          .eq('is_active', true)
+          .gte('date', new Date().toISOString())
+          .order('date', { ascending: true });
+
+        if (error) throw error;
+        setEvents(data || []);
+      } catch (error) {
+        console.error('Error fetching events:', error);
+        toast.error('Failed to load events');
+      } finally {
+        setEventsLoading(false);
+      }
+    };
+
+    if (user) {
+      fetchEvents();
+    }
+  }, [user]);
   
   const [formData, setFormData] = useState({
     eventId: "",
-    eventTitle: "",
-    originalPrice: "",
     sellingPrice: "",
     quantity: "1",
-    school: "",
-    campus: "",
-    eventType: "",
-    eventDate: "",
     description: "",
   });
 
   const [priceValidation, setPriceValidation] = useState<{
     isValid: boolean;
+    minPrice: number;
     maxPrice: number;
-    percentage: number;
+    message: string;
   } | null>(null);
   
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handlePriceChange = (originalPrice: string, sellingPrice: string) => {
-    const original = parseFloat(originalPrice);
-    const selling = parseFloat(sellingPrice);
-
-    if (original && selling) {
-      const maxAllowed = original * 1.5; // +50% maximum
-      const percentage = ((selling - original) / original) * 100;
-      
-      setPriceValidation({
-        isValid: selling <= maxAllowed,
-        maxPrice: maxAllowed,
-        percentage: percentage,
-      });
-    } else {
+  const validatePrice = (basePrice: number | null, sellingPrice: string) => {
+    if (!basePrice) {
       setPriceValidation(null);
+      return;
     }
+
+    const selling = parseFloat(sellingPrice);
+    if (!selling || isNaN(selling)) {
+      setPriceValidation(null);
+      return;
+    }
+
+    const minAllowed = basePrice;
+    const maxAllowed = basePrice + 1;
+    const isValid = selling >= minAllowed && selling <= maxAllowed;
+
+    let message = "";
+    if (selling < minAllowed) {
+      message = `Price too low! Minimum: €${minAllowed.toFixed(2)}`;
+    } else if (selling > maxAllowed) {
+      message = `Price exceeds limit! Maximum: €${maxAllowed.toFixed(2)}`;
+    } else {
+      const markup = selling - basePrice;
+      message = `Valid price (+€${markup.toFixed(2)})`;
+    }
+
+    setPriceValidation({
+      isValid,
+      minPrice: minAllowed,
+      maxPrice: maxAllowed,
+      message,
+    });
   };
 
   const handleEventSelect = (eventId: string) => {
     const event = events?.find(e => e.id === eventId);
     if (event) {
       setSelectedEvent(event);
-      const newFormData = {
+      setFormData({
         ...formData,
         eventId: event.id,
-        eventTitle: event.title,
-        school: event.university,
-        eventType: event.category,
-        eventDate: new Date(event.date).toISOString().split('T')[0],
-      };
-      setFormData(newFormData);
+        sellingPrice: event.base_price ? event.base_price.toString() : "",
+      });
+      
+      // Validate the automatically set base price
+      if (event.base_price) {
+        validatePrice(event.base_price, event.base_price.toString());
+      }
     }
   };
 
-  const handleInputChange = (field: string, value: string) => {
-    const newFormData = { ...formData, [field]: value };
-    setFormData(newFormData);
-
-    if (field === "originalPrice" || field === "sellingPrice") {
-      handlePriceChange(
-        field === "originalPrice" ? value : formData.originalPrice,
-        field === "sellingPrice" ? value : formData.sellingPrice
-      );
+  const handlePriceChange = (value: string) => {
+    setFormData({ ...formData, sellingPrice: value });
+    if (selectedEvent?.base_price) {
+      validatePrice(selectedEvent.base_price, value);
     }
   };
 
   const handleSubmit = async () => {
+    if (!selectedEvent || !user) {
+      toast.error("Please select an event");
+      return;
+    }
+
+    if (!selectedEvent.base_price) {
+      toast.error("This event doesn't have a base price set");
+      return;
+    }
+
+    if (!priceValidation?.isValid) {
+      toast.error("Please enter a valid selling price");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      // Server-side validation via Edge Function
-      const { data: validationData, error: validationError } = await supabase.functions.invoke(
-        'validate-ticket-listing',
-        {
-          body: {
-            eventName: formData.eventTitle,
-            school: formData.school,
-            campus: formData.campus,
-            eventType: formData.eventType,
-            eventDate: formData.eventDate,
-            originalPrice: formData.originalPrice,
-            sellingPrice: formData.sellingPrice,
-            quantity: formData.quantity,
-            description: formData.description,
-          },
-        }
-      );
+      const sellingPrice = parseFloat(formData.sellingPrice);
+      const basePrice = selectedEvent.base_price;
 
-      if (validationError || !validationData?.valid) {
-        const errors = validationData?.errors || ['Validation failed'];
-        toast.error(errors[0]);
-        setIsSubmitting(false);
-        return;
-      }
+      // Create ticket listing
+      const { data, error } = await supabase
+        .from('tickets')
+        .insert({
+          event_id: selectedEvent.id,
+          seller_id: user.id,
+          original_price: basePrice,
+          selling_price: sellingPrice,
+          quantity: parseInt(formData.quantity),
+          notes: formData.description,
+          status: 'available',
+        })
+        .select()
+        .single();
 
-      // Validation passed - proceed with ticket creation
-      toast.success("Ticket listing validated successfully!");
+      if (error) throw error;
+
+      toast.success("Ticket listed successfully!");
       
-      // TODO: Implement actual ticket creation logic with file upload to private bucket
+      // Reset form
+      setFormData({
+        eventId: "",
+        sellingPrice: "",
+        quantity: "1",
+        description: "",
+      });
+      setSelectedEvent(null);
+      setPriceValidation(null);
+      
+      // Navigate to profile to see the listing
+      setTimeout(() => navigate('/profile'), 1500);
       
     } catch (error: any) {
-      toast.error(error.message || "An error occurred");
+      console.error('Error creating ticket:', error);
+      toast.error(error.message || "Failed to list ticket");
     } finally {
       setIsSubmitting(false);
     }
@@ -173,8 +206,7 @@ const Sell = () => {
               Sell my tickets
             </h1>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Resell your tickets with ease. Respect our fair policy: 
-              maximum +50% of the initial price to prevent speculation.
+              Resell your tickets safely. Maximum resale price: base price + €1 to ensure fairness.
             </p>
           </div>
 
@@ -199,137 +231,106 @@ const Sell = () => {
                         disabled={eventsLoading}
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder={eventsLoading ? "Loading..." : "Choose an event"} />
+                          <SelectValue placeholder={eventsLoading ? "Loading events..." : "Choose an event"} />
                         </SelectTrigger>
                         <SelectContent>
-                          {events?.map((event) => (
-                            <SelectItem key={event.id} value={event.id}>
-                              <div className="flex flex-col">
-                                <span className="font-medium">{event.title}</span>
-                                <span className="text-xs text-muted-foreground">
-                                  {new Date(event.date).toLocaleDateString('fr-FR', { 
-                                    day: 'numeric', 
-                                    month: 'long', 
-                                    year: 'numeric' 
-                                  })} • {event.location}
-                                </span>
-                              </div>
-                            </SelectItem>
-                          ))}
+                          {events.length === 0 && !eventsLoading ? (
+                            <div className="p-4 text-sm text-muted-foreground text-center">
+                              No upcoming events available
+                            </div>
+                          ) : (
+                            events.map((event) => (
+                              <SelectItem key={event.id} value={event.id}>
+                                <div className="flex flex-col">
+                                  <span className="font-medium">{event.title}</span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {new Date(event.date).toLocaleDateString('en-US', { 
+                                      day: 'numeric', 
+                                      month: 'long', 
+                                      year: 'numeric' 
+                                    })} • {event.location}
+                                    {event.base_price && ` • Base: €${event.base_price}`}
+                                  </span>
+                                </div>
+                              </SelectItem>
+                            ))
+                          )}
                         </SelectContent>
                       </Select>
                       <p className="text-xs text-muted-foreground mt-1">
-                        The initial price will be automatically filled
+                        Base price will be automatically set
                       </p>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="school">School</Label>
-                        <Select value={formData.school} onValueChange={(value) => {
-                          handleInputChange("school", value);
-                          // Reset campus when school changes
-                          if (value !== "escp") {
-                            handleInputChange("campus", "");
-                          }
-                        }}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select a school" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="escp">ESCP Business School</SelectItem>
-                            <SelectItem value="hec">HEC Paris</SelectItem>
-                            <SelectItem value="essec">ESSEC Business School</SelectItem>
-                            <SelectItem value="edhec">EDHEC Business School</SelectItem>
-                            <SelectItem value="em-lyon">EM Lyon</SelectItem>
-                            <SelectItem value="other">Other</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      {formData.school === "escp" && (
-                        <div>
-                          <Label htmlFor="campus">Campus</Label>
-                          <Select value={formData.campus} onValueChange={(value) => handleInputChange("campus", value)}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select a campus" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="paris">Paris</SelectItem>
-                              <SelectItem value="turin">Turin</SelectItem>
-                              <SelectItem value="madrid">Madrid</SelectItem>
-                              <SelectItem value="londres">London</SelectItem>
-                              <SelectItem value="berlin">Berlin</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="eventType">Event Type</Label>
-                        <Select value={formData.eventType} onValueChange={(value) => handleInputChange("eventType", value)}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="soiree">Party</SelectItem>
-                            <SelectItem value="gala">Gala</SelectItem>
-                            <SelectItem value="concert">Concert</SelectItem>
-                            <SelectItem value="wei">WEI</SelectItem>
-                            <SelectItem value="conference">Conference</SelectItem>
-                            <SelectItem value="sport">Sports Event</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-
-                    <div>
-                      <Label htmlFor="eventDate">Event Date</Label>
-                      <Input
-                        id="eventDate"
-                        type="date"
-                        value={formData.eventDate}
-                        onChange={(e) => handleInputChange("eventDate", e.target.value)}
-                      />
-                    </div>
+                    {selectedEvent && (
+                      <Alert className="bg-accent/10 border-accent">
+                        <Info className="w-4 h-4 text-accent" />
+                        <AlertDescription>
+                          <div className="space-y-1">
+                            <p className="font-medium">{selectedEvent.title}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {selectedEvent.university} • {selectedEvent.campus}
+                            </p>
+                            <p className="text-sm">
+                              {new Date(selectedEvent.date).toLocaleDateString('en-US', {
+                                weekday: 'long',
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric',
+                              })}
+                            </p>
+                          </div>
+                        </AlertDescription>
+                      </Alert>
+                    )}
                   </div>
 
                   {/* Pricing */}
                   <div className="space-y-4">
                     <h3 className="text-lg font-semibold">Ticket Prices</h3>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {selectedEvent?.base_price && (
+                      <Alert className="bg-primary/5 border-primary/20">
+                        <Info className="w-4 h-4 text-primary" />
+                        <AlertDescription>
+                          <div className="space-y-1">
+                            <p className="font-medium">Base Price: €{selectedEvent.base_price.toFixed(2)}</p>
+                            <p className="text-sm text-muted-foreground">
+                              Maximum resale price: €{(selectedEvent.base_price + 1).toFixed(2)} (base + €1)
+                            </p>
+                          </div>
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <Label htmlFor="originalPrice">Original Price (€)</Label>
+                        <Label htmlFor="sellingPrice">Your Selling Price (€)</Label>
                         <Input
-                          id="originalPrice"
+                          id="sellingPrice"
                           type="number"
-                          placeholder="25"
-                          value={formData.originalPrice}
-                          disabled
-                          className="bg-muted"
+                          step="0.01"
+                          min={selectedEvent?.base_price || 0}
+                          max={selectedEvent?.base_price ? selectedEvent.base_price + 1 : undefined}
+                          placeholder={selectedEvent?.base_price ? selectedEvent.base_price.toFixed(2) : "Select event first"}
+                          value={formData.sellingPrice}
+                          onChange={(e) => handlePriceChange(e.target.value)}
+                          disabled={!selectedEvent?.base_price}
                         />
                         <p className="text-xs text-muted-foreground mt-1">
-                          Automatically set
+                          {selectedEvent?.base_price 
+                            ? `Between €${selectedEvent.base_price.toFixed(2)} and €${(selectedEvent.base_price + 1).toFixed(2)}`
+                            : "Select an event to set price"
+                          }
                         </p>
                       </div>
 
                       <div>
-                        <Label htmlFor="sellingPrice">Selling Price (€)</Label>
-                        <Input
-                          id="sellingPrice"
-                          type="number"
-                          placeholder="30"
-                          value={formData.sellingPrice}
-                          onChange={(e) => handleInputChange("sellingPrice", e.target.value)}
-                        />
-                      </div>
-
-                      <div>
                         <Label htmlFor="quantity">Number of Tickets</Label>
-                        <Select value={formData.quantity} onValueChange={(value) => handleInputChange("quantity", value)}>
+                        <Select 
+                          value={formData.quantity} 
+                          onValueChange={(value) => setFormData({ ...formData, quantity: value })}
+                        >
                           <SelectTrigger>
                             <SelectValue />
                           </SelectTrigger>
@@ -351,22 +352,8 @@ const Sell = () => {
                           ) : (
                             <AlertCircle className="w-4 h-4 text-destructive" />
                           )}
-                          <AlertDescription>
-                            {priceValidation.isValid ? (
-                              <>
-                                Price respecting the +50% rule 
-                                <Badge variant="secondary" className="ml-2">
-                                  +{priceValidation.percentage.toFixed(1)}%
-                                </Badge>
-                              </>
-                            ) : (
-                              <>
-                                Price too high! Maximum allowed: {priceValidation.maxPrice.toFixed(2)}€ 
-                                <Badge variant="destructive" className="ml-2">
-                                  +{priceValidation.percentage.toFixed(1)}%
-                                </Badge>
-                              </>
-                            )}
+                          <AlertDescription className="font-medium">
+                            {priceValidation.message}
                           </AlertDescription>
                         </div>
                       </Alert>
@@ -375,12 +362,13 @@ const Sell = () => {
 
                   {/* Description */}
                   <div>
-                    <Label htmlFor="description">Description (optional)</Label>
+                    <Label htmlFor="description">Additional Notes (optional)</Label>
                     <Textarea
                       id="description"
-                      placeholder="Add details about the event, selling conditions..."
+                      placeholder="Add any additional details about your tickets..."
                       value={formData.description}
-                      onChange={(e) => handleInputChange("description", e.target.value)}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      rows={3}
                     />
                   </div>
 
@@ -405,21 +393,27 @@ const Sell = () => {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Calculator className="w-5 h-5" />
-                    Price Calculator
+                    Pricing Summary
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Original price:</span>
+                      <span className="text-muted-foreground">Base price:</span>
                       <span className="font-medium">
-                        {formData.originalPrice ? `${formData.originalPrice}€` : "-"}
+                        {selectedEvent?.base_price ? `€${selectedEvent.base_price.toFixed(2)}` : "-"}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Maximum price (+50%):</span>
+                      <span className="text-muted-foreground">Maximum allowed:</span>
                       <span className="font-medium text-accent">
-                        {formData.originalPrice ? `${(parseFloat(formData.originalPrice) * 1.5).toFixed(2)}€` : "-"}
+                        {selectedEvent?.base_price ? `€${(selectedEvent.base_price + 1).toFixed(2)}` : "-"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Your price:</span>
+                      <span className="font-medium">
+                        {formData.sellingPrice ? `€${parseFloat(formData.sellingPrice).toFixed(2)}` : "-"}
                       </span>
                     </div>
                     <div className="flex justify-between">
@@ -428,10 +422,10 @@ const Sell = () => {
                     </div>
                     <hr className="border-border" />
                     <div className="flex justify-between text-lg font-semibold">
-                      <span>Estimated total:</span>
+                      <span>Total earnings:</span>
                       <span className="text-primary">
                         {formData.sellingPrice ? 
-                          `${(parseFloat(formData.sellingPrice) * parseInt(formData.quantity)).toFixed(2)}€` : 
+                          `€${(parseFloat(formData.sellingPrice) * parseInt(formData.quantity)).toFixed(2)}` : 
                           "-"
                         }
                       </span>
@@ -448,15 +442,15 @@ const Sell = () => {
                 <CardContent className="space-y-3 text-sm">
                   <div className="flex items-start gap-2">
                     <CheckCircle2 className="w-4 h-4 text-accent mt-0.5 flex-shrink-0" />
-                    <span>Maximum +50% of initial price</span>
+                    <span>Maximum base price + €1</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-accent mt-0.5 flex-shrink-0" />
+                    <span>Automatic price verification</span>
                   </div>
                   <div className="flex items-start gap-2">
                     <CheckCircle2 className="w-4 h-4 text-accent mt-0.5 flex-shrink-0" />
                     <span>Guaranteed secure payment</span>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-accent mt-0.5 flex-shrink-0" />
-                    <span>5% commission on sale</span>
                   </div>
                   <div className="flex items-start gap-2">
                     <CheckCircle2 className="w-4 h-4 text-accent mt-0.5 flex-shrink-0" />
@@ -470,11 +464,15 @@ const Sell = () => {
                 variant="hero" 
                 size="lg" 
                 className="w-full"
-                disabled={!priceValidation?.isValid || !formData.eventId || !formData.sellingPrice || isSubmitting}
+                disabled={!priceValidation?.isValid || !selectedEvent || !formData.sellingPrice || isSubmitting}
                 onClick={handleSubmit}
               >
-                {isSubmitting ? "Validating..." : "Publish my tickets"}
+                {isSubmitting ? "Publishing..." : "Publish my tickets"}
               </Button>
+              
+              <p className="text-xs text-center text-muted-foreground">
+                By publishing, you agree to our terms and pricing policy
+              </p>
             </div>
           </div>
         </div>

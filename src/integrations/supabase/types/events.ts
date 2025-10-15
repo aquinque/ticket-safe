@@ -9,6 +9,7 @@ export interface Event {
   campus: string | null;
   image_url: string | null;
   is_active: boolean;
+  base_price: number | null;
   created_at: string;
   updated_at: string;
 }
