@@ -151,10 +151,8 @@ const Auth = () => {
           user_email: email.trim()
         });
         
-        toast.success("Welcome back! Redirecting to your profile...");
-        setTimeout(() => {
-          window.location.href = "/profile";
-        }, 500);
+        toast.success("Welcome back!");
+        navigate("/profile");
       } else {
         // Client-side validation for signup
         if (!validateEmail(email)) {
@@ -234,10 +232,8 @@ const Auth = () => {
           return;
         }
         
-        toast.success("Account created successfully! Redirecting to your profile...");
-        setTimeout(() => {
-          window.location.href = "/profile";
-        }, 500);
+        toast.success("Account created successfully!");
+        navigate("/profile");
       }
     } catch (error: any) {
       // Generic error message to prevent information disclosure

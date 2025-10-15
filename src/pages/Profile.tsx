@@ -46,6 +46,8 @@ const Profile = () => {
       return;
     }
 
+    let mounted = true;
+
     const fetchUserData = async () => {
       try {
         // Fetch user profile
@@ -53,9 +55,28 @@ const Profile = () => {
           .from('profiles')
           .select('*')
           .eq('id', user.id)
-          .single();
+          .maybeSingle();
 
-        if (profileError) throw profileError;
+        if (profileError) {
+          throw profileError;
+        }
+
+        if (!profile) {
+          // Profile doesn't exist yet - set default values
+          if (mounted) {
+            setUserData({
+              name: user.email?.split('@')[0] || "User",
+              email: user.email || "",
+              campus: "",
+              memberSince: new Date().toISOString(),
+              totalPurchases: 0,
+              totalSales: 0,
+              totalSaved: 0,
+            });
+            setLoading(false);
+          }
+          return;
+        }
 
         // Fetch purchases (transactions where user is buyer)
         const { data: purchaseData, error: purchaseError } = await supabase
@@ -80,53 +101,62 @@ const Profile = () => {
           .eq('seller_id', user.id)
           .order('created_at', { ascending: false });
 
-        if (!profileError && profile) {
+        if (mounted) {
           setUserData({
-            name: profile.full_name || "",
+            name: profile.full_name || user.email?.split('@')[0] || "User",
             email: profile.email || user.email || "",
             campus: profile.university || "",
             memberSince: profile.created_at || "",
             totalPurchases: purchaseData?.length || 0,
             totalSales: saleData?.filter(s => s.status === 'sold').length || 0,
-            totalSaved: 0, // Calculate based on actual data if needed
+            totalSaved: 0,
           });
-        }
 
-        if (!purchaseError && purchaseData) {
-          setPurchases(purchaseData.map(p => ({
-            id: p.id,
-            eventTitle: p.ticket?.event?.title || "Unknown Event",
-            date: p.ticket?.event?.date || p.created_at,
-            price: p.amount,
-            quantity: p.quantity,
-            status: p.status === 'completed' ? 'confirmed' : p.status,
-            campus: p.ticket?.event?.university || "Unknown"
-          })));
-        }
+          if (!purchaseError && purchaseData) {
+            setPurchases(purchaseData.map(p => ({
+              id: p.id,
+              eventTitle: p.ticket?.event?.title || "Unknown Event",
+              date: p.ticket?.event?.date || p.created_at,
+              price: p.amount,
+              quantity: p.quantity,
+              status: p.status === 'completed' ? 'confirmed' : p.status,
+              campus: p.ticket?.event?.university || "Unknown"
+            })));
+          } else {
+            setPurchases([]);
+          }
 
-        if (!saleError && saleData) {
-          setSales(saleData.map(s => ({
-            id: s.id,
-            eventTitle: s.event?.title || "Unknown Event",
-            date: s.event?.date || s.created_at,
-            originalPrice: s.original_price,
-            salePrice: s.selling_price,
-            quantity: s.quantity,
-            status: s.status,
-            campus: s.event?.university || "Unknown"
-          })));
+          if (!saleError && saleData) {
+            setSales(saleData.map(s => ({
+              id: s.id,
+              eventTitle: s.event?.title || "Unknown Event",
+              date: s.event?.date || s.created_at,
+              originalPrice: s.original_price,
+              salePrice: s.selling_price,
+              quantity: s.quantity,
+              status: s.status,
+              campus: s.event?.university || "Unknown"
+            })));
+          } else {
+            setSales([]);
+          }
         }
       } catch (error) {
         if (import.meta.env.DEV) {
           console.error("Error fetching user data:", error);
         }
-        // In production, silently handle the error or send to logging service
       } finally {
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     };
 
     fetchUserData();
+
+    return () => {
+      mounted = false;
+    };
   }, [user, navigate]);
 
   const getStatusBadge = (status: string) => {
