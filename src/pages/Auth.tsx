@@ -79,12 +79,35 @@ const Auth = () => {
           return;
         }
 
+        // Check if account is locked
+        const { data: isLocked } = await supabase.rpc('check_account_lockout', {
+          user_email: email.trim()
+        });
+
+        if (isLocked) {
+          toast.error("Account temporarily locked due to multiple failed login attempts. Please try again in 15 minutes.");
+          setLoading(false);
+          return;
+        }
+
         const { error } = await supabase.auth.signInWithPassword({
           email: email.trim(),
           password,
         });
 
-        if (error) throw error;
+        if (error) {
+          // Increment failed login attempts
+          await supabase.rpc('increment_failed_login', {
+            user_email: email.trim()
+          });
+          throw error;
+        }
+
+        // Reset failed login attempts on success
+        await supabase.rpc('reset_failed_login', {
+          user_email: email.trim()
+        });
+        
         toast.success("Welcome back!");
         navigate("/");
       } else {

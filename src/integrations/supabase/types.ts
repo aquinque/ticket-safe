@@ -59,27 +59,36 @@ export type Database = {
       profiles: {
         Row: {
           created_at: string
+          deleted_at: string | null
           email: string
+          failed_login_attempts: number | null
           full_name: string
           id: string
+          locked_until: string | null
           university: string
           university_email: string
           updated_at: string
         }
         Insert: {
           created_at?: string
+          deleted_at?: string | null
           email: string
+          failed_login_attempts?: number | null
           full_name: string
           id: string
+          locked_until?: string | null
           university: string
           university_email: string
           updated_at?: string
         }
         Update: {
           created_at?: string
+          deleted_at?: string | null
           email?: string
+          failed_login_attempts?: number | null
           full_name?: string
           id?: string
+          locked_until?: string | null
           university?: string
           university_email?: string
           updated_at?: string
@@ -265,6 +274,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      anonymize_user: {
+        Args: { user_id: string }
+        Returns: undefined
+      }
+      check_account_lockout: {
+        Args: { user_email: string }
+        Returns: boolean
+      }
       get_purchased_ticket_file: {
         Args: { ticket_id: string }
         Returns: string
@@ -275,6 +292,14 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      increment_failed_login: {
+        Args: { user_email: string }
+        Returns: number
+      }
+      reset_failed_login: {
+        Args: { user_email: string }
+        Returns: undefined
       }
       validate_university_email: {
         Args: { email_address: string }
