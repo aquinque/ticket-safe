@@ -129,7 +129,7 @@ const Auth = () => {
           return;
         }
 
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabase.auth.signInWithPassword({
           email: email.trim(),
           password,
         });
@@ -146,13 +146,17 @@ const Auth = () => {
           return;
         }
 
-        // Reset failed login attempts on success
-        await supabase.rpc('reset_failed_login', {
-          user_email: email.trim()
-        });
-        
-        toast.success("Welcome back!");
-        navigate("/profile");
+        if (data.user) {
+          // Reset failed login attempts on success
+          await supabase.rpc('reset_failed_login', {
+            user_email: email.trim()
+          });
+          
+          toast.success("Welcome back!");
+          // Small delay to let auth state propagate
+          await new Promise(resolve => setTimeout(resolve, 200));
+          navigate("/profile");
+        }
       } else {
         // Client-side validation for signup
         if (!validateEmail(email)) {
@@ -208,7 +212,7 @@ const Auth = () => {
           return;
         }
 
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email: email.trim(),
           password,
           options: {
@@ -231,9 +235,13 @@ const Auth = () => {
           setLoading(false);
           return;
         }
-        
-        toast.success("Account created successfully!");
-        navigate("/profile");
+
+        if (data.user) {
+          toast.success("Account created successfully!");
+          // Small delay to let auth state propagate
+          await new Promise(resolve => setTimeout(resolve, 200));
+          navigate("/profile");
+        }
       }
     } catch (error: any) {
       // Generic error message to prevent information disclosure

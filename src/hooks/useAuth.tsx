@@ -10,14 +10,29 @@ export const useAuth = () => {
   useEffect(() => {
     let mounted = true;
 
-    // Check for existing session FIRST
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (mounted) {
-        setSession(session);
-        setUser(session?.user ?? null);
-        setLoading(false);
+    // Initialize auth state
+    const initAuth = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Error getting session:', error);
+        }
+        
+        if (mounted) {
+          setSession(session);
+          setUser(session?.user ?? null);
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error('Auth initialization error:', error);
+        if (mounted) {
+          setLoading(false);
+        }
       }
-    });
+    };
+
+    initAuth();
 
     // Set up auth state listener for changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -37,9 +52,13 @@ export const useAuth = () => {
   }, []);
 
   const signOut = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
-    setSession(null);
+    try {
+      await supabase.auth.signOut();
+      setUser(null);
+      setSession(null);
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
   };
 
   return { user, session, loading, signOut };

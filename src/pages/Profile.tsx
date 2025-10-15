@@ -50,6 +50,8 @@ const Profile = () => {
 
     const fetchUserData = async () => {
       try {
+        setLoading(true);
+
         // Fetch user profile
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
@@ -57,22 +59,25 @@ const Profile = () => {
           .eq('id', user.id)
           .maybeSingle();
 
-        if (profileError) {
-          throw profileError;
+        // Allow PGRST116 (no rows) error - profile might not exist yet
+        if (profileError && profileError.code !== 'PGRST116') {
+          console.error('Error fetching profile:', profileError);
         }
 
         if (!profile) {
-          // Profile doesn't exist yet - set default values
+          // Profile doesn't exist yet - set default values from user metadata
           if (mounted) {
             setUserData({
-              name: user.email?.split('@')[0] || "User",
+              name: user.user_metadata?.full_name || user.email?.split('@')[0] || "User",
               email: user.email || "",
-              campus: "",
+              campus: user.user_metadata?.university || "",
               memberSince: new Date().toISOString(),
               totalPurchases: 0,
               totalSales: 0,
               totalSaved: 0,
             });
+            setPurchases([]);
+            setSales([]);
             setLoading(false);
           }
           return;
@@ -90,6 +95,10 @@ const Profile = () => {
           .eq('buyer_id', user.id)
           .order('created_at', { ascending: false });
 
+        if (purchaseError) {
+          console.error('Error fetching purchases:', purchaseError);
+        }
+
         // Fetch sales (tickets sold by user)
         const { data: saleData, error: saleError } = await supabase
           .from('tickets')
@@ -101,50 +110,44 @@ const Profile = () => {
           .eq('seller_id', user.id)
           .order('created_at', { ascending: false });
 
+        if (saleError) {
+          console.error('Error fetching sales:', saleError);
+        }
+
         if (mounted) {
           setUserData({
             name: profile.full_name || user.email?.split('@')[0] || "User",
             email: profile.email || user.email || "",
             campus: profile.university || "",
-            memberSince: profile.created_at || "",
+            memberSince: profile.created_at || new Date().toISOString(),
             totalPurchases: purchaseData?.length || 0,
             totalSales: saleData?.filter(s => s.status === 'sold').length || 0,
             totalSaved: 0,
           });
 
-          if (!purchaseError && purchaseData) {
-            setPurchases(purchaseData.map(p => ({
-              id: p.id,
-              eventTitle: p.ticket?.event?.title || "Unknown Event",
-              date: p.ticket?.event?.date || p.created_at,
-              price: p.amount,
-              quantity: p.quantity,
-              status: p.status === 'completed' ? 'confirmed' : p.status,
-              campus: p.ticket?.event?.university || "Unknown"
-            })));
-          } else {
-            setPurchases([]);
-          }
+          setPurchases(purchaseData?.map(p => ({
+            id: p.id,
+            eventTitle: p.ticket?.event?.title || "Unknown Event",
+            date: p.ticket?.event?.date || p.created_at,
+            price: p.amount,
+            quantity: p.quantity,
+            status: p.status === 'completed' ? 'confirmed' : p.status,
+            campus: p.ticket?.event?.university || "Unknown"
+          })) || []);
 
-          if (!saleError && saleData) {
-            setSales(saleData.map(s => ({
-              id: s.id,
-              eventTitle: s.event?.title || "Unknown Event",
-              date: s.event?.date || s.created_at,
-              originalPrice: s.original_price,
-              salePrice: s.selling_price,
-              quantity: s.quantity,
-              status: s.status,
-              campus: s.event?.university || "Unknown"
-            })));
-          } else {
-            setSales([]);
-          }
+          setSales(saleData?.map(s => ({
+            id: s.id,
+            eventTitle: s.event?.title || "Unknown Event",
+            date: s.event?.date || s.created_at,
+            originalPrice: s.original_price,
+            salePrice: s.selling_price,
+            quantity: s.quantity,
+            status: s.status,
+            campus: s.event?.university || "Unknown"
+          })) || []);
         }
       } catch (error) {
-        if (import.meta.env.DEV) {
-          console.error("Error fetching user data:", error);
-        }
+        console.error("Error fetching user data:", error);
       } finally {
         if (mounted) {
           setLoading(false);

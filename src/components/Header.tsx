@@ -21,19 +21,29 @@ const Header = () => {
 
   useEffect(() => {
     if (user) {
-      // Fetch user profile to get their name
-      const fetchUserProfile = async () => {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('full_name')
-          .eq('id', user.id)
-          .single();
-        
-        if (data && !error) {
-          setUserName(data.full_name);
-        }
-      };
-      fetchUserProfile();
+      // Try to get name from user metadata first (faster)
+      const metaName = user.user_metadata?.full_name;
+      if (metaName) {
+        setUserName(metaName);
+      } else {
+        // Fallback to database query
+        const fetchUserProfile = async () => {
+          try {
+            const { data, error } = await supabase
+              .from('profiles')
+              .select('full_name')
+              .eq('id', user.id)
+              .maybeSingle();
+            
+            if (data && !error) {
+              setUserName(data.full_name);
+            }
+          } catch (error) {
+            console.error('Error fetching profile:', error);
+          }
+        };
+        fetchUserProfile();
+      }
     } else {
       setUserName("");
     }
