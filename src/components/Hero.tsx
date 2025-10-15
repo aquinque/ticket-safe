@@ -45,7 +45,7 @@ const Hero = () => {
           </div>
 
           {/* Stats Banner */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-12 max-w-2xl mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-12 max-w-xl mx-auto">
             <div className="text-center">
               <div className="text-3xl font-bold bg-gradient-hero bg-clip-text text-transparent">10k+</div>
               <p className="text-sm text-muted-foreground">Active Students</p>
@@ -53,10 +53,6 @@ const Hero = () => {
             <div className="text-center">
               <div className="text-3xl font-bold bg-gradient-hero bg-clip-text text-transparent">25+</div>
               <p className="text-sm text-muted-foreground">Universities</p>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-bold bg-gradient-hero bg-clip-text text-transparent">15k+</div>
-              <p className="text-sm text-muted-foreground">Verified Transactions</p>
             </div>
           </div>
 

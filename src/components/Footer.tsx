@@ -73,15 +73,10 @@ const Footer = () => {
           <div>
             <h3 className="font-semibold mb-4">Contact</h3>
             <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm text-background/70">
+              <a href="mailto:ticketsafe.friendly@gmail.com" className="flex items-center gap-2 text-sm text-background/70 hover:text-background transition-colors">
                 <Mail className="w-4 h-4" />
-                <span>hello@ticketsafe.fr</span>
-              </div>
-              <p className="text-sm text-background/70">
-                École Centrale Paris
-                <br />
-                Châtenay-Malabry, France
-              </p>
+                <span>ticketsafe.friendly@gmail.com</span>
+              </a>
             </div>
           </div>
         </div>
