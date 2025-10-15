@@ -6,7 +6,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Loader2, Mail, Lock, User, GraduationCap } from "lucide-react";
+import { Loader2, Mail, Lock, User, GraduationCap, CheckCircle2, XCircle } from "lucide-react";
+import { z } from "zod";
+
+const passwordSchema = z.string()
+  .min(12, 'Password must be at least 12 characters')
+  .regex(/[A-Z]/, 'Must contain uppercase letter')
+  .regex(/[a-z]/, 'Must contain lowercase letter')
+  .regex(/[0-9]/, 'Must contain number')
+  .regex(/[^A-Za-z0-9]/, 'Must contain special character');
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -34,6 +42,22 @@ const Auth = () => {
     return domain.split('.')[0].toUpperCase();
   };
 
+  const getPasswordStrength = (password: string): { strength: number; label: string; color: string } => {
+    let strength = 0;
+    if (password.length >= 12) strength++;
+    if (/[A-Z]/.test(password)) strength++;
+    if (/[a-z]/.test(password)) strength++;
+    if (/[0-9]/.test(password)) strength++;
+    if (/[^A-Za-z0-9]/.test(password)) strength++;
+
+    if (strength <= 2) return { strength, label: 'Weak', color: 'bg-red-500' };
+    if (strength === 3) return { strength, label: 'Medium', color: 'bg-yellow-500' };
+    if (strength === 4) return { strength, label: 'Strong', color: 'bg-green-500' };
+    return { strength, label: 'Very Strong', color: 'bg-green-600' };
+  };
+
+  const passwordStrength = getPasswordStrength(password);
+
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -47,8 +71,10 @@ const Auth = () => {
           return;
         }
 
-        if (password.length < 6) {
-          toast.error("Password must be at least 6 characters");
+        const passwordValidation = passwordSchema.safeParse(password);
+        if (!passwordValidation.success) {
+          const errors = passwordValidation.error.errors.map(e => e.message);
+          toast.error(errors[0]);
           setLoading(false);
           return;
         }
@@ -81,8 +107,10 @@ const Auth = () => {
           return;
         }
 
-        if (password.length < 6) {
-          toast.error("Password must be at least 6 characters");
+        const passwordValidation = passwordSchema.safeParse(password);
+        if (!passwordValidation.success) {
+          const errors = passwordValidation.error.errors.map(e => e.message);
+          toast.error(errors[0]);
           setLoading(false);
           return;
         }
@@ -209,8 +237,51 @@ const Auth = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                minLength={6}
+                minLength={12}
               />
+              {!isLogin && password && (
+                <div className="space-y-2 pt-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">Password strength:</span>
+                    <span className={`font-medium ${
+                      passwordStrength.strength <= 2 ? 'text-red-500' :
+                      passwordStrength.strength === 3 ? 'text-yellow-500' :
+                      passwordStrength.strength === 4 ? 'text-green-500' :
+                      'text-green-600'
+                    }`}>
+                      {passwordStrength.label}
+                    </span>
+                  </div>
+                  <div className="w-full bg-secondary rounded-full h-1.5">
+                    <div 
+                      className={`h-1.5 rounded-full transition-all ${passwordStrength.color}`}
+                      style={{ width: `${(passwordStrength.strength / 5) * 100}%` }}
+                    />
+                  </div>
+                  <div className="space-y-1 text-xs">
+                    <div className={`flex items-center gap-1.5 ${password.length >= 12 ? 'text-green-600' : 'text-muted-foreground'}`}>
+                      {password.length >= 12 ? <CheckCircle2 className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+                      <span>At least 12 characters</span>
+                    </div>
+                    <div className={`flex items-center gap-1.5 ${/[A-Z]/.test(password) ? 'text-green-600' : 'text-muted-foreground'}`}>
+                      {/[A-Z]/.test(password) ? <CheckCircle2 className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+                      <span>Uppercase letter (A-Z)</span>
+                    </div>
+                    <div className={`flex items-center gap-1.5 ${/[a-z]/.test(password) ? 'text-green-600' : 'text-muted-foreground'}`}>
+                      {/[a-z]/.test(password) ? <CheckCircle2 className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+                      <span>Lowercase letter (a-z)</span>
+                    </div>
+                    <div className={`flex items-center gap-1.5 ${/[0-9]/.test(password) ? 'text-green-600' : 'text-muted-foreground'}`}>
+                      {/[0-9]/.test(password) ? <CheckCircle2 className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+                      <span>Number (0-9)</span>
+                    </div>
+                    <div className={`flex items-center gap-1.5 ${/[^A-Za-z0-9]/.test(password) ? 'text-green-600' : 'text-muted-foreground'}`}>
+                      {/[^A-Za-z0-9]/.test(password) ? <CheckCircle2 className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+                      <span>Special character (!@#$...)</span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
