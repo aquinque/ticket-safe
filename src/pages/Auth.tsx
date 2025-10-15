@@ -213,6 +213,28 @@ const Auth = () => {
           return;
         }
 
+        // Auto-detect campus from ESCP email
+        let detectedCampus = "";
+        const emailLower = email.toLowerCase();
+        
+        if (emailLower.includes("escp")) {
+          // Try to detect campus from email domain or patterns
+          if (emailLower.includes("paris") || emailLower.includes(".fr")) {
+            detectedCampus = "Paris";
+          } else if (emailLower.includes("berlin") || emailLower.includes(".de")) {
+            detectedCampus = "Berlin";
+          } else if (emailLower.includes("london") || emailLower.includes(".uk")) {
+            detectedCampus = "London";
+          } else if (emailLower.includes("madrid") || emailLower.includes(".es")) {
+            detectedCampus = "Madrid";
+          } else if (emailLower.includes("turin") || emailLower.includes("torino") || emailLower.includes(".it")) {
+            detectedCampus = "Turin";
+          } else {
+            // Default to Paris for ESCP emails without clear campus indicator
+            detectedCampus = "Paris";
+          }
+        }
+
         const { data, error } = await supabase.auth.signUp({
           email: email.trim(),
           password,
@@ -221,6 +243,7 @@ const Auth = () => {
             data: {
               full_name: fullName.trim(),
               university: detectedUniversity.trim(),
+              campus: detectedCampus,
             },
           },
         });

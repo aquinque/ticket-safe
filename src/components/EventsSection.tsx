@@ -4,84 +4,12 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Search, Filter, Calendar, MapPin } from "lucide-react";
 import EventCard from "./EventCard";
-
-// Mock data for demonstration
-const mockEvents = [
-  {
-    id: "1",
-    title: "Soirée de rentrée ECP 2024",
-    date: "2024-10-15",
-    time: "20:00",
-    location: "Le Showcase, Paris",
-    campus: "ECP Paris",
-    type: "Soirée",
-    price: 25,
-    availableTickets: 12,
-    totalTickets: 50,
-  },
-  {
-    id: "2", 
-    title: "Gala des Mines - Grande Soirée",
-    date: "2024-11-08",
-    time: "19:30",
-    location: "Pavillon Dauphine, Paris",
-    campus: "Mines ParisTech",
-    type: "Gala",
-    price: 45,
-    availableTickets: 8,
-    totalTickets: 30,
-  },
-  {
-    id: "3",
-    title: "Concert Live - Artiste Surprise",
-    date: "2024-10-22",
-    time: "21:00", 
-    location: "Bataclan, Paris",
-    campus: "ECP Paris",
-    type: "Concert",
-    price: 35,
-    availableTickets: 5,
-    totalTickets: 25,
-  },
-  {
-    id: "4",
-    title: "WEI 2024 - Weekend d'intégration",
-    date: "2024-11-15",
-    time: "14:00",
-    location: "Château de Fontainebleau",
-    campus: "ECP Paris",
-    type: "WEI",
-    price: 120,
-    availableTickets: 3,
-    totalTickets: 15,
-  },
-  {
-    id: "5",
-    title: "After Work Étudiants",
-    date: "2024-10-18",
-    time: "18:30",
-    location: "Le Perchoir, Paris",
-    campus: "HEC Paris",
-    type: "Soirée",
-    price: 20,
-    availableTickets: 15,
-    totalTickets: 40,
-  },
-  {
-    id: "6",
-    title: "Tournoi Gaming Inter-Écoles",
-    date: "2024-11-02",
-    time: "14:00",
-    location: "Campus Numérique, Ivry",
-    campus: "EPITECH",
-    type: "Tournament",
-    price: 15,
-    availableTickets: 20,
-    totalTickets: 100,
-  }
-];
+import { useEvents } from "@/hooks/useEvents";
+import { useAuth } from "@/hooks/useAuth";
 
 const EventsSection = () => {
+  const { user } = useAuth();
+  const { data: events, isLoading } = useEvents();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCampus, setSelectedCampus] = useState("all-campus");
   const [selectedType, setSelectedType] = useState("all-types");
@@ -89,15 +17,19 @@ const EventsSection = () => {
 
   // ESCP official campuses only
   const campuses = ["Paris", "Berlin", "London", "Madrid", "Turin"];
-  const eventTypes = [...new Set(mockEvents.map(event => event.type))];
+  
+  // Get unique event types from real data
+  const eventTypes = events 
+    ? [...new Set(events.map(event => event.category))]
+    : [];
 
   // Filter and sort events
-  const filteredEvents = mockEvents
+  const filteredEvents = (events || [])
     .filter(event => {
       const matchesSearch = event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            event.location.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesCampus = selectedCampus === "all-campus" || event.campus === selectedCampus;
-      const matchesType = selectedType === "all-types" || event.type === selectedType;
+      const matchesType = selectedType === "all-types" || event.category === selectedType;
       return matchesSearch && matchesCampus && matchesType;
     })
     .sort((a, b) => {
@@ -105,9 +37,11 @@ const EventsSection = () => {
         case "date":
           return new Date(a.date).getTime() - new Date(b.date).getTime();
         case "price":
-          return a.price - b.price;
+          // Sort by ticket price if available
+          return 0;
         case "availability":
-          return b.availableTickets - a.availableTickets;
+          // Sort by availability if data available
+          return 0;
         default:
           return 0;
       }
@@ -184,12 +118,34 @@ const EventsSection = () => {
           </div>
         </div>
 
+        {/* Loading State */}
+        {isLoading && (
+          <div className="text-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading events...</p>
+          </div>
+        )}
+
         {/* Events Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          {filteredEvents.map(event => (
-            <EventCard key={event.id} {...event} />
-          ))}
-        </div>
+        {!isLoading && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+            {filteredEvents.map(event => (
+              <EventCard 
+                key={event.id}
+                id={event.id}
+                title={event.title}
+                date={event.date}
+                time=""
+                location={event.location}
+                campus={event.campus || ""}
+                type={event.category}
+                price={0}
+                availableTickets={0}
+                totalTickets={0}
+              />
+            ))}
+          </div>
+        )}
 
         {/* Load More */}
         {filteredEvents.length > 0 && (
@@ -201,14 +157,16 @@ const EventsSection = () => {
         )}
 
         {/* No Results */}
-        {filteredEvents.length === 0 && (
+        {!isLoading && filteredEvents.length === 0 && (
           <div className="text-center py-12">
             <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
               <Search className="w-8 h-8 text-muted-foreground" />
             </div>
-            <h3 className="text-xl font-semibold mb-2">No events found</h3>
+            <h3 className="text-xl font-semibold mb-2">No events found for your campus</h3>
             <p className="text-muted-foreground">
-              Try adjusting your filters or come back later to see new events.
+              {user 
+                ? "No events are currently available for your campus. Check back soon!"
+                : "Try adjusting your filters or come back later to see new events."}
             </p>
           </div>
         )}

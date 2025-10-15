@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       events: {
         Row: {
+          campus: string | null
           category: string
           created_at: string
           date: string
@@ -29,6 +30,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          campus?: string | null
           category: string
           created_at?: string
           date: string
@@ -42,6 +44,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          campus?: string | null
           category?: string
           created_at?: string
           date?: string
@@ -58,6 +61,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          campus: string | null
           created_at: string
           deleted_at: string | null
           email: string
@@ -70,6 +74,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          campus?: string | null
           created_at?: string
           deleted_at?: string | null
           email: string
@@ -82,6 +87,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          campus?: string | null
           created_at?: string
           deleted_at?: string | null
           email?: string

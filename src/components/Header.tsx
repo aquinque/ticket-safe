@@ -60,6 +60,7 @@ const Header = () => {
     { path: "/", label: "Home" },
     { path: "/events", label: "Marketplace" },
     { path: "/sell", label: "Sell Tickets" },
+    { path: "/campus-life", label: "Campus Life" },
     { path: "/about", label: "About" },
     { path: "/contact", label: "Contact" },
   ];

@@ -6,6 +6,7 @@ export interface Event {
   location: string;
   category: string;
   university: string;
+  campus: string | null;
   image_url: string | null;
   is_active: boolean;
   created_at: string;
