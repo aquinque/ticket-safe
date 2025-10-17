@@ -44,14 +44,6 @@ const Hero = () => {
             </Button>
           </div>
 
-          {/* Stats Banner */}
-          <div className="max-w-xs mx-auto mb-12">
-            <div className="text-center">
-              <div className="text-3xl font-bold bg-gradient-hero bg-clip-text text-transparent">10k+</div>
-              <p className="text-sm text-muted-foreground">Active Students</p>
-            </div>
-          </div>
-
           {/* Trust Indicators */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-3xl mx-auto">
             <div className="flex flex-col items-center gap-3 p-4">

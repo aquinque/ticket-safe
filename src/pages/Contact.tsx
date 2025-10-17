@@ -1,5 +1,4 @@
 import Header from "@/components/Header";
-import Footer from "@/components/Footer";
 import { BackButton } from "@/components/BackButton";
 import { Mail, HelpCircle } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -78,7 +77,6 @@ const Contact = () => {
           </Card>
         </div>
       </main>
-      <Footer />
     </div>
   );
 };
