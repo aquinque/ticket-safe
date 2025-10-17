@@ -24,8 +24,7 @@ const Hero = () => {
 
           {/* Subtitle */}
           <p className="text-lg md:text-xl text-muted-foreground mb-8 max-w-2xl mx-auto animate-slide-up">
-            The easiest and safest way to buy and sell student event tickets. 
-            Instant transactions, verified users, and secure payments—all in one platform.
+            Ticket Safe is the trusted platform for students to safely buy and sell event tickets—no scams, no bots, just real students.
           </p>
 
           {/* CTA Buttons */}
@@ -48,21 +47,21 @@ const Hero = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-3xl mx-auto">
             <div className="flex flex-col items-center gap-3 p-4">
               <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
-                <Shield className="w-6 h-6 text-primary" />
+                <Users className="w-6 h-6 text-primary" />
               </div>
-              <h3 className="font-semibold text-foreground">Secure Payment</h3>
+              <h3 className="font-semibold text-foreground">Verified Students Only</h3>
               <p className="text-sm text-muted-foreground text-center">
-                Protected transactions and guaranteed refunds
+                Only students with verified university emails can join
               </p>
             </div>
 
             <div className="flex flex-col items-center gap-3 p-4">
               <div className="w-12 h-12 bg-secondary/10 rounded-xl flex items-center justify-center">
-                <Users className="w-6 h-6 text-secondary" />
+                <Shield className="w-6 h-6 text-secondary" />
               </div>
-              <h3 className="font-semibold text-foreground">Lightning Fast</h3>
+              <h3 className="font-semibold text-foreground">Secure Payments</h3>
               <p className="text-sm text-muted-foreground text-center">
-                List your ticket in seconds and connect with buyers instantly
+                Protected transactions with trusted payment processing
               </p>
             </div>
 
@@ -70,9 +69,9 @@ const Hero = () => {
               <div className="w-12 h-12 bg-accent/10 rounded-xl flex items-center justify-center">
                 <Search className="w-6 h-6 text-accent" />
               </div>
-              <h3 className="font-semibold text-foreground">Easy to Use</h3>
+              <h3 className="font-semibold text-foreground">Fast Matching</h3>
               <p className="text-sm text-muted-foreground text-center">
-                Intuitive interface specially designed for students
+                Quick connections between sellers and buyers
               </p>
             </div>
           </div>

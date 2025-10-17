@@ -63,48 +63,7 @@ const Sell = () => {
     description: "",
   });
 
-  const [priceValidation, setPriceValidation] = useState<{
-    isValid: boolean;
-    minPrice: number;
-    maxPrice: number;
-    message: string;
-  } | null>(null);
-  
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const validatePrice = (basePrice: number | null, sellingPrice: string) => {
-    if (!basePrice) {
-      setPriceValidation(null);
-      return;
-    }
-
-    const selling = parseFloat(sellingPrice);
-    if (!selling || isNaN(selling)) {
-      setPriceValidation(null);
-      return;
-    }
-
-    const minAllowed = basePrice;
-    const maxAllowed = basePrice + 1;
-    const isValid = selling >= minAllowed && selling <= maxAllowed;
-
-    let message = "";
-    if (selling < minAllowed) {
-      message = `Price too low! Minimum: €${minAllowed.toFixed(2)}`;
-    } else if (selling > maxAllowed) {
-      message = `Price exceeds limit! Maximum: €${maxAllowed.toFixed(2)}`;
-    } else {
-      const markup = selling - basePrice;
-      message = `Valid price (+€${markup.toFixed(2)})`;
-    }
-
-    setPriceValidation({
-      isValid,
-      minPrice: minAllowed,
-      maxPrice: maxAllowed,
-      message,
-    });
-  };
 
   const handleEventSelect = (eventId: string) => {
     const event = events?.find(e => e.id === eventId);
@@ -113,21 +72,13 @@ const Sell = () => {
       setFormData({
         ...formData,
         eventId: event.id,
-        sellingPrice: event.base_price ? event.base_price.toString() : "",
+        sellingPrice: "",
       });
-      
-      // Validate the automatically set base price
-      if (event.base_price) {
-        validatePrice(event.base_price, event.base_price.toString());
-      }
     }
   };
 
   const handlePriceChange = (value: string) => {
     setFormData({ ...formData, sellingPrice: value });
-    if (selectedEvent?.base_price) {
-      validatePrice(selectedEvent.base_price, value);
-    }
   };
 
   const handleSubmit = async () => {
@@ -136,12 +87,7 @@ const Sell = () => {
       return;
     }
 
-    if (!selectedEvent.base_price) {
-      toast.error("This event doesn't have a base price set");
-      return;
-    }
-
-    if (!priceValidation?.isValid) {
+    if (!formData.sellingPrice || parseFloat(formData.sellingPrice) <= 0) {
       toast.error("Please enter a valid selling price");
       return;
     }
@@ -150,7 +96,7 @@ const Sell = () => {
 
     try {
       const sellingPrice = parseFloat(formData.sellingPrice);
-      const basePrice = selectedEvent.base_price;
+      const basePrice = selectedEvent.base_price || 0;
 
       // Create ticket listing
       const { data, error } = await supabase
@@ -179,7 +125,6 @@ const Sell = () => {
         description: "",
       });
       setSelectedEvent(null);
-      setPriceValidation(null);
       
       // Navigate to profile to see the listing
       setTimeout(() => navigate('/profile'), 1500);
@@ -203,10 +148,10 @@ const Sell = () => {
           {/* Header */}
           <div className="text-center mb-12">
             <h1 className="text-4xl font-bold mb-4">
-              Sell my tickets
+              Sell your ticket now
             </h1>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Resell your tickets safely. Maximum resale price: base price + €1 to ensure fairness.
+              List your tickets safely and connect with verified student buyers.
             </p>
           </div>
 
@@ -257,9 +202,6 @@ const Sell = () => {
                           )}
                         </SelectContent>
                       </Select>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Base price will be automatically set
-                      </p>
                     </div>
 
                     {selectedEvent && (
@@ -294,9 +236,9 @@ const Sell = () => {
                         <Info className="w-4 h-4 text-primary" />
                         <AlertDescription>
                           <div className="space-y-1">
-                            <p className="font-medium">Base Price: €{selectedEvent.base_price.toFixed(2)}</p>
+                            <p className="font-medium">Original Price: €{selectedEvent.base_price.toFixed(2)}</p>
                             <p className="text-sm text-muted-foreground">
-                              Maximum resale price: €{(selectedEvent.base_price + 1).toFixed(2)} (base + €1)
+                              Reference price for this event
                             </p>
                           </div>
                         </AlertDescription>
@@ -310,18 +252,14 @@ const Sell = () => {
                           id="sellingPrice"
                           type="number"
                           step="0.01"
-                          min={selectedEvent?.base_price || 0}
-                          max={selectedEvent?.base_price ? selectedEvent.base_price + 1 : undefined}
-                          placeholder={selectedEvent?.base_price ? selectedEvent.base_price.toFixed(2) : "Select event first"}
+                          min="0"
+                          placeholder="Enter your price"
                           value={formData.sellingPrice}
                           onChange={(e) => handlePriceChange(e.target.value)}
-                          disabled={!selectedEvent?.base_price}
+                          disabled={!selectedEvent}
                         />
                         <p className="text-xs text-muted-foreground mt-1">
-                          {selectedEvent?.base_price 
-                            ? `Between €${selectedEvent.base_price.toFixed(2)} and €${(selectedEvent.base_price + 1).toFixed(2)}`
-                            : "Select an event to set price"
-                          }
+                          You can freely set your resale price. Make sure it remains fair and reasonable for fellow students.
                         </p>
                       </div>
 
@@ -342,22 +280,6 @@ const Sell = () => {
                         </Select>
                       </div>
                     </div>
-
-                    {/* Price Validation */}
-                    {priceValidation && (
-                      <Alert className={priceValidation.isValid ? "border-accent bg-accent/5" : "border-destructive bg-destructive/5"}>
-                        <div className="flex items-center gap-2">
-                          {priceValidation.isValid ? (
-                            <CheckCircle2 className="w-4 h-4 text-accent" />
-                          ) : (
-                            <AlertCircle className="w-4 h-4 text-destructive" />
-                          )}
-                          <AlertDescription className="font-medium">
-                            {priceValidation.message}
-                          </AlertDescription>
-                        </div>
-                      </Alert>
-                    )}
                   </div>
 
                   {/* Description */}
@@ -399,15 +321,9 @@ const Sell = () => {
                 <CardContent>
                   <div className="space-y-3">
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Base price:</span>
+                      <span className="text-muted-foreground">Original price:</span>
                       <span className="font-medium">
                         {selectedEvent?.base_price ? `€${selectedEvent.base_price.toFixed(2)}` : "-"}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Maximum allowed:</span>
-                      <span className="font-medium text-accent">
-                        {selectedEvent?.base_price ? `€${(selectedEvent.base_price + 1).toFixed(2)}` : "-"}
                       </span>
                     </div>
                     <div className="flex justify-between">
@@ -437,16 +353,16 @@ const Sell = () => {
               {/* Guidelines */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Ticket Safe Rules</CardTitle>
+                  <CardTitle>Selling Guidelines</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3 text-sm">
                   <div className="flex items-start gap-2">
                     <CheckCircle2 className="w-4 h-4 text-accent mt-0.5 flex-shrink-0" />
-                    <span>Maximum base price + €1</span>
+                    <span>Set fair and reasonable prices</span>
                   </div>
                   <div className="flex items-start gap-2">
                     <CheckCircle2 className="w-4 h-4 text-accent mt-0.5 flex-shrink-0" />
-                    <span>Automatic price verification</span>
+                    <span>Only verified students can buy</span>
                   </div>
                   <div className="flex items-start gap-2">
                     <CheckCircle2 className="w-4 h-4 text-accent mt-0.5 flex-shrink-0" />
@@ -454,7 +370,7 @@ const Sell = () => {
                   </div>
                   <div className="flex items-start gap-2">
                     <CheckCircle2 className="w-4 h-4 text-accent mt-0.5 flex-shrink-0" />
-                    <span>Refund if event cancelled</span>
+                    <span>All tickets verified for authenticity</span>
                   </div>
                 </CardContent>
               </Card>
@@ -464,14 +380,14 @@ const Sell = () => {
                 variant="hero" 
                 size="lg" 
                 className="w-full"
-                disabled={!priceValidation?.isValid || !selectedEvent || !formData.sellingPrice || isSubmitting}
+                disabled={!selectedEvent || !formData.sellingPrice || isSubmitting}
                 onClick={handleSubmit}
               >
                 {isSubmitting ? "Publishing..." : "Publish my tickets"}
               </Button>
               
               <p className="text-xs text-center text-muted-foreground">
-                By publishing, you agree to our terms and pricing policy
+                By publishing, you agree to our terms and conditions
               </p>
             </div>
           </div>

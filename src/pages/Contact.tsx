@@ -62,9 +62,9 @@ const Contact = () => {
                 </p>
               </div>
               <div>
-                <h3 className="font-semibold mb-2">What are the pricing regulations?</h3>
+                <h3 className="font-semibold mb-2">How does pricing work?</h3>
                 <p className="text-muted-foreground">
-                  Prices are regulated to stay fair for everyone—low enough for buyers to afford easily, yet allowing sellers to resell without losing money.
+                  Students can freely set their own resale prices. We encourage fair and reasonable pricing to maintain trust within our student community.
                 </p>
               </div>
               <div>

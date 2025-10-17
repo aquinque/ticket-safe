@@ -20,18 +20,18 @@ const About = () => {
   const features = [
     {
       icon: Shield,
-      title: "Ethics and Transparency",
-      description: "Prices are regulated to stay fair for everyone—low enough for buyers to afford easily, yet allowing sellers to resell without losing money. This balance prevents speculation while keeping resale simple and fair for both sides."
+      title: "Safety and Trust",
+      description: "All tickets are verified to ensure authenticity, and only verified students can join the platform—preventing scams and ensuring a trustworthy community."
     },
     {
       icon: Users,
-      title: "Student Community",
-      description: "Designed by and for students, with an interface tailored to their needs."
+      title: "Student-Only Community",
+      description: "Exclusively for verified university students (like ESCP), creating a safe and transparent marketplace among peers."
     },
     {
       icon: Target,
-      title: "Ease of Use",
-      description: "Optimized buying and selling process for a smooth experience."
+      title: "User-Focused Experience",
+      description: "Smooth interface, secure payments, and responsive support—making buying and selling tickets fast and easy."
     },
   ];
 
@@ -61,20 +61,20 @@ const About = () => {
 
   const values = [
     {
-      title: "Fairness",
-      description: "Capped prices to prevent excessive speculation"
+      title: "Transparency",
+      description: "Fair and transparent pricing set by students themselves"
     },
     {
       title: "Security", 
-      description: "Protected payments and verified transactions"
+      description: "Protected payments and verified student community"
     },
     {
-      title: "Community",
-      description: "Foster connections between students from different schools"
+      title: "Authenticity",
+      description: "All tickets verified to ensure legitimacy—no fakes"
     },
     {
-      title: "Innovation",
-      description: "Ethical alternative to giants like Ticketmaster"
+      title: "Trust",
+      description: "Legal and safe student-to-student marketplace"
     }
   ];
 
@@ -100,9 +100,9 @@ const About = () => {
                 {" "}ticket resale
               </h1>
               <p className="text-lg text-muted-foreground mb-8 max-w-3xl mx-auto">
-                Ticket Safe was born from a simple belief: ticket resale must be fair, 
-                transparent and serve the student community. We create an ethical 
-                alternative to traditional platforms.
+                Ticket Safe was born from a simple belief: ticket resale must be safe, 
+                legal, and transparent for the student community. We provide a trusted 
+                marketplace where verified students can buy and sell tickets securely.
               </p>
             </div>
           </div>
@@ -115,9 +115,9 @@ const About = () => {
               <div>
                 <h2 className="text-3xl font-bold mb-6">Our Mission</h2>
                 <p className="text-lg text-muted-foreground mb-6">
-                  Enable students to resell and buy their event tickets 
-                  with ease, through a fair system that prevents speculation 
-                  while ensuring transaction security.
+                  Enable students to buy and sell their event tickets safely and legally, 
+                  through a trusted platform with verified users, fraud prevention, 
+                  and secure payments—giving students the freedom to set fair prices.
                 </p>
                 <div className="space-y-4">
                   {features.map((feature, index) => (
@@ -227,23 +227,23 @@ const About = () => {
                     <div className="space-y-3">
                       <div className="flex items-start gap-2">
                         <CheckCircle2 className="w-4 h-4 text-accent mt-0.5" />
-                        <span className="text-sm">Regulated pricing—fair for buyers and sellers</span>
+                        <span className="text-sm">Verified student community—university emails only</span>
                       </div>
                       <div className="flex items-start gap-2">
                         <CheckCircle2 className="w-4 h-4 text-accent mt-0.5" />
-                        <span className="text-sm">Fixed 5% commission</span>
+                        <span className="text-sm">All tickets verified for authenticity</span>
                       </div>
                       <div className="flex items-start gap-2">
                         <CheckCircle2 className="w-4 h-4 text-accent mt-0.5" />
-                        <span className="text-sm">Verified student community</span>
+                        <span className="text-sm">Students set their own fair prices</span>
                       </div>
                       <div className="flex items-start gap-2">
                         <CheckCircle2 className="w-4 h-4 text-accent mt-0.5" />
-                        <span className="text-sm">Mobile-first interface</span>
+                        <span className="text-sm">Secure payments and fraud prevention</span>
                       </div>
                       <div className="flex items-start gap-2">
                         <CheckCircle2 className="w-4 h-4 text-accent mt-0.5" />
-                        <span className="text-sm">Responsive and human support</span>
+                        <span className="text-sm">Easy-to-use interface and responsive support</span>
                       </div>
                     </div>
                   </CardContent>
@@ -262,23 +262,23 @@ const About = () => {
                     <div className="space-y-3 text-muted-foreground">
                       <div className="flex items-start gap-2">
                         <div className="w-4 h-4 border border-muted-foreground rounded-full mt-0.5" />
-                        <span className="text-sm">No price limits (speculation)</span>
+                        <span className="text-sm">No student verification (scams and bots)</span>
                       </div>
                       <div className="flex items-start gap-2">
                         <div className="w-4 h-4 border border-muted-foreground rounded-full mt-0.5" />
-                        <span className="text-sm">Variable and high commissions</span>
+                        <span className="text-sm">Higher fees and hidden costs</span>
                       </div>
                       <div className="flex items-start gap-2">
                         <div className="w-4 h-4 border border-muted-foreground rounded-full mt-0.5" />
-                        <span className="text-sm">Mixed general public</span>
+                        <span className="text-sm">Mixed audience with scalpers</span>
                       </div>
                       <div className="flex items-start gap-2">
                         <div className="w-4 h-4 border border-muted-foreground rounded-full mt-0.5" />
-                        <span className="text-sm">Complex interfaces</span>
+                        <span className="text-sm">Complex and confusing interfaces</span>
                       </div>
                       <div className="flex items-start gap-2">
                         <div className="w-4 h-4 border border-muted-foreground rounded-full mt-0.5" />
-                        <span className="text-sm">Automated support</span>
+                        <span className="text-sm">Automated support with slow responses</span>
                       </div>
                     </div>
                   </CardContent>
@@ -296,8 +296,8 @@ const About = () => {
                 Join the Ticket Safe revolution
               </h2>
               <p className="text-lg text-white/90 mb-8">
-                Participate in building a fairer and more supportive student community. 
-                Every ticket sold or bought contributes to our mission.
+                Join a trusted community of verified students. 
+                Buy and sell tickets safely, legally, and transparently.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Button variant="secondary" size="lg" asChild>
@@ -309,7 +309,7 @@ const About = () => {
                 </Button>
                 <Button variant="outline" size="lg" className="border-white text-white hover:bg-white hover:text-primary" asChild>
                   <Link to="/sell">
-                    Sell my tickets
+                    Sell your ticket now
                   </Link>
                 </Button>
               </div>
