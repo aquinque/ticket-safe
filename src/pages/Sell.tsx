@@ -98,6 +98,26 @@ const Sell = () => {
       const sellingPrice = parseFloat(formData.sellingPrice);
       const basePrice = selectedEvent.base_price || 0;
 
+      // Server-side validation
+      const { data: validationData, error: validationError } = await supabase.functions.invoke(
+        'validate-ticket-submission',
+        {
+          body: {
+            eventId: selectedEvent.id,
+            sellingPrice,
+            quantity: parseInt(formData.quantity),
+            notes: formData.description,
+          },
+        }
+      );
+
+      if (validationError || !validationData?.valid) {
+        const errors = validationData?.errors || [validationError?.message || 'Validation failed'];
+        toast.error(errors[0]);
+        setIsSubmitting(false);
+        return;
+      }
+
       // Create ticket listing
       const { data, error } = await supabase
         .from('tickets')
