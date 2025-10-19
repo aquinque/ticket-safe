@@ -12,13 +12,7 @@ export const BackButton = ({ className = "", fallbackPath = "/" }: BackButtonPro
   const location = useLocation();
 
   const handleBack = () => {
-    // If there's history to go back to, use it
-    if (window.history.length > 2) {
-      navigate(-1);
-    } else {
-      // Otherwise go to fallback path
-      navigate(fallbackPath);
-    }
+    navigate(fallbackPath);
   };
 
   // Don't show back button on home page
