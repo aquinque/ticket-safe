@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      data_requests: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          request_type: string
+          requested_at: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          request_type: string
+          requested_at?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          request_type?: string
+          requested_at?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       events: {
         Row: {
           base_price: number | null
@@ -225,6 +261,51 @@ export type Database = {
           },
         ]
       }
+      user_consents: {
+        Row: {
+          consent_text: string
+          consent_type: Database["public"]["Enums"]["consent_type"]
+          created_at: string
+          expires_at: string | null
+          granted_at: string
+          id: string
+          ip_address: unknown | null
+          status: Database["public"]["Enums"]["consent_status"]
+          updated_at: string
+          user_agent: string | null
+          user_id: string
+          withdrawn_at: string | null
+        }
+        Insert: {
+          consent_text: string
+          consent_type: Database["public"]["Enums"]["consent_type"]
+          created_at?: string
+          expires_at?: string | null
+          granted_at?: string
+          id?: string
+          ip_address?: unknown | null
+          status?: Database["public"]["Enums"]["consent_status"]
+          updated_at?: string
+          user_agent?: string | null
+          user_id: string
+          withdrawn_at?: string | null
+        }
+        Update: {
+          consent_text?: string
+          consent_type?: Database["public"]["Enums"]["consent_type"]
+          created_at?: string
+          expires_at?: string | null
+          granted_at?: string
+          id?: string
+          ip_address?: unknown | null
+          status?: Database["public"]["Enums"]["consent_status"]
+          updated_at?: string
+          user_agent?: string | null
+          user_id?: string
+          withdrawn_at?: string | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -291,6 +372,16 @@ export type Database = {
         Args: { user_email: string }
         Returns: boolean
       }
+      get_anonymized_transaction_stats: {
+        Args: { end_date: string; start_date: string }
+        Returns: {
+          avg_amount: number
+          campus: string
+          date_bucket: string
+          transaction_count: number
+          university: string
+        }[]
+      }
       get_purchased_ticket_file: {
         Args: { ticket_id: string }
         Returns: string
@@ -317,6 +408,11 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "user"
+      consent_status: "granted" | "withdrawn" | "expired"
+      consent_type:
+        | "data_monetization"
+        | "aggregated_analytics"
+        | "research_participation"
       ticket_status: "available" | "sold" | "reserved"
       transaction_status:
         | "pending"
@@ -452,6 +548,12 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "user"],
+      consent_status: ["granted", "withdrawn", "expired"],
+      consent_type: [
+        "data_monetization",
+        "aggregated_analytics",
+        "research_participation",
+      ],
       ticket_status: ["available", "sold", "reserved"],
       transaction_status: [
         "pending",

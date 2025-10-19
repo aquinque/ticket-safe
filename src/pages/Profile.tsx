@@ -20,7 +20,8 @@ import {
   Euro,
   CheckCircle2,
   Clock,
-  XCircle
+  XCircle,
+  Shield
 } from "lucide-react";
 
 const Profile = () => {
@@ -252,10 +253,16 @@ const Profile = () => {
                     </div>
                   </div>
 
-                  <Button variant="outline" className="gap-2">
-                    <Settings className="w-4 h-4" />
-                    Paramètres
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button variant="outline" className="gap-2" onClick={() => navigate("/privacy")}>
+                      <Shield className="w-4 h-4" />
+                      Privacy
+                    </Button>
+                    <Button variant="outline" className="gap-2">
+                      <Settings className="w-4 h-4" />
+                      Paramètres
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
