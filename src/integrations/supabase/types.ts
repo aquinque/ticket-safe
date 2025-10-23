@@ -269,7 +269,7 @@ export type Database = {
           expires_at: string | null
           granted_at: string
           id: string
-          ip_address: unknown | null
+          ip_address: unknown
           status: Database["public"]["Enums"]["consent_status"]
           updated_at: string
           user_agent: string | null
@@ -283,7 +283,7 @@ export type Database = {
           expires_at?: string | null
           granted_at?: string
           id?: string
-          ip_address?: unknown | null
+          ip_address?: unknown
           status?: Database["public"]["Enums"]["consent_status"]
           updated_at?: string
           user_agent?: string | null
@@ -297,7 +297,7 @@ export type Database = {
           expires_at?: string | null
           granted_at?: string
           id?: string
-          ip_address?: unknown | null
+          ip_address?: unknown
           status?: Database["public"]["Enums"]["consent_status"]
           updated_at?: string
           user_agent?: string | null
@@ -364,14 +364,8 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      anonymize_user: {
-        Args: { user_id: string }
-        Returns: undefined
-      }
-      check_account_lockout: {
-        Args: { user_email: string }
-        Returns: boolean
-      }
+      anonymize_user: { Args: { user_id: string }; Returns: undefined }
+      check_account_lockout: { Args: { user_email: string }; Returns: boolean }
       get_anonymized_transaction_stats: {
         Args: { end_date: string; start_date: string }
         Returns: {
@@ -393,14 +387,8 @@ export type Database = {
         }
         Returns: boolean
       }
-      increment_failed_login: {
-        Args: { user_email: string }
-        Returns: number
-      }
-      reset_failed_login: {
-        Args: { user_email: string }
-        Returns: undefined
-      }
+      increment_failed_login: { Args: { user_email: string }; Returns: number }
+      reset_failed_login: { Args: { user_email: string }; Returns: undefined }
       validate_university_email: {
         Args: { email_address: string }
         Returns: boolean
