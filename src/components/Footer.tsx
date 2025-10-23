@@ -39,16 +39,8 @@ const Footer = () => {
       {/* Main Footer Content */}
       <div className="container mx-auto px-6 pt-16 pb-12">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 lg:gap-16">
-          {/* Column 1: Logo, Tagline & CTA */}
+          {/* Column 1: Tagline & CTA */}
           <div className="text-center md:text-left">
-            <Link to="/" className="inline-block mb-4">
-              <img 
-                src="/ticket-safe-logo.png" 
-                alt="TicketSafe" 
-                className="h-10 w-auto"
-                style={{ width: '140px' }}
-              />
-            </Link>
             <p className="text-[0.95rem] text-[#64748B] leading-relaxed mb-6 max-w-[260px] mx-auto md:mx-0">
               The trusted platform for students to safely buy and sell event tickets.
             </p>
