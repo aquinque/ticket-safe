@@ -1,4 +1,5 @@
 import Header from "@/components/Header";
+import Footer from "@/components/Footer";
 import { BackButton } from "@/components/BackButton";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -79,9 +80,9 @@ const About = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <Header />
-      <main>
+      <main className="flex-1">
         {/* Hero Section */}
         <section className="py-20 bg-gradient-card">
           <div className="container mx-auto px-4">
@@ -317,6 +318,7 @@ const About = () => {
           </div>
         </section>
       </main>
+      <Footer />
     </div>
   );
 };

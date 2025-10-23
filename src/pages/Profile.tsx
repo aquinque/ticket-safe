@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { BackButton } from "@/components/BackButton";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
+import Footer from "@/components/Footer";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -223,9 +224,9 @@ const Profile = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <Header />
-      <main className="py-16">
+      <main className="py-16 flex-1">
         <div className="container mx-auto px-4 max-w-6xl">
           <div className="mb-6">
             <BackButton />
@@ -478,11 +479,12 @@ const Profile = () => {
                  </CardContent>
                </Card>
              </TabsContent>
-           </Tabs>
-        </div>
-      </main>
-    </div>
-  );
-};
+            </Tabs>
+         </div>
+       </main>
+       <Footer />
+     </div>
+   );
+ };
 
 export default Profile;

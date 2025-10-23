@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
+import Footer from "@/components/Footer";
 import { BackButton } from "@/components/BackButton";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -150,9 +151,9 @@ const CampusLife = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <Header />
-      <main className="pt-8 pb-16">
+      <main className="pt-8 pb-16 flex-1">
         <div className="container mx-auto px-4">
           <div className="mb-6">
             <BackButton />
@@ -242,6 +243,7 @@ const CampusLife = () => {
           )}
         </div>
       </main>
+      <Footer />
     </div>
   );
 };

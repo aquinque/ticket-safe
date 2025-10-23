@@ -1,13 +1,14 @@
 import Header from "@/components/Header";
+import Footer from "@/components/Footer";
 import { BackButton } from "@/components/BackButton";
 import { Mail, HelpCircle } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 const Contact = () => {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <Header />
-      <main className="container mx-auto px-4 py-16">
+      <main className="container mx-auto px-4 py-16 flex-1">
         <div className="max-w-4xl mx-auto">
           <div className="mb-6">
             <BackButton />
@@ -77,6 +78,7 @@ const Contact = () => {
           </Card>
         </div>
       </main>
+      <Footer />
     </div>
   );
 };

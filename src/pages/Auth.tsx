@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { BackButton } from "@/components/BackButton";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -277,11 +278,12 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex flex-col">
       <div className="absolute top-4 left-4">
         <BackButton />
       </div>
-      <Card className="w-full max-w-md">
+      <div className="flex-1 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold text-center">
             {isLogin ? "Welcome Back" : "Create Account"}
@@ -488,7 +490,9 @@ const Auth = () => {
              </>
            )}
         </CardContent>
-      </Card>
+        </Card>
+      </div>
+      <Footer />
     </div>
   );
 };

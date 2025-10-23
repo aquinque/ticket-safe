@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { z } from "zod";
 import Header from "@/components/Header";
+import Footer from "@/components/Footer";
 import { BackButton } from "@/components/BackButton";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -176,9 +177,9 @@ const Sell = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       <Header />
-      <main className="py-16">
+      <main className="py-16 flex-1">
         <div className="container mx-auto px-4 max-w-4xl">
           <div className="mb-6">
             <BackButton />
@@ -435,6 +436,7 @@ const Sell = () => {
           </div>
         </div>
       </main>
+      <Footer />
     </div>
   );
 };

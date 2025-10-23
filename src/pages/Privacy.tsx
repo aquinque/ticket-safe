@@ -11,6 +11,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
 import { Shield, Download, Trash2, FileText, CheckCircle, Clock, XCircle } from "lucide-react";
 import { BackButton } from "@/components/BackButton";
+import Footer from "@/components/Footer";
 
 type ConsentType = 'data_monetization' | 'aggregated_analytics' | 'research_participation';
 type ConsentStatus = 'granted' | 'withdrawn' | 'expired';
@@ -212,8 +213,8 @@ export default function Privacy() {
   if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container max-w-4xl mx-auto px-4 py-8">
+    <div className="min-h-screen bg-background flex flex-col">
+      <div className="container max-w-4xl mx-auto px-4 py-8 flex-1">
         <BackButton fallbackPath="/" />
         
         <div className="flex items-center gap-3 mb-6 mt-4">
@@ -355,6 +356,7 @@ export default function Privacy() {
           </ul>
         </Card>
       </div>
+      <Footer />
     </div>
   );
 }
