@@ -69,7 +69,6 @@ const Header = () => {
   const navItems = [
     { path: "/", label: "Home" },
     { path: "/events", label: "Marketplace" },
-    { path: "/sell", label: "Sell Tickets" },
     { path: "/campus-life", label: "Campus Life" },
     { path: "/about", label: "About" },
     { path: "/contact", label: "Contact" },
@@ -91,32 +90,25 @@ const Header = () => {
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-6">
-            {navItems.map((item) => {
-              if (item.path === "/events") {
-                return (
-                  <Button
-                    key={item.path}
-                    variant="marketplace"
-                    size="sm"
-                    className="px-4 py-2.5"
-                    asChild
-                  >
-                    <Link to={item.path}>{item.label}</Link>
-                  </Button>
-                );
-              }
-              return (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  className={`text-sm font-medium transition-colors hover:text-primary ${
-                    isActive(item.path) ? "text-primary" : "text-muted-foreground"
-                  }`}
-                >
-                  {item.label}
-                </Link>
-              );
-            })}
+            {navItems.map((item) => (
+              <Link
+                key={item.path}
+                to={item.path}
+                className={`text-sm font-medium transition-colors hover:text-primary ${
+                  isActive(item.path) ? "text-primary" : "text-muted-foreground"
+                }`}
+              >
+                {item.label}
+              </Link>
+            ))}
+            <Button
+              variant="marketplace"
+              size="sm"
+              className="px-4 py-2.5"
+              asChild
+            >
+              <Link to="/sell">Sell Tickets</Link>
+            </Button>
           </nav>
 
           {/* Desktop CTA */}
@@ -171,34 +163,27 @@ const Header = () => {
         {isMenuOpen && (
           <div className="md:hidden border-t border-border bg-background/95 backdrop-blur-md">
             <nav className="flex flex-col gap-2 p-4">
-              {navItems.map((item) => {
-                if (item.path === "/events") {
-                  return (
-                    <Button
-                      key={item.path}
-                      variant="marketplace"
-                      size="sm"
-                      className="w-full py-3"
-                      asChild
-                      onClick={() => setIsMenuOpen(false)}
-                    >
-                      <Link to={item.path}>{item.label}</Link>
-                    </Button>
-                  );
-                }
-                return (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    className={`px-3 py-2 rounded-md text-sm font-medium transition-colors hover:bg-muted ${
-                      isActive(item.path) ? "text-primary bg-primary/10" : "text-muted-foreground"
-                    }`}
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    {item.label}
-                  </Link>
-                );
-              })}
+              <Button
+                variant="marketplace"
+                size="sm"
+                className="w-full py-3 mb-2"
+                asChild
+                onClick={() => setIsMenuOpen(false)}
+              >
+                <Link to="/sell">Sell Tickets</Link>
+              </Button>
+              {navItems.map((item) => (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors hover:bg-muted ${
+                    isActive(item.path) ? "text-primary bg-primary/10" : "text-muted-foreground"
+                  }`}
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  {item.label}
+                </Link>
+              ))}
               <div className="flex flex-col gap-2 mt-4 pt-4 border-t border-border">
                 {user ? (
                   <>
