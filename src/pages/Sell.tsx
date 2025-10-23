@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { z } from "zod";
 import Header from "@/components/Header";
 import { BackButton } from "@/components/BackButton";
 import { Button } from "@/components/ui/button";
@@ -15,6 +16,14 @@ import { Event } from "@/integrations/supabase/types/events";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+
+// Validation schema for ticket notes
+const notesSchema = z
+  .string()
+  .trim()
+  .max(1000, "Notes must be less than 1000 characters")
+  .regex(/^[a-zA-Z0-9\s.,!?'"-]*$/, "Notes can only contain letters, numbers, and basic punctuation")
+  .optional();
 
 const Sell = () => {
   const navigate = useNavigate();
@@ -90,6 +99,15 @@ const Sell = () => {
     if (!formData.sellingPrice || parseFloat(formData.sellingPrice) <= 0) {
       toast.error("Please enter a valid selling price");
       return;
+    }
+
+    // Validate notes field
+    if (formData.description) {
+      const notesValidation = notesSchema.safeParse(formData.description);
+      if (!notesValidation.success) {
+        toast.error(notesValidation.error.errors[0].message);
+        return;
+      }
     }
 
     setIsSubmitting(true);
@@ -311,7 +329,11 @@ const Sell = () => {
                       value={formData.description}
                       onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                       rows={3}
+                      maxLength={1000}
                     />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {formData.description.length}/1000 characters. Only letters, numbers, and basic punctuation allowed.
+                    </p>
                   </div>
 
                   {/* File Upload */}

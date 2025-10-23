@@ -60,9 +60,25 @@ serve(async (req) => {
       errors.push('Quantity must be a whole number');
     }
 
-    // Notes validation
-    if (notes && typeof notes === 'string' && notes.length > 1000) {
-      errors.push('Notes must be less than 1000 characters');
+    // Notes validation with sanitization
+    if (notes && typeof notes === 'string') {
+      const trimmedNotes = notes.trim();
+      
+      if (trimmedNotes.length > 1000) {
+        errors.push('Notes must be less than 1000 characters');
+      }
+      
+      // Check for HTML tags and script content
+      const htmlTagPattern = /<[^>]*>/g;
+      if (htmlTagPattern.test(trimmedNotes)) {
+        errors.push('Notes cannot contain HTML tags');
+      }
+      
+      // Check for potentially dangerous characters
+      const allowedPattern = /^[a-zA-Z0-9\s.,!?'"-]*$/;
+      if (!allowedPattern.test(trimmedNotes)) {
+        errors.push('Notes can only contain letters, numbers, and basic punctuation');
+      }
     }
 
     if (errors.length > 0) {
