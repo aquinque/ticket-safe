@@ -24,6 +24,10 @@ All colors MUST be HSL.
     --primary-foreground: 0 0% 100%;
     --primary-hover: 220 100% 35%;
     
+    /* Brand Blue for CTAs */
+    --cta-blue: 221 100% 56%; /* Brand blue #1E5EFF */
+    --cta-blue-hover: 221 87% 48%; /* Darker blue #184BDC */
+    
     --secondary: 215 95% 40%; /* Rich Blue */
     --secondary-foreground: 0 0% 100%;
     --secondary-hover: 215 95% 45%;
