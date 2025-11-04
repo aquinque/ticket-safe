@@ -60,7 +60,7 @@ serve(async (req) => {
       errors.push('Quantity must be a whole number');
     }
 
-    // Notes validation with sanitization
+    // Enhanced notes validation with better sanitization
     if (notes && typeof notes === 'string') {
       const trimmedNotes = notes.trim();
       
@@ -74,10 +74,26 @@ serve(async (req) => {
         errors.push('Notes cannot contain HTML tags');
       }
       
-      // Check for potentially dangerous characters
-      const allowedPattern = /^[a-zA-Z0-9\s.,!?'"-]*$/;
-      if (!allowedPattern.test(trimmedNotes)) {
-        errors.push('Notes can only contain letters, numbers, and basic punctuation');
+      // More strict character validation - only printable ASCII + basic punctuation
+      const strictPattern = /^[\x20-\x7E\r\n]*$/;
+      if (!strictPattern.test(trimmedNotes)) {
+        errors.push('Notes contain invalid characters');
+      }
+      
+      // Check for basic XSS patterns
+      const xssPatterns = [
+        /javascript:/i,
+        /on\w+\s*=/i,
+        /<script/i,
+        /<iframe/i,
+        /eval\(/i
+      ];
+      
+      for (const pattern of xssPatterns) {
+        if (pattern.test(trimmedNotes)) {
+          errors.push('Notes contain prohibited content');
+          break;
+        }
       }
     }
 
@@ -172,10 +188,10 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Error in validate-ticket-submission function:', error);
-    const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+    console.error('[INTERNAL] Error in validate-ticket-submission:', error);
+    // Generic error message to prevent information disclosure
     return new Response(
-      JSON.stringify({ valid: false, errors: [errorMessage] }),
+      JSON.stringify({ valid: false, errors: ['Unable to process ticket validation. Please try again.'] }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

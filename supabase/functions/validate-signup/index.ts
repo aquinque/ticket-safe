@@ -6,12 +6,67 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// In-memory rate limiting (resets on function restart)
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT_WINDOW = 3600000; // 1 hour in milliseconds
+const MAX_REQUESTS_PER_WINDOW = 5;
+
+function getRateLimitKey(req: Request): string {
+  // Use combination of IP and user agent for rate limiting
+  const forwarded = req.headers.get('x-forwarded-for');
+  const ip = forwarded ? forwarded.split(',')[0] : 'unknown';
+  const userAgent = req.headers.get('user-agent') || 'unknown';
+  return `${ip}:${userAgent.substring(0, 50)}`; // Limit user-agent length
+}
+
+function checkRateLimit(key: string): { allowed: boolean; resetAt: number } {
+  const now = Date.now();
+  const entry = rateLimitMap.get(key);
+
+  if (!entry || now > entry.resetAt) {
+    // Create new entry or reset expired entry
+    rateLimitMap.set(key, { count: 1, resetAt: now + RATE_LIMIT_WINDOW });
+    return { allowed: true, resetAt: now + RATE_LIMIT_WINDOW };
+  }
+
+  if (entry.count >= MAX_REQUESTS_PER_WINDOW) {
+    return { allowed: false, resetAt: entry.resetAt };
+  }
+
+  entry.count++;
+  return { allowed: true, resetAt: entry.resetAt };
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    // Apply rate limiting
+    const rateLimitKey = getRateLimitKey(req);
+    const rateLimit = checkRateLimit(rateLimitKey);
+
+    if (!rateLimit.allowed) {
+      const retryAfter = Math.ceil((rateLimit.resetAt - Date.now()) / 1000);
+      console.warn(`Rate limit exceeded for key: ${rateLimitKey}`);
+      
+      return new Response(
+        JSON.stringify({ 
+          valid: false, 
+          errors: ['Too many validation requests. Please try again later.'] 
+        }),
+        { 
+          status: 429,
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json',
+            'Retry-After': retryAfter.toString()
+          } 
+        }
+      );
+    }
+
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? ''
@@ -61,8 +116,9 @@ serve(async (req) => {
       .rpc('validate_university_email', { email_address: email });
 
     if (domainError) {
+      console.error('[INTERNAL] Domain validation error:', domainError);
       return new Response(
-        JSON.stringify({ valid: false, errors: ['Error validating email domain'] }),
+        JSON.stringify({ valid: false, errors: ['Unable to validate email. Please try again.'] }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -80,9 +136,10 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+    console.error('[INTERNAL] Error in validate-signup:', error);
+    // Generic error message to prevent information disclosure
     return new Response(
-      JSON.stringify({ valid: false, errors: [errorMessage] }),
+      JSON.stringify({ valid: false, errors: ['Unable to process validation. Please try again.'] }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
