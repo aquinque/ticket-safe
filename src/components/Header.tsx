@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Menu, X, Ticket, User, LogOut, Settings } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useI18n } from "@/contexts/I18nContext";
 import { supabase } from "@/integrations/supabase/client";
 import { SettingsPanel } from "@/components/SettingsPanel";
 import {
@@ -20,6 +21,7 @@ const Header = () => {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const location = useLocation();
   const { user, signOut } = useAuth();
+  const { t } = useI18n();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -33,12 +35,10 @@ const Header = () => {
 
   useEffect(() => {
     if (user) {
-      // Try to get name from user metadata first (faster)
       const metaName = user.user_metadata?.full_name;
       if (metaName) {
         setUserName(metaName);
       } else {
-        // Fallback to database query
         const fetchUserProfile = async () => {
           try {
             const { data, error } = await supabase
@@ -69,12 +69,12 @@ const Header = () => {
   };
 
   const navItems = [
-    { path: "/", label: "Home" },
-    { path: "/events", label: "Marketplace" },
-    { path: "/sell", label: "Sell Tickets" },
-    { path: "/campus-life", label: "Campus Life" },
-    { path: "/about", label: "About" },
-    { path: "/contact", label: "Contact" },
+    { path: "/", label: t('nav.home') },
+    { path: "/events", label: t('nav.marketplace') },
+    { path: "/sell", label: t('nav.sellTickets') },
+    { path: "/campus-life", label: t('nav.campusLife') },
+    { path: "/about", label: t('nav.about') },
+    { path: "/contact", label: t('nav.contact') },
   ];
 
   return (
@@ -88,7 +88,7 @@ const Header = () => {
             <div className="w-8 h-8 bg-gradient-hero rounded-lg flex items-center justify-center">
               <Ticket className="w-5 h-5 text-white" />
             </div>
-            <span className="bg-gradient-hero bg-clip-text text-transparent">Ticket Safe</span>
+            <span className="bg-gradient-hero bg-clip-text text-transparent">{t('common.appName')}</span>
           </Link>
 
           {/* Desktop Navigation */}
@@ -132,23 +132,23 @@ const Header = () => {
                   className="hover:bg-muted"
                 >
                   <Settings className="w-4 h-4 mr-2" />
-                  Settings
+                  {t('nav.settings')}
                 </Button>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="hero" size="sm" className="shadow-glow hover:shadow-glow">
                       <User className="w-4 h-4 mr-2" />
-                      {userName ? `Welcome, ${userName.split(' ')[0]}!` : "My Account"}
+                      {userName ? `${t('nav.myAccount').split(' ')[0]}, ${userName.split(' ')[0]}!` : t('nav.myAccount')}
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem onClick={() => navigate("/profile")}>
-                      Profile
+                      {t('nav.profile')}
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={handleSignOut}>
                       <LogOut className="h-4 w-4 mr-2" />
-                      Sign Out
+                      {t('nav.signOut')}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -157,12 +157,12 @@ const Header = () => {
               <>
                 <Button variant="ghost" size="sm" asChild>
                   <Link to="/auth" className="text-muted-foreground hover:text-primary">
-                    Login
+                    {t('nav.login')}
                   </Link>
                 </Button>
                 <Button variant="hero" size="sm" className="shadow-glow hover:shadow-glow" asChild>
                   <Link to="/auth">
-                    Sign Up
+                    {t('nav.signUp')}
                   </Link>
                 </Button>
               </>
@@ -224,12 +224,12 @@ const Header = () => {
                       }}
                     >
                       <Settings className="w-4 h-4 mr-2" />
-                      Settings
+                      {t('nav.settings')}
                     </Button>
                     <Button variant="outline" size="sm" asChild onClick={() => setIsMenuOpen(false)}>
                       <Link to="/profile">
                         <User className="w-4 w-4 mr-2" />
-                        My Account
+                        {t('nav.myAccount')}
                       </Link>
                     </Button>
                     <Button 
@@ -241,16 +241,16 @@ const Header = () => {
                       }}
                     >
                       <LogOut className="w-4 h-4 mr-2" />
-                      Sign Out
+                      {t('nav.signOut')}
                     </Button>
                   </>
                 ) : (
                   <>
                     <Button variant="outline" size="sm" asChild onClick={() => setIsMenuOpen(false)}>
-                      <Link to="/auth">Login</Link>
+                      <Link to="/auth">{t('nav.login')}</Link>
                     </Button>
                     <Button variant="hero" size="sm" asChild onClick={() => setIsMenuOpen(false)}>
-                      <Link to="/auth">Sign Up</Link>
+                      <Link to="/auth">{t('nav.signUp')}</Link>
                     </Button>
                   </>
                 )}

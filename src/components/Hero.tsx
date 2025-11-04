@@ -1,9 +1,12 @@
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Search, Shield, Users } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useI18n } from "@/contexts/I18nContext";
 import heroImage from "@/assets/hero-bg.jpg";
 
 const Hero = () => {
+  const { t } = useI18n();
+  
   return (
     <section className="relative overflow-hidden">
       {/* Background Gradient Overlay */}
@@ -14,17 +17,13 @@ const Hero = () => {
           {/* Main Heading */}
           <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold mb-6 animate-fade-in">
             <span className="bg-gradient-hero bg-clip-text text-transparent">
-              Resell your ticket.
-            </span>
-            <br />
-            <span className="text-foreground">
-              Find your spot.
+              {t('hero.title')}
             </span>
           </h1>
 
           {/* Subtitle */}
           <p className="text-lg md:text-xl text-muted-foreground mb-8 max-w-2xl mx-auto animate-slide-up">
-            Ticket Safe is the trusted platform for students to safely buy and sell event tickets—no scams, no bots, just real students.
+            {t('hero.subtitle')}
           </p>
 
           {/* CTA Buttons */}
@@ -32,13 +31,13 @@ const Hero = () => {
             <Button variant="hero" size="lg" className="shadow-glow hover:shadow-glow" asChild>
               <Link to="/events">
                 <Search className="w-5 h-5" />
-                Find Events
+                {t('hero.browseEvents')}
                 <ArrowRight className="w-5 h-5" />
               </Link>
             </Button>
             <Button variant="outline-primary" size="lg" className="backdrop-blur-sm border-2" asChild>
               <Link to="/sell">
-                Sell My Tickets
+                {t('hero.sellMyTickets')}
               </Link>
             </Button>
           </div>

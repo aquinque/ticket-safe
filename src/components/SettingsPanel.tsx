@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/contexts/ThemeContext';
-import { useLanguage } from '@/contexts/LanguageContext';
+import { useI18n } from '@/contexts/I18nContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { toast } from '@/hooks/use-toast';
@@ -43,7 +43,7 @@ interface SettingsPanelProps {
 export const SettingsPanel = ({ open, onOpenChange }: SettingsPanelProps) => {
   const { user, signOut } = useAuth();
   const { theme, toggleTheme } = useTheme();
-  const { language, setLanguage } = useLanguage();
+  const { language, setLanguage, t } = useI18n();
   const navigate = useNavigate();
 
   const [profileName, setProfileName] = useState(user?.user_metadata?.full_name || '');
@@ -57,8 +57,6 @@ export const SettingsPanel = ({ open, onOpenChange }: SettingsPanelProps) => {
 
   const handleSaveProfile = async () => {
     try {
-      const updates: any = {};
-      
       if (profileName !== user?.user_metadata?.full_name) {
         const { error: metaError } = await supabase.auth.updateUser({
           data: { full_name: profileName }
@@ -82,14 +80,14 @@ export const SettingsPanel = ({ open, onOpenChange }: SettingsPanelProps) => {
       }
 
       toast({
-        title: "Profile Updated",
-        description: "Your profile has been updated successfully.",
+        title: t('toast.profileUpdated'),
+        description: t('toast.profileUpdateSuccess'),
       });
       setActiveSection('main');
     } catch (error: any) {
       toast({
-        title: "Error",
-        description: error.message || "Failed to update profile",
+        title: t('toast.error'),
+        description: error.message || t('toast.profileUpdateFailed'),
         variant: "destructive",
       });
     }
@@ -99,24 +97,26 @@ export const SettingsPanel = ({ open, onOpenChange }: SettingsPanelProps) => {
     setNotifications(checked);
     localStorage.setItem('notifications', JSON.stringify(checked));
     toast({
-      title: "Settings Saved",
-      description: `Notifications ${checked ? 'enabled' : 'disabled'}.`,
+      title: t('toast.settingsSaved'),
+      description: checked ? t('toast.notificationsEnabled') : t('toast.notificationsDisabled'),
     });
   };
 
   const handleThemeToggle = () => {
+    const newTheme = theme === 'light' ? 'dark' : 'light';
     toggleTheme();
     toast({
-      title: "Theme Changed",
-      description: `Switched to ${theme === 'light' ? 'dark' : 'light'} mode.`,
+      title: t('toast.themeChanged'),
+      description: newTheme === 'dark' ? t('toast.switchedToDark') : t('toast.switchedToLight'),
     });
   };
 
   const handleLanguageChange = (lang: 'en' | 'fr') => {
     setLanguage(lang);
+    const langName = lang === 'en' ? t('settings.languageEnglish') : t('settings.languageFrench');
     toast({
-      title: "Language Changed",
-      description: `Language set to ${lang === 'en' ? 'English' : 'French'}.`,
+      title: t('toast.languageUpdated'),
+      description: t('toast.languageChanged', { language: langName }),
     });
   };
 
@@ -125,8 +125,8 @@ export const SettingsPanel = ({ open, onOpenChange }: SettingsPanelProps) => {
     onOpenChange(false);
     navigate('/auth');
     toast({
-      title: "Logged Out",
-      description: "You have been logged out successfully.",
+      title: t('toast.loggedOut'),
+      description: t('toast.loggedOutSuccess'),
     });
   };
 
@@ -134,9 +134,9 @@ export const SettingsPanel = ({ open, onOpenChange }: SettingsPanelProps) => {
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-md overflow-y-auto">
         <SheetHeader>
-          <SheetTitle className="text-2xl font-bold">Settings</SheetTitle>
+          <SheetTitle className="text-2xl font-bold">{t('settings.title')}</SheetTitle>
           <SheetDescription>
-            Manage your account settings and preferences
+            {t('settings.description')}
           </SheetDescription>
         </SheetHeader>
 
@@ -154,9 +154,9 @@ export const SettingsPanel = ({ open, onOpenChange }: SettingsPanelProps) => {
                       <User className="h-5 w-5 text-primary" />
                     </div>
                     <div className="text-left">
-                      <h3 className="font-medium">Profile & Account</h3>
+                      <h3 className="font-medium">{t('settings.profileTitle')}</h3>
                       <p className="text-sm text-muted-foreground">
-                        Edit your profile information
+                        {t('settings.profileDescription')}
                       </p>
                     </div>
                   </div>
@@ -174,9 +174,9 @@ export const SettingsPanel = ({ open, onOpenChange }: SettingsPanelProps) => {
                       <Bell className="h-5 w-5 text-primary" />
                     </div>
                     <div>
-                      <h3 className="font-medium">Notifications</h3>
+                      <h3 className="font-medium">{t('settings.notificationsTitle')}</h3>
                       <p className="text-sm text-muted-foreground">
-                        Email and app notifications
+                        {t('settings.notificationsDescription')}
                       </p>
                     </div>
                   </div>
@@ -201,9 +201,9 @@ export const SettingsPanel = ({ open, onOpenChange }: SettingsPanelProps) => {
                       )}
                     </div>
                     <div>
-                      <h3 className="font-medium">Dark Mode</h3>
+                      <h3 className="font-medium">{t('settings.darkModeTitle')}</h3>
                       <p className="text-sm text-muted-foreground">
-                        Toggle theme appearance
+                        {t('settings.darkModeDescription')}
                       </p>
                     </div>
                   </div>
@@ -224,9 +224,9 @@ export const SettingsPanel = ({ open, onOpenChange }: SettingsPanelProps) => {
                       <Languages className="h-5 w-5 text-primary" />
                     </div>
                     <div>
-                      <h3 className="font-medium">Language</h3>
+                      <h3 className="font-medium">{t('settings.languageTitle')}</h3>
                       <p className="text-sm text-muted-foreground">
-                        Select your preferred language
+                        {t('settings.languageDescription')}
                       </p>
                     </div>
                   </div>
@@ -235,8 +235,8 @@ export const SettingsPanel = ({ open, onOpenChange }: SettingsPanelProps) => {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="en">English</SelectItem>
-                      <SelectItem value="fr">French</SelectItem>
+                      <SelectItem value="en">{t('settings.languageEnglish')}</SelectItem>
+                      <SelectItem value="fr">{t('settings.languageFrench')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -252,7 +252,7 @@ export const SettingsPanel = ({ open, onOpenChange }: SettingsPanelProps) => {
                   className="w-full"
                 >
                   <LogOut className="h-4 w-4 mr-2" />
-                  Logout
+                  {t('settings.logoutTitle')}
                 </Button>
               </div>
             </>
@@ -264,45 +264,45 @@ export const SettingsPanel = ({ open, onOpenChange }: SettingsPanelProps) => {
                 onClick={() => setActiveSection('main')}
                 className="pl-0"
               >
-                ← Back to Settings
+                {t('settings.backToSettings')}
               </Button>
 
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Full Name</Label>
+                  <Label htmlFor="name">{t('settings.fullName')}</Label>
                   <Input
                     id="name"
                     value={profileName}
                     onChange={(e) => setProfileName(e.target.value)}
-                    placeholder="Enter your full name"
+                    placeholder={t('settings.fullNamePlaceholder')}
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email">{t('settings.email')}</Label>
                   <Input
                     id="email"
                     type="email"
                     value={profileEmail}
                     onChange={(e) => setProfileEmail(e.target.value)}
-                    placeholder="Enter your email"
+                    placeholder={t('settings.emailPlaceholder')}
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="password">New Password (optional)</Label>
+                  <Label htmlFor="password">{t('settings.newPassword')}</Label>
                   <Input
                     id="password"
                     type="password"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Enter new password"
+                    placeholder={t('settings.newPasswordPlaceholder')}
                   />
                 </div>
 
                 <Button onClick={handleSaveProfile} className="w-full">
                   <Save className="h-4 w-4 mr-2" />
-                  Save Changes
+                  {t('settings.saveChanges')}
                 </Button>
               </div>
             </div>

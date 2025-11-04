@@ -1,0 +1,159 @@
+{
+  "common": {
+    "appName": "Ticket Safe",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "save": "Save",
+    "cancel": "Cancel",
+    "close": "Close",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "submit": "Submit",
+    "search": "Search",
+    "filter": "Filter",
+    "sortBy": "Sort by",
+    "all": "All"
+  },
+  "nav": {
+    "home": "Home",
+    "marketplace": "Marketplace",
+    "sellTickets": "Sell Tickets",
+    "campusLife": "Campus Life",
+    "about": "About",
+    "contact": "Contact",
+    "login": "Login",
+    "signUp": "Sign Up",
+    "myAccount": "My Account",
+    "profile": "Profile",
+    "signOut": "Sign Out",
+    "settings": "Settings"
+  },
+  "hero": {
+    "title": "Buy & Sell Student Event Tickets Safely",
+    "subtitle": "Ticket Safe is the trusted platform for students to safely buy and sell event tickets—no scams, no bots, just real students.",
+    "browseEvents": "Browse Events",
+    "sellMyTickets": "Sell My Tickets"
+  },
+  "events": {
+    "title": "All Events",
+    "subtitle": "Explore all student events with available tickets",
+    "discoverEvents": "Discover all student events with tickets for resale.",
+    "searchPlaceholder": "Search events...",
+    "viewTickets": "View Tickets",
+    "ticketsAvailable": "{available} tickets available out of {total}",
+    "noEvents": "No events found",
+    "noEventsDescription": "Check back later for new events"
+  },
+  "footer": {
+    "tagline": "The trusted platform for students to safely buy and sell event tickets.",
+    "exploreTitle": "Explore",
+    "legalTitle": "Legal",
+    "supportTitle": "Support",
+    "events": "Events",
+    "sell": "Sell Tickets",
+    "campusLife": "Campus Life",
+    "about": "About",
+    "privacy": "Privacy Policy",
+    "terms": "Terms of Service",
+    "contact": "Contact",
+    "faq": "FAQ",
+    "copyright": "© {year} TicketSafe. All rights reserved."
+  },
+  "settings": {
+    "title": "Settings",
+    "description": "Manage your account settings and preferences",
+    "backToSettings": "← Back to Settings",
+    "profileTitle": "Profile & Account",
+    "profileDescription": "Edit your profile information",
+    "notificationsTitle": "Notifications",
+    "notificationsDescription": "Email and app notifications",
+    "darkModeTitle": "Dark Mode",
+    "darkModeDescription": "Toggle theme appearance",
+    "languageTitle": "Language",
+    "languageDescription": "Select your preferred language",
+    "logoutTitle": "Logout",
+    "fullName": "Full Name",
+    "fullNamePlaceholder": "Enter your full name",
+    "email": "Email",
+    "emailPlaceholder": "Enter your email",
+    "newPassword": "New Password (optional)",
+    "newPasswordPlaceholder": "Enter new password",
+    "saveChanges": "Save Changes",
+    "languageEnglish": "English",
+    "languageFrench": "French"
+  },
+  "toast": {
+    "settingsSaved": "Settings saved!",
+    "notificationsEnabled": "Notifications enabled.",
+    "notificationsDisabled": "Notifications disabled.",
+    "themeChanged": "Theme changed",
+    "switchedToLight": "Switched to light mode.",
+    "switchedToDark": "Switched to dark mode.",
+    "languageUpdated": "Language updated",
+    "languageChanged": "Language set to {language}.",
+    "profileUpdated": "Profile Updated",
+    "profileUpdateSuccess": "Your profile has been updated successfully.",
+    "loggedOut": "Logged Out",
+    "loggedOutSuccess": "You have been logged out successfully.",
+    "error": "Error",
+    "profileUpdateFailed": "Failed to update profile"
+  },
+  "auth": {
+    "welcomeBack": "Welcome back",
+    "signInToContinue": "Sign in to your account to continue",
+    "createAccount": "Create an account",
+    "getStarted": "Get started with Ticket Safe",
+    "email": "Email",
+    "emailPlaceholder": "you@university.edu",
+    "password": "Password",
+    "passwordPlaceholder": "Enter your password",
+    "fullName": "Full Name",
+    "fullNamePlaceholder": "John Doe",
+    "signIn": "Sign In",
+    "signUp": "Sign Up",
+    "noAccount": "Don't have an account?",
+    "hasAccount": "Already have an account?",
+    "forgotPassword": "Forgot password?",
+    "resetPassword": "Reset Password"
+  },
+  "about": {
+    "title": "About Us",
+    "mission": "Our Mission",
+    "story": "Our Story"
+  },
+  "contact": {
+    "title": "Contact Us",
+    "getInTouch": "Get in Touch",
+    "description": "Have a question or feedback? We'd love to hear from you.",
+    "name": "Name",
+    "namePlaceholder": "Your name",
+    "email": "Email",
+    "emailPlaceholder": "your.email@university.edu",
+    "message": "Message",
+    "messagePlaceholder": "How can we help you?",
+    "send": "Send Message"
+  },
+  "campusLife": {
+    "title": "Campus Life",
+    "subtitle": "Discover student events and activities"
+  },
+  "profile": {
+    "title": "My Profile",
+    "welcome": "Welcome, {name}!"
+  },
+  "sell": {
+    "title": "Sell Your Tickets",
+    "description": "List your event tickets for sale safely and easily"
+  },
+  "privacy": {
+    "title": "Privacy Policy",
+    "lastUpdated": "Last updated: {date}"
+  },
+  "notFound": {
+    "title": "404",
+    "message": "Oops! Page not found",
+    "returnHome": "Return to Home"
+  }
+}

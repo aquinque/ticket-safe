@@ -1,0 +1,159 @@
+{
+  "common": {
+    "appName": "Ticket Safe",
+    "loading": "Chargement...",
+    "error": "Erreur",
+    "success": "Succès",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "close": "Fermer",
+    "back": "Retour",
+    "next": "Suivant",
+    "previous": "Précédent",
+    "submit": "Soumettre",
+    "search": "Rechercher",
+    "filter": "Filtrer",
+    "sortBy": "Trier par",
+    "all": "Tout"
+  },
+  "nav": {
+    "home": "Accueil",
+    "marketplace": "Marketplace",
+    "sellTickets": "Vendre des billets",
+    "campusLife": "Vie étudiante",
+    "about": "À propos",
+    "contact": "Contact",
+    "login": "Connexion",
+    "signUp": "S'inscrire",
+    "myAccount": "Mon compte",
+    "profile": "Profil",
+    "signOut": "Déconnexion",
+    "settings": "Paramètres"
+  },
+  "hero": {
+    "title": "Achetez et vendez des billets d'événements étudiants en toute sécurité",
+    "subtitle": "Ticket Safe est la plateforme de confiance permettant aux étudiants d'acheter et de vendre des billets d'événements en toute sécurité—sans arnaques, sans bots, que de vrais étudiants.",
+    "browseEvents": "Parcourir les événements",
+    "sellMyTickets": "Vendre mes billets"
+  },
+  "events": {
+    "title": "Tous les événements",
+    "subtitle": "Explorez tous les événements étudiants avec des billets disponibles",
+    "discoverEvents": "Découvrez tous les événements étudiants avec des billets à revendre.",
+    "searchPlaceholder": "Rechercher des événements...",
+    "viewTickets": "Voir les billets",
+    "ticketsAvailable": "{available} billets disponibles sur {total}",
+    "noEvents": "Aucun événement trouvé",
+    "noEventsDescription": "Revenez plus tard pour de nouveaux événements"
+  },
+  "footer": {
+    "tagline": "La plateforme de confiance pour que les étudiants achètent et vendent des billets d'événements en toute sécurité.",
+    "exploreTitle": "Explorer",
+    "legalTitle": "Juridique",
+    "supportTitle": "Support",
+    "events": "Événements",
+    "sell": "Vendre des billets",
+    "campusLife": "Vie étudiante",
+    "about": "À propos",
+    "privacy": "Politique de confidentialité",
+    "terms": "Conditions d'utilisation",
+    "contact": "Contact",
+    "faq": "FAQ",
+    "copyright": "© {year} TicketSafe. Tous droits réservés."
+  },
+  "settings": {
+    "title": "Paramètres",
+    "description": "Gérez les paramètres et préférences de votre compte",
+    "backToSettings": "← Retour aux paramètres",
+    "profileTitle": "Profil et compte",
+    "profileDescription": "Modifier les informations de votre profil",
+    "notificationsTitle": "Notifications",
+    "notificationsDescription": "Notifications par e-mail et application",
+    "darkModeTitle": "Mode sombre",
+    "darkModeDescription": "Basculer l'apparence du thème",
+    "languageTitle": "Langue",
+    "languageDescription": "Sélectionnez votre langue préférée",
+    "logoutTitle": "Déconnexion",
+    "fullName": "Nom complet",
+    "fullNamePlaceholder": "Entrez votre nom complet",
+    "email": "E-mail",
+    "emailPlaceholder": "Entrez votre e-mail",
+    "newPassword": "Nouveau mot de passe (optionnel)",
+    "newPasswordPlaceholder": "Entrez un nouveau mot de passe",
+    "saveChanges": "Enregistrer les modifications",
+    "languageEnglish": "Anglais",
+    "languageFrench": "Français"
+  },
+  "toast": {
+    "settingsSaved": "Paramètres enregistrés !",
+    "notificationsEnabled": "Notifications activées.",
+    "notificationsDisabled": "Notifications désactivées.",
+    "themeChanged": "Thème modifié",
+    "switchedToLight": "Passage en mode clair.",
+    "switchedToDark": "Passage en mode sombre.",
+    "languageUpdated": "Langue mise à jour",
+    "languageChanged": "Langue définie sur {language}.",
+    "profileUpdated": "Profil mis à jour",
+    "profileUpdateSuccess": "Votre profil a été mis à jour avec succès.",
+    "loggedOut": "Déconnecté",
+    "loggedOutSuccess": "Vous avez été déconnecté avec succès.",
+    "error": "Erreur",
+    "profileUpdateFailed": "Échec de la mise à jour du profil"
+  },
+  "auth": {
+    "welcomeBack": "Bon retour",
+    "signInToContinue": "Connectez-vous à votre compte pour continuer",
+    "createAccount": "Créer un compte",
+    "getStarted": "Commencez avec Ticket Safe",
+    "email": "E-mail",
+    "emailPlaceholder": "vous@universite.fr",
+    "password": "Mot de passe",
+    "passwordPlaceholder": "Entrez votre mot de passe",
+    "fullName": "Nom complet",
+    "fullNamePlaceholder": "Jean Dupont",
+    "signIn": "Se connecter",
+    "signUp": "S'inscrire",
+    "noAccount": "Vous n'avez pas de compte ?",
+    "hasAccount": "Vous avez déjà un compte ?",
+    "forgotPassword": "Mot de passe oublié ?",
+    "resetPassword": "Réinitialiser le mot de passe"
+  },
+  "about": {
+    "title": "À propos de nous",
+    "mission": "Notre mission",
+    "story": "Notre histoire"
+  },
+  "contact": {
+    "title": "Nous contacter",
+    "getInTouch": "Entrer en contact",
+    "description": "Vous avez une question ou un commentaire ? Nous aimerions vous entendre.",
+    "name": "Nom",
+    "namePlaceholder": "Votre nom",
+    "email": "E-mail",
+    "emailPlaceholder": "votre.email@universite.fr",
+    "message": "Message",
+    "messagePlaceholder": "Comment pouvons-nous vous aider ?",
+    "send": "Envoyer le message"
+  },
+  "campusLife": {
+    "title": "Vie étudiante",
+    "subtitle": "Découvrez les événements et activités étudiantes"
+  },
+  "profile": {
+    "title": "Mon profil",
+    "welcome": "Bienvenue, {name} !"
+  },
+  "sell": {
+    "title": "Vendez vos billets",
+    "description": "Mettez en vente vos billets d'événement en toute sécurité et facilement"
+  },
+  "privacy": {
+    "title": "Politique de confidentialité",
+    "lastUpdated": "Dernière mise à jour : {date}"
+  },
+  "notFound": {
+    "title": "404",
+    "message": "Oups ! Page non trouvée",
+    "returnHome": "Retour à l'accueil"
+  }
+}

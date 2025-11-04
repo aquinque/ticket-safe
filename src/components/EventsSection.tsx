@@ -6,24 +6,23 @@ import { Search, Filter, Calendar, MapPin } from "lucide-react";
 import EventCard from "./EventCard";
 import { useEvents } from "@/hooks/useEvents";
 import { useAuth } from "@/hooks/useAuth";
+import { useI18n } from "@/contexts/I18nContext";
 
 const EventsSection = () => {
   const { user } = useAuth();
+  const { t } = useI18n();
   const { data: events, isLoading } = useEvents();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCampus, setSelectedCampus] = useState("all-campus");
   const [selectedType, setSelectedType] = useState("all-types");
   const [sortBy, setSortBy] = useState("date");
 
-  // ESCP official campuses only
   const campuses = ["Paris", "Berlin", "London", "Madrid", "Turin"];
   
-  // Get unique event types from real data
   const eventTypes = events 
     ? [...new Set(events.map(event => event.category))]
     : [];
 
-  // Filter and sort events
   const filteredEvents = (events || [])
     .filter(event => {
       const matchesSearch = event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -37,10 +36,8 @@ const EventsSection = () => {
         case "date":
           return new Date(a.date).getTime() - new Date(b.date).getTime();
         case "price":
-          // Sort by ticket price if available
           return 0;
         case "availability":
-          // Sort by availability if data available
           return 0;
         default:
           return 0;
@@ -56,8 +53,7 @@ const EventsSection = () => {
             Available Events
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Discover all student events with tickets for resale.
-            Filter by school, date or event type to find what you're looking for!
+            {t('events.discoverEvents')}
           </p>
         </div>
 
@@ -68,7 +64,7 @@ const EventsSection = () => {
             <div className="lg:col-span-2 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <Input
-                placeholder="Search for an event..."
+                placeholder={t('events.searchPlaceholder')}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -107,7 +103,7 @@ const EventsSection = () => {
             <Select value={sortBy} onValueChange={setSortBy}>
               <SelectTrigger>
                 <Calendar className="w-4 h-4 mr-2" />
-                <SelectValue placeholder="Sort by" />
+                <SelectValue placeholder={t('common.sortBy')} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="date">Date</SelectItem>
@@ -122,7 +118,7 @@ const EventsSection = () => {
         {isLoading && (
           <div className="text-center py-12">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-            <p className="text-muted-foreground">Loading events...</p>
+            <p className="text-muted-foreground">{t('common.loading')}</p>
           </div>
         )}
 
@@ -162,11 +158,9 @@ const EventsSection = () => {
             <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
               <Search className="w-8 h-8 text-muted-foreground" />
             </div>
-            <h3 className="text-xl font-semibold mb-2">No events found for your campus</h3>
+            <h3 className="text-xl font-semibold mb-2">{t('events.noEvents')}</h3>
             <p className="text-muted-foreground">
-              {user 
-                ? "No events are currently available for your campus. Check back soon!"
-                : "Try adjusting your filters or come back later to see new events."}
+              {t('events.noEventsDescription')}
             </p>
           </div>
         )}

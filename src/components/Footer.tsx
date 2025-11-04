@@ -2,8 +2,10 @@ import { Link } from "react-router-dom";
 import { Linkedin, Instagram, Twitter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEffect, useRef, useState } from "react";
+import { useI18n } from "@/contexts/I18nContext";
 
 const Footer = () => {
+  const { t } = useI18n();
   const currentYear = new Date().getFullYear();
   const footerRef = useRef<HTMLElement>(null);
   const [isVisible, setIsVisible] = useState(false);
@@ -42,7 +44,7 @@ const Footer = () => {
           {/* Column 1: Tagline & CTA */}
           <div className="text-center md:text-left">
             <p className="text-[0.95rem] text-[#64748B] leading-relaxed mb-6 max-w-[260px] mx-auto md:mx-0">
-              The trusted platform for students to safely buy and sell event tickets.
+              {t('footer.tagline')}
             </p>
             <div>
               <p className="text-sm font-medium text-[#0F172A] mb-3">Join our community</p>
@@ -50,7 +52,7 @@ const Footer = () => {
                 asChild
                 className="bg-[#1E5EFF] hover:bg-[#184BDC] text-white rounded-full px-6 py-2 text-sm font-medium transition-all duration-300 hover:shadow-lg"
               >
-                <Link to="/auth">Sign Up</Link>
+                <Link to="/auth">{t('nav.signUp')}</Link>
               </Button>
             </div>
           </div>
@@ -183,7 +185,7 @@ const Footer = () => {
         <div className="container mx-auto px-6 py-6">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <p className="text-[0.85rem] text-[#94A3B8] text-center md:text-left">
-              © {currentYear} TicketSafe. All rights reserved.
+              {t('footer.copyright', { year: currentYear })}
             </p>
             <div className="flex flex-wrap items-center justify-center gap-3 text-[0.85rem]">
               <Link 

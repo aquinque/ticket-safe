@@ -1,15 +1,16 @@
 import { useLocation } from "react-router-dom";
 import { useEffect } from "react";
 import { BackButton } from "@/components/BackButton";
+import { useI18n } from "@/contexts/I18nContext";
 
 const NotFound = () => {
   const location = useLocation();
+  const { t } = useI18n();
 
   useEffect(() => {
     if (import.meta.env.DEV) {
       console.error("404 Error: User attempted to access non-existent route:", location.pathname);
     }
-    // In production, silently handle 404 errors
   }, [location.pathname]);
 
   return (
@@ -18,10 +19,10 @@ const NotFound = () => {
         <BackButton />
       </div>
       <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">404</h1>
-        <p className="mb-4 text-xl text-gray-600">Oops! Page not found</p>
+        <h1 className="mb-4 text-4xl font-bold">{t('notFound.title')}</h1>
+        <p className="mb-4 text-xl text-gray-600">{t('notFound.message')}</p>
         <a href="/" className="text-blue-500 underline hover:text-blue-700">
-          Return to Home
+          {t('notFound.returnHome')}
         </a>
       </div>
     </div>
