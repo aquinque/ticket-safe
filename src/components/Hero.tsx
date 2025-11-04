@@ -17,7 +17,11 @@ const Hero = () => {
           {/* Main Heading */}
           <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold mb-6 animate-fade-in">
             <span className="bg-gradient-hero bg-clip-text text-transparent">
-              {t('hero.title')}
+              Resell your ticket.
+            </span>
+            <br />
+            <span className="text-foreground">
+              Find your spot.
             </span>
           </h1>
 
