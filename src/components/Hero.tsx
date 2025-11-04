@@ -52,9 +52,9 @@ const Hero = () => {
               <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
                 <Users className="w-6 h-6 text-primary" />
               </div>
-              <h3 className="font-semibold text-foreground">Verified Students Only</h3>
+              <h3 className="font-semibold text-foreground">{t('hero.verifiedStudentsTitle')}</h3>
               <p className="text-sm text-muted-foreground text-center">
-                Only students with verified university emails can join
+                {t('hero.verifiedStudentsDesc')}
               </p>
             </div>
 
@@ -62,9 +62,9 @@ const Hero = () => {
               <div className="w-12 h-12 bg-secondary/10 rounded-xl flex items-center justify-center">
                 <Shield className="w-6 h-6 text-secondary" />
               </div>
-              <h3 className="font-semibold text-foreground">Secure Payments</h3>
+              <h3 className="font-semibold text-foreground">{t('hero.securePaymentsTitle')}</h3>
               <p className="text-sm text-muted-foreground text-center">
-                Protected transactions with trusted payment processing
+                {t('hero.securePaymentsDesc')}
               </p>
             </div>
 
@@ -72,9 +72,9 @@ const Hero = () => {
               <div className="w-12 h-12 bg-accent/10 rounded-xl flex items-center justify-center">
                 <Search className="w-6 h-6 text-accent" />
               </div>
-              <h3 className="font-semibold text-foreground">Fast Matching</h3>
+              <h3 className="font-semibold text-foreground">{t('hero.fastMatchingTitle')}</h3>
               <p className="text-sm text-muted-foreground text-center">
-                Quick connections between sellers and buyers
+                {t('hero.fastMatchingDesc')}
               </p>
             </div>
           </div>

@@ -36,7 +36,13 @@
     "titleLine2": "Find your spot.",
     "subtitle": "Ticket Safe is the trusted platform for students to safely buy and sell event tickets—no scams, no bots, just real students.",
     "browseEvents": "Browse Events",
-    "sellMyTickets": "Sell My Tickets"
+    "sellMyTickets": "Sell My Tickets",
+    "verifiedStudentsTitle": "Verified Students Only",
+    "verifiedStudentsDesc": "Only students with verified university emails can join",
+    "securePaymentsTitle": "Secure Payments",
+    "securePaymentsDesc": "Protected transactions with trusted payment processing",
+    "fastMatchingTitle": "Fast Matching",
+    "fastMatchingDesc": "Quick connections between sellers and buyers"
   },
   "events": {
     "title": "All Events",
@@ -45,8 +51,20 @@
     "searchPlaceholder": "Search events...",
     "viewTickets": "View Tickets",
     "ticketsAvailable": "{available} tickets available out of {total}",
+    "ticketsAvailableShort": "tickets available out of",
+    "perTicket": "per ticket",
     "noEvents": "No events found",
-    "noEventsDescription": "Check back later for new events"
+    "noEventsDescription": "Check back later for new events",
+    "availableEvents": "Available Events",
+    "loadMore": "Load More Events",
+    "allCampuses": "All campuses",
+    "allTypes": "All types",
+    "campus": "Campus",
+    "type": "Type",
+    "sortByDate": "Date",
+    "sortByPrice": "Price",
+    "sortByAvailability": "Availability",
+    "at": "at"
   },
   "footer": {
     "tagline": "The trusted platform for students to safely buy and sell event tickets.",

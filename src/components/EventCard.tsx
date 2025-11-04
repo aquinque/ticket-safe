@@ -3,6 +3,7 @@ import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge";
 import { Calendar, MapPin, Users, Ticket } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useI18n } from "@/contexts/I18nContext";
 
 interface EventCardProps {
   id: string;
@@ -31,9 +32,12 @@ const EventCard = ({
   totalTickets,
   image 
 }: EventCardProps) => {
+  const { t, language } = useI18n();
+  
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('fr-FR', { 
+    const locale = language === 'fr' ? 'fr-FR' : 'en-US';
+    return date.toLocaleDateString(locale, { 
       weekday: 'short', 
       day: 'numeric', 
       month: 'short' 
@@ -95,7 +99,7 @@ const EventCard = ({
         {/* Date & Time */}
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Calendar className="w-4 h-4" />
-          <span>{formatDate(date)} à {time}</span>
+          <span>{formatDate(date)} {t('events.at')} {time}</span>
         </div>
 
         {/* Location */}
@@ -108,7 +112,7 @@ const EventCard = ({
         <div className="flex items-center gap-2 text-sm">
           <Users className="w-4 h-4 text-muted-foreground" />
           <span className="text-muted-foreground">
-            {availableTickets} tickets available out of {totalTickets}
+            {availableTickets} {t('events.ticketsAvailableShort')} {totalTickets}
           </span>
         </div>
 
@@ -118,7 +122,7 @@ const EventCard = ({
             {price}€
           </span>
           <span className="text-sm text-muted-foreground">
-            per ticket
+            {t('events.perTicket')}
           </span>
         </div>
       </CardContent>
@@ -130,7 +134,7 @@ const EventCard = ({
           asChild
         >
           <Link to={`/events/${id}`}>
-            View Tickets
+            {t('events.viewTickets')}
           </Link>
         </Button>
       </CardFooter>

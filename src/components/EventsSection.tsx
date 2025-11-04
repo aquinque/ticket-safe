@@ -50,7 +50,7 @@ const EventsSection = () => {
         {/* Header */}
         <div className="text-center mb-12">
           <h2 className="text-3xl md:text-4xl font-bold mb-4">
-            Available Events
+            {t('events.availableEvents')}
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
             {t('events.discoverEvents')}
@@ -75,10 +75,10 @@ const EventsSection = () => {
             <Select value={selectedCampus} onValueChange={setSelectedCampus}>
               <SelectTrigger>
                 <MapPin className="w-4 h-4 mr-2" />
-                <SelectValue placeholder="Campus" />
+                <SelectValue placeholder={t('events.campus')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all-campus">All campuses</SelectItem>
+                <SelectItem value="all-campus">{t('events.allCampuses')}</SelectItem>
                 {campuses.map(campus => (
                   <SelectItem key={campus} value={campus}>{campus}</SelectItem>
                 ))}
@@ -89,10 +89,10 @@ const EventsSection = () => {
             <Select value={selectedType} onValueChange={setSelectedType}>
               <SelectTrigger>
                 <Filter className="w-4 h-4 mr-2" />
-                <SelectValue placeholder="Type" />
+                <SelectValue placeholder={t('events.type')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all-types">All types</SelectItem>
+                <SelectItem value="all-types">{t('events.allTypes')}</SelectItem>
                 {eventTypes.map(type => (
                   <SelectItem key={type} value={type}>{type}</SelectItem>
                 ))}
@@ -106,9 +106,9 @@ const EventsSection = () => {
                 <SelectValue placeholder={t('common.sortBy')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="date">Date</SelectItem>
-                <SelectItem value="price">Price</SelectItem>
-                <SelectItem value="availability">Availability</SelectItem>
+                <SelectItem value="date">{t('events.sortByDate')}</SelectItem>
+                <SelectItem value="price">{t('events.sortByPrice')}</SelectItem>
+                <SelectItem value="availability">{t('events.sortByAvailability')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -147,7 +147,7 @@ const EventsSection = () => {
         {filteredEvents.length > 0 && (
           <div className="text-center">
             <Button variant="outline" size="lg">
-              Load More Events
+              {t('events.loadMore')}
             </Button>
           </div>
         )}
