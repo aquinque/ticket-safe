@@ -16,23 +16,26 @@ import {
   ArrowRight
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useI18n } from "@/contexts/I18nContext";
+import { SEOHead } from "@/components/SEOHead";
 
 const About = () => {
+  const { t } = useI18n();
   const features = [
     {
       icon: Shield,
-      title: "Safety and Trust",
-      description: "All tickets are verified to ensure authenticity, and only verified students can join the platform—preventing scams and ensuring a trustworthy community."
+      title: t('about.safetyTitle'),
+      description: t('about.safetyDesc')
     },
     {
       icon: Users,
-      title: "Student-Only Community",
-      description: "Exclusively for verified university students (like ESCP), creating a safe and transparent marketplace among peers."
+      title: t('about.communityTitle'),
+      description: t('about.communityDesc')
     },
     {
       icon: Target,
-      title: "User-Focused Experience",
-      description: "Smooth interface, secure payments, and responsive support—making buying and selling tickets fast and easy."
+      title: t('about.experienceTitle'),
+      description: t('about.experienceDesc')
     },
   ];
 
@@ -62,25 +65,26 @@ const About = () => {
 
   const values = [
     {
-      title: "Transparency",
-      description: "Fair and transparent pricing set by students themselves"
+      title: t('about.transparencyTitle'),
+      description: t('about.transparencyDesc')
     },
     {
-      title: "Security", 
-      description: "Protected payments and verified student community"
+      title: t('about.securityTitle'), 
+      description: t('about.securityDesc')
     },
     {
-      title: "Authenticity",
-      description: "All tickets verified to ensure legitimacy—no fakes"
+      title: t('about.authenticityTitle'),
+      description: t('about.authenticityDesc')
     },
     {
-      title: "Trust",
-      description: "Legal and safe student-to-student marketplace"
+      title: t('about.trustTitle'),
+      description: t('about.trustDesc')
     }
   ];
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      <SEOHead titleKey="about.title" descriptionKey="about.description" />
       <Header />
       <main className="flex-1">
         {/* Hero Section */}
@@ -91,19 +95,17 @@ const About = () => {
             </div>
             <div className="max-w-4xl mx-auto text-center">
               <Badge variant="secondary" className="mb-4">
-                About Ticket Safe
+                {t('about.badge')}
               </Badge>
               <h1 className="text-4xl md:text-5xl font-bold mb-6">
-                Revolutionizing{" "}
+                {t('about.title')}{" "}
                 <span className="bg-gradient-hero bg-clip-text text-transparent">
-                  student
+                  {t('about.titleHighlight')}
                 </span>
-                {" "}ticket resale
+                {" "}{t('about.titleEnd')}
               </h1>
               <p className="text-lg text-muted-foreground mb-8 max-w-3xl mx-auto">
-                Ticket Safe was born from a simple belief: ticket resale must be safe, 
-                legal, and transparent for the student community. We provide a trusted 
-                marketplace where verified students can buy and sell tickets securely.
+                {t('about.description')}
               </p>
             </div>
           </div>
@@ -114,11 +116,9 @@ const About = () => {
           <div className="container mx-auto px-4">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
               <div>
-                <h2 className="text-3xl font-bold mb-6">Our Mission</h2>
+                <h2 className="text-3xl font-bold mb-6">{t('about.missionTitle')}</h2>
                 <p className="text-lg text-muted-foreground mb-6">
-                  Enable students to buy and sell their event tickets safely and legally, 
-                  through a trusted platform with verified users, fraud prevention, 
-                  and secure payments—giving students the freedom to set fair prices.
+                  {t('about.missionText')}
                 </p>
                 <div className="space-y-4">
                   {features.map((feature, index) => (
@@ -137,7 +137,7 @@ const About = () => {
 
               <div className="relative">
                 <div className="bg-gradient-hero rounded-2xl p-8 text-white">
-                  <h3 className="text-2xl font-bold mb-4">Our Values</h3>
+                  <h3 className="text-2xl font-bold mb-4">{t('about.valuesTitle')}</h3>
                   <div className="grid grid-cols-2 gap-4">
                     {values.map((value, index) => (
                       <div key={index} className="space-y-2">
