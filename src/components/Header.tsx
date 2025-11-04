@@ -126,7 +126,7 @@ const Header = () => {
                 <DropdownMenuTrigger asChild>
                   <Button variant="hero" size="sm" className="shadow-glow hover:shadow-glow">
                     <User className="w-4 h-4 mr-2" />
-                    {userName ? `${t('nav.myAccount').split(' ')[0]}, ${userName.split(' ')[0]}!` : t('nav.myAccount')}
+                    {userName ? `${t('nav.welcome')}, ${userName.split(' ')[0]}!` : t('nav.myAccount')}
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
