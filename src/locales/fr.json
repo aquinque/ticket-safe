@@ -332,6 +332,16 @@
     "research": "Recherche académique",
     "researchDesc": "Participez à des études de recherche universitaires utilisant des données de plateforme anonymisées"
   },
+  "marketplace": {
+    "buy": {
+      "title": "Acheter des billets - Marketplace TicketSafe",
+      "description": "Parcourez les billets disponibles auprès d'étudiants vérifiés et trouvez l'événement parfait"
+    },
+    "sell": {
+      "title": "Vendre des billets - Marketplace TicketSafe",
+      "description": "Listez vos billets à vendre et connectez-vous avec des acheteurs étudiants vérifiés"
+    }
+  },
   "notFound": {
     "title": "404",
     "message": "Oups ! Page non trouvée",

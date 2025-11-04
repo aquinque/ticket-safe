@@ -332,6 +332,16 @@
     "research": "Academic Research",
     "researchDesc": "Participate in university research studies using anonymized platform data"
   },
+  "marketplace": {
+    "buy": {
+      "title": "Buy Tickets - TicketSafe Marketplace",
+      "description": "Browse available tickets from verified students and find the perfect event"
+    },
+    "sell": {
+      "title": "Sell Tickets - TicketSafe Marketplace",
+      "description": "List your tickets for sale and connect with verified student buyers"
+    }
+  },
   "notFound": {
     "title": "404",
     "message": "Oops! Page not found",

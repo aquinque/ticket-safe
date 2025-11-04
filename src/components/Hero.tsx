@@ -33,15 +33,15 @@ const Hero = () => {
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16 animate-slide-up">
             <Button variant="hero" size="lg" className="shadow-glow hover:shadow-glow" asChild>
-              <Link to="/events">
+              <Link to="/marketplace/buy">
                 <Search className="w-5 h-5" />
-                {t('hero.buyTickets')}
+                Buy Tickets
                 <ArrowRight className="w-5 h-5" />
               </Link>
             </Button>
             <Button variant="marketplace" size="lg" asChild>
-              <Link to="/sell">
-                {t('hero.sellTickets')}
+              <Link to="/marketplace/sell">
+                Sell Tickets
                 <ArrowRight className="w-5 h-5" />
               </Link>
             </Button>

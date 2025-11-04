@@ -41,9 +41,14 @@ const EventModal = ({ event, isOpen, onClose }: EventModalProps) => {
     return event.time;
   };
 
-  const handleBuyOrResell = () => {
+  const handleBuyClick = () => {
     onClose();
-    navigate('/sell');
+    navigate('/marketplace/buy');
+  };
+
+  const handleSellClick = () => {
+    onClose();
+    navigate('/marketplace/sell');
   };
 
   return (
@@ -141,11 +146,20 @@ const EventModal = ({ event, isOpen, onClose }: EventModalProps) => {
           {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row gap-3 pt-4">
             <Button 
-              className="flex-1 bg-gradient-hero text-white shadow-glow hover:shadow-glow"
+              variant="hero"
               size="lg"
-              onClick={handleBuyOrResell}
+              className="flex-1"
+              onClick={handleBuyClick}
             >
-              {t('events.buyOrResellTicket')}
+              Buy Tickets
+            </Button>
+            <Button 
+              variant="marketplace"
+              size="lg"
+              className="flex-1"
+              onClick={handleSellClick}
+            >
+              Sell Tickets
             </Button>
             <Button 
               variant="outline"

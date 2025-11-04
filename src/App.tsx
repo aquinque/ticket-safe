@@ -5,6 +5,9 @@ import { Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import Events from "./pages/Events";
 import Sell from "./pages/Sell";
+import MarketplaceBuy from "./pages/marketplace/Buy";
+import MarketplaceSell from "./pages/marketplace/Sell";
+import Checkout from "./pages/Checkout";
 import About from "./pages/About";
 import Profile from "./pages/Profile";
 import Auth from "./pages/Auth";
@@ -23,6 +26,9 @@ const App = () => (
       <Route path="/events" element={<Events />} />
       <Route path="/events/:id" element={<Events />} />
       <Route path="/sell" element={<Sell />} />
+      <Route path="/marketplace/buy" element={<MarketplaceBuy />} />
+      <Route path="/marketplace/sell" element={<MarketplaceSell />} />
+      <Route path="/checkout" element={<Checkout />} />
       <Route path="/about" element={<About />} />
       <Route path="/profile" element={<Profile />} />
       <Route path="/campus-life" element={<CampusLife />} />
