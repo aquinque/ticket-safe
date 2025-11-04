@@ -35,13 +35,14 @@ const Hero = () => {
             <Button variant="hero" size="lg" className="shadow-glow hover:shadow-glow" asChild>
               <Link to="/events">
                 <Search className="w-5 h-5" />
-                {t('hero.browseEvents')}
+                {t('hero.buyTickets')}
                 <ArrowRight className="w-5 h-5" />
               </Link>
             </Button>
-            <Button variant="outline-primary" size="lg" className="backdrop-blur-sm border-2" asChild>
+            <Button variant="marketplace" size="lg" asChild>
               <Link to="/sell">
-                {t('hero.sellMyTickets')}
+                {t('hero.sellTickets')}
+                <ArrowRight className="w-5 h-5" />
               </Link>
             </Button>
           </div>
