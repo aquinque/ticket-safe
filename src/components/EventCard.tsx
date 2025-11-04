@@ -51,16 +51,19 @@ const EventCard = ({ event, onClick }: EventCardProps) => {
 
   return (
     <Card 
-      className="group overflow-hidden bg-card border-0 hover:shadow-hover transition-all duration-300 hover:-translate-y-2 shadow-card cursor-pointer"
+      className="group overflow-hidden bg-card border-0 hover:shadow-hover transition-all duration-300 hover:-translate-y-2 shadow-card cursor-pointer rounded-xl"
       onClick={onClick}
     >
       {/* Event Image */}
-      <div className="relative h-52 bg-gradient-purple-blue overflow-hidden">
+      <div className="relative h-52 bg-gradient-purple-blue overflow-hidden rounded-t-xl">
         <img 
           src={event.image} 
           alt={event.title}
-          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 saturate-75"
         />
+        
+        {/* Brand color overlay */}
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-accent/10 mix-blend-overlay" />
         
         {/* Verified Badge */}
         <Badge 
