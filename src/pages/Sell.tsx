@@ -17,6 +17,7 @@ import { Event } from "@/integrations/supabase/types/events";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+import { useI18n } from "@/contexts/I18nContext";
 
 // Validation schema for ticket notes
 const notesSchema = z
@@ -29,6 +30,7 @@ const notesSchema = z
 const Sell = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
+  const { t } = useI18n();
   const [events, setEvents] = useState<Event[]>([]);
   const [eventsLoading, setEventsLoading] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
@@ -187,10 +189,10 @@ const Sell = () => {
           {/* Header */}
           <div className="text-center mb-12">
             <h1 className="text-4xl font-bold mb-4">
-              Sell your ticket now
+              {t('sell.titleMain')}
             </h1>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              List your tickets safely and connect with verified student buyers.
+              {t('sell.subtitleMain')}
             </p>
           </div>
 
@@ -199,28 +201,28 @@ const Sell = () => {
             <div className="lg:col-span-2">
               <Card>
                 <CardHeader>
-                  <CardTitle>Ticket Information</CardTitle>
+                  <CardTitle>{t('sell.ticketInfoTitle')}</CardTitle>
                   <CardDescription>
-                    Fill in your event details and tickets for sale
+                    {t('sell.ticketInfoDesc')}
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   {/* Event Details */}
                   <div className="space-y-4">
                     <div>
-                      <Label htmlFor="event">Select your event</Label>
+                      <Label htmlFor="event">{t('sell.selectYourEvent')}</Label>
                       <Select 
                         value={formData.eventId} 
                         onValueChange={handleEventSelect}
                         disabled={eventsLoading}
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder={eventsLoading ? "Loading events..." : "Choose an event"} />
+                          <SelectValue placeholder={eventsLoading ? t('sell.loadingEvents') : t('sell.selectEventPlaceholder')} />
                         </SelectTrigger>
                         <SelectContent>
                           {events.length === 0 && !eventsLoading ? (
                             <div className="p-4 text-sm text-muted-foreground text-center">
-                              No upcoming events available
+                              {t('sell.noUpcomingEvents')}
                             </div>
                           ) : (
                             events.map((event) => (
@@ -268,16 +270,16 @@ const Sell = () => {
 
                   {/* Pricing */}
                   <div className="space-y-4">
-                    <h3 className="text-lg font-semibold">Ticket Prices</h3>
+                    <h3 className="text-lg font-semibold">{t('sell.ticketPrices')}</h3>
                     
                     {selectedEvent?.base_price && (
                       <Alert className="bg-primary/5 border-primary/20">
                         <Info className="w-4 h-4 text-primary" />
                         <AlertDescription>
                           <div className="space-y-1">
-                            <p className="font-medium">Original Price: €{selectedEvent.base_price.toFixed(2)}</p>
+                            <p className="font-medium">{t('sell.originalPrice')} €{selectedEvent.base_price.toFixed(2)}</p>
                             <p className="text-sm text-muted-foreground">
-                              Reference price for this event
+                              {t('sell.referencePriceDesc')}
                             </p>
                           </div>
                         </AlertDescription>
@@ -286,24 +288,24 @@ const Sell = () => {
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <Label htmlFor="sellingPrice">Your Selling Price (€)</Label>
+                        <Label htmlFor="sellingPrice">{t('sell.yourSellingPrice')}</Label>
                         <Input
                           id="sellingPrice"
                           type="number"
                           step="0.01"
                           min="0"
-                          placeholder="Enter your price"
+                          placeholder={t('sell.enterYourPrice')}
                           value={formData.sellingPrice}
                           onChange={(e) => handlePriceChange(e.target.value)}
                           disabled={!selectedEvent}
                         />
                         <p className="text-xs text-muted-foreground mt-1">
-                          You can freely set your resale price. Make sure it remains fair and reasonable for fellow students.
+                          {t('sell.fairPriceDesc')}
                         </p>
                       </div>
 
                       <div>
-                        <Label htmlFor="quantity">Number of Tickets</Label>
+                        <Label htmlFor="quantity">{t('sell.numberOfTickets')}</Label>
                         <Select 
                           value={formData.quantity} 
                           onValueChange={(value) => setFormData({ ...formData, quantity: value })}
@@ -323,27 +325,27 @@ const Sell = () => {
 
                   {/* Description */}
                   <div>
-                    <Label htmlFor="description">Additional Notes (optional)</Label>
+                    <Label htmlFor="description">{t('sell.additionalNotes')}</Label>
                     <Textarea
                       id="description"
-                      placeholder="Add any additional details about your tickets..."
+                      placeholder={t('sell.addDetailsPlaceholder')}
                       value={formData.description}
                       onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                       rows={3}
                       maxLength={1000}
                     />
                     <p className="text-xs text-muted-foreground mt-1">
-                      {formData.description.length}/1000 characters. Only letters, numbers, and basic punctuation allowed.
+                      {formData.description.length}/1000 {t('sell.charactersLimit')}
                     </p>
                   </div>
 
                   {/* File Upload */}
                   <div>
-                    <Label>Ticket Photos (optional)</Label>
+                    <Label>{t('sell.ticketPhotos')}</Label>
                     <div className="border-2 border-dashed border-muted rounded-lg p-8 text-center hover:border-primary/50 transition-colors cursor-pointer">
                       <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
                       <p className="text-sm text-muted-foreground">
-                        Click to add photos of your tickets
+                        {t('sell.clickToAddPhotos')}
                       </p>
                     </div>
                   </div>
@@ -358,30 +360,30 @@ const Sell = () => {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Calculator className="w-5 h-5" />
-                    Pricing Summary
+                    {t('sell.pricingSummary')}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Original price:</span>
+                      <span className="text-muted-foreground">{t('sell.originalPrice')}</span>
                       <span className="font-medium">
                         {selectedEvent?.base_price ? `€${selectedEvent.base_price.toFixed(2)}` : "-"}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Your price:</span>
+                      <span className="text-muted-foreground">{t('sell.yourPrice')}</span>
                       <span className="font-medium">
                         {formData.sellingPrice ? `€${parseFloat(formData.sellingPrice).toFixed(2)}` : "-"}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Number of tickets:</span>
+                      <span className="text-muted-foreground">{t('sell.numberOfTickets')}:</span>
                       <span className="font-medium">{formData.quantity}</span>
                     </div>
                     <hr className="border-border" />
                     <div className="flex justify-between text-lg font-semibold">
-                      <span>Total earnings:</span>
+                      <span>{t('sell.totalEarnings')}</span>
                       <span className="text-primary">
                         {formData.sellingPrice ? 
                           `€${(parseFloat(formData.sellingPrice) * parseInt(formData.quantity)).toFixed(2)}` : 
@@ -396,24 +398,24 @@ const Sell = () => {
               {/* Guidelines */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Selling Guidelines</CardTitle>
+                  <CardTitle>{t('sell.sellingGuidelines')}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3 text-sm">
                   <div className="flex items-start gap-2">
                     <CheckCircle2 className="w-4 h-4 text-accent mt-0.5 flex-shrink-0" />
-                    <span>Set fair and reasonable prices</span>
+                    <span>{t('sell.guidelineFairPrices')}</span>
                   </div>
                   <div className="flex items-start gap-2">
                     <CheckCircle2 className="w-4 h-4 text-accent mt-0.5 flex-shrink-0" />
-                    <span>Only verified students can buy</span>
+                    <span>{t('sell.guidelineVerifiedStudents')}</span>
                   </div>
                   <div className="flex items-start gap-2">
                     <CheckCircle2 className="w-4 h-4 text-accent mt-0.5 flex-shrink-0" />
-                    <span>Guaranteed secure payment</span>
+                    <span>{t('sell.guidelineSecurePayment')}</span>
                   </div>
                   <div className="flex items-start gap-2">
                     <CheckCircle2 className="w-4 h-4 text-accent mt-0.5 flex-shrink-0" />
-                    <span>All tickets verified for authenticity</span>
+                    <span>{t('sell.guidelineVerifiedTickets')}</span>
                   </div>
                 </CardContent>
               </Card>
@@ -426,11 +428,11 @@ const Sell = () => {
                 disabled={!selectedEvent || !formData.sellingPrice || isSubmitting}
                 onClick={handleSubmit}
               >
-                {isSubmitting ? "Publishing..." : "Publish my tickets"}
+                {isSubmitting ? t('sell.publishing') : t('sell.publishMyTickets')}
               </Button>
               
               <p className="text-xs text-center text-muted-foreground">
-                By publishing, you agree to our terms and conditions
+                {t('sell.termsAgreement')}
               </p>
             </div>
           </div>

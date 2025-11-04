@@ -8,10 +8,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Users, Calendar, Briefcase, GraduationCap, MapPin } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { useI18n } from "@/contexts/I18nContext";
 
 const CampusLife = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
+  const { t } = useI18n();
   const [userCampus, setUserCampus] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -143,7 +145,7 @@ const CampusLife = () => {
         <div className="flex items-center justify-center h-[50vh]">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-            <p className="text-muted-foreground">Loading campus info...</p>
+            <p className="text-muted-foreground">{t('campusLife.loadingCampus')}</p>
           </div>
         </div>
       </div>
@@ -161,12 +163,12 @@ const CampusLife = () => {
           
           <div className="text-center mb-8">
             <h1 className="text-4xl font-bold mb-4">
-              {userCampus ? `Campus Life - ${userCampus}` : 'Campus Life'}
+              {userCampus ? t('campusLife.titleWithCampus', { campus: userCampus }) : t('campusLife.title')}
             </h1>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
               {userCampus 
-                ? `Discover associations, clubs, and services available at ESCP ${userCampus}`
-                : 'Select your campus to see relevant information'}
+                ? t('campusLife.subtitleWithCampus', { campus: userCampus })
+                : t('campusLife.subtitleNoCampus')}
             </p>
           </div>
 
@@ -175,10 +177,10 @@ const CampusLife = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <MapPin className="w-5 h-5" />
-                  No Campus Selected
+                  {t('campusLife.noCampusTitle')}
                 </CardTitle>
                 <CardDescription>
-                  Please update your profile with your campus to see personalized information
+                  {t('campusLife.noCampusDesc')}
                 </CardDescription>
               </CardHeader>
             </Card>
@@ -189,15 +191,15 @@ const CampusLife = () => {
               <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="associations">
                   <Users className="w-4 h-4 mr-2" />
-                  Associations
+                  {t('campusLife.associations')}
                 </TabsTrigger>
                 <TabsTrigger value="clubs">
                   <GraduationCap className="w-4 h-4 mr-2" />
-                  Clubs
+                  {t('campusLife.clubs')}
                 </TabsTrigger>
                 <TabsTrigger value="services">
                   <Briefcase className="w-4 h-4 mr-2" />
-                  Services
+                  {t('campusLife.services')}
                 </TabsTrigger>
               </TabsList>
 

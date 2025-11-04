@@ -156,9 +156,9 @@ const About = () => {
         <section className="py-16 bg-muted/30">
           <div className="container mx-auto px-4">
             <div className="text-center mb-12">
-              <h2 className="text-3xl font-bold mb-4">Our Roadmap</h2>
+              <h2 className="text-3xl font-bold mb-4">{t('about.roadmapTitle')}</h2>
               <p className="text-lg text-muted-foreground">
-                Progressive and controlled development to create the best experience
+                {t('about.roadmapSubtitle')}
               </p>
             </div>
 
@@ -174,17 +174,17 @@ const About = () => {
                         step.status === 'active' ? 'default' :
                         step.status === 'planned' ? 'secondary' : 'outline'
                       }>
-                        {step.phase}
+                        {t(`about.phase${index + 1}`)}
                       </Badge>
                       {step.status === 'active' && (
                         <Badge variant="default" className="bg-accent">
-                          In Progress
+                          {t('about.inProgress')}
                         </Badge>
                       )}
                     </div>
                     
-                    <h3 className="text-xl font-bold mb-2">{step.title}</h3>
-                    <p className="text-muted-foreground mb-4">{step.description}</p>
+                    <h3 className="text-xl font-bold mb-2">{t(`about.phase${index + 1}Title`)}</h3>
+                    <p className="text-muted-foreground mb-4">{t(`about.phase${index + 1}Desc`)}</p>
                     
                     <div className="space-y-2">
                       {step.features.map((feature, idx) => (
@@ -207,10 +207,10 @@ const About = () => {
             <div className="max-w-4xl mx-auto">
               <div className="text-center mb-12">
                 <h2 className="text-3xl font-bold mb-4">
-                  Why Ticket Safe?
+                  {t('about.whyTicketSafe')}
                 </h2>
                 <p className="text-lg text-muted-foreground">
-                  An ethical alternative to market giants
+                  {t('about.whyTicketSafeSubtitle')}
                 </p>
               </div>
 
@@ -222,29 +222,29 @@ const About = () => {
                       <div className="w-10 h-10 bg-gradient-hero rounded-lg flex items-center justify-center">
                         <Heart className="w-5 h-5 text-white" />
                       </div>
-                      <h3 className="text-xl font-bold">Ticket Safe</h3>
+                      <h3 className="text-xl font-bold">{t('about.ticketSafeName')}</h3>
                     </div>
                     
                     <div className="space-y-3">
                       <div className="flex items-start gap-2">
                         <CheckCircle2 className="w-4 h-4 text-accent mt-0.5" />
-                        <span className="text-sm">Verified student community—university emails only</span>
+                        <span className="text-sm">{t('about.feature1')}</span>
                       </div>
                       <div className="flex items-start gap-2">
                         <CheckCircle2 className="w-4 h-4 text-accent mt-0.5" />
-                        <span className="text-sm">All tickets verified for authenticity</span>
+                        <span className="text-sm">{t('about.feature2')}</span>
                       </div>
                       <div className="flex items-start gap-2">
                         <CheckCircle2 className="w-4 h-4 text-accent mt-0.5" />
-                        <span className="text-sm">Students set their own fair prices</span>
+                        <span className="text-sm">{t('about.feature3')}</span>
                       </div>
                       <div className="flex items-start gap-2">
                         <CheckCircle2 className="w-4 h-4 text-accent mt-0.5" />
-                        <span className="text-sm">Secure payments and fraud prevention</span>
+                        <span className="text-sm">{t('about.feature4')}</span>
                       </div>
                       <div className="flex items-start gap-2">
                         <CheckCircle2 className="w-4 h-4 text-accent mt-0.5" />
-                        <span className="text-sm">Easy-to-use interface and responsive support</span>
+                        <span className="text-sm">{t('about.feature5')}</span>
                       </div>
                     </div>
                   </CardContent>
@@ -257,29 +257,29 @@ const About = () => {
                       <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center">
                         <TrendingUp className="w-5 h-5 text-muted-foreground" />
                       </div>
-                      <h3 className="text-xl font-bold text-muted-foreground">Other platforms</h3>
+                      <h3 className="text-xl font-bold text-muted-foreground">{t('about.otherPlatforms')}</h3>
                     </div>
                     
                     <div className="space-y-3 text-muted-foreground">
                       <div className="flex items-start gap-2">
                         <div className="w-4 h-4 border border-muted-foreground rounded-full mt-0.5" />
-                        <span className="text-sm">No student verification (scams and bots)</span>
+                        <span className="text-sm">{t('about.otherFeature1')}</span>
                       </div>
                       <div className="flex items-start gap-2">
                         <div className="w-4 h-4 border border-muted-foreground rounded-full mt-0.5" />
-                        <span className="text-sm">Higher fees and hidden costs</span>
+                        <span className="text-sm">{t('about.otherFeature2')}</span>
                       </div>
                       <div className="flex items-start gap-2">
                         <div className="w-4 h-4 border border-muted-foreground rounded-full mt-0.5" />
-                        <span className="text-sm">Mixed audience with scalpers</span>
+                        <span className="text-sm">{t('about.otherFeature3')}</span>
                       </div>
                       <div className="flex items-start gap-2">
                         <div className="w-4 h-4 border border-muted-foreground rounded-full mt-0.5" />
-                        <span className="text-sm">Complex and confusing interfaces</span>
+                        <span className="text-sm">{t('about.otherFeature4')}</span>
                       </div>
                       <div className="flex items-start gap-2">
                         <div className="w-4 h-4 border border-muted-foreground rounded-full mt-0.5" />
-                        <span className="text-sm">Automated support with slow responses</span>
+                        <span className="text-sm">{t('about.otherFeature5')}</span>
                       </div>
                     </div>
                   </CardContent>
@@ -294,23 +294,22 @@ const About = () => {
           <div className="container mx-auto px-4">
             <div className="max-w-3xl mx-auto text-center">
               <h2 className="text-3xl font-bold mb-4">
-                Join the Ticket Safe revolution
+                {t('about.ctaTitle')}
               </h2>
               <p className="text-lg text-white/90 mb-8">
-                Join a trusted community of verified students. 
-                Buy and sell tickets safely, legally, and transparently.
+                {t('about.ctaDescription')}
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Button variant="secondary" size="lg" asChild>
                   <Link to="/events">
                     <School className="w-5 h-5" />
-                    Discover events
+                    {t('about.ctaDiscoverEvents')}
                     <ArrowRight className="w-5 h-5" />
                   </Link>
                 </Button>
                 <Button variant="outline" size="lg" className="border-white text-white hover:bg-white hover:text-primary" asChild>
                   <Link to="/sell">
-                    Sell your ticket now
+                    {t('about.ctaSellTicket')}
                   </Link>
                 </Button>
               </div>
