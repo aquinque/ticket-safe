@@ -34,14 +34,14 @@ const getLanguageFromUrl = (): Language | null => {
 
 export const I18nProvider = ({ children }: { children: ReactNode }) => {
   const [language, setLanguageState] = useState<Language>(() => {
-    // Priority: URL param > localStorage > browser detection
+    // Priority: URL param > localStorage > default to English
     const urlLang = getLanguageFromUrl();
     if (urlLang) return urlLang;
     
     const storedLang = localStorage.getItem('lang') as Language;
     if (storedLang === 'en' || storedLang === 'fr') return storedLang;
     
-    return detectBrowserLanguage();
+    return 'en'; // Default to English
   });
 
   useEffect(() => {
