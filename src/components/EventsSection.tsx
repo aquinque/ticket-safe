@@ -1,67 +1,56 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Filter, Calendar, MapPin } from "lucide-react";
+import { Search, Filter } from "lucide-react";
 import EventCard from "./EventCard";
-import { useEvents } from "@/hooks/useEvents";
-import { useAuth } from "@/hooks/useAuth";
 import { useI18n } from "@/contexts/I18nContext";
+import { eventsList } from "@/data/eventsData";
+import EventModal from "./EventModal";
 
 const EventsSection = () => {
-  const { user } = useAuth();
   const { t } = useI18n();
-  const { data: events, isLoading } = useEvents();
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCampus, setSelectedCampus] = useState("all-campus");
-  const [selectedType, setSelectedType] = useState("all-types");
-  const [sortBy, setSortBy] = useState("date");
+  const [selectedFilter, setSelectedFilter] = useState("all");
+  const [selectedEvent, setSelectedEvent] = useState<typeof eventsList[0] | null>(null);
 
-  const campuses = ["Paris", "Berlin", "London", "Madrid", "Turin"];
-  
-  const eventTypes = events 
-    ? [...new Set(events.map(event => event.category))]
-    : [];
+  const filters = [
+    { id: "all", label: t('events.filters.all') },
+    { id: "parties", label: t('events.filters.parties') },
+    { id: "galas", label: t('events.filters.galas') },
+    { id: "conferences", label: t('events.filters.conferences') },
+    { id: "sports", label: t('events.filters.sports') },
+    { id: "sustainability", label: t('events.filters.sustainability') },
+    { id: "other", label: t('events.filters.other') }
+  ];
 
-  const filteredEvents = (events || [])
+  const filteredEvents = eventsList
     .filter(event => {
       const matchesSearch = event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           event.location.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesCampus = selectedCampus === "all-campus" || event.campus === selectedCampus;
-      const matchesType = selectedType === "all-types" || event.category === selectedType;
-      return matchesSearch && matchesCampus && matchesType;
+                           event.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           event.organizer.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesFilter = selectedFilter === "all" || event.filterCategory === selectedFilter;
+      return matchesSearch && matchesFilter;
     })
-    .sort((a, b) => {
-      switch (sortBy) {
-        case "date":
-          return new Date(a.date).getTime() - new Date(b.date).getTime();
-        case "price":
-          return 0;
-        case "availability":
-          return 0;
-        default:
-          return 0;
-      }
-    });
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   return (
-    <section className="py-16 bg-muted/30">
-      <div className="container mx-auto px-4">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">
-            {t('events.availableEvents')}
-          </h2>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            {t('events.discoverEvents')}
-          </p>
-        </div>
+    <>
+      <section className="py-16 bg-muted/30">
+        <div className="container mx-auto px-4">
+          {/* Header */}
+          <div className="text-center mb-12">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">
+              {t('events.availableEvents')}
+            </h2>
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+              {t('events.discoverEvents')}
+            </p>
+          </div>
 
-        {/* Filters */}
-        <div className="bg-card rounded-xl p-6 shadow-card mb-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          {/* Filters Bar */}
+          <div className="bg-card rounded-xl p-6 shadow-card mb-8">
             {/* Search */}
-            <div className="lg:col-span-2 relative">
+            <div className="relative mb-6">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <Input
                 placeholder={t('events.searchPlaceholder')}
@@ -71,101 +60,58 @@ const EventsSection = () => {
               />
             </div>
 
-            {/* Campus Filter */}
-            <Select value={selectedCampus} onValueChange={setSelectedCampus}>
-              <SelectTrigger>
-                <MapPin className="w-4 h-4 mr-2" />
-                <SelectValue placeholder={t('events.campus')} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all-campus">{t('events.allCampuses')}</SelectItem>
-                {campuses.map(campus => (
-                  <SelectItem key={campus} value={campus}>{campus}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {/* Type Filter */}
-            <Select value={selectedType} onValueChange={setSelectedType}>
-              <SelectTrigger>
-                <Filter className="w-4 h-4 mr-2" />
-                <SelectValue placeholder={t('events.type')} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all-types">{t('events.allTypes')}</SelectItem>
-                {eventTypes.map(type => (
-                  <SelectItem key={type} value={type}>{type}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {/* Sort By */}
-            <Select value={sortBy} onValueChange={setSortBy}>
-              <SelectTrigger>
-                <Calendar className="w-4 h-4 mr-2" />
-                <SelectValue placeholder={t('common.sortBy')} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="date">{t('events.sortByDate')}</SelectItem>
-                <SelectItem value="price">{t('events.sortByPrice')}</SelectItem>
-                <SelectItem value="availability">{t('events.sortByAvailability')}</SelectItem>
-              </SelectContent>
-            </Select>
+            {/* Category Filters */}
+            <div className="flex flex-wrap gap-2">
+              <Filter className="w-4 h-4 text-muted-foreground mt-2 mr-2" />
+              {filters.map(filter => (
+                <Button
+                  key={filter.id}
+                  variant={selectedFilter === filter.id ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setSelectedFilter(filter.id)}
+                  className="rounded-full"
+                >
+                  {filter.label}
+                </Button>
+              ))}
+            </div>
           </div>
-        </div>
 
-        {/* Loading State */}
-        {isLoading && (
-          <div className="text-center py-12">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-            <p className="text-muted-foreground">{t('common.loading')}</p>
-          </div>
-        )}
-
-        {/* Events Grid */}
-        {!isLoading && (
+          {/* Events Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
             {filteredEvents.map(event => (
               <EventCard 
                 key={event.id}
-                id={event.id}
-                title={event.title}
-                date={event.date}
-                time=""
-                location={event.location}
-                campus={event.campus || ""}
-                type={event.category}
-                price={0}
-                availableTickets={0}
-                totalTickets={0}
+                event={event}
+                onClick={() => setSelectedEvent(event)}
               />
             ))}
           </div>
-        )}
 
-        {/* Load More */}
-        {filteredEvents.length > 0 && (
-          <div className="text-center">
-            <Button variant="outline" size="lg">
-              {t('events.loadMore')}
-            </Button>
-          </div>
-        )}
-
-        {/* No Results */}
-        {!isLoading && filteredEvents.length === 0 && (
-          <div className="text-center py-12">
-            <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
-              <Search className="w-8 h-8 text-muted-foreground" />
+          {/* No Results */}
+          {filteredEvents.length === 0 && (
+            <div className="text-center py-12">
+              <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+                <Search className="w-8 h-8 text-muted-foreground" />
+              </div>
+              <h3 className="text-xl font-semibold mb-2">{t('events.noEvents')}</h3>
+              <p className="text-muted-foreground">
+                {t('events.noEventsDescription')}
+              </p>
             </div>
-            <h3 className="text-xl font-semibold mb-2">{t('events.noEvents')}</h3>
-            <p className="text-muted-foreground">
-              {t('events.noEventsDescription')}
-            </p>
-          </div>
-        )}
-      </div>
-    </section>
+          )}
+        </div>
+      </section>
+
+      {/* Event Detail Modal */}
+      {selectedEvent && (
+        <EventModal
+          event={selectedEvent}
+          isOpen={!!selectedEvent}
+          onClose={() => setSelectedEvent(null)}
+        />
+      )}
+    </>
   );
 };
 

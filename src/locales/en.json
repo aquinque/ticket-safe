@@ -48,9 +48,10 @@
   "events": {
     "title": "All Events",
     "subtitle": "Explore all student events with available tickets",
-    "discoverEvents": "Discover all student events with tickets for resale.",
+    "discoverEvents": "Discover verified student events where you can safely buy or resell tickets.",
     "searchPlaceholder": "Search events...",
     "viewTickets": "View Tickets",
+    "buyOrResellTicket": "Buy or Resell Ticket",
     "ticketsAvailable": "{available} tickets available out of {total}",
     "ticketsAvailableShort": "tickets available out of",
     "perTicket": "per ticket",
@@ -65,7 +66,24 @@
     "sortByDate": "Date",
     "sortByPrice": "Price",
     "sortByAvailability": "Availability",
-    "at": "at"
+    "at": "at",
+    "verifiedByTicketSafe": "Verified by TicketSafe",
+    "eventEnded": "Event Ended",
+    "organizedBy": "Organized by",
+    "dateAndTime": "Date & Time",
+    "location": "Location",
+    "aboutEvent": "About this event",
+    "safetyInfo": "Safety & Trust",
+    "safetyInfoDesc": "All tickets are verified by TicketSafe. Only verified students can buy or sell on our platform.",
+    "filters": {
+      "all": "All",
+      "parties": "Parties",
+      "galas": "Galas",
+      "conferences": "Conferences",
+      "sports": "Sports",
+      "sustainability": "Sustainability",
+      "other": "Other"
+    }
   },
   "footer": {
     "tagline": "The trusted platform for students to safely buy and sell event tickets.",

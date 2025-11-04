@@ -1,37 +1,16 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, MapPin, Users, Ticket } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Calendar, MapPin, ShieldCheck } from "lucide-react";
 import { useI18n } from "@/contexts/I18nContext";
+import { EventData } from "@/data/eventsData";
 
 interface EventCardProps {
-  id: string;
-  title: string;
-  date: string;
-  time: string;
-  location: string;
-  campus: string;
-  type: string;
-  price: number;
-  availableTickets: number;
-  totalTickets: number;
-  image?: string;
+  event: EventData;
+  onClick: () => void;
 }
 
-const EventCard = ({ 
-  id, 
-  title, 
-  date, 
-  time, 
-  location, 
-  campus, 
-  type, 
-  price, 
-  availableTickets, 
-  totalTickets,
-  image 
-}: EventCardProps) => {
+const EventCard = ({ event, onClick }: EventCardProps) => {
   const { t, language } = useI18n();
   
   const formatDate = (dateString: string) => {
@@ -40,90 +19,101 @@ const EventCard = ({
     return date.toLocaleDateString(locale, { 
       weekday: 'short', 
       day: 'numeric', 
-      month: 'short' 
+      month: 'short',
+      year: 'numeric'
     });
   };
 
-  const getTypeColor = (eventType: string) => {
-    switch (eventType.toLowerCase()) {
-      case 'soirée': return 'bg-primary/10 text-primary border-primary/20';
-      case 'gala': return 'bg-secondary/10 text-secondary border-secondary/20';
-      case 'concert': return 'bg-accent/10 text-accent border-accent/20';
-      case 'wei': return 'bg-gradient-accent text-white border-transparent';
-      default: return 'bg-muted text-muted-foreground border-border';
+  const formatDateRange = () => {
+    if (event.endDate) {
+      return `${formatDate(event.date)} - ${formatDate(event.endDate)}`;
     }
+    return formatDate(event.date);
+  };
+
+  const formatTime = () => {
+    if (event.endTime) {
+      return `${event.time} - ${event.endTime}`;
+    }
+    return event.time;
+  };
+
+  const getTypeColor = (eventType: string) => {
+    const type = eventType.toLowerCase();
+    if (type.includes('party') || type.includes('halloween')) return 'bg-gradient-hero text-white border-transparent';
+    if (type.includes('gala')) return 'bg-gradient-accent text-white border-transparent';
+    if (type.includes('conference') || type.includes('panel')) return 'bg-primary/10 text-primary border-primary/20';
+    if (type.includes('sustainability') || type.includes('swap')) return 'bg-green-500/10 text-green-600 border-green-500/20';
+    if (type.includes('ceremony')) return 'bg-purple-500/10 text-purple-600 border-purple-500/20';
+    if (type.includes('ski') || type.includes('sport') || type.includes('game')) return 'bg-blue-500/10 text-blue-600 border-blue-500/20';
+    return 'bg-muted text-muted-foreground border-border';
   };
 
   return (
-    <Card className="group overflow-hidden bg-card border-0 hover:shadow-hover transition-all duration-300 hover:-translate-y-2 shadow-card">
+    <Card 
+      className="group overflow-hidden bg-card border-0 hover:shadow-hover transition-all duration-300 hover:-translate-y-2 shadow-card cursor-pointer"
+      onClick={onClick}
+    >
       {/* Event Image */}
       <div className="relative h-52 bg-gradient-purple-blue overflow-hidden">
-        {image ? (
-          <img 
-            src={image} 
-            alt={title}
-            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-          />
-        ) : (
-          <div className="w-full h-full bg-gradient-purple-blue flex items-center justify-center">
-            <Ticket className="w-16 h-16 text-white/70" />
-          </div>
-        )}
+        <img 
+          src={event.image} 
+          alt={event.title}
+          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+        />
         
-        {/* Campus Badge */}
+        {/* Verified Badge */}
         <Badge 
-          variant="secondary" 
-          className="absolute top-4 left-4 bg-white/95 text-foreground backdrop-blur-md shadow-soft"
+          className="absolute top-4 left-4 bg-white/95 text-foreground backdrop-blur-md shadow-soft flex items-center gap-1"
         >
-          {campus}
+          <ShieldCheck className="w-3 h-3 text-primary" />
+          {t('events.verifiedByTicketSafe')}
         </Badge>
 
         {/* Type Badge */}
         <Badge 
-          className={`absolute top-4 right-4 ${getTypeColor(type)} backdrop-blur-md shadow-soft border`}
+          className={`absolute top-4 right-4 ${getTypeColor(event.category)} backdrop-blur-md shadow-soft border`}
         >
-          {type}
+          {event.category}
         </Badge>
 
+        {/* Event Ended Badge */}
+        {event.isPastEvent && (
+          <Badge 
+            variant="secondary"
+            className="absolute bottom-4 left-4 bg-black/80 text-white backdrop-blur-md"
+          >
+            {t('events.eventEnded')}
+          </Badge>
+        )}
+
         {/* Gradient Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
       </div>
 
       <CardHeader className="pb-3">
         <h3 className="font-semibold text-lg line-clamp-2 group-hover:text-primary transition-colors">
-          {title}
+          {event.title}
         </h3>
+        <p className="text-sm text-muted-foreground">
+          {event.organizer}
+        </p>
       </CardHeader>
 
       <CardContent className="space-y-3 pb-4">
         {/* Date & Time */}
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Calendar className="w-4 h-4" />
-          <span>{formatDate(date)} {t('events.at')} {time}</span>
+        <div className="flex items-start gap-2 text-sm text-muted-foreground">
+          <Calendar className="w-4 h-4 mt-0.5 flex-shrink-0" />
+          <div>
+            <div>{formatDateRange()}</div>
+            <div>{formatTime()}</div>
+          </div>
         </div>
 
         {/* Location */}
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <MapPin className="w-4 h-4" />
-          <span className="line-clamp-1">{location}</span>
-        </div>
-
-        {/* Availability */}
-        <div className="flex items-center gap-2 text-sm">
-          <Users className="w-4 h-4 text-muted-foreground" />
-          <span className="text-muted-foreground">
-            {availableTickets} {t('events.ticketsAvailableShort')} {totalTickets}
-          </span>
-        </div>
-
-        {/* Price */}
-        <div className="flex items-center justify-between pt-2">
-          <span className="text-2xl font-bold text-primary">
-            {price}€
-          </span>
-          <span className="text-sm text-muted-foreground">
-            {t('events.perTicket')}
-          </span>
+        <div className="flex items-start gap-2 text-sm text-muted-foreground">
+          <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
+          <span className="line-clamp-2">{event.location}</span>
         </div>
       </CardContent>
 
@@ -131,11 +121,8 @@ const EventCard = ({
         <Button 
           variant="outline-primary" 
           className="w-full group-hover:bg-gradient-hero group-hover:text-white group-hover:border-transparent shadow-soft group-hover:shadow-glow transition-all duration-300"
-          asChild
         >
-          <Link to={`/events/${id}`}>
-            {t('events.viewTickets')}
-          </Link>
+          {t('events.buyOrResellTicket')}
         </Button>
       </CardFooter>
     </Card>

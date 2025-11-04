@@ -48,9 +48,10 @@
   "events": {
     "title": "Tous les événements",
     "subtitle": "Explorez tous les événements étudiants avec des billets disponibles",
-    "discoverEvents": "Découvrez tous les événements étudiants avec des billets à revendre.",
+    "discoverEvents": "Découvrez des événements étudiants vérifiés où vous pouvez acheter ou revendre des billets en toute sécurité.",
     "searchPlaceholder": "Rechercher des événements...",
     "viewTickets": "Voir les billets",
+    "buyOrResellTicket": "Acheter ou revendre un billet",
     "ticketsAvailable": "{available} billets disponibles sur {total}",
     "ticketsAvailableShort": "billets disponibles sur",
     "perTicket": "par billet",
@@ -65,7 +66,24 @@
     "sortByDate": "Date",
     "sortByPrice": "Prix",
     "sortByAvailability": "Disponibilité",
-    "at": "à"
+    "at": "à",
+    "verifiedByTicketSafe": "Vérifié par TicketSafe",
+    "eventEnded": "Événement terminé",
+    "organizedBy": "Organisé par",
+    "dateAndTime": "Date et heure",
+    "location": "Lieu",
+    "aboutEvent": "À propos de cet événement",
+    "safetyInfo": "Sécurité et confiance",
+    "safetyInfoDesc": "Tous les billets sont vérifiés par TicketSafe. Seuls les étudiants vérifiés peuvent acheter ou vendre sur notre plateforme.",
+    "filters": {
+      "all": "Tous",
+      "parties": "Soirées",
+      "galas": "Galas",
+      "conferences": "Conférences",
+      "sports": "Sports",
+      "sustainability": "Durabilité",
+      "other": "Autre"
+    }
   },
   "footer": {
     "tagline": "La plateforme de confiance pour que les étudiants achètent et vendent des billets d'événements en toute sécurité.",
