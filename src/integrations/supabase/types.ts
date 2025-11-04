@@ -256,6 +256,13 @@ export type Database = {
             foreignKeyName: "transactions_ticket_id_fkey"
             columns: ["ticket_id"]
             isOneToOne: false
+            referencedRelation: "available_tickets_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
             referencedRelation: "tickets"
             referencedColumns: ["id"]
           },
@@ -361,7 +368,60 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      available_tickets_public: {
+        Row: {
+          created_at: string | null
+          event_id: string | null
+          id: string | null
+          notes: string | null
+          original_price: number | null
+          quantity: number | null
+          seller_id: string | null
+          selling_price: number | null
+          status: Database["public"]["Enums"]["ticket_status"] | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          event_id?: string | null
+          id?: string | null
+          notes?: string | null
+          original_price?: number | null
+          quantity?: number | null
+          seller_id?: string | null
+          selling_price?: number | null
+          status?: Database["public"]["Enums"]["ticket_status"] | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          event_id?: string | null
+          id?: string | null
+          notes?: string | null
+          original_price?: number | null
+          quantity?: number | null
+          seller_id?: string | null
+          selling_price?: number | null
+          status?: Database["public"]["Enums"]["ticket_status"] | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tickets_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_seller_id_fkey"
+            columns: ["seller_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       anonymize_user: { Args: { user_id: string }; Returns: undefined }
