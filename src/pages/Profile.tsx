@@ -285,14 +285,15 @@ const Profile = () => {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "confirmed":
+        return <Badge variant="secondary" className="bg-accent/10 text-accent">{t('profile.confirmed')}</Badge>;
       case "sold":
-        return <Badge variant="secondary" className="bg-accent/10 text-accent">Confirmé</Badge>;
+        return <Badge variant="secondary" className="bg-accent/10 text-accent">{t('profile.sold')}</Badge>;
       case "pending":
-        return <Badge variant="outline" className="text-primary">En attente</Badge>;
+        return <Badge variant="outline" className="text-primary">{t('profile.pending')}</Badge>;
       case "active":
-        return <Badge variant="default">En vente</Badge>;
+        return <Badge variant="default">{t('profile.active')}</Badge>;
       case "cancelled":
-        return <Badge variant="destructive">Annulé</Badge>;
+        return <Badge variant="destructive">{t('profile.cancelled')}</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
@@ -321,7 +322,7 @@ const Profile = () => {
         <main className="py-16 flex items-center justify-center">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-            <p className="text-muted-foreground">Loading your profile...</p>
+            <p className="text-muted-foreground">{t('profile.loadingProfile')}</p>
           </div>
         </main>
       </div>
@@ -354,12 +355,12 @@ const Profile = () => {
                   </Avatar>
                   
                   <div className="text-center md:text-left flex-1">
-                    <h1 className="text-3xl font-bold mb-2">{userData.name}</h1>
+                    <h1 className="text-3xl font-bold mb-2">{t('profile.welcome', { name: userData.name.split(' ')[0] })}</h1>
                     <p className="text-muted-foreground mb-4">{userData.email}</p>
                     <div className="flex flex-wrap gap-4 justify-center md:justify-start">
                       <Badge variant="secondary">{userData.campus}</Badge>
                       <Badge variant="outline">
-                        Membre depuis {new Date(userData.memberSince).toLocaleDateString('fr-FR')}
+                        {t('profile.memberSince')} {new Date(userData.memberSince).toLocaleDateString(language === 'fr' ? 'fr-FR' : 'en-US')}
                       </Badge>
                     </div>
                   </div>
@@ -367,7 +368,7 @@ const Profile = () => {
                   <div className="flex gap-2">
                     <Button variant="outline" className="gap-2" onClick={() => navigate("/privacy")}>
                       <Shield className="w-4 h-4" />
-                      Privacy
+                      {t('privacy.title')}
                     </Button>
                   </div>
                 </div>
@@ -383,7 +384,7 @@ const Profile = () => {
                   <ShoppingBag className="w-6 h-6 text-primary" />
                 </div>
                 <h3 className="text-2xl font-bold">{userData.totalPurchases}</h3>
-                <p className="text-sm text-muted-foreground">Achats réalisés</p>
+                <p className="text-sm text-muted-foreground">{t('profile.purchasesCompleted')}</p>
               </CardContent>
             </Card>
 
@@ -393,7 +394,7 @@ const Profile = () => {
                   <Ticket className="w-6 h-6 text-secondary" />
                 </div>
                 <h3 className="text-2xl font-bold">{userData.totalSales}</h3>
-                <p className="text-sm text-muted-foreground">Ventes réalisées</p>
+                <p className="text-sm text-muted-foreground">{t('profile.salesCompleted')}</p>
               </CardContent>
             </Card>
 
@@ -403,7 +404,7 @@ const Profile = () => {
                   <Euro className="w-6 h-6 text-accent" />
                 </div>
                 <h3 className="text-2xl font-bold">{userData.totalSaved}€</h3>
-                <p className="text-sm text-muted-foreground">Économisés</p>
+                <p className="text-sm text-muted-foreground">{t('profile.saved')}</p>
               </CardContent>
             </Card>
 
@@ -413,7 +414,7 @@ const Profile = () => {
                   <History className="w-6 h-6 text-white" />
                 </div>
                 <h3 className="text-2xl font-bold">{purchases.length + sales.length}</h3>
-                <p className="text-sm text-muted-foreground">Transactions totales</p>
+                <p className="text-sm text-muted-foreground">{t('profile.totalTransactions')}</p>
               </CardContent>
             </Card>
           </div>
@@ -421,15 +422,15 @@ const Profile = () => {
           {/* Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab}>
             <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="overview">Vue d'ensemble</TabsTrigger>
-              <TabsTrigger value="purchases">Mes achats</TabsTrigger>
-              <TabsTrigger value="sales">Mes ventes</TabsTrigger>
+              <TabsTrigger value="overview">{t('profile.overview')}</TabsTrigger>
+              <TabsTrigger value="purchases">{t('profile.purchases')}</TabsTrigger>
+              <TabsTrigger value="sales">{t('profile.sales')}</TabsTrigger>
               <TabsTrigger 
                 value="settings" 
                 className="bg-gradient-hero text-white shadow-glow hover:shadow-glow data-[state=active]:bg-gradient-hero data-[state=active]:text-white data-[state=active]:shadow-glow"
               >
                 <Settings className="w-4 h-4 mr-2" />
-                Paramètres
+                {t('nav.settings')}
               </TabsTrigger>
             </TabsList>
 
@@ -440,12 +441,12 @@ const Profile = () => {
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <ShoppingBag className="w-5 h-5" />
-                      Achats récents
+                      {t('profile.recentPurchases')}
                     </CardTitle>
                   </CardHeader>
                    <CardContent className="space-y-4">
                      {purchases.length === 0 ? (
-                       <p className="text-sm text-muted-foreground text-center py-4">You don't have any transactions yet</p>
+                       <p className="text-sm text-muted-foreground text-center py-4">{t('profile.noTransactions')}</p>
                      ) : (
                        purchases.slice(0, 3).map((purchase) => (
                       <div key={purchase.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
@@ -470,12 +471,12 @@ const Profile = () => {
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
                       <Ticket className="w-5 h-5" />
-                      Ventes récentes
+                      {t('profile.recentSales')}
                     </CardTitle>
                   </CardHeader>
                    <CardContent className="space-y-4">
                      {sales.length === 0 ? (
-                       <p className="text-sm text-muted-foreground text-center py-4">You don't have any transactions yet</p>
+                       <p className="text-sm text-muted-foreground text-center py-4">{t('profile.noTransactions')}</p>
                      ) : (
                        sales.map((sale) => (
                       <div key={sale.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
@@ -500,15 +501,15 @@ const Profile = () => {
             <TabsContent value="purchases" className="space-y-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Historique des achats</CardTitle>
+                  <CardTitle>{t('profile.purchaseHistory')}</CardTitle>
                   <CardDescription>
-                    Tous tes tickets achetés sur Ticket Safe
+                    {t('profile.purchaseHistoryDesc')}
                   </CardDescription>
                 </CardHeader>
                  <CardContent>
                    <div className="space-y-4">
                      {purchases.length === 0 ? (
-                       <p className="text-center text-muted-foreground py-8">You don't have any transactions yet</p>
+                       <p className="text-center text-muted-foreground py-8">{t('profile.noTransactions')}</p>
                      ) : (
                        purchases.map((purchase) => (
                       <div key={purchase.id} className="flex items-center gap-4 p-4 border border-border rounded-lg hover:bg-muted/30 transition-colors">
@@ -517,15 +518,15 @@ const Profile = () => {
                         <div className="flex-1 space-y-1">
                           <h3 className="font-medium">{purchase.eventTitle}</h3>
                           <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                            <div className="flex items-center gap-1">
+                           <div className="flex items-center gap-1">
                               <Calendar className="w-3 h-3" />
-                              {new Date(purchase.date).toLocaleDateString('fr-FR')}
+                              {new Date(purchase.date).toLocaleDateString(language === 'fr' ? 'fr-FR' : 'en-US')}
                             </div>
                             <div className="flex items-center gap-1">
                               <MapPin className="w-3 h-3" />
                               {purchase.campus}
                             </div>
-                            <span>Quantité: {purchase.quantity}</span>
+                            <span>{t('profile.quantity')}: {purchase.quantity}</span>
                           </div>
                         </div>
                         
@@ -543,15 +544,15 @@ const Profile = () => {
             <TabsContent value="sales" className="space-y-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Historique des ventes</CardTitle>
+                  <CardTitle>{t('profile.salesHistory')}</CardTitle>
                   <CardDescription>
-                    Tous tes tickets mis en vente sur Ticket Safe
+                    {t('profile.salesHistoryDesc')}
                   </CardDescription>
                 </CardHeader>
                  <CardContent>
                    <div className="space-y-4">
                      {sales.length === 0 ? (
-                       <p className="text-center text-muted-foreground py-8">You don't have any transactions yet</p>
+                       <p className="text-center text-muted-foreground py-8">{t('profile.noTransactions')}</p>
                      ) : (
                        sales.map((sale) => (
                       <div key={sale.id} className="flex items-center gap-4 p-4 border border-border rounded-lg hover:bg-muted/30 transition-colors">
@@ -560,15 +561,15 @@ const Profile = () => {
                         <div className="flex-1 space-y-1">
                           <h3 className="font-medium">{sale.eventTitle}</h3>
                           <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                            <div className="flex items-center gap-1">
+                           <div className="flex items-center gap-1">
                               <Calendar className="w-3 h-3" />
-                              {new Date(sale.date).toLocaleDateString('fr-FR')}
+                              {new Date(sale.date).toLocaleDateString(language === 'fr' ? 'fr-FR' : 'en-US')}
                             </div>
                             <div className="flex items-center gap-1">
                               <MapPin className="w-3 h-3" />
                               {sale.campus}
                             </div>
-                            <span>Quantité: {sale.quantity}</span>
+                            <span>{t('profile.quantity')}: {sale.quantity}</span>
                           </div>
                         </div>
                         
