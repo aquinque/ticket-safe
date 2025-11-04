@@ -424,7 +424,10 @@ const Profile = () => {
               <TabsTrigger value="overview">Vue d'ensemble</TabsTrigger>
               <TabsTrigger value="purchases">Mes achats</TabsTrigger>
               <TabsTrigger value="sales">Mes ventes</TabsTrigger>
-              <TabsTrigger value="settings">
+              <TabsTrigger 
+                value="settings" 
+                className="data-[state=active]:bg-gradient-hero data-[state=active]:text-white data-[state=active]:shadow-glow"
+              >
                 <Settings className="w-4 h-4 mr-2" />
                 Paramètres
               </TabsTrigger>
