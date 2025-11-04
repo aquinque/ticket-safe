@@ -14,10 +14,10 @@ const Events = () => {
           </div>
           <div className="text-center mb-8">
             <h1 className="text-4xl font-bold mb-4">
-              Tous les événements
+              All Events
             </h1>
             <p className="text-lg text-muted-foreground">
-              Explore tous les événements étudiants avec des tickets disponibles
+              Explore all student events with available tickets
             </p>
           </div>
         </div>
