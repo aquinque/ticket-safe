@@ -10,8 +10,16 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { useTheme } from "@/contexts/ThemeContext";
+import { useI18n } from "@/contexts/I18nContext";
+import { toast } from "@/hooks/use-toast";
 import { 
-  User, 
+  User as UserIcon, 
   Ticket, 
   ShoppingBag, 
   History, 
@@ -22,7 +30,13 @@ import {
   CheckCircle2,
   Clock,
   XCircle,
-  Shield
+  Shield,
+  Bell,
+  Moon,
+  Sun,
+  Languages,
+  LogOut,
+  Save
 } from "lucide-react";
 
 const Profile = () => {
@@ -39,8 +53,19 @@ const Profile = () => {
   const [purchases, setPurchases] = useState<any[]>([]);
   const [sales, setSales] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, signOut } = useAuth();
   const navigate = useNavigate();
+  const { theme, toggleTheme } = useTheme();
+  const { language, setLanguage, t } = useI18n();
+  
+  // Settings state
+  const [profileName, setProfileName] = useState("");
+  const [profileEmail, setProfileEmail] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [notifications, setNotifications] = useState(() => {
+    const stored = localStorage.getItem('notifications');
+    return stored ? JSON.parse(stored) : true;
+  });
 
   // Redirect to auth if not logged in (only after auth is loaded)
   useEffect(() => {
@@ -48,6 +73,14 @@ const Profile = () => {
       navigate("/auth", { replace: true });
     }
   }, [user, authLoading, navigate]);
+
+  // Initialize settings state when user is available
+  useEffect(() => {
+    if (user) {
+      setProfileName(user.user_metadata?.full_name || '');
+      setProfileEmail(user.email || '');
+    }
+  }, [user]);
 
   // Fetch user data when user is available
   useEffect(() => {
@@ -172,6 +205,83 @@ const Profile = () => {
     };
   }, [user, authLoading]);
 
+  // Settings handlers
+  const handleSaveProfile = async () => {
+    try {
+      if (profileName !== user?.user_metadata?.full_name) {
+        const { error: metaError } = await supabase.auth.updateUser({
+          data: { full_name: profileName }
+        });
+        if (metaError) throw metaError;
+      }
+
+      if (profileEmail !== user?.email) {
+        const { error: emailError } = await supabase.auth.updateUser({
+          email: profileEmail
+        });
+        if (emailError) throw emailError;
+      }
+
+      if (newPassword) {
+        const { error: passwordError } = await supabase.auth.updateUser({
+          password: newPassword
+        });
+        if (passwordError) throw passwordError;
+        setNewPassword('');
+      }
+
+      toast({
+        title: t('toast.profileUpdated'),
+        description: t('toast.profileUpdateSuccess'),
+      });
+      
+      // Refresh user data
+      setUserData({ ...userData, name: profileName, email: profileEmail });
+    } catch (error: any) {
+      toast({
+        title: t('toast.error'),
+        description: error.message || t('toast.profileUpdateFailed'),
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleNotificationToggle = (checked: boolean) => {
+    setNotifications(checked);
+    localStorage.setItem('notifications', JSON.stringify(checked));
+    toast({
+      title: t('toast.settingsSaved'),
+      description: checked ? t('toast.notificationsEnabled') : t('toast.notificationsDisabled'),
+    });
+  };
+
+  const handleThemeToggle = () => {
+    const newTheme = theme === 'light' ? 'dark' : 'light';
+    toggleTheme();
+    toast({
+      title: t('toast.themeChanged'),
+      description: newTheme === 'dark' ? t('toast.switchedToDark') : t('toast.switchedToLight'),
+    });
+  };
+
+  const handleLanguageChange = (lang: 'en' | 'fr') => {
+    setLanguage(lang);
+    const langName = lang === 'en' ? t('settings.languageEnglish') : t('settings.languageFrench');
+    toast({
+      title: t('toast.languageUpdated'),
+      description: t('toast.languageChanged', { language: langName }),
+    });
+  };
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate('/auth');
+    toast({
+      title: t('toast.loggedOut'),
+      description: t('toast.loggedOutSuccess'),
+    });
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "confirmed":
@@ -259,10 +369,6 @@ const Profile = () => {
                       <Shield className="w-4 h-4" />
                       Privacy
                     </Button>
-                    <Button variant="outline" className="gap-2">
-                      <Settings className="w-4 h-4" />
-                      Paramètres
-                    </Button>
                   </div>
                 </div>
               </CardContent>
@@ -314,10 +420,14 @@ const Profile = () => {
 
           {/* Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="overview">Vue d'ensemble</TabsTrigger>
               <TabsTrigger value="purchases">Mes achats</TabsTrigger>
               <TabsTrigger value="sales">Mes ventes</TabsTrigger>
+              <TabsTrigger value="settings">
+                <Settings className="w-4 h-4 mr-2" />
+                Paramètres
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="overview" className="space-y-6">
@@ -478,8 +588,152 @@ const Profile = () => {
                    </div>
                  </CardContent>
                </Card>
-             </TabsContent>
-            </Tabs>
+            </TabsContent>
+
+            <TabsContent value="settings" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <UserIcon className="w-5 h-5" />
+                    {t('settings.profileTitle')}
+                  </CardTitle>
+                  <CardDescription>
+                    {t('settings.profileDescription')}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">{t('settings.fullName')}</Label>
+                    <Input
+                      id="name"
+                      value={profileName}
+                      onChange={(e) => setProfileName(e.target.value)}
+                      placeholder={t('settings.fullNamePlaceholder')}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="email">{t('settings.email')}</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={profileEmail}
+                      onChange={(e) => setProfileEmail(e.target.value)}
+                      placeholder={t('settings.emailPlaceholder')}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="password">{t('settings.newPassword')}</Label>
+                    <Input
+                      id="password"
+                      type="password"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder={t('settings.newPasswordPlaceholder')}
+                    />
+                  </div>
+
+                  <Button onClick={handleSaveProfile} className="w-full">
+                    <Save className="h-4 w-4 mr-2" />
+                    {t('settings.saveChanges')}
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Separator />
+
+              {/* Notifications */}
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-primary/10">
+                        <Bell className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <h3 className="font-medium">{t('settings.notificationsTitle')}</h3>
+                        <p className="text-sm text-muted-foreground">
+                          {t('settings.notificationsDescription')}
+                        </p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={notifications}
+                      onCheckedChange={handleNotificationToggle}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Dark Mode */}
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-primary/10">
+                        {theme === 'light' ? (
+                          <Sun className="h-5 w-5 text-primary" />
+                        ) : (
+                          <Moon className="h-5 w-5 text-primary" />
+                        )}
+                      </div>
+                      <div>
+                        <h3 className="font-medium">{t('settings.darkModeTitle')}</h3>
+                        <p className="text-sm text-muted-foreground">
+                          {t('settings.darkModeDescription')}
+                        </p>
+                      </div>
+                    </div>
+                    <Switch
+                      checked={theme === 'dark'}
+                      onCheckedChange={handleThemeToggle}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Language */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Languages className="w-5 h-5" />
+                    {t('settings.languageTitle')}
+                  </CardTitle>
+                  <CardDescription>
+                    {t('settings.languageDescription')}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Select value={language} onValueChange={handleLanguageChange}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="en">{t('settings.languageEnglish')}</SelectItem>
+                      <SelectItem value="fr">{t('settings.languageFrench')}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </CardContent>
+              </Card>
+
+              <Separator />
+
+              {/* Logout */}
+              <Card>
+                <CardContent className="p-6">
+                  <Button
+                    onClick={handleLogout}
+                    variant="destructive"
+                    className="w-full"
+                  >
+                    <LogOut className="h-4 w-4 mr-2" />
+                    {t('settings.logoutTitle')}
+                  </Button>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
          </div>
        </main>
        <Footer />
