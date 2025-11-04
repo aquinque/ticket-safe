@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      access_audit_log: {
+        Row: {
+          access_granted: boolean
+          created_at: string
+          function_name: string
+          id: string
+          ip_address: unknown
+          resource_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          access_granted: boolean
+          created_at?: string
+          function_name: string
+          id?: string
+          ip_address?: unknown
+          resource_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          access_granted?: boolean
+          created_at?: string
+          function_name?: string
+          id?: string
+          ip_address?: unknown
+          resource_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       data_requests: {
         Row: {
           completed_at: string | null
