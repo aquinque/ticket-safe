@@ -17,11 +17,11 @@ const Hero = () => {
           {/* Main Heading */}
           <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold mb-6 animate-fade-in">
             <span className="bg-gradient-hero bg-clip-text text-transparent">
-              Resell your ticket.
+              {t('hero.titleLine1')}
             </span>
             <br />
             <span className="text-foreground">
-              Find your spot.
+              {t('hero.titleLine2')}
             </span>
           </h1>
 

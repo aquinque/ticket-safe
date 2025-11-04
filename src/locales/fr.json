@@ -32,6 +32,8 @@
   },
   "hero": {
     "title": "Achetez et vendez des billets d'événements étudiants en toute sécurité",
+    "titleLine1": "Revendez votre billet.",
+    "titleLine2": "Trouvez votre place.",
     "subtitle": "Ticket Safe est la plateforme de confiance permettant aux étudiants d'acheter et de vendre des billets d'événements en toute sécurité—sans arnaques, sans bots, que de vrais étudiants.",
     "browseEvents": "Parcourir les événements",
     "sellMyTickets": "Vendre mes billets"

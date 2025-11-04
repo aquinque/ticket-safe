@@ -32,6 +32,8 @@
   },
   "hero": {
     "title": "Buy & Sell Student Event Tickets Safely",
+    "titleLine1": "Resell your ticket.",
+    "titleLine2": "Find your spot.",
     "subtitle": "Ticket Safe is the trusted platform for students to safely buy and sell event tickets—no scams, no bots, just real students.",
     "browseEvents": "Browse Events",
     "sellMyTickets": "Sell My Tickets"
