@@ -9,17 +9,16 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary-hover shadow-soft hover:shadow-hover",
+        default: "bg-primary text-primary-foreground hover:bg-primary/90 shadow-soft hover:shadow-card",
         destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
         outline: "border border-border bg-background hover:bg-muted hover:border-primary/50",
-        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary-hover shadow-soft hover:shadow-hover",
+        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/90 shadow-soft hover:shadow-card",
         ghost: "hover:bg-muted hover:text-foreground",
         link: "text-primary underline-offset-4 hover:underline",
-        hero: "bg-gradient-hero text-white shadow-hover hover:shadow-hover hover:scale-105 font-semibold",
-        accent: "bg-accent text-accent-foreground hover:bg-accent-hover shadow-soft hover:shadow-hover",
+        hero: "bg-gradient-hero text-white shadow-card hover:shadow-hover hover:scale-[1.02] font-semibold",
+        accent: "bg-accent text-accent-foreground hover:bg-accent/90 shadow-soft hover:shadow-card",
         "outline-primary": "border-2 border-primary text-primary bg-transparent hover:bg-primary hover:text-primary-foreground",
-        gradient: "bg-gradient-accent text-white shadow-soft hover:shadow-hover hover:scale-105",
-        marketplace: "bg-[#1E5EFF] text-white hover:bg-[#184BDC] font-semibold rounded-full transition-all duration-200 hover:-translate-y-0.5 shadow-md hover:shadow-lg",
+        marketplace: "bg-gradient-hero text-white font-semibold rounded-full hover:scale-[1.02] shadow-card hover:shadow-hover",
       },
       size: {
         default: "h-10 px-4 py-2",
