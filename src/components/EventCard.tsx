@@ -43,9 +43,9 @@ const EventCard = ({ event, onClick }: EventCardProps) => {
     if (type.includes('party') || type.includes('halloween')) return 'bg-gradient-hero text-white border-transparent';
     if (type.includes('gala')) return 'bg-gradient-accent text-white border-transparent';
     if (type.includes('conference') || type.includes('panel')) return 'bg-primary/10 text-primary border-primary/20';
-    if (type.includes('sustainability') || type.includes('swap')) return 'bg-green-500/10 text-green-600 border-green-500/20';
-    if (type.includes('ceremony')) return 'bg-purple-500/10 text-purple-600 border-purple-500/20';
-    if (type.includes('ski') || type.includes('sport') || type.includes('game')) return 'bg-blue-500/10 text-blue-600 border-blue-500/20';
+    if (type.includes('sustainability') || type.includes('swap')) return 'bg-accent/10 text-accent border-accent/20';
+    if (type.includes('ceremony')) return 'bg-secondary/10 text-secondary border-secondary/20';
+    if (type.includes('ski') || type.includes('sport') || type.includes('game')) return 'bg-primary/15 text-primary border-primary/30';
     return 'bg-muted text-muted-foreground border-border';
   };
 
