@@ -13,7 +13,6 @@ import Profile from "./pages/Profile";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
 import Contact from "./pages/Contact";
-import CampusLife from "./pages/CampusLife";
 import Privacy from "./pages/Privacy";
 import NotFound from "./pages/NotFound";
 
@@ -31,7 +30,6 @@ const App = () => (
       <Route path="/checkout" element={<Checkout />} />
       <Route path="/about" element={<About />} />
       <Route path="/profile" element={<Profile />} />
-      <Route path="/campus-life" element={<CampusLife />} />
       <Route path="/auth" element={<Auth />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/contact" element={<Contact />} />
