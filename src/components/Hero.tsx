@@ -35,7 +35,7 @@ const Hero = () => {
             <Button variant="hero" size="lg" asChild>
               <Link to="/marketplace/buy">
                 <Search className="w-5 h-5" />
-                Find Tickets
+                🎫 Find Tickets
                 <ArrowRight className="w-5 h-5" />
               </Link>
             </Button>
