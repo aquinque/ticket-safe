@@ -35,13 +35,13 @@ const Hero = () => {
             <Button variant="hero" size="lg" asChild>
               <Link to="/marketplace/buy">
                 <Search className="w-5 h-5" />
-                Buy Tickets
+                Find Tickets
                 <ArrowRight className="w-5 h-5" />
               </Link>
             </Button>
             <Button variant="marketplace" size="lg" asChild>
               <Link to="/marketplace/sell">
-                Sell Tickets
+                List Your Tickets
                 <ArrowRight className="w-5 h-5" />
               </Link>
             </Button>
