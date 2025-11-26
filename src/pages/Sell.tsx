@@ -12,12 +12,24 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+<<<<<<< HEAD
 import { Upload, AlertCircle, CheckCircle2, Calculator, Info } from "lucide-react";
 import { Event } from "@/integrations/supabase/types/events";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { useI18n } from "@/contexts/I18nContext";
+=======
+import { Upload, AlertCircle, CheckCircle2, Calculator, Info, X, FileImage, Shield, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { useAuth } from "@/hooks/useAuth";
+import { useI18n } from "@/contexts/I18nContext";
+import { eventsList, EventData } from "@/data/eventsData";
+import { SEOHead } from "@/components/SEOHead";
+import { useTicketListings } from "@/contexts/TicketListingsContext";
+import { parseQRCode, verifyTicket, markTicketAsListed } from "@/lib/ticketVerification";
+import { TicketQRData, TicketVerificationResult } from "@/types/ticketVerification";
+>>>>>>> d5ee066 (Add ticket verification system and improve marketplace flow)
 
 // Validation schema for ticket notes
 const notesSchema = z
@@ -31,9 +43,18 @@ const Sell = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const { t } = useI18n();
+<<<<<<< HEAD
   const [events, setEvents] = useState<Event[]>([]);
   const [eventsLoading, setEventsLoading] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+=======
+  const { addListing } = useTicketListings();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedEvent, setSelectedEvent] = useState<EventData | null>(null);
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [verificationResult, setVerificationResult] = useState<TicketVerificationResult | null>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
+>>>>>>> d5ee066 (Add ticket verification system and improve marketplace flow)
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -90,7 +111,93 @@ const Sell = () => {
   };
 
   const handlePriceChange = (value: string) => {
+<<<<<<< HEAD
     setFormData({ ...formData, sellingPrice: value });
+=======
+    // Only allow positive numbers with up to 2 decimals
+    if (value === "" || /^\d+(\.\d{0,2})?$/.test(value)) {
+      setFormData({ ...formData, sellingPrice: value });
+    }
+  };
+
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files) return;
+
+    const validFiles: File[] = [];
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'application/pdf'];
+
+    Array.from(files).forEach(file => {
+      if (!allowedTypes.includes(file.type)) {
+        toast.error(`${file.name}: Invalid file type. Only JPG, PNG, WEBP, and PDF allowed.`);
+        return;
+      }
+      if (file.size > maxSize) {
+        toast.error(`${file.name}: File too large. Maximum 5MB.`);
+        return;
+      }
+      validFiles.push(file);
+    });
+
+    if (uploadedFiles.length + validFiles.length > 3) {
+      toast.error("Maximum 3 files allowed");
+      return;
+    }
+
+    setUploadedFiles([...uploadedFiles, ...validFiles]);
+
+    // Verify QR code if this is the first file and event is selected
+    if (uploadedFiles.length === 0 && validFiles.length > 0 && selectedEvent) {
+      await verifyTicketQR(validFiles[0]);
+    }
+  };
+
+  const handleFileRemove = (index: number) => {
+    setUploadedFiles(uploadedFiles.filter((_, i) => i !== index));
+  };
+
+  const triggerFileInput = () => {
+    fileInputRef.current?.click();
+>>>>>>> d5ee066 (Add ticket verification system and improve marketplace flow)
+  };
+
+  const verifyTicketQR = async (file: File) => {
+    if (!selectedEvent || !user) return;
+
+    setIsVerifying(true);
+    toast.info("Verifying ticket QR code...");
+
+    try {
+      // Parse QR code from uploaded file
+      const qrData = await parseQRCode(file);
+
+      if (!qrData) {
+        toast.error("Could not read QR code from the uploaded file. Please ensure the image is clear.");
+        setVerificationResult(null);
+        return;
+      }
+
+      // Verify ticket with backend
+      const result = await verifyTicket(qrData, selectedEvent.id, user.id);
+
+      setVerificationResult(result);
+
+      if (result.isValid) {
+        toast.success("✓ Ticket verified! This is an authentic, unused ticket.");
+      } else {
+        // Show specific error messages
+        result.errors.forEach(error => {
+          toast.error(error);
+        });
+      }
+    } catch (error) {
+      console.error("Verification error:", error);
+      toast.error("Failed to verify ticket. Please try again.");
+      setVerificationResult(null);
+    } finally {
+      setIsVerifying(false);
+    }
   };
 
   const handleSubmit = async () => {
@@ -104,6 +211,20 @@ const Sell = () => {
       return;
     }
 
+<<<<<<< HEAD
+=======
+    if (uploadedFiles.length === 0) {
+      toast.error("Please upload at least one photo or document of your ticket");
+      return;
+    }
+
+    // Verify ticket has been verified
+    if (!verificationResult || !verificationResult.isValid) {
+      toast.error("Please upload a valid ticket with QR code. Ticket verification failed.");
+      return;
+    }
+
+>>>>>>> d5ee066 (Add ticket verification system and improve marketplace flow)
     // Validate notes field
     if (formData.description) {
       const notesValidation = notesSchema.safeParse(formData.description);
@@ -117,6 +238,7 @@ const Sell = () => {
 
     try {
       const sellingPrice = parseFloat(formData.sellingPrice);
+<<<<<<< HEAD
       const basePrice = selectedEvent.base_price || 0;
 
       // Server-side validation
@@ -138,6 +260,31 @@ const Sell = () => {
         setIsSubmitting(false);
         return;
       }
+=======
+      const listingId = `listing-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+      // Create the ticket listing
+      const newListing = {
+        id: listingId,
+        event: selectedEvent,
+        sellingPrice,
+        quantity: parseInt(formData.quantity),
+        description: formData.description,
+        files: uploadedFiles.map(f => ({ name: f.name, size: f.size, type: f.type })),
+        sellerId: user.id,
+        sellerName: user.user_metadata?.full_name || user.email || 'Anonymous',
+        timestamp: new Date().toISOString(),
+        verified: true,
+        ticketId: verificationResult.ticketId,
+        qrHash: verificationResult.ticketData?.qrHash || '',
+      };
+
+      // Mark ticket as listed in the verification system
+      markTicketAsListed(verificationResult.ticketId, user.id, listingId);
+
+      // Add to listings
+      addListing(newListing);
+>>>>>>> d5ee066 (Add ticket verification system and improve marketplace flow)
 
       // Create ticket listing
       const { data, error } = await supabase
@@ -154,7 +301,11 @@ const Sell = () => {
         .select()
         .single();
 
+<<<<<<< HEAD
       if (error) throw error;
+=======
+      toast.success("✓ Verified ticket listed successfully! It's now visible in the marketplace.");
+>>>>>>> d5ee066 (Add ticket verification system and improve marketplace flow)
 
       toast.success("Ticket listed successfully!");
       
@@ -166,10 +317,19 @@ const Sell = () => {
         description: "",
       });
       setSelectedEvent(null);
+<<<<<<< HEAD
       
       // Navigate to profile to see the listing
       setTimeout(() => navigate('/profile'), 1500);
       
+=======
+      setUploadedFiles([]);
+      setVerificationResult(null);
+
+      // Navigate to marketplace
+      setTimeout(() => navigate('/events'), 1500);
+
+>>>>>>> d5ee066 (Add ticket verification system and improve marketplace flow)
     } catch (error: any) {
       console.error('Error creating ticket:', error);
       toast.error(error.message || "Failed to list ticket");
@@ -348,6 +508,73 @@ const Sell = () => {
                         {t('sell.clickToAddPhotos')}
                       </p>
                     </div>
+<<<<<<< HEAD
+=======
+
+                    {/* Display uploaded files */}
+                    {uploadedFiles.length > 0 && (
+                      <div className="mt-4 space-y-2">
+                        {uploadedFiles.map((file, index) => (
+                          <div key={index} className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+                            <FileImage className="w-5 h-5 text-primary flex-shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{file.name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {(file.size / 1024 / 1024).toFixed(2)} MB
+                              </p>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleFileRemove(index)}
+                              className="flex-shrink-0"
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Verification Status */}
+                    {isVerifying && (
+                      <Alert className="bg-blue-50 border-blue-200">
+                        <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />
+                        <AlertDescription>
+                          <p className="font-medium text-blue-900">Verifying ticket...</p>
+                          <p className="text-sm text-blue-700 mt-1">
+                            Checking QR code authenticity and ticket status
+                          </p>
+                        </AlertDescription>
+                      </Alert>
+                    )}
+
+                    {verificationResult && verificationResult.isValid && (
+                      <Alert className="bg-green-50 border-green-200">
+                        <Shield className="w-4 h-4 text-green-600" />
+                        <AlertDescription>
+                          <p className="font-medium text-green-900">✓ Ticket Verified</p>
+                          <p className="text-sm text-green-700 mt-1">
+                            This is an authentic, unused ticket that can be listed for resale.
+                          </p>
+                        </AlertDescription>
+                      </Alert>
+                    )}
+
+                    {verificationResult && !verificationResult.isValid && (
+                      <Alert className="bg-red-50 border-red-200">
+                        <AlertCircle className="w-4 h-4 text-red-600" />
+                        <AlertDescription>
+                          <p className="font-medium text-red-900">Verification Failed</p>
+                          <div className="text-sm text-red-700 mt-1 space-y-1">
+                            {verificationResult.errors.map((error, idx) => (
+                              <p key={idx}>• {error}</p>
+                            ))}
+                          </div>
+                        </AlertDescription>
+                      </Alert>
+                    )}
+>>>>>>> d5ee066 (Add ticket verification system and improve marketplace flow)
                   </div>
                 </CardContent>
               </Card>
