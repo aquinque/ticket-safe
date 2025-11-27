@@ -6,7 +6,7 @@ import { BackButton } from "@/components/BackButton";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Calendar, MapPin, Users, CreditCard } from "lucide-react";
-import { eventsList, skiTripPrice } from "@/data/eventsData";
+import { eventsList } from "@/data/eventsData";
 import { SEOHead } from "@/components/SEOHead";
 
 const BuyTicket = () => {
@@ -24,6 +24,12 @@ const BuyTicket = () => {
     return null;
   }
 
+  // Default ticket price (in cents for Stripe compatibility)
+  const ticketPrice = {
+    amount: 45000, // €450.00
+    currency: 'EUR'
+  };
+
   const formatPrice = (amount: number, currency: string) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -37,8 +43,8 @@ const BuyTicket = () => {
     console.log("Payment data ready for Stripe:", {
       eventId: event.id,
       eventTitle: event.title,
-      amount: skiTripPrice.amount,
-      currency: skiTripPrice.currency,
+      amount: ticketPrice.amount,
+      currency: ticketPrice.currency,
       description: `Ticket for ${event.title}`
     });
 
@@ -47,8 +53,8 @@ const BuyTicket = () => {
       state: {
         eventId: event.id,
         eventTitle: event.title,
-        amount: skiTripPrice.amount,
-        currency: skiTripPrice.currency
+        amount: ticketPrice.amount,
+        currency: ticketPrice.currency
       }
     });
   };
@@ -139,7 +145,7 @@ const BuyTicket = () => {
                 <div className="flex items-baseline justify-between mb-4">
                   <span className="text-muted-foreground">Ticket Price</span>
                   <span className="text-3xl font-bold">
-                    {formatPrice(skiTripPrice.amount, skiTripPrice.currency)}
+                    {formatPrice(ticketPrice.amount, ticketPrice.currency)}
                   </span>
                 </div>
 
