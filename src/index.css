@@ -131,7 +131,6 @@ All colors MUST be HSL.
     @apply bg-background;
     margin: 0;
     padding: 0;
-    overflow-x: hidden;
     min-height: 100vh;
     scroll-behavior: smooth;
     -webkit-font-smoothing: antialiased;
@@ -142,9 +141,7 @@ All colors MUST be HSL.
     @apply bg-background text-foreground antialiased;
     margin: 0;
     padding: 0;
-    overflow-x: hidden;
     min-height: 100vh;
-    overscroll-behavior-y: none;
   }
 
   #root {
