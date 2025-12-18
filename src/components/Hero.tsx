@@ -12,7 +12,7 @@ const Hero = () => {
       {/* Background Gradient Overlay */}
       <div className="absolute inset-0 bg-gradient-hero opacity-5" />
 
-      <div className="relative container mx-auto px-4 py-16 md:py-24 lg:py-32">
+      <div className="relative container mx-auto px-4 py-8 md:py-12 lg:py-16">
         <div className="max-w-5xl mx-auto text-center">
           {/* Main Heading */}
           <h1 className="mb-6 animate-fade-in">
@@ -31,7 +31,7 @@ const Hero = () => {
           </p>
 
           {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-20 animate-slide-up">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12 animate-slide-up">
             <Button variant="hero" size="lg" asChild>
               <Link to="/marketplace/buy">
                 <Search className="w-5 h-5" />

@@ -6,7 +6,9 @@
       "Bash(git commit -m \"$(cat <<''EOF''\nAdd ticket verification system and improve marketplace flow\n\nMajor features:\n- Implement QR code verification system for resale tickets\n- Add anti-fraud checks (7 security validations)\n- Create full-page event detail view\n- Add per-event ticket marketplace\n- Display verified badges on authentic tickets\n- Add 5% platform fee calculation\n\nSecurity improvements:\n- Server-side ticket verification\n- Prevent duplicate listings\n- Block already-used tickets\n- Validate QR authenticity\n\nUI/UX improvements:\n- Full-page event details instead of modal\n- Clean ticket marketplace layout\n- Real-time verification status\n- Verified ticket badges\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
       "Bash(git push:*)",
       "Bash(git commit:*)",
-      "Bash(git cherry-pick:*)"
+      "Bash(git cherry-pick:*)",
+      "Bash(taskkill:*)",
+      "Bash(gh run list:*)"
     ],
     "deny": [],
     "ask": []

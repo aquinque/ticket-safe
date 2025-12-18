@@ -10,11 +10,10 @@ import EventModal from "./EventModal";
 const EventsSection = () => {
   const { t } = useI18n();
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedFilter, setSelectedFilter] = useState("all");
+  const [selectedFilter, setSelectedFilter] = useState("galas");
   const [selectedEvent, setSelectedEvent] = useState<typeof eventsList[0] | null>(null);
 
   const filters = [
-    { id: "all", label: t('events.filters.all') },
     { id: "parties", label: t('events.filters.parties') },
     { id: "galas", label: t('events.filters.galas') },
     { id: "conferences", label: t('events.filters.conferences') },
@@ -28,7 +27,7 @@ const EventsSection = () => {
       const matchesSearch = event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            event.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            event.organizer.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesFilter = selectedFilter === "all" || event.filterCategory === selectedFilter;
+      const matchesFilter = event.filterCategory === selectedFilter;
       return matchesSearch && matchesFilter;
     })
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
