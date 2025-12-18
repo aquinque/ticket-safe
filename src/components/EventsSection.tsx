@@ -34,11 +34,11 @@ const EventsSection = () => {
 
   return (
     <>
-      <section className="py-16 bg-muted/30">
+      <section className="py-8 bg-muted/30">
         <div className="container mx-auto px-4">
           {/* Header */}
-          <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl md:text-4xl font-bold mb-3">
               {t('events.availableEvents')}
             </h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
@@ -47,9 +47,9 @@ const EventsSection = () => {
           </div>
 
           {/* Filters Bar */}
-          <div className="bg-card rounded-xl p-6 shadow-card mb-8">
+          <div className="bg-card rounded-xl p-4 shadow-card mb-6">
             {/* Search */}
-            <div className="relative mb-6">
+            <div className="relative mb-4">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <Input
                 placeholder={t('events.searchPlaceholder')}
@@ -77,7 +77,7 @@ const EventsSection = () => {
           </div>
 
           {/* Events Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredEvents.map(event => (
               <EventCard 
                 key={event.id}

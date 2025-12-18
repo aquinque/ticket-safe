@@ -8,14 +8,14 @@ const Hero = () => {
   const { t } = useI18n();
 
   return (
-    <section className="relative overflow-hidden bg-gradient-to-b from-background to-muted/20">
+    <section className="relative overflow-hidden bg-gradient-to-b from-background to-muted/20 pt-4 pb-8">
       {/* Background Gradient Overlay */}
       <div className="absolute inset-0 bg-gradient-hero opacity-5" />
 
-      <div className="relative container mx-auto px-4 py-8 md:py-12 lg:py-16">
+      <div className="relative container mx-auto px-4">
         <div className="max-w-5xl mx-auto text-center">
           {/* Main Heading */}
-          <h1 className="mb-6 animate-fade-in">
+          <h1 className="mb-4 animate-fade-in">
             <span className="bg-gradient-hero bg-clip-text text-transparent">
               {t('hero.titleLine1')}
             </span>
@@ -26,12 +26,12 @@ const Hero = () => {
           </h1>
 
           {/* Subtitle */}
-          <p className="text-lg md:text-xl text-muted-foreground mb-10 max-w-2xl mx-auto leading-relaxed animate-slide-up">
+          <p className="text-lg md:text-xl text-muted-foreground mb-6 max-w-2xl mx-auto leading-relaxed animate-slide-up">
             {t('hero.subtitle')}
           </p>
 
           {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12 animate-slide-up">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8 animate-slide-up">
             <Button variant="hero" size="lg" asChild>
               <Link to="/marketplace/buy">
                 <Search className="w-5 h-5" />

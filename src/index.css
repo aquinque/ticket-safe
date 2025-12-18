@@ -124,6 +124,7 @@ All colors MUST be HSL.
 @layer base {
   * {
     @apply border-border;
+    -webkit-tap-highlight-color: transparent;
   }
 
   html {
@@ -133,6 +134,8 @@ All colors MUST be HSL.
     overflow-x: hidden;
     min-height: 100vh;
     scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   body {
@@ -141,6 +144,7 @@ All colors MUST be HSL.
     padding: 0;
     overflow-x: hidden;
     min-height: 100vh;
+    overscroll-behavior-y: none;
   }
 
   #root {
@@ -167,10 +171,5 @@ All colors MUST be HSL.
 
   p {
     @apply leading-7;
-  }
-
-  /* Consistent spacing for sections */
-  section {
-    @apply py-12 md:py-16;
   }
 }
