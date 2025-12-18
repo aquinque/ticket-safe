@@ -6,18 +6,20 @@ import { BackButton } from "@/components/BackButton";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { CheckCircle2, CreditCard, Calendar, MapPin, Ticket as TicketIcon } from "lucide-react";
+import { CheckCircle2, CreditCard, Calendar, MapPin, Ticket as TicketIcon, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { SEOHead } from "@/components/SEOHead";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { format } from "date-fns";
+import { useTicketListings } from "@/contexts/TicketListingsContext";
+import { Badge } from "@/components/ui/badge";
 
 const Checkout = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const [searchParams] = useSearchParams();
   const listingId = searchParams.get("listing_id");
+  const { listings } = useTicketListings();
+
+  const listing = listings.find(l => l.id === listingId);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -25,43 +27,7 @@ const Checkout = () => {
     }
   }, [user, authLoading, navigate]);
 
-  // Fetch ticket listing details
-  const { data: listing, isLoading: listingLoading } = useQuery({
-    queryKey: ["ticket-listing", listingId],
-    queryFn: async () => {
-      if (!listingId) return null;
-      const { data, error } = await supabase
-        .from("tickets")
-        .select("*")
-        .eq("id", listingId)
-        .single();
-
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!listingId,
-  });
-
-  // Fetch event details
-  const { data: event, isLoading: eventLoading } = useQuery({
-    queryKey: ["event", listing?.event_id],
-    queryFn: async () => {
-      if (!listing?.event_id) return null;
-      const { data, error } = await supabase
-        .from("events")
-        .select("*")
-        .eq("id", listing.event_id)
-        .single();
-
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!listing?.event_id,
-  });
-
-  const isLoading = authLoading || listingLoading || eventLoading;
-
-  if (!listingId || (!isLoading && !listing)) {
+  if (!listingId || (!authLoading && !listing)) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
         <SEOHead titleKey="common.error" descriptionKey="common.error" />
@@ -83,7 +49,7 @@ const Checkout = () => {
     );
   }
 
-  if (isLoading) {
+  if (authLoading || !listing) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
         <SEOHead titleKey="common.appName" descriptionKey="common.appName" />
@@ -99,7 +65,26 @@ const Checkout = () => {
     );
   }
 
-  const totalAmount = listing.selling_price * listing.quantity;
+  const event = listing.event;
+  const subtotal = listing.sellingPrice * listing.quantity;
+  const platformFee = subtotal * 0.05;
+  const totalAmount = subtotal + platformFee;
+
+  const formatDateRange = () => {
+    const startDate = new Date(event.date);
+    const endDate = event.endDate ? new Date(event.endDate) : null;
+
+    const options: Intl.DateTimeFormatOptions = {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric'
+    };
+
+    if (endDate) {
+      return `${startDate.toLocaleDateString('en-US', options)} - ${endDate.toLocaleDateString('en-US', options)}`;
+    }
+    return startDate.toLocaleDateString('en-US', options);
+  };
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -113,7 +98,7 @@ const Checkout = () => {
 
           <div className="space-y-6">
             <div className="text-center">
-              <h1 className="text-4xl font-bold mb-2">Buy Tickets</h1>
+              <h1 className="text-4xl font-bold mb-2">Checkout</h1>
               <p className="text-muted-foreground">Review your order and proceed to payment</p>
             </div>
 
@@ -126,26 +111,33 @@ const Checkout = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {event?.image_url && (
-                  <img 
-                    src={event.image_url} 
-                    alt={event.title}
-                    className="w-full h-48 object-cover rounded-lg"
-                  />
-                )}
-                
+                <img
+                  src={event.image}
+                  alt={event.title}
+                  className="w-full h-48 object-cover rounded-lg"
+                />
+
                 <div>
-                  <h2 className="text-2xl font-bold mb-2">{event?.title}</h2>
-                  <p className="text-muted-foreground text-sm mb-4">{event?.description}</p>
-                  
+                  <div className="flex items-start justify-between gap-4 mb-2">
+                    <h2 className="text-2xl font-bold">{event.title}</h2>
+                    {listing.verified && (
+                      <Badge className="bg-green-100 text-green-800 border-green-200">
+                        <ShieldCheck className="w-3 h-3 mr-1" />
+                        Verified
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-muted-foreground text-sm mb-4">{event.description}</p>
+
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 text-sm">
                       <Calendar className="w-4 h-4 text-muted-foreground" />
-                      <span>{event?.date ? format(new Date(event.date), "PPP") : "Date TBA"}</span>
+                      <span>{formatDateRange()}</span>
+                      <span className="text-muted-foreground">• Starting at {event.time}</span>
                     </div>
                     <div className="flex items-center gap-2 text-sm">
                       <MapPin className="w-4 h-4 text-muted-foreground" />
-                      <span>{event?.location}</span>
+                      <span>{event.location}</span>
                     </div>
                   </div>
                 </div>
@@ -156,15 +148,23 @@ const Checkout = () => {
                   <h3 className="font-semibold">Order Summary</h3>
                   <div className="flex justify-between items-center">
                     <span className="text-muted-foreground">Price per ticket</span>
-                    <span className="font-medium">€{listing.selling_price.toFixed(2)}</span>
+                    <span className="font-medium">€{listing.sellingPrice.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-muted-foreground">Quantity</span>
                     <span className="font-medium">{listing.quantity}</span>
                   </div>
-                  {listing.notes && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground">Subtotal</span>
+                    <span className="font-medium">€{subtotal.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-muted-foreground">Platform fee (5%)</span>
+                    <span className="font-medium">€{platformFee.toFixed(2)}</span>
+                  </div>
+                  {listing.description && (
                     <div className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-md">
-                      <span className="font-medium">Seller note:</span> {listing.notes}
+                      <span className="font-medium">Seller note:</span> {listing.description}
                     </div>
                   )}
                   <Separator />
@@ -197,8 +197,9 @@ const Checkout = () => {
                       buyers will complete their purchase here.
                     </p>
                     <div className="text-xs text-muted-foreground space-y-1">
-                      <p>Event ID: {event?.id}</p>
+                      <p>Event: {event.title}</p>
                       <p>Listing ID: {listing.id}</p>
+                      <p>Seller: {listing.sellerName}</p>
                       <p>Amount: €{totalAmount.toFixed(2)}</p>
                     </div>
                   </div>
@@ -217,12 +218,17 @@ const Checkout = () => {
                     className="flex-1"
                     onClick={() => {
                       // Placeholder - will integrate Stripe here
+                      alert("Payment integration coming soon! This would normally process your payment through Stripe.");
                       navigate("/profile");
                     }}
                   >
                     Proceed to Payment
                   </Button>
                 </div>
+
+                <p className="text-xs text-center text-muted-foreground">
+                  🔒 Your payment will be processed securely via Stripe
+                </p>
               </CardContent>
             </Card>
           </div>

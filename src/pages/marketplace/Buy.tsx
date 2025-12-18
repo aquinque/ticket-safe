@@ -8,69 +8,43 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, MapPin, Calendar, ChevronDown, ChevronUp, Ticket } from "lucide-react";
-import { useEvents } from "@/hooks/useEvents";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { Search, MapPin, Calendar, ChevronDown, ChevronUp, Ticket, ShieldCheck } from "lucide-react";
 import { SEOHead } from "@/components/SEOHead";
-
-interface TicketListing {
-  id: string;
-  event_id: string;
-  selling_price: number;
-  quantity: number;
-  notes: string | null;
-  seller_id: string;
-  created_at: string;
-}
+import { useTicketListings } from "@/contexts/TicketListingsContext";
+import { eventsList } from "@/data/eventsData";
 
 const Buy = () => {
   const navigate = useNavigate();
-  const { data: events, isLoading: eventsLoading } = useEvents();
+  const { listings } = useTicketListings();
   const [searchQuery, setSearchQuery] = useState("");
   const [priceRange, setPriceRange] = useState("all");
   const [expandedEvents, setExpandedEvents] = useState<Set<string>>(new Set());
 
-  // Fetch all available ticket listings
-  const { data: listings, isLoading: listingsLoading } = useQuery({
-    queryKey: ["available-tickets"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("tickets")
-        .select("*")
-        .eq("status", "available")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      return data as TicketListing[];
-    },
-  });
-
   // Group tickets by event
-  const eventListings = events?.map((event) => {
-    const eventTickets = listings?.filter((t) => t.event_id === event.id) || [];
-    const minPrice = eventTickets.length > 0 
-      ? Math.min(...eventTickets.map((t) => t.selling_price))
-      : event.base_price || 0;
-    
+  const eventListings = eventsList.map((event) => {
+    const eventTickets = listings.filter((t) => t.event.id === event.id);
+    const minPrice = eventTickets.length > 0
+      ? Math.min(...eventTickets.map((t) => t.sellingPrice))
+      : 0;
+
     return {
       event,
       tickets: eventTickets,
       minPrice,
       totalAvailable: eventTickets.reduce((sum, t) => sum + t.quantity, 0),
     };
-  }).filter((item) => item.totalAvailable > 0) || [];
+  }).filter((item) => item.totalAvailable > 0);
 
   // Filter based on search and price
   const filteredListings = eventListings.filter((item) => {
     const matchesSearch = item.event.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          item.event.location.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesPrice = priceRange === "all" || 
+
+    const matchesPrice = priceRange === "all" ||
                         (priceRange === "under20" && item.minPrice < 20) ||
                         (priceRange === "20to50" && item.minPrice >= 20 && item.minPrice <= 50) ||
                         (priceRange === "over50" && item.minPrice > 50);
-    
+
     return matchesSearch && matchesPrice;
   });
 
@@ -85,11 +59,8 @@ const Buy = () => {
   };
 
   const handleBuyTicket = (listingId: string) => {
-    // For now, show a toast - can integrate Stripe later
-    navigate(`/checkout?listing_id=${listingId}`);
+    navigate(`/buy-ticket/${listingId}`);
   };
-
-  const isLoading = eventsLoading || listingsLoading;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -137,22 +108,20 @@ const Buy = () => {
             </CardContent>
           </Card>
 
-          {/* Loading State */}
-          {isLoading && (
-            <div className="text-center py-12">
-              <p className="text-muted-foreground">Loading tickets...</p>
-            </div>
-          )}
-
           {/* Empty State */}
-          {!isLoading && filteredListings.length === 0 && (
+          {filteredListings.length === 0 && (
             <Card className="py-12">
               <CardContent className="text-center">
                 <Ticket className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-xl font-semibold mb-2">No tickets available yet</h3>
-                <p className="text-muted-foreground">
-                  Check back soon or try adjusting your filters
+                <p className="text-muted-foreground mb-4">
+                  {listings.length === 0
+                    ? "Be the first to list tickets for sale!"
+                    : "Try adjusting your filters or check back later"}
                 </p>
+                <Button variant="hero" onClick={() => navigate("/sell")}>
+                  Sell Your Tickets
+                </Button>
               </CardContent>
             </Card>
           )}
@@ -163,15 +132,13 @@ const Buy = () => {
               <Card key={item.event.id} className="overflow-hidden">
                 <div className="flex flex-col md:flex-row">
                   {/* Event Image */}
-                  {item.event.image_url && (
-                    <div className="md:w-48 h-48 md:h-auto bg-muted flex-shrink-0">
-                      <img
-                        src={item.event.image_url}
-                        alt={item.event.title}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  )}
+                  <div className="md:w-48 h-48 md:h-auto bg-muted flex-shrink-0">
+                    <img
+                      src={item.event.image}
+                      alt={item.event.title}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
 
                   {/* Event Info */}
                   <div className="flex-1">
@@ -189,6 +156,7 @@ const Buy = () => {
                                   day: "numeric",
                                   year: "numeric",
                                 })}
+                                {item.event.endDate && ` - ${new Date(item.event.endDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`}
                               </span>
                             </div>
                             <div className="flex items-center gap-2">
@@ -238,15 +206,24 @@ const Buy = () => {
                               <div className="flex-1">
                                 <div className="flex items-center gap-3 mb-1">
                                   <span className="font-semibold text-lg">
-                                    €{ticket.selling_price.toFixed(2)}
+                                    €{ticket.sellingPrice.toFixed(2)}
                                   </span>
                                   <Badge variant="outline">
                                     {ticket.quantity} available
                                   </Badge>
+                                  {ticket.verified && (
+                                    <Badge variant="default" className="bg-green-100 text-green-800 border-green-200">
+                                      <ShieldCheck className="w-3 h-3 mr-1" />
+                                      Verified
+                                    </Badge>
+                                  )}
                                 </div>
-                                {ticket.notes && (
-                                  <p className="text-sm text-muted-foreground">{ticket.notes}</p>
+                                {ticket.description && (
+                                  <p className="text-sm text-muted-foreground">{ticket.description}</p>
                                 )}
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  Sold by {ticket.sellerName}
+                                </p>
                               </div>
                               <Button
                                 variant="hero"

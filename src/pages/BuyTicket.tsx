@@ -1,63 +1,36 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { BackButton } from "@/components/BackButton";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Calendar, MapPin, Users, CreditCard } from "lucide-react";
-import { eventsList } from "@/data/eventsData";
+import { Badge } from "@/components/ui/badge";
+import { Calendar, MapPin, Users, CreditCard, ShieldCheck, FileImage } from "lucide-react";
 import { SEOHead } from "@/components/SEOHead";
+import { useTicketListings } from "@/contexts/TicketListingsContext";
 
 const BuyTicket = () => {
-  const { eventId } = useParams();
+  const { listingId } = useParams();
   const navigate = useNavigate();
-  const [event, setEvent] = useState(eventsList.find(e => e.id === eventId));
+  const { listings } = useTicketListings();
+
+  const listing = listings.find(l => l.id === listingId);
 
   useEffect(() => {
-    if (!event) {
-      navigate("/events");
+    if (!listingId || !listing) {
+      navigate("/marketplace/buy");
     }
-  }, [event, navigate]);
+  }, [listingId, listing, navigate]);
 
-  if (!event) {
+  if (!listing) {
     return null;
   }
 
-  // Default ticket price (in cents for Stripe compatibility)
-  const ticketPrice = {
-    amount: 45000, // €450.00
-    currency: 'EUR'
-  };
-
-  const formatPrice = (amount: number, currency: string) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: currency,
-    }).format(amount / 100);
-  };
-
-  const handleProceedToPayment = () => {
-    // Placeholder for Stripe integration
-    // This will be replaced with actual Stripe checkout
-    console.log("Payment data ready for Stripe:", {
-      eventId: event.id,
-      eventTitle: event.title,
-      amount: ticketPrice.amount,
-      currency: ticketPrice.currency,
-      description: `Ticket for ${event.title}`
-    });
-
-    // For now, navigate to checkout page
-    navigate("/checkout", {
-      state: {
-        eventId: event.id,
-        eventTitle: event.title,
-        amount: ticketPrice.amount,
-        currency: ticketPrice.currency
-      }
-    });
-  };
+  const event = listing.event;
+  const totalPrice = listing.sellingPrice * listing.quantity;
+  const platformFee = totalPrice * 0.05;
+  const finalPrice = totalPrice + platformFee;
 
   const formatDateRange = () => {
     const startDate = new Date(event.date);
@@ -73,6 +46,10 @@ const BuyTicket = () => {
       return `${startDate.toLocaleDateString('en-US', options)} - ${endDate.toLocaleDateString('en-US', options)}`;
     }
     return startDate.toLocaleDateString('en-US', options);
+  };
+
+  const handleProceedToCheckout = () => {
+    navigate(`/checkout?listing_id=${listingId}`);
   };
 
   return (
@@ -98,9 +75,17 @@ const BuyTicket = () => {
                   {event.category}
                 </span>
               </div>
+              {listing.verified && (
+                <div className="absolute top-4 left-4">
+                  <Badge className="bg-green-100 text-green-800 border-green-200">
+                    <ShieldCheck className="w-3 h-3 mr-1" />
+                    Verified Ticket
+                  </Badge>
+                </div>
+              )}
             </div>
 
-            {/* Event Details & Purchase */}
+            {/* Ticket Details & Purchase */}
             <div className="flex flex-col">
               <div className="mb-6">
                 <h1 className="text-3xl font-bold mb-4">{event.title}</h1>
@@ -126,8 +111,8 @@ const BuyTicket = () => {
                   <div className="flex items-start gap-3 text-muted-foreground">
                     <Users className="w-5 h-5 mt-0.5 flex-shrink-0" />
                     <div>
-                      <p className="font-medium text-foreground">Organized by</p>
-                      <p>{event.organizer}</p>
+                      <p className="font-medium text-foreground">Seller</p>
+                      <p>{listing.sellerName}</p>
                     </div>
                   </div>
                 </div>
@@ -137,34 +122,94 @@ const BuyTicket = () => {
                   <p className="text-sm text-muted-foreground leading-relaxed">
                     {event.description}
                   </p>
+
+                  {listing.description && (
+                    <div className="mt-4 pt-4 border-t border-border">
+                      <h4 className="font-semibold text-sm mb-1">Seller's note</h4>
+                      <p className="text-sm text-muted-foreground leading-relaxed">
+                        {listing.description}
+                      </p>
+                    </div>
+                  )}
                 </div>
+
+                {listing.files && listing.files.length > 0 && (
+                  <div className="bg-muted/50 p-4 rounded-lg mb-6">
+                    <h3 className="font-semibold mb-3 flex items-center gap-2">
+                      <FileImage className="w-4 h-4" />
+                      Ticket Photos
+                    </h3>
+                    <div className="space-y-2">
+                      {listing.files.map((file, idx) => (
+                        <div key={idx} className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <FileImage className="w-4 h-4" />
+                          <span>{file.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Price & Payment */}
               <Card className="p-6 mt-auto">
-                <div className="flex items-baseline justify-between mb-4">
-                  <span className="text-muted-foreground">Ticket Price</span>
-                  <span className="text-3xl font-bold">
-                    {formatPrice(ticketPrice.amount, ticketPrice.currency)}
-                  </span>
+                <div className="space-y-3 mb-4">
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-muted-foreground">Price per ticket</span>
+                    <span className="text-lg font-semibold">
+                      €{listing.sellingPrice.toFixed(2)}
+                    </span>
+                  </div>
+
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-muted-foreground">Quantity</span>
+                    <span className="text-lg font-semibold">
+                      {listing.quantity}
+                    </span>
+                  </div>
+
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-muted-foreground">Subtotal</span>
+                    <span className="text-lg font-semibold">
+                      €{totalPrice.toFixed(2)}
+                    </span>
+                  </div>
+
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-muted-foreground text-sm">Platform fee (5%)</span>
+                    <span className="text-sm font-medium">
+                      €{platformFee.toFixed(2)}
+                    </span>
+                  </div>
+
+                  <div className="pt-3 border-t border-border">
+                    <div className="flex items-baseline justify-between">
+                      <span className="font-semibold">Total</span>
+                      <span className="text-3xl font-bold text-primary">
+                        €{finalPrice.toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
                 </div>
 
                 <p className="text-sm text-muted-foreground mb-6">
-                  Includes accommodation, ski passes, and organized activities
+                  {listing.verified
+                    ? "This is a verified authentic ticket from a trusted seller."
+                    : "Price includes platform fees and secure payment processing."}
                 </p>
 
                 <Button
                   size="lg"
                   className="w-full"
                   variant="hero"
-                  onClick={handleProceedToPayment}
+                  onClick={handleProceedToCheckout}
                 >
                   <CreditCard className="w-5 h-5 mr-2" />
-                  Proceed to Payment
+                  Proceed to Checkout
                 </Button>
 
                 <p className="text-xs text-center text-muted-foreground mt-4">
-                  Secure payment powered by Stripe
+                  Secure payment powered by Stripe (coming soon)
                 </p>
               </Card>
             </div>
