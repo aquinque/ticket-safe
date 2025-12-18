@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { z } from "zod";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -32,6 +32,7 @@ const notesSchema = z
 
 const Sell = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, loading: authLoading } = useAuth();
   const { t } = useI18n();
   const { addListing } = useTicketListings();
@@ -40,6 +41,21 @@ const Sell = () => {
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [verificationResult, setVerificationResult] = useState<TicketVerificationResult | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
+
+  // Pre-select event from navigation state
+  useEffect(() => {
+    const state = location.state as { eventId?: string } | null;
+    if (state?.eventId) {
+      const event = eventsList.find(e => e.id === state.eventId);
+      if (event) {
+        setSelectedEvent(event);
+        setFormData(prev => ({
+          ...prev,
+          eventId: event.id,
+        }));
+      }
+    }
+  }, [location.state]);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -391,7 +407,8 @@ const Sell = () => {
                       <input
                         ref={fileInputRef}
                         type="file"
-                        accept="image/jpeg,image/jpg,image/png,image/webp,application/pdf"
+                        accept="image/*,application/pdf"
+                        capture="environment"
                         multiple
                         onChange={handleFileSelect}
                         className="hidden"
@@ -403,6 +420,9 @@ const Sell = () => {
                         <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
                         <p className="text-sm text-muted-foreground">
                           {t('sell.clickToAddPhotos')}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          Choose from gallery or take a photo
                         </p>
                       </div>
 

@@ -48,7 +48,7 @@ const EventModal = ({ event, isOpen, onClose }: EventModalProps) => {
 
   const handleSellClick = () => {
     onClose();
-    navigate('/marketplace/sell');
+    navigate('/sell', { state: { eventId: event.id } });
   };
 
   return (
