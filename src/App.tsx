@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import Events from "./pages/Events";
+import EventsCatalog from "./pages/EventsCatalog";
 import EventDetail from "./pages/EventDetail";
 import EventTicketsMarketplace from "./pages/EventTicketsMarketplace";
 import BuyTicket from "./pages/BuyTicket";
@@ -28,6 +29,7 @@ const App = () => (
       <Route path="/" element={<Index />} />
       <Route path="/events" element={<Events />} />
       <Route path="/events/:id" element={<Events />} />
+      <Route path="/catalog" element={<EventsCatalog />} />
       <Route path="/event/:eventId" element={<EventDetail />} />
       <Route path="/event/:eventId/tickets" element={<EventTicketsMarketplace />} />
       <Route path="/buy-ticket/:listingId" element={<BuyTicket />} />

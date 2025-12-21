@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Menu, X, Ticket, User, LogOut } from "lucide-react";
+import { Menu, X, Ticket, User, LogOut, ChevronDown } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useI18n } from "@/contexts/I18nContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -68,11 +68,12 @@ const Header = () => {
 
   const navItems = [
     { path: "/", label: t('nav.home') },
-    { path: "/events", label: t('nav.marketplace') },
     { path: "/sell", label: t('nav.sellTickets') },
     { path: "/about", label: t('nav.about') },
     { path: "/contact", label: t('nav.contact') },
   ];
+
+  const eventsMenuActive = location.pathname === "/events" || location.pathname === "/catalog";
 
   return (
     <header className={`sticky top-0 z-50 w-full border-b border-border transition-all duration-300 ${
@@ -116,6 +117,30 @@ const Header = () => {
                 </Link>
               );
             })}
+
+            {/* Events Dropdown Menu */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={`text-sm font-medium gap-1 ${
+                    eventsMenuActive ? "text-primary" : "text-muted-foreground"
+                  }`}
+                >
+                  {t('nav.marketplace')}
+                  <ChevronDown className="w-4 h-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <DropdownMenuItem onClick={() => navigate("/events")}>
+                  Available Events
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/catalog")}>
+                  Full Catalog
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </nav>
 
           {/* Desktop CTA */}
