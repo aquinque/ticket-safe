@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Linkedin, Instagram, Twitter } from "lucide-react";
+import { Instagram } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEffect, useRef, useState } from "react";
 import { useI18n } from "@/contexts/I18nContext";
@@ -138,22 +138,10 @@ const Footer = () => {
 
           {/* Column 4: Connect */}
           <div className="text-center md:text-left">
-            <h3 className="font-semibold text-base text-foreground mb-5">Connect</h3>
+            <h3 className="font-semibold text-base text-foreground mb-5">Follow Us</h3>
             <div className="flex gap-4 justify-center md:justify-start">
               <a
-                href="https://linkedin.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="relative group"
-                aria-label="LinkedIn"
-              >
-                <div className="absolute inset-0 bg-primary/10 rounded-full scale-0 group-hover:scale-100 transition-transform duration-300" />
-                <div className="relative p-2 transition-all duration-300 group-hover:scale-110">
-                  <Linkedin className="h-5 w-5 text-primary transition-all duration-300 group-hover:drop-shadow-lg" />
-                </div>
-              </a>
-              <a
-                href="https://instagram.com"
+                href="https://www.instagram.com/ticketsafe.eu"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="relative group"
@@ -164,19 +152,10 @@ const Footer = () => {
                   <Instagram className="h-5 w-5 text-primary transition-all duration-300 group-hover:drop-shadow-lg" />
                 </div>
               </a>
-              <a
-                href="https://twitter.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="relative group"
-                aria-label="X (Twitter)"
-              >
-                <div className="absolute inset-0 bg-primary/10 rounded-full scale-0 group-hover:scale-100 transition-transform duration-300" />
-                <div className="relative p-2 transition-all duration-300 group-hover:scale-110">
-                  <Twitter className="h-5 w-5 text-primary transition-all duration-300 group-hover:drop-shadow-lg" />
-                </div>
-              </a>
             </div>
+            <p className="text-xs text-muted-foreground mt-3">
+              @ticketsafe.eu
+            </p>
           </div>
         </div>
       </div>
