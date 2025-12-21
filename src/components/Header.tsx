@@ -91,8 +91,7 @@ const Header = () => {
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="marketplace"
-                    size="sm"
-                    className={`font-semibold gap-1 ${
+                    className={`font-semibold gap-1.5 h-10 px-4 ${
                       eventsMenuActive ? "shadow-glow" : ""
                     }`}
                   >
@@ -113,8 +112,7 @@ const Header = () => {
               {/* Sell Ticket - Primary CTA */}
               <Button
                 variant="marketplace"
-                size="sm"
-                className="font-semibold"
+                className="font-semibold h-10 px-4"
                 asChild
               >
                 <Link to="/sell">{t('nav.sellTickets')}</Link>
@@ -122,19 +120,19 @@ const Header = () => {
             </div>
 
             {/* SECONDARY NAVIGATION - Right side (informational) */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-6">
               <Link
                 to="/about"
-                className={`text-xs transition-colors hover:text-muted-foreground/80 ${
-                  isActive("/about") ? "text-muted-foreground" : "text-muted-foreground/60"
+                className={`text-sm transition-colors hover:text-muted-foreground ${
+                  isActive("/about") ? "text-muted-foreground font-medium" : "text-muted-foreground/70"
                 }`}
               >
                 {t('nav.about')}
               </Link>
               <Link
                 to="/contact"
-                className={`text-xs transition-colors hover:text-muted-foreground/80 ${
-                  isActive("/contact") ? "text-muted-foreground" : "text-muted-foreground/60"
+                className={`text-sm transition-colors hover:text-muted-foreground ${
+                  isActive("/contact") ? "text-muted-foreground font-medium" : "text-muted-foreground/70"
                 }`}
               >
                 {t('nav.contact')}
@@ -147,7 +145,7 @@ const Header = () => {
             {user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="hero" size="sm" className="shadow-glow hover:shadow-glow">
+                  <Button variant="hero" className="shadow-glow hover:shadow-glow h-10 px-4">
                     <User className="w-4 h-4 mr-2" />
                     {userName ? `${t('nav.welcome')}, ${userName.split(' ')[0]}!` : t('nav.myAccount')}
                   </Button>
@@ -165,12 +163,12 @@ const Header = () => {
               </DropdownMenu>
             ) : (
               <>
-                <Button variant="ghost" size="sm" asChild>
+                <Button variant="ghost" className="h-10 px-4" asChild>
                   <Link to="/auth" className="text-muted-foreground hover:text-primary">
                     {t('nav.login')}
                   </Link>
                 </Button>
-                <Button variant="hero" size="sm" className="shadow-glow hover:shadow-glow" asChild>
+                <Button variant="hero" className="shadow-glow hover:shadow-glow h-10 px-4" asChild>
                   <Link to="/auth">
                     {t('nav.signUp')}
                   </Link>
@@ -193,13 +191,12 @@ const Header = () => {
         {/* Mobile Navigation */}
         {isMenuOpen && (
           <div className="md:hidden border-t border-border bg-background/95 backdrop-blur-md">
-            <nav className="flex flex-col gap-3 p-4">
+            <nav className="flex flex-col gap-3 p-5">
               {/* PRIMARY CTAs - Marketplace & Sell Ticket */}
-              <div className="flex flex-col gap-2 mb-2 pb-3 border-b border-border">
+              <div className="flex flex-col gap-2.5 mb-2 pb-4 border-b border-border">
                 <Button
                   variant="marketplace"
-                  size="sm"
-                  className="w-full py-3 font-semibold"
+                  className="w-full h-11 font-semibold"
                   asChild
                   onClick={() => setIsMenuOpen(false)}
                 >
@@ -207,8 +204,7 @@ const Header = () => {
                 </Button>
                 <Button
                   variant="marketplace"
-                  size="sm"
-                  className="w-full py-3 font-semibold"
+                  className="w-full h-11 font-semibold"
                   asChild
                   onClick={() => setIsMenuOpen(false)}
                 >
@@ -217,11 +213,11 @@ const Header = () => {
               </div>
 
               {/* SECONDARY navigation - About & Contact */}
-              <div className="flex flex-col gap-1 mb-2 pb-3 border-b border-border">
+              <div className="flex flex-col gap-1.5 mb-2 pb-4 border-b border-border">
                 <Link
                   to="/about"
-                  className={`px-3 py-2 rounded-md text-xs transition-colors hover:bg-muted ${
-                    isActive("/about") ? "text-muted-foreground" : "text-muted-foreground/60"
+                  className={`px-3 py-2.5 rounded-md text-sm transition-colors hover:bg-muted ${
+                    isActive("/about") ? "text-muted-foreground font-medium" : "text-muted-foreground/70"
                   }`}
                   onClick={() => setIsMenuOpen(false)}
                 >
@@ -229,8 +225,8 @@ const Header = () => {
                 </Link>
                 <Link
                   to="/contact"
-                  className={`px-3 py-2 rounded-md text-xs transition-colors hover:bg-muted ${
-                    isActive("/contact") ? "text-muted-foreground" : "text-muted-foreground/60"
+                  className={`px-3 py-2.5 rounded-md text-sm transition-colors hover:bg-muted ${
+                    isActive("/contact") ? "text-muted-foreground font-medium" : "text-muted-foreground/70"
                   }`}
                   onClick={() => setIsMenuOpen(false)}
                 >
@@ -239,18 +235,18 @@ const Header = () => {
               </div>
 
               {/* User account section */}
-              <div className="flex flex-col gap-2 mt-4 pt-4 border-t border-border">
+              <div className="flex flex-col gap-2.5 mt-2 pt-4 border-t border-border">
                 {user ? (
                   <>
-                    <Button variant="outline" size="sm" asChild onClick={() => setIsMenuOpen(false)}>
+                    <Button variant="outline" className="h-11" asChild onClick={() => setIsMenuOpen(false)}>
                       <Link to="/profile">
-                        <User className="w-4 w-4 mr-2" />
+                        <User className="w-4 h-4 mr-2" />
                         {t('nav.myAccount')}
                       </Link>
                     </Button>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
+                    <Button
+                      variant="outline"
+                      className="h-11"
                       onClick={() => {
                         handleSignOut();
                         setIsMenuOpen(false);
@@ -262,10 +258,10 @@ const Header = () => {
                   </>
                 ) : (
                   <>
-                    <Button variant="outline" size="sm" asChild onClick={() => setIsMenuOpen(false)}>
+                    <Button variant="outline" className="h-11" asChild onClick={() => setIsMenuOpen(false)}>
                       <Link to="/auth">{t('nav.login')}</Link>
                     </Button>
-                    <Button variant="hero" size="sm" asChild onClick={() => setIsMenuOpen(false)}>
+                    <Button variant="hero" className="h-11" asChild onClick={() => setIsMenuOpen(false)}>
                       <Link to="/auth">{t('nav.signUp')}</Link>
                     </Button>
                   </>
