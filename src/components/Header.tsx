@@ -67,10 +67,9 @@ const Header = () => {
   };
 
   const navItems = [
-    { path: "/", label: t('nav.home') },
-    { path: "/sell", label: t('nav.sellTickets') },
-    { path: "/about", label: t('nav.about') },
-    { path: "/contact", label: t('nav.contact') },
+    { path: "/", label: t('nav.home'), isPrimary: false },
+    { path: "/about", label: t('nav.about'), isPrimary: false },
+    { path: "/contact", label: t('nav.contact'), isPrimary: false },
   ];
 
   const eventsMenuActive = location.pathname === "/events" || location.pathname === "/catalog";
@@ -91,56 +90,55 @@ const Header = () => {
 
           {/* Desktop Navigation */}
           <nav className="hidden md:flex items-center gap-6">
-            {navItems.map((item) => {
-              if (item.path === "/sell") {
-                return (
+            {/* Secondary navigation items (About, Contact, Home) */}
+            {navItems.map((item) => (
+              <Link
+                key={item.path}
+                to={item.path}
+                className={`text-sm transition-colors hover:text-foreground ${
+                  isActive(item.path) ? "text-foreground" : "text-muted-foreground"
+                }`}
+              >
+                {item.label}
+              </Link>
+            ))}
+
+            {/* PRIMARY CTAs - Marketplace & Sell Ticket */}
+            <div className="flex items-center gap-3 ml-2">
+              {/* Marketplace Dropdown - Primary CTA */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
                   <Button
-                    key={item.path}
                     variant="marketplace"
                     size="sm"
-                    className="px-4 py-2.5"
-                    asChild
+                    className={`font-semibold gap-1 ${
+                      eventsMenuActive ? "shadow-glow" : ""
+                    }`}
                   >
-                    <Link to={item.path}>{item.label}</Link>
+                    {t('nav.marketplace')}
+                    <ChevronDown className="w-4 h-4" />
                   </Button>
-                );
-              }
-              return (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  className={`text-sm font-medium transition-colors hover:text-primary ${
-                    isActive(item.path) ? "text-primary" : "text-muted-foreground"
-                  }`}
-                >
-                  {item.label}
-                </Link>
-              );
-            })}
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start">
+                  <DropdownMenuItem onClick={() => navigate("/events")}>
+                    Available Events
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate("/catalog")}>
+                    Full Catalog
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
 
-            {/* Events Dropdown Menu */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className={`text-sm font-medium gap-1 ${
-                    eventsMenuActive ? "text-primary" : "text-muted-foreground"
-                  }`}
-                >
-                  {t('nav.marketplace')}
-                  <ChevronDown className="w-4 h-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
-                <DropdownMenuItem onClick={() => navigate("/events")}>
-                  Available Events
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate("/catalog")}>
-                  Full Catalog
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+              {/* Sell Ticket - Primary CTA */}
+              <Button
+                variant="marketplace"
+                size="sm"
+                className="font-semibold"
+                asChild
+              >
+                <Link to="/sell">{t('nav.sellTickets')}</Link>
+              </Button>
+            </div>
           </nav>
 
           {/* Desktop CTA */}
@@ -194,35 +192,42 @@ const Header = () => {
         {/* Mobile Navigation */}
         {isMenuOpen && (
           <div className="md:hidden border-t border-border bg-background/95 backdrop-blur-md">
-            <nav className="flex flex-col gap-2 p-4">
-              {navItems.map((item) => {
-                if (item.path === "/sell") {
-                  return (
-                    <Button
-                      key={item.path}
-                      variant="marketplace"
-                      size="sm"
-                      className="w-full py-3"
-                      asChild
-                      onClick={() => setIsMenuOpen(false)}
-                    >
-                      <Link to={item.path}>{item.label}</Link>
-                    </Button>
-                  );
-                }
-                return (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    className={`px-3 py-2 rounded-md text-sm font-medium transition-colors hover:bg-muted ${
-                      isActive(item.path) ? "text-primary bg-primary/10" : "text-muted-foreground"
-                    }`}
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    {item.label}
-                  </Link>
-                );
-              })}
+            <nav className="flex flex-col gap-3 p-4">
+              {/* PRIMARY CTAs - Marketplace & Sell Ticket */}
+              <div className="flex flex-col gap-2 mb-2 pb-3 border-b border-border">
+                <Button
+                  variant="marketplace"
+                  size="sm"
+                  className="w-full py-3 font-semibold"
+                  asChild
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  <Link to="/events">{t('nav.marketplace')}</Link>
+                </Button>
+                <Button
+                  variant="marketplace"
+                  size="sm"
+                  className="w-full py-3 font-semibold"
+                  asChild
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  <Link to="/sell">{t('nav.sellTickets')}</Link>
+                </Button>
+              </div>
+
+              {/* Secondary navigation items */}
+              {navItems.map((item) => (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  className={`px-3 py-2 rounded-md text-sm transition-colors hover:bg-muted ${
+                    isActive(item.path) ? "text-foreground bg-muted" : "text-muted-foreground"
+                  }`}
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  {item.label}
+                </Link>
+              ))}
               <div className="flex flex-col gap-2 mt-4 pt-4 border-t border-border">
                 {user ? (
                   <>
