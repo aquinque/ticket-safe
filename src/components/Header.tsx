@@ -66,12 +66,6 @@ const Header = () => {
     navigate("/auth");
   };
 
-  const navItems = [
-    { path: "/", label: t('nav.home'), isPrimary: false },
-    { path: "/about", label: t('nav.about'), isPrimary: false },
-    { path: "/contact", label: t('nav.contact'), isPrimary: false },
-  ];
-
   const eventsMenuActive = location.pathname === "/events" || location.pathname === "/catalog";
 
   return (
@@ -88,23 +82,10 @@ const Header = () => {
             <span className="bg-gradient-hero bg-clip-text text-transparent">{t('common.appName')}</span>
           </Link>
 
-          {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center gap-6">
-            {/* Secondary navigation items (About, Contact, Home) */}
-            {navItems.map((item) => (
-              <Link
-                key={item.path}
-                to={item.path}
-                className={`text-sm transition-colors hover:text-foreground ${
-                  isActive(item.path) ? "text-foreground" : "text-muted-foreground"
-                }`}
-              >
-                {item.label}
-              </Link>
-            ))}
-
-            {/* PRIMARY CTAs - Marketplace & Sell Ticket */}
-            <div className="flex items-center gap-3 ml-2">
+          {/* Desktop Navigation - Reorganized */}
+          <nav className="hidden md:flex items-center flex-1 justify-between ml-8">
+            {/* PRIMARY CTAs - Left/Center (where eye lands first) */}
+            <div className="flex items-center gap-3">
               {/* Marketplace Dropdown - Primary CTA */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -138,6 +119,26 @@ const Header = () => {
               >
                 <Link to="/sell">{t('nav.sellTickets')}</Link>
               </Button>
+            </div>
+
+            {/* SECONDARY NAVIGATION - Right side (informational) */}
+            <div className="flex items-center gap-4">
+              <Link
+                to="/about"
+                className={`text-xs transition-colors hover:text-muted-foreground/80 ${
+                  isActive("/about") ? "text-muted-foreground" : "text-muted-foreground/60"
+                }`}
+              >
+                {t('nav.about')}
+              </Link>
+              <Link
+                to="/contact"
+                className={`text-xs transition-colors hover:text-muted-foreground/80 ${
+                  isActive("/contact") ? "text-muted-foreground" : "text-muted-foreground/60"
+                }`}
+              >
+                {t('nav.contact')}
+              </Link>
             </div>
           </nav>
 
@@ -215,19 +216,29 @@ const Header = () => {
                 </Button>
               </div>
 
-              {/* Secondary navigation items */}
-              {navItems.map((item) => (
+              {/* SECONDARY navigation - About & Contact */}
+              <div className="flex flex-col gap-1 mb-2 pb-3 border-b border-border">
                 <Link
-                  key={item.path}
-                  to={item.path}
-                  className={`px-3 py-2 rounded-md text-sm transition-colors hover:bg-muted ${
-                    isActive(item.path) ? "text-foreground bg-muted" : "text-muted-foreground"
+                  to="/about"
+                  className={`px-3 py-2 rounded-md text-xs transition-colors hover:bg-muted ${
+                    isActive("/about") ? "text-muted-foreground" : "text-muted-foreground/60"
                   }`}
                   onClick={() => setIsMenuOpen(false)}
                 >
-                  {item.label}
+                  {t('nav.about')}
                 </Link>
-              ))}
+                <Link
+                  to="/contact"
+                  className={`px-3 py-2 rounded-md text-xs transition-colors hover:bg-muted ${
+                    isActive("/contact") ? "text-muted-foreground" : "text-muted-foreground/60"
+                  }`}
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  {t('nav.contact')}
+                </Link>
+              </div>
+
+              {/* User account section */}
               <div className="flex flex-col gap-2 mt-4 pt-4 border-t border-border">
                 {user ? (
                   <>
