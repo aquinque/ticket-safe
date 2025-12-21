@@ -40,24 +40,14 @@ const EventsSection = () => {
   return (
     <>
       <section className="py-8 bg-muted/30">
-        <div className="container mx-auto px-4">
-          {/* Header */}
-          <div className="text-center mb-8">
-            <h2 className="text-3xl md:text-4xl font-bold mb-3">
-              {t('events.availableEvents')}
-            </h2>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              {t('events.discoverEvents')}
-            </p>
-          </div>
-
-          {/* Filters Bar */}
-          <div className="bg-card rounded-xl p-4 shadow-card mb-6">
+        <div className="container mx-auto px-4 max-w-7xl">
+          {/* Search & Filters Bar */}
+          <div className="bg-card rounded-xl p-6 shadow-card mb-8">
             {/* Search */}
-            <div className="relative mb-4">
+            <div className="relative mb-5">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <Input
-                placeholder={t('events.searchPlaceholder')}
+                placeholder="Search events by name, location, or organizer..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -65,19 +55,24 @@ const EventsSection = () => {
             </div>
 
             {/* Category Filters */}
-            <div className="flex flex-wrap gap-2">
-              <Filter className="w-4 h-4 text-muted-foreground mt-2 mr-2" />
-              {filters.map(filter => (
-                <Button
-                  key={filter.id}
-                  variant={selectedFilter === filter.id ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setSelectedFilter(filter.id)}
-                  className="rounded-full"
-                >
-                  {filter.label}
-                </Button>
-              ))}
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <Filter className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm font-medium text-muted-foreground">Filter by category:</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {filters.map(filter => (
+                  <Button
+                    key={filter.id}
+                    variant={selectedFilter === filter.id ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setSelectedFilter(filter.id)}
+                    className="rounded-full"
+                  >
+                    {filter.label}
+                  </Button>
+                ))}
+              </div>
             </div>
           </div>
 
