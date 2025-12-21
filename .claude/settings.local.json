@@ -9,7 +9,11 @@
       "Bash(git cherry-pick:*)",
       "Bash(taskkill:*)",
       "Bash(gh run list:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(npm run lint:*)",
+      "Bash(find:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm install:*)"
     ],
     "deny": [],
     "ask": []

@@ -17,6 +17,7 @@ import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
 import Contact from "./pages/Contact";
 import Privacy from "./pages/Privacy";
+import OrganizerScan from "./pages/OrganizerScan";
 import NotFound from "./pages/NotFound";
 
 const App = () => (
@@ -40,6 +41,7 @@ const App = () => (
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/contact" element={<Contact />} />
       <Route path="/privacy" element={<Privacy />} />
+      <Route path="/organizer/scan" element={<OrganizerScan />} />
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
       <Route path="*" element={<NotFound />} />
     </Routes>

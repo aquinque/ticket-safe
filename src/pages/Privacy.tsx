@@ -71,6 +71,7 @@ export default function Privacy() {
       fetchConsents();
       fetchDataRequests();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const fetchConsents = async () => {
@@ -186,7 +187,7 @@ export default function Privacy() {
   };
 
   const getStatusBadge = (status: string) => {
-    const variants: Record<string, { icon: any; variant: any }> = {
+    const variants: Record<string, { icon: typeof Clock; variant: "default" | "secondary" | "destructive" | "outline" }> = {
       pending: { icon: Clock, variant: "secondary" },
       processing: { icon: Clock, variant: "default" },
       completed: { icon: CheckCircle, variant: "default" },

@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Upload, AlertCircle, CheckCircle2, Calculator, Info, X, FileImage, Shield, Loader2 } from "lucide-react";
+import { Upload, AlertCircle, CheckCircle2, Calculator, Info, X, FileImage, Shield, Loader2, Camera, FolderOpen } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { useI18n } from "@/contexts/I18nContext";
@@ -37,6 +37,7 @@ const Sell = () => {
   const { t } = useI18n();
   const { addListing } = useTicketListings();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const [selectedEvent, setSelectedEvent] = useState<EventData | null>(null);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [verificationResult, setVerificationResult] = useState<TicketVerificationResult | null>(null);
@@ -131,6 +132,10 @@ const Sell = () => {
 
   const triggerFileInput = () => {
     fileInputRef.current?.click();
+  };
+
+  const triggerCameraInput = () => {
+    cameraInputRef.current?.click();
   };
 
   const verifyTicketQR = async (file: File) => {
@@ -246,9 +251,9 @@ const Sell = () => {
       // Navigate to marketplace
       setTimeout(() => navigate('/events'), 1500);
 
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error creating ticket:', error);
-      toast.error(error.message || "Failed to list ticket");
+      toast.error(error instanceof Error ? error.message : "Failed to list ticket");
     } finally {
       setIsSubmitting(false);
     }
@@ -404,27 +409,59 @@ const Sell = () => {
                     {/* File Upload */}
                     <div>
                       <Label>{t('sell.ticketPhotos')}</Label>
+
+                      {/* Hidden file inputs */}
                       <input
                         ref={fileInputRef}
                         type="file"
                         accept="image/*,application/pdf"
-                        capture="environment"
                         multiple
                         onChange={handleFileSelect}
                         className="hidden"
                       />
-                      <div
-                        onClick={triggerFileInput}
-                        className="border-2 border-dashed border-muted rounded-lg p-8 text-center hover:border-primary/50 transition-colors cursor-pointer"
-                      >
-                        <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-                        <p className="text-sm text-muted-foreground">
-                          {t('sell.clickToAddPhotos')}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-2">
-                          Choose from gallery or take a photo
-                        </p>
+                      <input
+                        ref={cameraInputRef}
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        onChange={handleFileSelect}
+                        className="hidden"
+                      />
+
+                      {/* Upload Options */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
+                        {/* Take Photo Button */}
+                        <div
+                          onClick={triggerCameraInput}
+                          className="border-2 border-dashed border-muted rounded-lg p-6 text-center hover:border-primary/50 hover:bg-accent/5 transition-all cursor-pointer group"
+                        >
+                          <Camera className="w-8 h-8 text-muted-foreground group-hover:text-primary mx-auto mb-2 transition-colors" />
+                          <p className="text-sm font-medium text-foreground">
+                            {t('sell.takePhoto')}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Use camera
+                          </p>
+                        </div>
+
+                        {/* Choose from Gallery Button */}
+                        <div
+                          onClick={triggerFileInput}
+                          className="border-2 border-dashed border-muted rounded-lg p-6 text-center hover:border-primary/50 hover:bg-accent/5 transition-all cursor-pointer group"
+                        >
+                          <FolderOpen className="w-8 h-8 text-muted-foreground group-hover:text-primary mx-auto mb-2 transition-colors" />
+                          <p className="text-sm font-medium text-foreground">
+                            {t('sell.chooseFromGallery')}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Select files
+                          </p>
+                        </div>
                       </div>
+
+                      <p className="text-xs text-muted-foreground mt-2 text-center">
+                        Maximum 3 files • JPG, PNG, WEBP, PDF • Up to 5MB each
+                      </p>
 
                       {/* Display uploaded files */}
                       {uploadedFiles.length > 0 && (

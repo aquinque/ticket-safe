@@ -96,8 +96,8 @@ const ResetPassword = () => {
       setTimeout(() => {
         navigate("/auth");
       }, 2000);
-    } catch (error: any) {
-      toast.error(error.message || "Failed to reset password. Please try again.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to reset password. Please try again.");
     } finally {
       setLoading(false);
     }

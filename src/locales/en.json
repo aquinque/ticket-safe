@@ -48,8 +48,8 @@
     "fastMatchingDesc": "Quick connections between sellers and buyers"
   },
   "events": {
-    "title": "All Events",
-    "subtitle": "Explore all student events with available tickets",
+    "title": "Available Events",
+    "subtitle": "Discover verified student events with available tickets for resale",
     "discoverEvents": "Discover verified student events where you can safely buy or resell tickets.",
     "searchPlaceholder": "Search events...",
     "viewTickets": "View Tickets",
@@ -252,6 +252,8 @@
     "uploadDesc": "Upload your ticket (PDF, JPG, PNG)",
     "ticketPhotos": "Ticket Photos (optional)",
     "clickToAddPhotos": "Click to add photos of your tickets",
+    "takePhoto": "Take Photo",
+    "chooseFromGallery": "Choose from Gallery",
     "listTicket": "List Ticket for Sale",
     "onlyVerified": "Only verified students can buy",
     "secureEscrow": "Secure escrow payment protection",

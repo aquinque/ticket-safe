@@ -50,8 +50,8 @@ const Profile = () => {
     totalSales: 0,
     totalSaved: 0,
   });
-  const [purchases, setPurchases] = useState<any[]>([]);
-  const [sales, setSales] = useState<any[]>([]);
+  const [purchases, setPurchases] = useState<Array<Record<string, unknown>>>([]);
+  const [sales, setSales] = useState<Array<Record<string, unknown>>>([]);
   const [loading, setLoading] = useState(true);
   const { user, loading: authLoading, signOut } = useAuth();
   const navigate = useNavigate();
@@ -237,10 +237,10 @@ const Profile = () => {
       
       // Refresh user data
       setUserData({ ...userData, name: profileName, email: profileEmail });
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: t('toast.error'),
-        description: error.message || t('toast.profileUpdateFailed'),
+        description: error instanceof Error ? error.message : t('toast.profileUpdateFailed'),
         variant: "destructive",
       });
     }

@@ -154,9 +154,9 @@ const Sell = () => {
       setSelectedEvent(null);
 
       setTimeout(() => navigate("/profile"), 1500);
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error creating ticket:", error);
-      toast.error(error.message || "Failed to list ticket");
+      toast.error(error instanceof Error ? error.message : "Failed to list ticket");
     } finally {
       setIsSubmitting(false);
     }

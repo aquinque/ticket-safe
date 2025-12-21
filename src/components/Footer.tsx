@@ -20,13 +20,14 @@ const Footer = () => {
       { threshold: 0.1 }
     );
 
-    if (footerRef.current) {
-      observer.observe(footerRef.current);
+    const currentFooter = footerRef.current;
+    if (currentFooter) {
+      observer.observe(currentFooter);
     }
 
     return () => {
-      if (footerRef.current) {
-        observer.unobserve(footerRef.current);
+      if (currentFooter) {
+        observer.unobserve(currentFooter);
       }
     };
   }, []);

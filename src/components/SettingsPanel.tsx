@@ -84,10 +84,10 @@ export const SettingsPanel = ({ open, onOpenChange }: SettingsPanelProps) => {
         description: t('toast.profileUpdateSuccess'),
       });
       setActiveSection('main');
-    } catch (error: any) {
+    } catch (error) {
       toast({
         title: t('toast.error'),
-        description: error.message || t('toast.profileUpdateFailed'),
+        description: error instanceof Error ? error.message : t('toast.profileUpdateFailed'),
         variant: "destructive",
       });
     }

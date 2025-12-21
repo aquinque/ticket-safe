@@ -82,7 +82,7 @@ export const getRevolutOrderStatus = async (orderId: string): Promise<RevolutOrd
  */
 export const createRevolutPayout = async (
   params: RevolutPayoutRequest
-): Promise<any> => {
+): Promise<unknown> => {
   try {
     const response = await axios.post(
       `${REVOLUT_API_BASE}/payouts`,

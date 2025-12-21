@@ -48,8 +48,8 @@
     "fastMatchingDesc": "Connexions rapides entre vendeurs et acheteurs"
   },
   "events": {
-    "title": "Tous les événements",
-    "subtitle": "Explorez tous les événements étudiants avec des billets disponibles",
+    "title": "Événements disponibles",
+    "subtitle": "Découvrez les événements étudiants vérifiés avec des billets disponibles à la revente",
     "discoverEvents": "Découvrez des événements étudiants vérifiés où vous pouvez acheter ou revendre des billets en toute sécurité.",
     "searchPlaceholder": "Rechercher des événements...",
     "viewTickets": "Voir les billets",
@@ -252,6 +252,8 @@
     "uploadDesc": "Téléchargez votre billet (PDF, JPG, PNG)",
     "ticketPhotos": "Photos du billet (optionnel)",
     "clickToAddPhotos": "Cliquez pour ajouter des photos de vos billets",
+    "takePhoto": "Prendre une photo",
+    "chooseFromGallery": "Choisir dans la galerie",
     "listTicket": "Mettre le billet en vente",
     "onlyVerified": "Seuls les étudiants vérifiés peuvent acheter",
     "secureEscrow": "Protection de paiement par entiercement sécurisé",

@@ -91,8 +91,8 @@ const Auth = () => {
 
       toast.success("Password reset email sent! Check your inbox.");
       setShowForgotPassword(false);
-    } catch (error: any) {
-      toast.error(error.message || "Failed to send password reset email");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to send password reset email");
     } finally {
       setLoading(false);
     }
@@ -250,7 +250,7 @@ const Auth = () => {
         });
 
         if (error) {
-          if (error.message.includes("already registered") || error.message.includes("User already registered")) {
+          if (error instanceof Error ? error.message : 'An error occurred'.includes("already registered") || error instanceof Error ? error.message : 'An error occurred'.includes("User already registered")) {
             toast.error("Unable to create account. Please try logging in.");
             setIsLogin(true);
           } else {
@@ -269,7 +269,7 @@ const Auth = () => {
           }, 100);
         }
       }
-    } catch (error: any) {
+    } catch (error) {
       // Generic error message to prevent information disclosure
       toast.error("An error occurred during authentication. Please try again.");
     } finally {

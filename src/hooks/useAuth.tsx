@@ -9,7 +9,7 @@ export const useAuth = () => {
 
   useEffect(() => {
     let mounted = true;
-    let authSubscription: any = null;
+    let authSubscription: { unsubscribe: () => void } | null = null;
 
     const initAuth = async () => {
       try {
@@ -59,6 +59,7 @@ export const useAuth = () => {
         authSubscription.unsubscribe();
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const signOut = async () => {

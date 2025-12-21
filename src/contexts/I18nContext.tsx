@@ -8,7 +8,7 @@ type Translations = typeof enTranslations;
 interface I18nContextType {
   language: Language;
   setLanguage: (lang: Language) => void;
-  t: (key: string, params?: Record<string, any>) => string;
+  t: (key: string, params?: Record<string, string | number>) => string;
 }
 
 const I18nContext = createContext<I18nContextType | undefined>(undefined);
@@ -64,20 +64,20 @@ export const I18nProvider = ({ children }: { children: ReactNode }) => {
     document.documentElement.lang = lang;
   };
 
-  const t = (key: string, params?: Record<string, any>): string => {
+  const t = (key: string, params?: Record<string, string | number>): string => {
     const keys = key.split('.');
-    let value: any = translations[language];
+    let value: unknown = translations[language];
 
     // Navigate through nested keys
     for (const k of keys) {
       if (value && typeof value === 'object' && k in value) {
-        value = value[k];
+        value = (value as Record<string, unknown>)[k];
       } else {
         // Fallback to English if key not found in current language
         value = translations.en;
         for (const fallbackKey of keys) {
           if (value && typeof value === 'object' && fallbackKey in value) {
-            value = value[fallbackKey];
+            value = (value as Record<string, unknown>)[fallbackKey];
           } else {
             if (import.meta.env.DEV) {
               console.warn(`Translation key not found: ${key}`);
