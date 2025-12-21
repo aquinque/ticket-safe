@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { z } from "zod";
 import Header from "@/components/Header";
@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Upload, AlertCircle, CheckCircle2, Calculator, Info, X, FileImage, Shield, Loader2, Camera, FolderOpen } from "lucide-react";
+import { Upload, AlertCircle, CheckCircle2, Calculator, Info, X, FileImage, Shield, Loader2, Camera, FolderOpen, Search } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { useI18n } from "@/contexts/I18nContext";
@@ -39,12 +39,26 @@ const Sell = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const [selectedEvent, setSelectedEvent] = useState<ESCPEvent | null>(null);
+  const [eventSearchQuery, setEventSearchQuery] = useState("");
 
   // Fetch all ESCP events (not just ones with tickets, so sellers can list for any event)
   const { events: escpEvents, loading: eventsLoading } = useESCPEvents({ onlyWithTickets: false });
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [verificationResult, setVerificationResult] = useState<TicketVerificationResult | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
+
+  // Filter events based on search query
+  const filteredEvents = useMemo(() => {
+    if (!eventSearchQuery.trim()) return escpEvents;
+
+    const query = eventSearchQuery.toLowerCase();
+    return escpEvents.filter(event =>
+      event.title.toLowerCase().includes(query) ||
+      event.location.toLowerCase().includes(query) ||
+      (event.category && event.category.toLowerCase().includes(query)) ||
+      (event.organizer && event.organizer.toLowerCase().includes(query))
+    );
+  }, [escpEvents, eventSearchQuery]);
 
   // Pre-select event from navigation state
   useEffect(() => {
@@ -295,8 +309,21 @@ const Sell = () => {
                   <CardContent className="space-y-6">
                     {/* Event Details */}
                     <div className="space-y-4">
-                      <div>
+                      <div className="space-y-3">
                         <Label htmlFor="event">{t('sell.selectYourEvent')}</Label>
+
+                        {/* Search Bar */}
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                          <Input
+                            placeholder="Search ESCP events by name, location, or category..."
+                            value={eventSearchQuery}
+                            onChange={(e) => setEventSearchQuery(e.target.value)}
+                            className="pl-10"
+                          />
+                        </div>
+
+                        {/* Event Selector */}
                         <Select
                           value={formData.eventId}
                           onValueChange={handleEventSelect}
@@ -304,33 +331,47 @@ const Sell = () => {
                           <SelectTrigger>
                             <SelectValue placeholder={t('sell.selectEventPlaceholder')} />
                           </SelectTrigger>
-                          <SelectContent>
+                          <SelectContent className="max-h-[300px]">
                             {eventsLoading ? (
                               <div className="p-4 text-sm text-muted-foreground text-center">
                                 {t('sell.loadingEvents')}
                               </div>
-                            ) : escpEvents.length === 0 ? (
+                            ) : filteredEvents.length === 0 ? (
                               <div className="p-4 text-sm text-muted-foreground text-center">
-                                {t('sell.noUpcomingEvents')}
+                                {eventSearchQuery ? "No events match your search" : t('sell.noUpcomingEvents')}
                               </div>
                             ) : (
-                              escpEvents.map((event) => (
-                                <SelectItem key={event.id} value={event.id}>
-                                  <div className="flex flex-col">
-                                    <span className="font-medium">{event.title}</span>
-                                    <span className="text-xs text-muted-foreground">
-                                      {new Date(event.start_date).toLocaleDateString('en-US', {
-                                        day: 'numeric',
-                                        month: 'long',
-                                        year: 'numeric'
-                                      })} • {event.location}
-                                    </span>
-                                  </div>
-                                </SelectItem>
-                              ))
+                              <>
+                                <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground sticky top-0 bg-background border-b">
+                                  {filteredEvents.length} event{filteredEvents.length !== 1 ? 's' : ''} found in ESCP catalog
+                                </div>
+                                {filteredEvents.map((event) => (
+                                  <SelectItem key={event.id} value={event.id}>
+                                    <div className="flex flex-col py-1">
+                                      <span className="font-medium">{event.title}</span>
+                                      <span className="text-xs text-muted-foreground">
+                                        {new Date(event.start_date).toLocaleDateString('en-US', {
+                                          day: 'numeric',
+                                          month: 'long',
+                                          year: 'numeric'
+                                        })} • {event.location}
+                                      </span>
+                                      {event.category && (
+                                        <Badge variant="outline" className="mt-1 w-fit text-[10px] py-0 px-1.5">
+                                          {event.category}
+                                        </Badge>
+                                      )}
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </>
                             )}
                           </SelectContent>
                         </Select>
+
+                        <p className="text-xs text-muted-foreground">
+                          All events are sourced from the official ESCP Campus Life calendar
+                        </p>
                       </div>
 
                       {selectedEvent && (
