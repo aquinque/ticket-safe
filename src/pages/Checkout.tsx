@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -6,11 +6,13 @@ import { BackButton } from "@/components/BackButton";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { CheckCircle2, CreditCard, Calendar, MapPin, Ticket as TicketIcon, ShieldCheck } from "lucide-react";
+import { CheckCircle2, CreditCard, Calendar, MapPin, Ticket as TicketIcon, ShieldCheck, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { SEOHead } from "@/components/SEOHead";
 import { useTicketListings } from "@/contexts/TicketListingsContext";
 import { Badge } from "@/components/ui/badge";
+import { mockRevolutPayment } from "@/lib/revolutPayment";
+import { toast } from "sonner";
 
 const Checkout = () => {
   const navigate = useNavigate();
@@ -18,6 +20,7 @@ const Checkout = () => {
   const [searchParams] = useSearchParams();
   const listingId = searchParams.get("listing_id");
   const { listings } = useTicketListings();
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
 
   const listing = listings.find(l => l.id === listingId);
 
@@ -84,6 +87,40 @@ const Checkout = () => {
       return `${startDate.toLocaleDateString('en-US', options)} - ${endDate.toLocaleDateString('en-US', options)}`;
     }
     return startDate.toLocaleDateString('en-US', options);
+  };
+
+  const handleRevolutPayment = async () => {
+    if (!user || !listing) return;
+
+    setIsProcessingPayment(true);
+
+    try {
+      toast.loading('Processing payment with Revolut...', { id: 'payment' });
+
+      // In production, this will redirect to Revolut checkout
+      const result = await mockRevolutPayment(
+        totalAmount,
+        `Ticket purchase: ${event.title} - ${listing.quantity} ticket(s)`
+      );
+
+      if (result.success) {
+        toast.success('Payment successful!', { id: 'payment' });
+
+        // Here you would:
+        // 1. Mark the listing as sold
+        // 2. Transfer tickets to buyer
+        // 3. Initiate payout to seller
+
+        setTimeout(() => {
+          navigate('/profile?tab=tickets');
+        }, 1500);
+      }
+    } catch (error) {
+      toast.error('Payment failed. Please try again.', { id: 'payment' });
+      console.error('Payment error:', error);
+    } finally {
+      setIsProcessingPayment(false);
+    }
   };
 
   return (
@@ -181,27 +218,46 @@ const Checkout = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <CreditCard className="w-5 h-5" />
-                  Payment (Stripe Integration Coming Soon)
+                  Secure Payment with Revolut
                 </CardTitle>
                 <CardDescription>
-                  Secure payment processing will be available soon
+                  Complete your purchase securely through Revolut
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="p-6 bg-muted/50 rounded-lg text-center space-y-4">
-                  <CheckCircle2 className="w-12 h-12 text-primary mx-auto" />
-                  <div>
-                    <h3 className="font-semibold text-lg mb-2">Ready for Stripe Integration</h3>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      This page is prepared for secure payment processing. Once Stripe is integrated,
-                      buyers will complete their purchase here.
-                    </p>
-                    <div className="text-xs text-muted-foreground space-y-1">
-                      <p>Event: {event.title}</p>
-                      <p>Listing ID: {listing.id}</p>
-                      <p>Seller: {listing.sellerName}</p>
-                      <p>Amount: €{totalAmount.toFixed(2)}</p>
+                <div className="p-6 bg-muted/50 rounded-lg space-y-4">
+                  <div className="flex items-center justify-center gap-3">
+                    <CreditCard className="w-8 h-8 text-primary" />
+                    <div className="text-left">
+                      <h3 className="font-semibold text-lg">Revolut Payment</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Fast, secure, and trusted by millions
+                      </p>
                     </div>
+                  </div>
+
+                  <Separator />
+
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Event:</span>
+                      <span className="font-medium">{event.title}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Seller:</span>
+                      <span className="font-medium">{listing.sellerName}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Total Amount:</span>
+                      <span className="font-bold text-primary text-lg">€{totalAmount.toFixed(2)}</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+                    <p className="text-xs text-blue-900 dark:text-blue-100">
+                      <ShieldCheck className="w-4 h-4 inline mr-1" />
+                      Your payment is protected by Revolut's advanced security features
+                    </p>
                   </div>
                 </div>
 
@@ -210,24 +266,32 @@ const Checkout = () => {
                     variant="outline"
                     className="flex-1"
                     onClick={() => navigate("/marketplace/buy")}
+                    disabled={isProcessingPayment}
                   >
                     Back to Marketplace
                   </Button>
                   <Button
                     variant="hero"
                     className="flex-1"
-                    onClick={() => {
-                      // Placeholder - will integrate Stripe here
-                      alert("Payment integration coming soon! This would normally process your payment through Stripe.");
-                      navigate("/profile");
-                    }}
+                    onClick={handleRevolutPayment}
+                    disabled={isProcessingPayment}
                   >
-                    Proceed to Payment
+                    {isProcessingPayment ? (
+                      <>
+                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        <CreditCard className="w-5 h-5 mr-2" />
+                        Pay with Revolut
+                      </>
+                    )}
                   </Button>
                 </div>
 
                 <p className="text-xs text-center text-muted-foreground">
-                  🔒 Your payment will be processed securely via Stripe
+                  🔒 Secure payment powered by Revolut
                 </p>
               </CardContent>
             </Card>

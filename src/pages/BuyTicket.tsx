@@ -209,7 +209,7 @@ const BuyTicket = () => {
                 </Button>
 
                 <p className="text-xs text-center text-muted-foreground mt-4">
-                  Secure payment powered by Stripe (coming soon)
+                  Secure payment powered by Revolut
                 </p>
               </Card>
             </div>
