@@ -16,11 +16,11 @@ import { Upload, AlertCircle, CheckCircle2, Calculator, Info, X, FileImage, Shie
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { useI18n } from "@/contexts/I18nContext";
-import { eventsList, EventData } from "@/data/eventsData";
 import { SEOHead } from "@/components/SEOHead";
 import { useTicketListings } from "@/contexts/TicketListingsContext";
 import { parseQRCode, verifyTicket, markTicketAsListed } from "@/lib/ticketVerification";
 import { TicketQRData, TicketVerificationResult } from "@/types/ticketVerification";
+import { useESCPEvents, ESCPEvent } from "@/hooks/useESCPEvents";
 
 // Validation schema for ticket notes
 const notesSchema = z
@@ -38,7 +38,10 @@ const Sell = () => {
   const { addListing } = useTicketListings();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
-  const [selectedEvent, setSelectedEvent] = useState<EventData | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<ESCPEvent | null>(null);
+
+  // Fetch all ESCP events (not just ones with tickets, so sellers can list for any event)
+  const { events: escpEvents, loading: eventsLoading } = useESCPEvents({ onlyWithTickets: false });
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [verificationResult, setVerificationResult] = useState<TicketVerificationResult | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
@@ -46,8 +49,8 @@ const Sell = () => {
   // Pre-select event from navigation state
   useEffect(() => {
     const state = location.state as { eventId?: string } | null;
-    if (state?.eventId) {
-      const event = eventsList.find(e => e.id === state.eventId);
+    if (state?.eventId && escpEvents.length > 0) {
+      const event = escpEvents.find(e => e.id === state.eventId);
       if (event) {
         setSelectedEvent(event);
         setFormData(prev => ({
@@ -56,7 +59,7 @@ const Sell = () => {
         }));
       }
     }
-  }, [location.state]);
+  }, [location.state, escpEvents]);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -75,7 +78,7 @@ const Sell = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleEventSelect = (eventId: string) => {
-    const event = eventsList.find(e => e.id === eventId);
+    const event = escpEvents.find(e => e.id === eventId);
     if (event) {
       setSelectedEvent(event);
       setFormData({
@@ -302,17 +305,21 @@ const Sell = () => {
                             <SelectValue placeholder={t('sell.selectEventPlaceholder')} />
                           </SelectTrigger>
                           <SelectContent>
-                            {eventsList.length === 0 ? (
+                            {eventsLoading ? (
+                              <div className="p-4 text-sm text-muted-foreground text-center">
+                                {t('sell.loadingEvents')}
+                              </div>
+                            ) : escpEvents.length === 0 ? (
                               <div className="p-4 text-sm text-muted-foreground text-center">
                                 {t('sell.noUpcomingEvents')}
                               </div>
                             ) : (
-                              eventsList.map((event) => (
+                              escpEvents.map((event) => (
                                 <SelectItem key={event.id} value={event.id}>
                                   <div className="flex flex-col">
                                     <span className="font-medium">{event.title}</span>
                                     <span className="text-xs text-muted-foreground">
-                                      {new Date(event.date).toLocaleDateString('en-US', {
+                                      {new Date(event.start_date).toLocaleDateString('en-US', {
                                         day: 'numeric',
                                         month: 'long',
                                         year: 'numeric'
@@ -336,7 +343,7 @@ const Sell = () => {
                                 {selectedEvent.category}
                               </p>
                               <p className="text-sm">
-                                {new Date(selectedEvent.date).toLocaleDateString('en-US', {
+                                {new Date(selectedEvent.start_date).toLocaleDateString('en-US', {
                                   weekday: 'long',
                                   year: 'numeric',
                                   month: 'long',

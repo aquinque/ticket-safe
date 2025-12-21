@@ -8,24 +8,25 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Calendar, MapPin, User, ShoppingCart, FileImage, Info, ShieldCheck } from "lucide-react";
-import { eventsList, EventData } from "@/data/eventsData";
+import { ESCPEvent, useESCPEvents } from "@/hooks/useESCPEvents";
 import { useTicketListings } from "@/contexts/TicketListingsContext";
 import { SEOHead } from "@/components/SEOHead";
 
 const EventTicketsMarketplace = () => {
   const { eventId } = useParams();
   const navigate = useNavigate();
+  const { events } = useESCPEvents({ onlyWithTickets: true });
   const { listings } = useTicketListings();
-  const [event, setEvent] = useState<EventData | null>(null);
+  const [event, setEvent] = useState<ESCPEvent | null>(null);
 
   useEffect(() => {
-    const foundEvent = eventsList.find(e => e.id === eventId);
+    const foundEvent = events.find(e => e.id === eventId);
     if (foundEvent) {
       setEvent(foundEvent);
-    } else {
+    } else if (events.length > 0) {
       navigate("/events");
     }
-  }, [eventId, navigate]);
+  }, [eventId, navigate, events]);
 
   if (!event) {
     return null;
@@ -52,23 +53,18 @@ const EventTicketsMarketplace = () => {
           {/* Event Header */}
           <div className="mb-8">
             <div className="flex flex-col md:flex-row gap-6 items-start">
-              <div className="relative w-full md:w-64 h-40 md:h-48 rounded-xl overflow-hidden flex-shrink-0">
-                <img
-                  src={event.image}
-                  alt={event.title}
-                  className="w-full h-full object-cover"
-                />
+              <div className="relative w-full md:w-64 h-40 md:h-48 rounded-xl overflow-hidden flex-shrink-0 bg-gradient-to-br from-primary/20 to-primary/5">
               </div>
               <div className="flex-1">
                 <Badge variant="secondary" className="mb-2">
-                  {event.category}
+                  {event.category || 'Event'}
                 </Badge>
                 <h1 className="text-3xl md:text-4xl font-bold mb-4">{event.title}</h1>
                 <div className="flex flex-wrap gap-4 text-muted-foreground">
                   <div className="flex items-center gap-2">
                     <Calendar className="w-4 h-4" />
                     <span className="text-sm">
-                      {new Date(event.date).toLocaleDateString('en-US', {
+                      {new Date(event.start_date).toLocaleDateString('en-US', {
                         month: 'long',
                         day: 'numeric',
                         year: 'numeric'

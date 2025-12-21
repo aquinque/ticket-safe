@@ -11,17 +11,18 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Search, MapPin, Calendar, ChevronDown, ChevronUp, Ticket, ShieldCheck } from "lucide-react";
 import { SEOHead } from "@/components/SEOHead";
 import { useTicketListings } from "@/contexts/TicketListingsContext";
-import { eventsList } from "@/data/eventsData";
+import { useESCPEvents } from "@/hooks/useESCPEvents";
 
 const Buy = () => {
   const navigate = useNavigate();
   const { listings } = useTicketListings();
+  const { events } = useESCPEvents({ onlyWithTickets: true });
   const [searchQuery, setSearchQuery] = useState("");
   const [priceRange, setPriceRange] = useState("all");
   const [expandedEvents, setExpandedEvents] = useState<Set<string>>(new Set());
 
   // Group tickets by event
-  const eventListings = eventsList.map((event) => {
+  const eventListings = events.map((event) => {
     const eventTickets = listings.filter((t) => t.event.id === event.id);
     const minPrice = eventTickets.length > 0
       ? Math.min(...eventTickets.map((t) => t.sellingPrice))
@@ -132,12 +133,7 @@ const Buy = () => {
               <Card key={item.event.id} className="overflow-hidden">
                 <div className="flex flex-col md:flex-row">
                   {/* Event Image */}
-                  <div className="md:w-48 h-48 md:h-auto bg-muted flex-shrink-0">
-                    <img
-                      src={item.event.image}
-                      alt={item.event.title}
-                      className="w-full h-full object-cover"
-                    />
+                  <div className="md:w-48 h-48 md:h-auto bg-gradient-to-br from-primary/20 to-primary/5 flex-shrink-0">
                   </div>
 
                   {/* Event Info */}
@@ -150,13 +146,12 @@ const Buy = () => {
                             <div className="flex items-center gap-2">
                               <Calendar className="w-4 h-4" />
                               <span>
-                                {new Date(item.event.date).toLocaleDateString("en-US", {
+                                {new Date(item.event.start_date).toLocaleDateString("en-US", {
                                   weekday: "long",
                                   month: "long",
                                   day: "numeric",
                                   year: "numeric",
                                 })}
-                                {item.event.endDate && ` - ${new Date(item.event.endDate).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`}
                               </span>
                             </div>
                             <div className="flex items-center gap-2">
@@ -166,7 +161,7 @@ const Buy = () => {
                           </CardDescription>
                         </div>
                         <Badge variant="secondary" className="text-base px-3 py-1">
-                          {item.event.category}
+                          {item.event.category || 'Event'}
                         </Badge>
                       </div>
                     </CardHeader>

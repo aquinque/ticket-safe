@@ -1,36 +1,41 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Filter } from "lucide-react";
+import { Search, Filter, RefreshCw } from "lucide-react";
 import EventCard from "./EventCard";
 import { useI18n } from "@/contexts/I18nContext";
-import { eventsList } from "@/data/eventsData";
 import EventModal from "./EventModal";
+import { useESCPEvents } from "@/hooks/useESCPEvents";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const EventsSection = () => {
   const { t } = useI18n();
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedFilter, setSelectedFilter] = useState("galas");
-  const [selectedEvent, setSelectedEvent] = useState<typeof eventsList[0] | null>(null);
+  const [selectedFilter, setSelectedFilter] = useState("all");
+  const [selectedEvent, setSelectedEvent] = useState<any>(null);
+
+  // Fetch only events with available tickets
+  const { events: escpEvents, loading, error } = useESCPEvents({ onlyWithTickets: true });
 
   const filters = [
-    { id: "parties", label: t('events.filters.parties') },
-    { id: "galas", label: t('events.filters.galas') },
-    { id: "conferences", label: t('events.filters.conferences') },
-    { id: "sports", label: t('events.filters.sports') },
-    { id: "sustainability", label: t('events.filters.sustainability') },
-    { id: "other", label: t('events.filters.other') }
+    { id: "all", label: "All" },
+    { id: "Parties", label: t('events.filters.parties') },
+    { id: "Galas", label: t('events.filters.galas') },
+    { id: "Conferences", label: t('events.filters.conferences') },
+    { id: "Sports", label: t('events.filters.sports') },
+    { id: "Sustainability", label: t('events.filters.sustainability') },
+    { id: "Other", label: t('events.filters.other') }
   ];
 
-  const filteredEvents = eventsList
+  // Filter events based on search and category
+  const filteredEvents = escpEvents
     .filter(event => {
       const matchesSearch = event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            event.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           event.organizer.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesFilter = event.filterCategory === selectedFilter;
+                           (event.organizer && event.organizer.toLowerCase().includes(searchTerm.toLowerCase()));
+      const matchesFilter = selectedFilter === "all" || event.category === selectedFilter;
       return matchesSearch && matchesFilter;
-    })
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    });
 
   return (
     <>
@@ -76,26 +81,68 @@ const EventsSection = () => {
             </div>
           </div>
 
+          {/* Loading State */}
+          {loading && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div key={i} className="space-y-3">
+                  <Skeleton className="h-48 w-full" />
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-4 w-1/2" />
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Error State */}
+          {error && !loading && (
+            <div className="text-center py-12">
+              <div className="w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Search className="w-8 h-8 text-destructive" />
+              </div>
+              <h3 className="text-xl font-semibold mb-2">Error loading events</h3>
+              <p className="text-muted-foreground">
+                {error.message || 'Failed to load events. Please try again later.'}
+              </p>
+            </div>
+          )}
+
           {/* Events Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredEvents.map(event => (
-              <EventCard 
-                key={event.id}
-                event={event}
-                onClick={() => setSelectedEvent(event)}
-              />
-            ))}
-          </div>
+          {!loading && !error && filteredEvents.length > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredEvents.map(event => (
+                <EventCard
+                  key={event.id}
+                  event={{
+                    ...event,
+                    id: event.id,
+                    title: event.title,
+                    date: event.start_date,
+                    location: event.location,
+                    category: event.category,
+                    organizer: event.organizer,
+                    description: event.description,
+                    price: event.min_price || 0,
+                    availableTickets: event.available_tickets || 0,
+                    totalTickets: event.available_tickets || 0,
+                    imageUrl: '/placeholder.svg',
+                    filterCategory: event.category.toLowerCase(),
+                  }}
+                  onClick={() => setSelectedEvent(event)}
+                />
+              ))}
+            </div>
+          )}
 
           {/* No Results */}
-          {filteredEvents.length === 0 && (
+          {!loading && !error && filteredEvents.length === 0 && (
             <div className="text-center py-12">
               <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
                 <Search className="w-8 h-8 text-muted-foreground" />
               </div>
               <h3 className="text-xl font-semibold mb-2">{t('events.noEvents')}</h3>
               <p className="text-muted-foreground">
-                {t('events.noEventsDescription')}
+                No events with available tickets found. Check back later!
               </p>
             </div>
           )}
