@@ -105,7 +105,7 @@ const PurchaseHistory = () => {
       <main className="py-16 flex-1">
         <div className="container mx-auto px-4 max-w-4xl">
           <div className="mb-6">
-            <BackButton />
+            <BackButton fallbackPath="/settings" />
           </div>
 
           {/* Page Header */}

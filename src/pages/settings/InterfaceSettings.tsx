@@ -60,7 +60,7 @@ const InterfaceSettings = () => {
       <main className="py-16 flex-1">
         <div className="container mx-auto px-4 max-w-3xl">
           <div className="mb-6">
-            <BackButton />
+            <BackButton fallbackPath="/settings" />
           </div>
 
           {/* Page Header */}

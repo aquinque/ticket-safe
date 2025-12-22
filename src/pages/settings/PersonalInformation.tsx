@@ -38,13 +38,25 @@ const PersonalInformation = () => {
   }, [user]);
 
   const handleSaveProfile = async () => {
-    if (newPassword && newPassword !== confirmPassword) {
-      toast({
-        title: "Password mismatch",
-        description: "New password and confirmation do not match",
-        variant: "destructive",
-      });
-      return;
+    // Validate password if provided
+    if (newPassword) {
+      if (newPassword.length < 6) {
+        toast({
+          title: "Password too short",
+          description: "Password must be at least 6 characters long",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (newPassword !== confirmPassword) {
+        toast({
+          title: "Password mismatch",
+          description: "New password and confirmation do not match",
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     try {
@@ -74,6 +86,11 @@ const PersonalInformation = () => {
         if (passwordError) throw passwordError;
         setNewPassword('');
         setConfirmPassword('');
+
+        toast({
+          title: "Password updated",
+          description: "Your password has been changed successfully",
+        });
       }
 
       toast({
@@ -98,7 +115,7 @@ const PersonalInformation = () => {
       <main className="py-16 flex-1">
         <div className="container mx-auto px-4 max-w-3xl">
           <div className="mb-6">
-            <BackButton />
+            <BackButton fallbackPath="/settings" />
           </div>
 
           {/* Page Header */}
@@ -176,8 +193,19 @@ const PersonalInformation = () => {
                     type="password"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Enter new password"
+                    placeholder="Enter new password (min. 6 characters)"
                   />
+                  {newPassword && (
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 text-xs">
+                        {newPassword.length >= 6 ? (
+                          <span className="text-green-600">✓ At least 6 characters</span>
+                        ) : (
+                          <span className="text-muted-foreground">○ At least 6 characters</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2">
