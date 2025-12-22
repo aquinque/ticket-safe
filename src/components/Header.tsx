@@ -83,7 +83,7 @@ const Header = () => {
           </Link>
 
           {/* Desktop Navigation - Reorganized */}
-          <nav className="hidden md:flex items-center flex-1 justify-between ml-8">
+          <nav className="hidden md:flex items-center flex-1 ml-8">
             {/* PRIMARY CTAs - Left/Center (where eye lands first) */}
             <div className="flex items-center gap-3">
               {/* Marketplace Dropdown - Primary CTA */}
@@ -120,7 +120,7 @@ const Header = () => {
             </div>
 
             {/* SECONDARY NAVIGATION - Right side (informational) */}
-            <div className="flex items-center gap-6">
+            <div className="flex items-center gap-6 ml-auto mr-8">
               <Link
                 to="/about"
                 className={`text-sm transition-colors hover:text-muted-foreground ${
