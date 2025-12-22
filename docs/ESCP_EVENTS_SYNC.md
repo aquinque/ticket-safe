@@ -11,12 +11,12 @@ The platform automatically syncs events from the ESCP Campus Life calendar so th
 
 ## Calendar Source
 
-**Calendar URL**: `https://campuslife.escp.eu/ics?topic_tags=6554010&school=escp`
+**Calendar URL**: `https://campuslife.escp.eu/ical/escp/ical_escp.ics`
 
 This URL provides:
 - All ESCP Campus Life events
-- Filtered by topic tags (6554010)
-- For ESCP school specifically
+- Complete calendar feed for ESCP
+- Includes all event types and categories
 
 ## Architecture
 
