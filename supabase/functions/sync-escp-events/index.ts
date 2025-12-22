@@ -12,7 +12,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const ESCP_ICAL_URL = 'https://campuslife.escp.eu/ical/escp/ical_escp.ics';
+const ESCP_ICAL_URL = 'https://campuslife.escp.eu/ics?topic_tags=6554010&school=escp';
 
 interface ESCPEvent {
   uid: string;
