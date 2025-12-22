@@ -1,5 +1,6 @@
 import { Shield, CreditCard, CheckCircle, AlertTriangle, XCircle, DollarSign } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { Link } from "react-router-dom";
 
 const WhyTicketSafe = () => {
   const benefits = [
@@ -109,18 +110,18 @@ const WhyTicketSafe = () => {
               No more stress, no more scams—just safe transactions.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <a
-                href="/events"
+              <Link
+                to="/events"
                 className="inline-flex items-center justify-center h-11 px-8 bg-primary text-primary-foreground font-semibold rounded-md hover:bg-primary/90 transition-colors"
               >
                 Browse Available Events
-              </a>
-              <a
-                href="/sell"
+              </Link>
+              <Link
+                to="/sell"
                 className="inline-flex items-center justify-center h-11 px-8 bg-background border border-border font-semibold rounded-md hover:bg-muted transition-colors"
               >
                 Sell Your Ticket
-              </a>
+              </Link>
             </div>
           </div>
         </div>
