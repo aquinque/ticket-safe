@@ -107,20 +107,60 @@ const { events } = useESCPEvents({ category: 'Parties' });
 3. Events with tickets show "View Tickets" button
 4. Events without tickets show "Sell Your Ticket" button
 
-## Synchronization
+## 🔄 How to Update Events on the Platform
 
-### Manual Sync (via Supabase Dashboard)
+### ⚠️ Important: Events don't update automatically
 
-1. Go to Supabase Dashboard → Edge Functions
-2. Find `sync-escp-events` function
-3. Click "Invoke" to trigger manual sync
+After updating the calendar source URL, **new ESCP events won't appear on the website until you sync them**.
 
-### Automatic Sync (Recommended)
+Think of it like this:
+- The ESCP calendar is updated regularly with new events
+- Our platform needs to "fetch" these events and save them
+- This fetching process is called **synchronization**
 
-Set up a cron job to sync events regularly:
+---
+
+### ✅ Action Required: Run the Sync Function
+
+To make new events appear, you need to trigger the synchronization process.
+
+#### **Option 1: Via Supabase Dashboard** (Easiest method)
+
+**What you need:**
+- Access to the Supabase Dashboard
+- 30 seconds of your time
+
+**Steps:**
+1. Open [Supabase Dashboard](https://supabase.com/dashboard)
+2. Navigate to: **Edge Functions** (in the left sidebar)
+3. Find the function named: `sync-escp-events`
+4. Click the **"Invoke"** button
+5. Wait 5-10 seconds for the sync to complete
+6. ✅ Done! New events are now visible on the website
+
+**What happens when you click "Invoke"?**
+- The system connects to ESCP's calendar
+- Downloads all upcoming events
+- Saves them to the database
+- Makes them available on the platform
+
+---
+
+#### **Option 2: Automatic Sync** (Recommended for long-term)
+
+**What is this?**
+Instead of manually clicking "Invoke" each time, you can set up automatic synchronization.
+
+**Benefits:**
+- Events update automatically every 6 hours
+- No manual intervention needed
+- Always up-to-date with ESCP calendar
+
+**Setup:**
+This requires setting up a scheduled job (cron). If you need this, ask a developer to configure it using the example below:
 
 ```sql
--- Example: Sync events every 6 hours
+-- This runs the sync function automatically every 6 hours
 SELECT cron.schedule(
   'sync-escp-events',
   '0 */6 * * *',
@@ -133,68 +173,112 @@ SELECT cron.schedule(
 );
 ```
 
-## Deployment
+---
 
-### Deploy the Edge Function:
+## 🚀 Deployment (For Developers)
 
+### Initial Setup
+
+**1. Deploy the sync function to Supabase:**
 ```bash
 supabase functions deploy sync-escp-events
 ```
 
-### Initial Sync:
-
-After deployment, run the function once to populate the database:
-
+**2. Run the first sync to populate events:**
 ```bash
 curl -X POST \
   https://YOUR_PROJECT_ID.supabase.co/functions/v1/sync-escp-events \
   -H "Authorization: Bearer YOUR_SERVICE_ROLE_KEY"
 ```
 
-## Monitoring
+**3. Verify events were imported:**
+- Go to the Full Catalog page (`/catalog`)
+- You should see all ESCP events listed
 
-Check sync logs in Supabase Dashboard:
-- Go to Edge Functions → sync-escp-events → Logs
-- Look for sync statistics:
-  - Total events in feed
-  - Future events filtered
-  - Successfully synced
-  - Errors (if any)
+---
 
-## Troubleshooting
+## 📊 Monitoring & Verification
 
-### No Events Showing Up
+### How to check if the sync worked
 
-1. Check if Edge Function ran successfully:
-   ```bash
-   # View logs
-   supabase functions logs sync-escp-events
-   ```
+**After running the sync function, you can verify it succeeded:**
 
-2. Verify database has events:
-   ```sql
-   SELECT COUNT(*) FROM escp_events WHERE is_active = true;
-   ```
+**Option 1: Check the website**
+1. Go to the Full Catalog page: `/catalog`
+2. You should see ESCP events listed
+3. If you see events → ✅ Sync successful!
 
-3. Check if events are in the future:
-   ```sql
-   SELECT COUNT(*) FROM escp_events
-   WHERE is_active = true
-   AND start_date > NOW();
-   ```
+**Option 2: Check Supabase logs** (For developers)
+1. Go to **Supabase Dashboard** → **Edge Functions**
+2. Click on `sync-escp-events`
+3. Open the **Logs** tab
+4. Look for the latest execution
 
-### Events Not Updating
+**What you should see in the logs:**
+- ✅ `Synced X events from ESCP iCal feed`
+- ✅ Statistics showing:
+  - Total events in calendar feed
+  - Number of future events imported
+  - Successfully synced count
+  - Error count (should be 0)
 
-1. Check `last_synced_at` timestamp:
-   ```sql
-   SELECT MAX(last_synced_at) FROM escp_events;
-   ```
+**Example successful log:**
+```
+[SYNC] Complete: 45 synced, 0 errors
+Synced 45 events from ESCP iCal feed
+```
 
-2. Manually trigger sync
-3. Check iCal URL is accessible:
-   ```bash
-   curl -I https://campuslife.escp.eu/ics?topic_tags=6554010&school=escp
-   ```
+## 🔧 Troubleshooting
+
+### Problem: No events showing on the website
+
+**Quick checklist:**
+1. ✅ Did you run the sync function? → Go to Supabase and click "Invoke"
+2. ✅ Did the sync complete? → Check logs (should show "X synced, 0 errors")
+3. ✅ Are you looking at the right page? → Go to `/catalog` (Full Catalog)
+
+**Still no events?**
+- Wait 10-20 seconds and refresh the page
+- Check if ESCP's calendar is accessible: [Open ESCP Calendar](https://campuslife.escp.eu/ical/escp/ical_escp.ics)
+- If the calendar link is broken, contact ESCP IT support
+
+---
+
+### Problem: Events are outdated
+
+**Solution:**
+Run the sync function again to fetch the latest events from ESCP.
+
+**Steps:**
+1. Go to Supabase Dashboard → Edge Functions
+2. Click `sync-escp-events` → Click "Invoke"
+3. Wait for completion
+4. Refresh the Full Catalog page
+
+**Note:** The sync will automatically:
+- Add new events
+- Update changed events
+- Remove past events
+
+---
+
+### Problem: Sync function failed
+
+**How to know it failed:**
+- Logs show errors
+- Event count is 0 or very low
+- Website shows no events
+
+**Common causes:**
+- ESCP calendar URL changed
+- Network connection issue
+- Supabase function timeout
+
+**Solution:**
+1. Check the logs in Supabase (Edge Functions → sync-escp-events → Logs)
+2. Look for error messages
+3. If you see network errors, try again in a few minutes
+4. If errors persist, contact a developer with the error message
 
 ## Data Privacy
 
