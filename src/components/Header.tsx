@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Menu, X, Ticket, User, LogOut, ChevronDown } from "lucide-react";
+import { Menu, X, Ticket, User, LogOut, ChevronDown, Settings } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useI18n } from "@/contexts/I18nContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -120,7 +120,7 @@ const Header = () => {
             </div>
 
             {/* SECONDARY NAVIGATION - Right side (informational) */}
-            <div className="flex items-center gap-6 ml-auto mr-8">
+            <div className="flex items-center gap-5 ml-auto mr-4">
               <Link
                 to="/about"
                 className={`text-sm transition-colors hover:text-muted-foreground ${
@@ -137,6 +137,16 @@ const Header = () => {
               >
                 {t('nav.contact')}
               </Link>
+              {user && (
+                <Link
+                  to="/settings"
+                  className={`text-sm transition-colors hover:text-muted-foreground ${
+                    isActive("/settings") ? "text-muted-foreground font-medium" : "text-muted-foreground/70"
+                  }`}
+                >
+                  <Settings className="w-4 h-4" />
+                </Link>
+              )}
             </div>
           </nav>
 
@@ -212,7 +222,7 @@ const Header = () => {
                 </Button>
               </div>
 
-              {/* SECONDARY navigation - About & Contact */}
+              {/* SECONDARY navigation - About, Contact & Settings */}
               <div className="flex flex-col gap-1.5 mb-2 pb-4 border-b border-border">
                 <Link
                   to="/about"
@@ -232,6 +242,18 @@ const Header = () => {
                 >
                   {t('nav.contact')}
                 </Link>
+                {user && (
+                  <Link
+                    to="/settings"
+                    className={`px-3 py-2.5 rounded-md text-sm transition-colors hover:bg-muted flex items-center gap-2 ${
+                      isActive("/settings") ? "text-muted-foreground font-medium" : "text-muted-foreground/70"
+                    }`}
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    <Settings className="w-4 h-4" />
+                    {t('nav.settings')}
+                  </Link>
+                )}
               </div>
 
               {/* User account section */}

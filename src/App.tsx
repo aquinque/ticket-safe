@@ -14,6 +14,10 @@ import MarketplaceSell from "./pages/marketplace/Sell";
 import Checkout from "./pages/Checkout";
 import About from "./pages/About";
 import Profile from "./pages/Profile";
+import Settings from "./pages/Settings";
+import InterfaceSettings from "./pages/settings/InterfaceSettings";
+import PersonalInformation from "./pages/settings/PersonalInformation";
+import PurchaseHistory from "./pages/settings/PurchaseHistory";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
 import Contact from "./pages/Contact";
@@ -39,6 +43,10 @@ const App = () => (
       <Route path="/checkout" element={<Checkout />} />
       <Route path="/about" element={<About />} />
       <Route path="/profile" element={<Profile />} />
+      <Route path="/settings" element={<Settings />} />
+      <Route path="/settings/interface" element={<InterfaceSettings />} />
+      <Route path="/settings/personal" element={<PersonalInformation />} />
+      <Route path="/settings/purchases" element={<PurchaseHistory />} />
       <Route path="/auth" element={<Auth />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/contact" element={<Contact />} />

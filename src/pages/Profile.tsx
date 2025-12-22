@@ -6,24 +6,13 @@ import Footer from "@/components/Footer";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
-import { useTheme } from "@/contexts/ThemeContext";
 import { useI18n } from "@/contexts/I18nContext";
-import { toast } from "@/hooks/use-toast";
-import { 
-  User as UserIcon, 
-  Ticket, 
-  ShoppingBag, 
-  History, 
-  Settings, 
+import {
+  Ticket,
+  ShoppingBag,
   Calendar,
   MapPin,
   Euro,
@@ -31,12 +20,7 @@ import {
   Clock,
   XCircle,
   Shield,
-  Bell,
-  Moon,
-  Sun,
-  Languages,
-  LogOut,
-  Save
+  History
 } from "lucide-react";
 
 const Profile = () => {
@@ -53,38 +37,19 @@ const Profile = () => {
   const [purchases, setPurchases] = useState<Array<Record<string, unknown>>>([]);
   const [sales, setSales] = useState<Array<Record<string, unknown>>>([]);
   const [loading, setLoading] = useState(true);
-  const { user, loading: authLoading, signOut } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const { theme, toggleTheme } = useTheme();
-  const { language, setLanguage, t } = useI18n();
-  
-  // Settings state
-  const [profileName, setProfileName] = useState("");
-  const [profileEmail, setProfileEmail] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [notifications, setNotifications] = useState(() => {
-    const stored = localStorage.getItem('notifications');
-    return stored ? JSON.parse(stored) : true;
-  });
+  const { language, t } = useI18n();
 
-  // Redirect to auth if not logged in (only after auth is loaded)
+  // Redirect to auth if not logged in
   useEffect(() => {
     if (!authLoading && !user) {
       navigate("/auth", { replace: true });
     }
   }, [user, authLoading, navigate]);
 
-  // Initialize settings state when user is available
-  useEffect(() => {
-    if (user) {
-      setProfileName(user.user_metadata?.full_name || '');
-      setProfileEmail(user.email || '');
-    }
-  }, [user]);
-
   // Fetch user data when user is available
   useEffect(() => {
-    // Don't fetch if still loading auth or no user
     if (authLoading || !user) {
       return;
     }
@@ -102,13 +67,11 @@ const Profile = () => {
           .eq('id', user.id)
           .maybeSingle();
 
-        // Allow PGRST116 (no rows) error - profile might not exist yet
         if (profileError && profileError.code !== 'PGRST116') {
           console.error('Error fetching profile:', profileError);
         }
 
         if (!profile) {
-          // Profile doesn't exist yet - set default values from user metadata
           if (mounted) {
             setUserData({
               name: user.user_metadata?.full_name || user.email?.split('@')[0] || "User",
@@ -126,7 +89,7 @@ const Profile = () => {
           return;
         }
 
-        // Fetch purchases (transactions where user is buyer)
+        // Fetch purchases
         const { data: purchaseData, error: purchaseError } = await supabase
           .from('transactions')
           .select(`
@@ -142,7 +105,7 @@ const Profile = () => {
           console.error('Error fetching purchases:', purchaseError);
         }
 
-        // Fetch sales (tickets sold by user)
+        // Fetch sales
         const { data: saleData, error: saleError } = await supabase
           .from('tickets')
           .select(`
@@ -205,83 +168,6 @@ const Profile = () => {
     };
   }, [user, authLoading]);
 
-  // Settings handlers
-  const handleSaveProfile = async () => {
-    try {
-      if (profileName !== user?.user_metadata?.full_name) {
-        const { error: metaError } = await supabase.auth.updateUser({
-          data: { full_name: profileName }
-        });
-        if (metaError) throw metaError;
-      }
-
-      if (profileEmail !== user?.email) {
-        const { error: emailError } = await supabase.auth.updateUser({
-          email: profileEmail
-        });
-        if (emailError) throw emailError;
-      }
-
-      if (newPassword) {
-        const { error: passwordError } = await supabase.auth.updateUser({
-          password: newPassword
-        });
-        if (passwordError) throw passwordError;
-        setNewPassword('');
-      }
-
-      toast({
-        title: t('toast.profileUpdated'),
-        description: t('toast.profileUpdateSuccess'),
-      });
-      
-      // Refresh user data
-      setUserData({ ...userData, name: profileName, email: profileEmail });
-    } catch (error) {
-      toast({
-        title: t('toast.error'),
-        description: error instanceof Error ? error.message : t('toast.profileUpdateFailed'),
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleNotificationToggle = (checked: boolean) => {
-    setNotifications(checked);
-    localStorage.setItem('notifications', JSON.stringify(checked));
-    toast({
-      title: t('toast.settingsSaved'),
-      description: checked ? t('toast.notificationsEnabled') : t('toast.notificationsDisabled'),
-    });
-  };
-
-  const handleThemeToggle = () => {
-    const newTheme = theme === 'light' ? 'dark' : 'light';
-    toggleTheme();
-    toast({
-      title: t('toast.themeChanged'),
-      description: newTheme === 'dark' ? t('toast.switchedToDark') : t('toast.switchedToLight'),
-    });
-  };
-
-  const handleLanguageChange = (lang: 'en' | 'fr') => {
-    setLanguage(lang);
-    const langName = lang === 'en' ? t('settings.languageEnglish') : t('settings.languageFrench');
-    toast({
-      title: t('toast.languageUpdated'),
-      description: t('toast.languageChanged', { language: langName }),
-    });
-  };
-
-  const handleLogout = async () => {
-    await signOut();
-    navigate('/auth');
-    toast({
-      title: t('toast.loggedOut'),
-      description: t('toast.loggedOutSuccess'),
-    });
-  };
-
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "confirmed":
@@ -314,7 +200,6 @@ const Profile = () => {
     }
   };
 
-  // Show loading state while auth is loading
   if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-background">
@@ -329,7 +214,6 @@ const Profile = () => {
     );
   }
 
-  // Don't render if no user (will redirect)
   if (!user) {
     return null;
   }
@@ -342,6 +226,7 @@ const Profile = () => {
           <div className="mb-6">
             <BackButton />
           </div>
+
           {/* Profile Header */}
           <div className="mb-8">
             <Card className="bg-gradient-card">
@@ -353,7 +238,7 @@ const Profile = () => {
                       {userData.name.split(' ').map(n => n[0]).join('')}
                     </AvatarFallback>
                   </Avatar>
-                  
+
                   <div className="text-center md:text-left flex-1">
                     <h1 className="text-3xl font-bold mb-2">{t('profile.welcome', { name: userData.name.split(' ')[0] })}</h1>
                     <p className="text-muted-foreground mb-4">{userData.email}</p>
@@ -363,13 +248,6 @@ const Profile = () => {
                         {t('profile.memberSince')} {new Date(userData.memberSince).toLocaleDateString(language === 'fr' ? 'fr-FR' : 'en-US')}
                       </Badge>
                     </div>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <Button variant="outline" className="gap-2" onClick={() => navigate("/privacy")}>
-                      <Shield className="w-4 h-4" />
-                      {t('privacy.title')}
-                    </Button>
                   </div>
                 </div>
               </CardContent>
@@ -421,17 +299,10 @@ const Profile = () => {
 
           {/* Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="overview">{t('profile.overview')}</TabsTrigger>
               <TabsTrigger value="purchases">{t('profile.purchases')}</TabsTrigger>
               <TabsTrigger value="sales">{t('profile.sales')}</TabsTrigger>
-              <TabsTrigger 
-                value="settings" 
-                className="bg-gradient-hero text-white shadow-glow hover:shadow-glow data-[state=active]:bg-gradient-hero data-[state=active]:text-white data-[state=active]:shadow-glow"
-              >
-                <Settings className="w-4 h-4 mr-2" />
-                {t('nav.settings')}
-              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="overview" className="space-y-6">
@@ -444,27 +315,28 @@ const Profile = () => {
                       {t('profile.recentPurchases')}
                     </CardTitle>
                   </CardHeader>
-                   <CardContent className="space-y-4">
-                     {purchases.length === 0 ? (
-                       <p className="text-sm text-muted-foreground text-center py-4">{t('profile.noTransactions')}</p>
-                     ) : (
-                       purchases.slice(0, 3).map((purchase) => (
-                      <div key={purchase.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                        <div className="space-y-1">
-                          <h4 className="font-medium text-sm">{purchase.eventTitle}</h4>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <Calendar className="w-3 h-3" />
-                            {new Date(purchase.date).toLocaleDateString('fr-FR')}
+                  <CardContent className="space-y-4">
+                    {purchases.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-4">{t('profile.noTransactions')}</p>
+                    ) : (
+                      purchases.slice(0, 3).map((purchase) => (
+                        <div key={purchase.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                          <div className="space-y-1">
+                            <h4 className="font-medium text-sm">{purchase.eventTitle}</h4>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <Calendar className="w-3 h-3" />
+                              {new Date(purchase.date).toLocaleDateString('fr-FR')}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="font-medium">{purchase.price}€</div>
+                            {getStatusBadge(purchase.status)}
                           </div>
                         </div>
-                        <div className="text-right">
-                          <div className="font-medium">{purchase.price}€</div>
-                          {getStatusBadge(purchase.status)}
-                         </div>
-                       </div>
-                     )))}
-                   </CardContent>
-                 </Card>
+                      ))
+                    )}
+                  </CardContent>
+                </Card>
 
                 {/* Recent Sales */}
                 <Card>
@@ -474,29 +346,30 @@ const Profile = () => {
                       {t('profile.recentSales')}
                     </CardTitle>
                   </CardHeader>
-                   <CardContent className="space-y-4">
-                     {sales.length === 0 ? (
-                       <p className="text-sm text-muted-foreground text-center py-4">{t('profile.noTransactions')}</p>
-                     ) : (
-                       sales.map((sale) => (
-                      <div key={sale.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                        <div className="space-y-1">
-                          <h4 className="font-medium text-sm">{sale.eventTitle}</h4>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <Calendar className="w-3 h-3" />
-                            {new Date(sale.date).toLocaleDateString('fr-FR')}
+                  <CardContent className="space-y-4">
+                    {sales.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-4">{t('profile.noTransactions')}</p>
+                    ) : (
+                      sales.map((sale) => (
+                        <div key={sale.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                          <div className="space-y-1">
+                            <h4 className="font-medium text-sm">{sale.eventTitle}</h4>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <Calendar className="w-3 h-3" />
+                              {new Date(sale.date).toLocaleDateString('fr-FR')}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="font-medium">{sale.salePrice}€</div>
+                            {getStatusBadge(sale.status)}
                           </div>
                         </div>
-                        <div className="text-right">
-                          <div className="font-medium">{sale.salePrice}€</div>
-                          {getStatusBadge(sale.status)}
-                         </div>
-                       </div>
-                     )))}
-                   </CardContent>
-                 </Card>
-               </div>
-             </TabsContent>
+                      ))
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
 
             <TabsContent value="purchases" className="space-y-6">
               <Card>
@@ -506,40 +379,41 @@ const Profile = () => {
                     {t('profile.purchaseHistoryDesc')}
                   </CardDescription>
                 </CardHeader>
-                 <CardContent>
-                   <div className="space-y-4">
-                     {purchases.length === 0 ? (
-                       <p className="text-center text-muted-foreground py-8">{t('profile.noTransactions')}</p>
-                     ) : (
-                       purchases.map((purchase) => (
-                      <div key={purchase.id} className="flex items-center gap-4 p-4 border border-border rounded-lg hover:bg-muted/30 transition-colors">
-                        {getStatusIcon(purchase.status)}
-                        
-                        <div className="flex-1 space-y-1">
-                          <h3 className="font-medium">{purchase.eventTitle}</h3>
-                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                           <div className="flex items-center gap-1">
-                              <Calendar className="w-3 h-3" />
-                              {new Date(purchase.date).toLocaleDateString(language === 'fr' ? 'fr-FR' : 'en-US')}
+                <CardContent>
+                  <div className="space-y-4">
+                    {purchases.length === 0 ? (
+                      <p className="text-center text-muted-foreground py-8">{t('profile.noTransactions')}</p>
+                    ) : (
+                      purchases.map((purchase) => (
+                        <div key={purchase.id} className="flex items-center gap-4 p-4 border border-border rounded-lg hover:bg-muted/30 transition-colors">
+                          {getStatusIcon(purchase.status)}
+
+                          <div className="flex-1 space-y-1">
+                            <h3 className="font-medium">{purchase.eventTitle}</h3>
+                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                              <div className="flex items-center gap-1">
+                                <Calendar className="w-3 h-3" />
+                                {new Date(purchase.date).toLocaleDateString(language === 'fr' ? 'fr-FR' : 'en-US')}
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <MapPin className="w-3 h-3" />
+                                {purchase.campus}
+                              </div>
+                              <span>{t('profile.quantity')}: {purchase.quantity}</span>
                             </div>
-                            <div className="flex items-center gap-1">
-                              <MapPin className="w-3 h-3" />
-                              {purchase.campus}
-                            </div>
-                            <span>{t('profile.quantity')}: {purchase.quantity}</span>
+                          </div>
+
+                          <div className="text-right">
+                            <div className="font-semibold text-lg">{purchase.price}€</div>
+                            {getStatusBadge(purchase.status)}
                           </div>
                         </div>
-                        
-                        <div className="text-right">
-                          <div className="font-semibold text-lg">{purchase.price}€</div>
-                          {getStatusBadge(purchase.status)}
-                         </div>
-                       </div>
-                     )))}
-                   </div>
-                 </CardContent>
-               </Card>
-             </TabsContent>
+                      ))
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
 
             <TabsContent value="sales" className="space-y-6">
               <Card>
@@ -549,200 +423,57 @@ const Profile = () => {
                     {t('profile.salesHistoryDesc')}
                   </CardDescription>
                 </CardHeader>
-                 <CardContent>
-                   <div className="space-y-4">
-                     {sales.length === 0 ? (
-                       <p className="text-center text-muted-foreground py-8">{t('profile.noTransactions')}</p>
-                     ) : (
-                       sales.map((sale) => (
-                      <div key={sale.id} className="flex items-center gap-4 p-4 border border-border rounded-lg hover:bg-muted/30 transition-colors">
-                        {getStatusIcon(sale.status)}
-                        
-                        <div className="flex-1 space-y-1">
-                          <h3 className="font-medium">{sale.eventTitle}</h3>
-                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                           <div className="flex items-center gap-1">
-                              <Calendar className="w-3 h-3" />
-                              {new Date(sale.date).toLocaleDateString(language === 'fr' ? 'fr-FR' : 'en-US')}
+                <CardContent>
+                  <div className="space-y-4">
+                    {sales.length === 0 ? (
+                      <p className="text-center text-muted-foreground py-8">{t('profile.noTransactions')}</p>
+                    ) : (
+                      sales.map((sale) => (
+                        <div key={sale.id} className="flex items-center gap-4 p-4 border border-border rounded-lg hover:bg-muted/30 transition-colors">
+                          {getStatusIcon(sale.status)}
+
+                          <div className="flex-1 space-y-1">
+                            <h3 className="font-medium">{sale.eventTitle}</h3>
+                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                              <div className="flex items-center gap-1">
+                                <Calendar className="w-3 h-3" />
+                                {new Date(sale.date).toLocaleDateString(language === 'fr' ? 'fr-FR' : 'en-US')}
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <MapPin className="w-3 h-3" />
+                                {sale.campus}
+                              </div>
+                              <span>{t('profile.quantity')}: {sale.quantity}</span>
                             </div>
-                            <div className="flex items-center gap-1">
-                              <MapPin className="w-3 h-3" />
-                              {sale.campus}
+                          </div>
+
+                          <div className="text-right space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm text-muted-foreground line-through">
+                                {sale.originalPrice}€
+                              </span>
+                              <span className="font-semibold text-lg text-accent">
+                                {sale.salePrice}€
+                              </span>
                             </div>
-                            <span>{t('profile.quantity')}: {sale.quantity}</span>
+                            <div className="text-xs text-muted-foreground">
+                              +{(((sale.salePrice - sale.originalPrice) / sale.originalPrice) * 100).toFixed(1)}%
+                            </div>
+                            {getStatusBadge(sale.status)}
                           </div>
                         </div>
-                        
-                        <div className="text-right space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm text-muted-foreground line-through">
-                              {sale.originalPrice}€
-                            </span>
-                            <span className="font-semibold text-lg text-accent">
-                              {sale.salePrice}€
-                            </span>
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            +{(((sale.salePrice - sale.originalPrice) / sale.originalPrice) * 100).toFixed(1)}%
-                          </div>
-                          {getStatusBadge(sale.status)}
-                         </div>
-                       </div>
-                     )))}
-                   </div>
-                 </CardContent>
-               </Card>
-            </TabsContent>
-
-            <TabsContent value="settings" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <UserIcon className="w-5 h-5" />
-                    {t('settings.profileTitle')}
-                  </CardTitle>
-                  <CardDescription>
-                    {t('settings.profileDescription')}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">{t('settings.fullName')}</Label>
-                    <Input
-                      id="name"
-                      value={profileName}
-                      onChange={(e) => setProfileName(e.target.value)}
-                      placeholder={t('settings.fullNamePlaceholder')}
-                    />
+                      ))
+                    )}
                   </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="email">{t('settings.email')}</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={profileEmail}
-                      onChange={(e) => setProfileEmail(e.target.value)}
-                      placeholder={t('settings.emailPlaceholder')}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="password">{t('settings.newPassword')}</Label>
-                    <Input
-                      id="password"
-                      type="password"
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      placeholder={t('settings.newPasswordPlaceholder')}
-                    />
-                  </div>
-
-                  <Button onClick={handleSaveProfile} className="w-full">
-                    <Save className="h-4 w-4 mr-2" />
-                    {t('settings.saveChanges')}
-                  </Button>
-                </CardContent>
-              </Card>
-
-              <Separator />
-
-              {/* Notifications */}
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-primary/10">
-                        <Bell className="h-5 w-5 text-primary" />
-                      </div>
-                      <div>
-                        <h3 className="font-medium">{t('settings.notificationsTitle')}</h3>
-                        <p className="text-sm text-muted-foreground">
-                          {t('settings.notificationsDescription')}
-                        </p>
-                      </div>
-                    </div>
-                    <Switch
-                      checked={notifications}
-                      onCheckedChange={handleNotificationToggle}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Dark Mode */}
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-lg bg-primary/10">
-                        {theme === 'light' ? (
-                          <Sun className="h-5 w-5 text-primary" />
-                        ) : (
-                          <Moon className="h-5 w-5 text-primary" />
-                        )}
-                      </div>
-                      <div>
-                        <h3 className="font-medium">{t('settings.darkModeTitle')}</h3>
-                        <p className="text-sm text-muted-foreground">
-                          {t('settings.darkModeDescription')}
-                        </p>
-                      </div>
-                    </div>
-                    <Switch
-                      checked={theme === 'dark'}
-                      onCheckedChange={handleThemeToggle}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Language */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Languages className="w-5 h-5" />
-                    {t('settings.languageTitle')}
-                  </CardTitle>
-                  <CardDescription>
-                    {t('settings.languageDescription')}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Select value={language} onValueChange={handleLanguageChange}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="en">{t('settings.languageEnglish')}</SelectItem>
-                      <SelectItem value="fr">{t('settings.languageFrench')}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </CardContent>
-              </Card>
-
-              <Separator />
-
-              {/* Logout */}
-              <Card>
-                <CardContent className="p-6">
-                  <Button
-                    onClick={handleLogout}
-                    variant="destructive"
-                    className="w-full"
-                  >
-                    <LogOut className="h-4 w-4 mr-2" />
-                    {t('settings.logoutTitle')}
-                  </Button>
                 </CardContent>
               </Card>
             </TabsContent>
           </Tabs>
-         </div>
-       </main>
-       <Footer />
-     </div>
-   );
- };
+        </div>
+      </main>
+      <Footer />
+    </div>
+  );
+};
 
 export default Profile;
