@@ -39,24 +39,24 @@ const EventsSection = () => {
 
   return (
     <>
-      <section className="py-8 bg-muted/30">
+      <section className="py-6 md:py-8 bg-muted/30">
         <div className="container mx-auto px-4 max-w-7xl">
           {/* Search & Filters Bar */}
-          <div className="bg-card rounded-xl p-6 shadow-card mb-8">
+          <div className="bg-card rounded-xl p-4 md:p-6 shadow-card mb-6 md:mb-8">
             {/* Search */}
-            <div className="relative mb-5">
+            <div className="relative mb-4 md:mb-5">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <Input
-                placeholder="Search events by name, location, or organizer..."
+                placeholder="Search events..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
+                className="pl-10 h-11 md:h-10 text-base md:text-sm"
               />
             </div>
 
             {/* Category Filters */}
             <div>
-              <div className="flex items-center gap-2 mb-3">
+              <div className="flex items-center gap-2 mb-2 md:mb-3">
                 <Filter className="w-4 h-4 text-muted-foreground" />
                 <span className="text-sm font-medium text-muted-foreground">Filter by category:</span>
               </div>
@@ -67,7 +67,7 @@ const EventsSection = () => {
                     variant={selectedFilter === filter.id ? "default" : "outline"}
                     size="sm"
                     onClick={() => setSelectedFilter(filter.id)}
-                    className="rounded-full"
+                    className="rounded-full h-9 md:h-8 text-sm px-3 md:px-4"
                   >
                     {filter.label}
                   </Button>
@@ -78,10 +78,10 @@ const EventsSection = () => {
 
           {/* Loading State */}
           {loading && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
               {[1, 2, 3, 4, 5, 6].map((i) => (
                 <div key={i} className="space-y-3">
-                  <Skeleton className="h-48 w-full" />
+                  <Skeleton className="h-40 md:h-48 w-full" />
                   <Skeleton className="h-4 w-3/4" />
                   <Skeleton className="h-4 w-1/2" />
                 </div>

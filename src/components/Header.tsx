@@ -72,12 +72,12 @@ const Header = () => {
     <header className={`sticky top-0 z-50 w-full border-b border-border transition-all duration-300 ${
       isScrolled ? 'bg-background/80 backdrop-blur-xl shadow-lg' : 'bg-background/95 backdrop-blur-lg shadow-soft'
     }`}>
-      <div className="container mx-auto px-4">
-        <div className="flex h-16 md:h-20 items-center justify-between">
+      <div className="container mx-auto px-3 md:px-4">
+        <div className="flex h-14 md:h-16 lg:h-20 items-center justify-between">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 font-bold text-xl">
-            <div className="w-8 h-8 bg-gradient-hero rounded-lg flex items-center justify-center">
-              <Ticket className="w-5 h-5 text-white" />
+          <Link to="/" className="flex items-center gap-1.5 md:gap-2 font-bold text-base md:text-lg lg:text-xl">
+            <div className="w-7 h-7 md:w-8 md:h-8 bg-gradient-hero rounded-lg flex items-center justify-center">
+              <Ticket className="w-4 h-4 md:w-5 md:h-5 text-white" />
             </div>
             <span className="bg-gradient-hero bg-clip-text text-transparent">{t('common.appName')}</span>
           </Link>
@@ -201,12 +201,12 @@ const Header = () => {
         {/* Mobile Navigation */}
         {isMenuOpen && (
           <div className="md:hidden border-t border-border bg-background/95 backdrop-blur-md">
-            <nav className="flex flex-col gap-3 p-5">
+            <nav className="flex flex-col gap-2.5 p-4">
               {/* PRIMARY CTAs - Marketplace & Sell Ticket */}
-              <div className="flex flex-col gap-2.5 mb-2 pb-4 border-b border-border">
+              <div className="flex flex-col gap-2.5 mb-2 pb-3 border-b border-border">
                 <Button
                   variant="marketplace"
-                  className="w-full h-11 font-semibold"
+                  className="w-full h-12 font-semibold text-base"
                   asChild
                   onClick={() => setIsMenuOpen(false)}
                 >
@@ -214,7 +214,7 @@ const Header = () => {
                 </Button>
                 <Button
                   variant="marketplace"
-                  className="w-full h-11 font-semibold"
+                  className="w-full h-12 font-semibold text-base"
                   asChild
                   onClick={() => setIsMenuOpen(false)}
                 >
