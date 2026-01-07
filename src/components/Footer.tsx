@@ -165,9 +165,12 @@ const Footer = () => {
       <div className="border-t border-border">
         <div className="container mx-auto px-6 py-6">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <p className="text-xs text-muted-foreground text-center md:text-left">
-              {t('footer.copyright', { year: currentYear })}
-            </p>
+            <div className="text-xs text-muted-foreground text-center md:text-left">
+              <p className="mb-1">{t('footer.copyright', { year: currentYear })}</p>
+              <p className="text-[10px]">
+                TicketSafe SARL • France • Company Registration: [Pending] • VAT: [Pending]
+              </p>
+            </div>
             <div className="flex flex-wrap items-center justify-center gap-3 text-xs">
               <Link
                 to="/privacy"
@@ -177,31 +180,24 @@ const Footer = () => {
               </Link>
               <span className="text-muted-foreground/50">•</span>
               <Link
-                to="/privacy#terms"
+                to="/terms"
                 className="text-muted-foreground hover:text-primary transition-all duration-300 hover:underline underline-offset-4"
               >
                 Terms & Conditions
               </Link>
               <span className="text-muted-foreground/50">•</span>
               <Link
-                to="/privacy#cookies"
+                to="/cookie-policy"
                 className="text-muted-foreground hover:text-primary transition-all duration-300 hover:underline underline-offset-4"
               >
-                Cookie Preferences
+                Cookie Policy
               </Link>
               <span className="text-muted-foreground/50 hidden sm:inline">•</span>
               <Link
-                to="/sitemap"
+                to="/refund-policy"
                 className="text-muted-foreground hover:text-primary transition-all duration-300 hover:underline underline-offset-4"
               >
-                Site Map
-              </Link>
-              <span className="text-muted-foreground/50 hidden sm:inline">•</span>
-              <Link
-                to="/privacy#disclaimer"
-                className="text-muted-foreground hover:text-primary transition-all duration-300 hover:underline underline-offset-4"
-              >
-                Disclaimer
+                Refund Policy
               </Link>
             </div>
           </div>

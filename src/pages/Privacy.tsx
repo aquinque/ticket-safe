@@ -220,15 +220,221 @@ export default function Privacy() {
         
         <div className="flex items-center gap-3 mb-6 mt-4">
           <Shield className="h-8 w-8 text-primary" />
-          <h1 className="text-3xl font-bold">Privacy & Data Management</h1>
+          <h1 className="text-3xl font-bold">Privacy Policy & Data Management</h1>
         </div>
+
+        <p className="text-muted-foreground mb-6">
+          Last updated: {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+        </p>
 
         <Alert className="mb-6">
           <Shield className="h-4 w-4" />
           <AlertDescription>
-            Your privacy matters. Manage your data sharing preferences and exercise your GDPR rights below.
+            Your privacy matters. This page explains how we collect, use, and protect your personal data. Manage your data sharing preferences and exercise your GDPR rights below.
           </AlertDescription>
         </Alert>
+
+        {/* Privacy Policy Content */}
+        <Card className="mb-6">
+          <CardContent className="pt-6">
+            <div className="space-y-8 text-sm">
+              {/* Introduction */}
+              <section>
+                <h2 className="text-2xl font-semibold mb-4">1. Introduction</h2>
+                <div className="space-y-3 text-muted-foreground">
+                  <p>
+                    Welcome to TicketSafe. We are committed to protecting your personal data and respecting your privacy. This Privacy Policy explains how we collect, use, store, and protect your information when you use our platform.
+                  </p>
+                  <p>
+                    <strong className="text-foreground">Data Controller:</strong> TicketSafe SARL, registered in France.<br/>
+                    <strong className="text-foreground">Contact:</strong> ticketsafe.friendly@gmail.com<br/>
+                    <strong className="text-foreground">Registered Address:</strong> [To be added]
+                  </p>
+                </div>
+              </section>
+
+              <div className="border-t" />
+
+              {/* Data We Collect */}
+              <section>
+                <h2 className="text-2xl font-semibold mb-4">2. Data We Collect</h2>
+                <div className="space-y-4 text-muted-foreground">
+                  <div>
+                    <h3 className="font-semibold text-foreground text-lg mb-2">2.1 Information You Provide</h3>
+                    <ul className="list-disc pl-6 space-y-1">
+                      <li><strong>Account Data:</strong> Name, university email address, password (encrypted)</li>
+                      <li><strong>Profile Data:</strong> Profile photo, bio, student status</li>
+                      <li><strong>Transaction Data:</strong> Purchase history, listings, payment information</li>
+                      <li><strong>Communication Data:</strong> Messages with other users, support inquiries</li>
+                      <li><strong>Verification Data:</strong> University email domain for student verification</li>
+                    </ul>
+                  </div>
+
+                  <div>
+                    <h3 className="font-semibold text-foreground text-lg mb-2">2.2 Data We Collect Automatically</h3>
+                    <ul className="list-disc pl-6 space-y-1">
+                      <li><strong>Usage Data:</strong> Pages viewed, features used, time spent on platform</li>
+                      <li><strong>Device Data:</strong> Browser type, operating system, IP address</li>
+                      <li><strong>Location Data:</strong> Approximate location based on IP address</li>
+                      <li><strong>Cookies:</strong> See our Cookie Policy for details</li>
+                    </ul>
+                  </div>
+
+                  <div>
+                    <h3 className="font-semibold text-foreground text-lg mb-2">2.3 Data from Third Parties</h3>
+                    <ul className="list-disc pl-6 space-y-1">
+                      <li><strong>Payment Processors:</strong> Transaction confirmation from Revolut/Stripe</li>
+                      <li><strong>Authentication:</strong> Login verification from Supabase</li>
+                      <li><strong>Event Data:</strong> Event information from organizers</li>
+                    </ul>
+                  </div>
+                </div>
+              </section>
+
+              <div className="border-t" />
+
+              {/* How We Use Data */}
+              <section>
+                <h2 className="text-2xl font-semibold mb-4">3. How We Use Your Data</h2>
+                <div className="space-y-3 text-muted-foreground">
+                  <p>We use your personal data for the following purposes:</p>
+                  <div className="space-y-3">
+                    <div className="bg-muted/50 p-3 rounded-lg">
+                      <h4 className="font-semibold text-foreground mb-1">Platform Operations (Legal Basis: Contract)</h4>
+                      <ul className="list-disc pl-6 space-y-1 text-xs">
+                        <li>Create and manage your account</li>
+                        <li>Process ticket purchases and sales</li>
+                        <li>Facilitate communication between buyers and sellers</li>
+                        <li>Provide customer support</li>
+                      </ul>
+                    </div>
+
+                    <div className="bg-muted/50 p-3 rounded-lg">
+                      <h4 className="font-semibold text-foreground mb-1">Security & Fraud Prevention (Legal Basis: Legitimate Interest)</h4>
+                      <ul className="list-disc pl-6 space-y-1 text-xs">
+                        <li>Verify student status and prevent unauthorized access</li>
+                        <li>Detect and prevent fraudulent activities</li>
+                        <li>Ensure ticket authenticity</li>
+                        <li>Protect against platform abuse</li>
+                      </ul>
+                    </div>
+
+                    <div className="bg-muted/50 p-3 rounded-lg">
+                      <h4 className="font-semibold text-foreground mb-1">Legal Compliance (Legal Basis: Legal Obligation)</h4>
+                      <ul className="list-disc pl-6 space-y-1 text-xs">
+                        <li>Comply with tax and accounting requirements</li>
+                        <li>Respond to legal requests</li>
+                        <li>Enforce our Terms & Conditions</li>
+                      </ul>
+                    </div>
+
+                    <div className="bg-muted/50 p-3 rounded-lg">
+                      <h4 className="font-semibold text-foreground mb-1">Platform Improvement (Legal Basis: Consent)</h4>
+                      <ul className="list-disc pl-6 space-y-1 text-xs">
+                        <li>Analyze usage patterns (anonymized)</li>
+                        <li>Improve user experience</li>
+                        <li>Develop new features</li>
+                        <li>Academic research (with consent)</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <div className="border-t" />
+
+              {/* Data Sharing */}
+              <section>
+                <h2 className="text-2xl font-semibold mb-4">4. Data Sharing & Disclosure</h2>
+                <div className="space-y-3 text-muted-foreground">
+                  <h3 className="font-semibold text-foreground text-lg">4.1 Who We Share Data With</h3>
+                  <ul className="list-disc pl-6 space-y-2">
+                    <li><strong>Other Users:</strong> Profile info and listings are visible to verified students</li>
+                    <li><strong>Payment Processors:</strong> Revolut/Stripe receive necessary payment data</li>
+                    <li><strong>Service Providers:</strong> Supabase (database), analytics tools (if consented)</li>
+                    <li><strong>Legal Authorities:</strong> When required by law or to protect rights</li>
+                  </ul>
+
+                  <h3 className="font-semibold text-foreground text-lg mt-4">4.2 What We Never Share</h3>
+                  <ul className="list-disc pl-6 space-y-2">
+                    <li>We NEVER sell your personal data to advertisers or marketers</li>
+                    <li>We NEVER share your data with universities without consent</li>
+                    <li>We NEVER provide contact information to third parties</li>
+                  </ul>
+                </div>
+              </section>
+
+              <div className="border-t" />
+
+              {/* Data Retention */}
+              <section>
+                <h2 className="text-2xl font-semibold mb-4">5. Data Retention</h2>
+                <div className="space-y-3 text-muted-foreground">
+                  <p>We retain your data for as long as necessary:</p>
+                  <ul className="list-disc pl-6 space-y-2">
+                    <li><strong>Active Accounts:</strong> Data retained while account is active</li>
+                    <li><strong>Inactive Accounts:</strong> Deleted after 24 months of inactivity (with notice)</li>
+                    <li><strong>Transaction Records:</strong> Retained for 7 years for tax/legal compliance</li>
+                    <li><strong>Deleted Accounts:</strong> Personal data removed within 30 days (except legal requirements)</li>
+                  </ul>
+                </div>
+              </section>
+
+              <div className="border-t" />
+
+              {/* Data Security */}
+              <section>
+                <h2 className="text-2xl font-semibold mb-4">6. Data Security</h2>
+                <div className="space-y-3 text-muted-foreground">
+                  <p>We implement industry-standard security measures:</p>
+                  <ul className="list-disc pl-6 space-y-2">
+                    <li>256-bit SSL/TLS encryption for data in transit</li>
+                    <li>Encrypted password storage (bcrypt hashing)</li>
+                    <li>Secure database access controls</li>
+                    <li>Regular security audits and updates</li>
+                    <li>Payment data handled by PCI DSS compliant processors</li>
+                    <li>Two-factor authentication available</li>
+                  </ul>
+                  <p className="mt-3 text-xs">
+                    While we implement strong security measures, no system is 100% secure. Please use a strong, unique password and enable additional security features.
+                  </p>
+                </div>
+              </section>
+
+              <div className="border-t" />
+
+              {/* International Transfers */}
+              <section>
+                <h2 className="text-2xl font-semibold mb-4">7. International Data Transfers</h2>
+                <div className="space-y-3 text-muted-foreground">
+                  <p>
+                    Your data is primarily stored within the European Economic Area (EEA). Some service providers (e.g., Supabase, cloud services) may process data outside the EEA. When this occurs:
+                  </p>
+                  <ul className="list-disc pl-6 space-y-2">
+                    <li>We ensure adequate safeguards are in place (e.g., Standard Contractual Clauses)</li>
+                    <li>Data is only transferred to countries with adequate protection</li>
+                    <li>You have the right to obtain details of these safeguards</li>
+                  </ul>
+                </div>
+              </section>
+
+              <div className="border-t" />
+
+              {/* Children's Privacy */}
+              <section>
+                <h2 className="text-2xl font-semibold mb-4">8. Children's Privacy</h2>
+                <div className="space-y-3 text-muted-foreground">
+                  <p>
+                    TicketSafe is intended for users aged 18 and over. We do not knowingly collect data from minors under 18. If you are under 18, please do not use our platform or provide any personal information.
+                  </p>
+                  <p>
+                    If we discover that a user is under 18, we will delete their account and data promptly.
+                  </p>
+                </div>
+              </section>
+            </div>
+          </CardContent>
+        </Card>
 
         <Tabs defaultValue="consents" className="space-y-6">
           <TabsList className="grid w-full grid-cols-2">

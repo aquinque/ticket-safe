@@ -293,6 +293,13 @@ const Checkout = () => {
                 <p className="text-xs text-center text-muted-foreground">
                   🔒 Secure payment powered by Revolut
                 </p>
+
+                <p className="text-xs text-center text-muted-foreground mt-4">
+                  By completing this purchase, you agree to our{' '}
+                  <a href="/terms" className="text-primary hover:underline">Terms & Conditions</a>
+                  {' '}and{' '}
+                  <a href="/refund-policy" className="text-primary hover:underline">Refund Policy</a>
+                </p>
               </CardContent>
             </Card>
           </div>

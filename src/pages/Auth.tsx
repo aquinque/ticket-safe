@@ -484,11 +484,19 @@ const Auth = () => {
                    }}
                    className="text-primary hover:underline"
                  >
-                   {isLogin 
-                     ? "Don't have an account? Sign up" 
+                   {isLogin
+                     ? "Don't have an account? Sign up"
                      : "Already have an account? Sign in"}
                  </button>
                </div>
+               {!isLogin && (
+                 <p className="mt-4 text-xs text-center text-muted-foreground">
+                   By creating an account, you agree to our{' '}
+                   <a href="/terms" className="text-primary hover:underline">Terms & Conditions</a>
+                   {' '}and{' '}
+                   <a href="/privacy" className="text-primary hover:underline">Privacy Policy</a>
+                 </p>
+               )}
              </>
            )}
         </CardContent>
