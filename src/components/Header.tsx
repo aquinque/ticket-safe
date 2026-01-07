@@ -179,7 +179,7 @@ const Header = () => {
                   </Link>
                 </Button>
                 <Button variant="hero" className="shadow-glow hover:shadow-glow h-10 px-4" asChild>
-                  <Link to="/auth">
+                  <Link to="/auth?mode=signup">
                     {t('nav.signUp')}
                   </Link>
                 </Button>
@@ -284,7 +284,7 @@ const Header = () => {
                       <Link to="/auth">{t('nav.login')}</Link>
                     </Button>
                     <Button variant="hero" className="h-11" asChild onClick={() => setIsMenuOpen(false)}>
-                      <Link to="/auth">{t('nav.signUp')}</Link>
+                      <Link to="/auth?mode=signup">{t('nav.signUp')}</Link>
                     </Button>
                   </>
                 )}

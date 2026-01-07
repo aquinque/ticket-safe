@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { BackButton } from "@/components/BackButton";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
@@ -21,7 +21,9 @@ const passwordSchema = z.string()
   .regex(/[^A-Za-z0-9]/, 'Must contain special character');
 
 const Auth = () => {
-  const [isLogin, setIsLogin] = useState(true);
+  const [searchParams] = useSearchParams();
+  const mode = searchParams.get('mode');
+  const [isLogin, setIsLogin] = useState(mode !== 'signup');
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
