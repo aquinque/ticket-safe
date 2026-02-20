@@ -47,7 +47,9 @@ import {
   ExternalLink,
   Loader2,
   ShieldCheck,
+  PencilLine,
 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Event } from "@/integrations/supabase/types/events";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -361,7 +363,14 @@ const Sell = () => {
                           events.map((ev) => (
                             <SelectItem key={ev.id} value={ev.id}>
                               <div className="flex flex-col">
-                                <span className="font-medium">{ev.title}</span>
+                                <span className="font-medium flex items-center gap-1.5">
+                                  {ev.title}
+                                  {ev.needs_review && (
+                                    <span className="text-[10px] font-normal text-amber-600 border border-amber-300 bg-amber-50 rounded px-1 py-0.5 leading-none">
+                                      à compléter
+                                    </span>
+                                  )}
+                                </span>
                                 <span className="text-xs text-muted-foreground">
                                   {new Date(ev.date).toLocaleDateString("en-US", {
                                     day: "numeric",
@@ -380,23 +389,43 @@ const Sell = () => {
                   </div>
 
                   {selectedEvent && (
-                    <Alert className="bg-accent/10 border-accent">
-                      <Info className="w-4 h-4 text-accent" />
-                      <AlertDescription>
-                        <p className="font-medium">{selectedEvent.title}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {selectedEvent.university} · {selectedEvent.campus}
-                        </p>
-                        <p className="text-sm">
-                          {new Date(selectedEvent.date).toLocaleDateString("en-US", {
-                            weekday: "long",
-                            year: "numeric",
-                            month: "long",
-                            day: "numeric",
-                          })}
-                        </p>
-                      </AlertDescription>
-                    </Alert>
+                    <>
+                      <Alert className="bg-accent/10 border-accent">
+                        <Info className="w-4 h-4 text-accent" />
+                        <AlertDescription>
+                          <p className="font-medium flex items-center gap-2">
+                            {selectedEvent.title}
+                            {selectedEvent.needs_review && (
+                              <Badge variant="outline" className="text-amber-600 border-amber-300 bg-amber-50 text-xs">
+                                <PencilLine className="w-3 h-3 mr-1" />
+                                Informations à compléter
+                              </Badge>
+                            )}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {selectedEvent.university}
+                            {selectedEvent.campus && ` · ${selectedEvent.campus}`}
+                          </p>
+                          <p className="text-sm">
+                            {new Date(selectedEvent.date).toLocaleDateString("en-US", {
+                              weekday: "long",
+                              year: "numeric",
+                              month: "long",
+                              day: "numeric",
+                            })}
+                          </p>
+                        </AlertDescription>
+                      </Alert>
+                      {selectedEvent.needs_review && (
+                        <Alert className="border-amber-300 bg-amber-50">
+                          <AlertTriangle className="w-4 h-4 text-amber-600" />
+                          <AlertDescription className="text-amber-800 text-sm">
+                            Les informations de cet événement sont incomplètes et en attente de validation.
+                            Tu peux quand même lister ton billet — les détails seront complétés par un admin.
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                    </>
                   )}
                 </CardContent>
               </Card>

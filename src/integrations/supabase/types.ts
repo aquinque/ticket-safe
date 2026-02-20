@@ -88,10 +88,13 @@ export type Database = {
           created_at: string
           date: string
           description: string | null
+          external_event_id: string | null
+          external_source: string | null
           id: string
           image_url: string | null
           is_active: boolean
           location: string
+          needs_review: boolean
           title: string
           university: string
           updated_at: string
@@ -103,10 +106,13 @@ export type Database = {
           created_at?: string
           date: string
           description?: string | null
+          external_event_id?: string | null
+          external_source?: string | null
           id?: string
           image_url?: string | null
           is_active?: boolean
           location: string
+          needs_review?: boolean
           title: string
           university: string
           updated_at?: string
@@ -118,10 +124,13 @@ export type Database = {
           created_at?: string
           date?: string
           description?: string | null
+          external_event_id?: string | null
+          external_source?: string | null
           id?: string
           image_url?: string | null
           is_active?: boolean
           location?: string
+          needs_review?: boolean
           title?: string
           university?: string
           updated_at?: string
