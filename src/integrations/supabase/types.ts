@@ -178,6 +178,8 @@ export type Database = {
           notes: string | null
           original_price: number
           quantity: number
+          qr_hash: string | null
+          qr_verified: boolean
           seller_id: string
           selling_price: number
           status: Database["public"]["Enums"]["ticket_status"]
@@ -191,6 +193,8 @@ export type Database = {
           notes?: string | null
           original_price: number
           quantity?: number
+          qr_hash?: string | null
+          qr_verified?: boolean
           seller_id: string
           selling_price: number
           status?: Database["public"]["Enums"]["ticket_status"]
@@ -204,6 +208,8 @@ export type Database = {
           notes?: string | null
           original_price?: number
           quantity?: number
+          qr_hash?: string | null
+          qr_verified?: boolean
           seller_id?: string
           selling_price?: number
           status?: Database["public"]["Enums"]["ticket_status"]
@@ -406,6 +412,7 @@ export type Database = {
           notes: string | null
           original_price: number | null
           quantity: number | null
+          qr_verified: boolean | null
           seller_id: string | null
           selling_price: number | null
           status: Database["public"]["Enums"]["ticket_status"] | null
@@ -418,6 +425,7 @@ export type Database = {
           notes?: string | null
           original_price?: number | null
           quantity?: number | null
+          qr_verified?: boolean | null
           seller_id?: string | null
           selling_price?: number | null
           status?: Database["public"]["Enums"]["ticket_status"] | null
@@ -430,6 +438,7 @@ export type Database = {
           notes?: string | null
           original_price?: number | null
           quantity?: number | null
+          qr_verified?: boolean | null
           seller_id?: string | null
           selling_price?: number | null
           status?: Database["public"]["Enums"]["ticket_status"] | null
