@@ -79,7 +79,7 @@ const Header = () => {
             <img
               src="/ticketsafe-logo.png"
               alt="TicketSafe"
-              className="h-12 md:h-16 lg:h-20 w-auto object-contain hover:opacity-90 transition-opacity mix-blend-multiply dark:mix-blend-screen"
+              className="h-16 md:h-24 lg:h-28 w-auto object-contain hover:opacity-90 transition-opacity mix-blend-multiply dark:mix-blend-screen"
             />
           </Link>
 
