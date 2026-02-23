@@ -252,7 +252,8 @@ const Auth = () => {
         });
 
         if (error) {
-          if (error instanceof Error ? error.message : 'An error occurred'.includes("already registered") || error instanceof Error ? error.message : 'An error occurred'.includes("User already registered")) {
+          const errMsg = error instanceof Error ? error.message : String(error ?? 'An error occurred');
+          if (errMsg.includes("already registered") || errMsg.includes("User already registered")) {
             toast.error("Unable to create account. Please try logging in.");
             setIsLogin(true);
           } else {

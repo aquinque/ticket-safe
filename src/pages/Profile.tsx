@@ -34,8 +34,8 @@ const Profile = () => {
     totalSales: 0,
     totalSaved: 0,
   });
-  const [purchases, setPurchases] = useState<Array<Record<string, unknown>>>([]);
-  const [sales, setSales] = useState<Array<Record<string, unknown>>>([]);
+  const [purchases, setPurchases] = useState<Array<{ id: string; eventTitle: string; date: string; price: number; status: string; campus: string; quantity: number }>>([]);
+  const [sales, setSales] = useState<Array<{ id: string; eventTitle: string; date: string; salePrice: number; originalPrice: number; status: string; campus: string; quantity: number }>>([]);
   const [loading, setLoading] = useState(true);
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();

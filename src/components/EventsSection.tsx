@@ -109,19 +109,17 @@ const EventsSection = () => {
                 <EventCard
                   key={event.id}
                   event={{
-                    ...event,
                     id: event.id,
                     title: event.title,
                     date: event.start_date,
+                    time: "",
                     location: event.location,
                     category: event.category,
                     organizer: event.organizer,
                     description: event.description,
-                    price: event.min_price || 0,
-                    availableTickets: event.available_tickets || 0,
-                    totalTickets: event.available_tickets || 0,
-                    imageUrl: '/placeholder.svg',
                     filterCategory: event.category.toLowerCase(),
+                    image: '/placeholder.svg',
+                    isPastEvent: false,
                   }}
                   onClick={() => setSelectedEvent(event)}
                 />
