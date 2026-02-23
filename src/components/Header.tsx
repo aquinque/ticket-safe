@@ -77,7 +77,7 @@ const Header = () => {
           {/* Logo */}
           <Link to="/" className="flex items-center">
             <img
-              src="/ticket-safe-logo.png"
+              src="/ticketsafe-logo.png"
               alt="TicketSafe"
               className="h-8 md:h-10 lg:h-12 w-auto object-contain hover:opacity-90 transition-opacity"
             />
