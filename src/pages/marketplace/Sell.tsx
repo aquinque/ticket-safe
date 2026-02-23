@@ -365,11 +365,7 @@ const Sell = () => {
                               <div className="flex flex-col">
                                 <span className="font-medium flex items-center gap-1.5">
                                   {ev.title}
-                                  {ev.needs_review && (
-                                    <span className="text-[10px] font-normal text-amber-600 border border-amber-300 bg-amber-50 rounded px-1 py-0.5 leading-none">
-                                      à compléter
-                                    </span>
-                                  )}
+                                  {/* needs_review removed - not in DB */}
                                 </span>
                                 <span className="text-xs text-muted-foreground">
                                   {new Date(ev.date).toLocaleDateString("en-US", {
@@ -395,12 +391,7 @@ const Sell = () => {
                         <AlertDescription>
                           <p className="font-medium flex items-center gap-2">
                             {selectedEvent.title}
-                            {selectedEvent.needs_review && (
-                              <Badge variant="outline" className="text-amber-600 border-amber-300 bg-amber-50 text-xs">
-                                <PencilLine className="w-3 h-3 mr-1" />
-                                Informations à compléter
-                              </Badge>
-                            )}
+                          </p>
                           </p>
                           <p className="text-sm text-muted-foreground">
                             {selectedEvent.university}

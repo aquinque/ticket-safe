@@ -63,7 +63,7 @@ const EventDetail = () => {
         <div className="relative h-[40vh] md:h-[50vh] overflow-hidden bg-gradient-to-br from-primary/20 to-primary/5">
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
           <div className="absolute top-4 left-4 md:top-8 md:left-8">
-            <BackButton variant="secondary" />
+            <BackButton className="bg-secondary/80 hover:bg-secondary" />
           </div>
           <div className="absolute bottom-4 left-4 md:bottom-8 md:left-8">
             <Badge variant="secondary" className="text-lg px-4 py-2">

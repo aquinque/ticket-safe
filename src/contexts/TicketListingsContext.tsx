@@ -4,15 +4,6 @@
  * Replaces the old in-memory store with a React Query backed fetch from
  * Supabase.  The query returns only status='available' tickets, joined
  * with their event and the seller's full_name.
- *
- * The shape of `TicketListing` is kept backwards-compatible so that
- * BuyTicket.tsx, EventTicketsMarketplace.tsx and other consumers continue
- * to work without changes.
- *
- * New helpers:
- *   - `refetchListings()` — call after a new listing is created to
- *     update the marketplace instantly.
- *   - `isLoading` — true while the first fetch is in flight.
  */
 
 import React, { createContext, useContext, ReactNode } from "react";
@@ -26,32 +17,24 @@ import { EventData } from "@/data/eventsData";
 
 export interface TicketListing {
   id: string;
-  /** event data — mapped from the events table row */
   event: EventData;
   sellingPrice: number;
   quantity: number;
   description: string;
-  /** legacy field — always empty; ticket images not part of the new flow */
   files: { name: string; size: number; type: string }[];
   sellerId: string;
   sellerName: string;
   timestamp: string;
-  /** true if the QR code was verified by HMAC signature */
   verified: boolean;
-  /** the listing id (same as id) */
   ticketId: string;
-  /** SHA-256 hash of the QR payload — not exposed in public responses */
   qrHash: string;
 }
 
 interface TicketListingsContextType {
   listings: TicketListing[];
   isLoading: boolean;
-  /** Immediately re-fetch listings from Supabase */
   refetchListings: () => void;
-  /** @deprecated use refetchListings — kept for backwards compat */
   addListing: (listing: TicketListing) => void;
-  /** @deprecated kept for backwards compat */
   removeListing: (id: string) => void;
 }
 
@@ -78,7 +61,6 @@ async function fetchAvailableListings(): Promise<TicketListing[]> {
       quantity,
       notes,
       status,
-      qr_verified,
       created_at,
       event:events (
         id,
@@ -100,7 +82,7 @@ async function fetchAvailableListings(): Promise<TicketListing[]> {
 
   if (error) throw error;
 
-  return (data ?? []).map((row) => {
+  return ((data as any[]) ?? []).map((row: any) => {
     const ev = row.event as {
       id: string;
       title: string;
@@ -114,7 +96,6 @@ async function fetchAvailableListings(): Promise<TicketListing[]> {
 
     const seller = row.seller as { full_name: string } | null;
 
-    // Map DB event to EventData interface (backwards-compatible)
     const eventData: EventData = {
       id: ev?.id ?? row.event_id,
       title: ev?.title ?? "Unknown Event",
@@ -139,9 +120,9 @@ async function fetchAvailableListings(): Promise<TicketListing[]> {
       sellerId: row.seller_id,
       sellerName: seller?.full_name ?? "Anonymous",
       timestamp: row.created_at,
-      verified: row.qr_verified ?? false,
+      verified: false,
       ticketId: row.id,
-      qrHash: "", // never expose the real hash to clients
+      qrHash: "",
     };
   });
 }
@@ -162,18 +143,15 @@ export const TicketListingsProvider: React.FC<{ children: ReactNode }> = ({
   const { data: listings = [], isLoading } = useQuery({
     queryKey: LISTINGS_QUERY_KEY,
     queryFn: fetchAvailableListings,
-    staleTime: 30_000,        // 30 s before background refetch
-    refetchOnWindowFocus: true, // refresh when user switches back to tab
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
   });
 
   const refetchListings = () => {
     queryClient.invalidateQueries({ queryKey: LISTINGS_QUERY_KEY });
   };
 
-  // Backwards-compat stubs — the context is no longer write-through
   const addListing = (_listing: TicketListing) => {
-    // No-op: data comes from DB. Call refetchListings() after a successful
-    // submit-listing call instead.
     refetchListings();
   };
 

@@ -17,7 +17,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { useI18n } from "@/contexts/I18nContext";
 import { SEOHead } from "@/components/SEOHead";
-import { useTicketListings } from "@/contexts/TicketListingsContext";
+import { useTicketListings, TicketListing } from "@/contexts/TicketListingsContext";
 import { parseQRCode, verifyTicket, markTicketAsListed } from "@/lib/ticketVerification";
 import { TicketQRData, TicketVerificationResult } from "@/types/ticketVerification";
 import { useESCPEvents, ESCPEvent } from "@/hooks/useESCPEvents";
@@ -231,9 +231,21 @@ const Sell = () => {
       const listingId = `listing-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
       // Create the ticket listing
-      const newListing = {
+      const newListing: TicketListing = {
         id: listingId,
-        event: selectedEvent,
+        event: {
+          id: selectedEvent.id,
+          title: selectedEvent.title,
+          date: selectedEvent.start_date,
+          time: "",
+          location: selectedEvent.location,
+          organizer: selectedEvent.organizer,
+          description: selectedEvent.description,
+          category: selectedEvent.category,
+          filterCategory: selectedEvent.category.toLowerCase(),
+          image: "",
+          isPastEvent: false,
+        },
         sellingPrice,
         quantity: parseInt(formData.quantity),
         description: formData.description,

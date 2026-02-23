@@ -23,7 +23,7 @@ const PurchaseHistory = () => {
   const { t, language } = useI18n();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [purchases, setPurchases] = useState<Array<Record<string, unknown>>>([]);
+  const [purchases, setPurchases] = useState<Array<{ id: string; eventTitle: string; date: string; price: number; status: string; campus: string; quantity: number }>>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
