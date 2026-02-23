@@ -392,7 +392,6 @@ const Sell = () => {
                           <p className="font-medium flex items-center gap-2">
                             {selectedEvent.title}
                           </p>
-                          </p>
                           <p className="text-sm text-muted-foreground">
                             {selectedEvent.university}
                             {selectedEvent.campus && ` · ${selectedEvent.campus}`}
@@ -407,15 +406,6 @@ const Sell = () => {
                           </p>
                         </AlertDescription>
                       </Alert>
-                      {selectedEvent.needs_review && (
-                        <Alert className="border-amber-300 bg-amber-50">
-                          <AlertTriangle className="w-4 h-4 text-amber-600" />
-                          <AlertDescription className="text-amber-800 text-sm">
-                            Les informations de cet événement sont incomplètes et en attente de validation.
-                            Tu peux quand même lister ton billet — les détails seront complétés par un admin.
-                          </AlertDescription>
-                        </Alert>
-                      )}
                     </>
                   )}
                 </CardContent>
