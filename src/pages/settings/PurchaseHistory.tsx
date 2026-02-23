@@ -206,7 +206,7 @@ const PurchaseHistory = () => {
                         </div>
                         <p className="text-xs text-muted-foreground">
                           Purchased on{' '}
-                          {new Date(purchase.purchaseDate as string).toLocaleDateString(
+                          {new Date(purchase.date).toLocaleDateString(
                             language === 'fr' ? 'fr-FR' : 'en-US'
                           )}
                         </p>
