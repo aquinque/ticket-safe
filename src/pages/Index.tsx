@@ -6,7 +6,8 @@ import Footer from "@/components/Footer";
 import { SEOHead } from "@/components/SEOHead";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, ShieldCheck, QrCode, Banknote, GraduationCap } from "lucide-react";
+import { ArrowRight, ShieldCheck, QrCode, Banknote, GraduationCap, Lock, X } from "lucide-react";
+import { useState } from "react";
 
 const steps = [
   {
@@ -33,16 +34,41 @@ const steps = [
   {
     icon: Banknote,
     title: "Pay or Get Paid",
-    description: "Escrow protects buyers. Sellers get 100% of their price.",
+    description: "Escrow protects buyers. Sellers get paid within 24h.",
     color: "bg-green-500/10",
     iconColor: "text-green-500",
   },
 ];
 
 const Index = () => {
+  const [showBanner, setShowBanner] = useState(true);
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <SEOHead titleKey="nav.home" descriptionKey="hero.subtitle" />
+
+      {/* Announcement Banner */}
+      {showBanner && (
+        <div className="bg-primary text-primary-foreground py-2.5 px-4 relative">
+          <div className="container mx-auto flex items-center justify-center gap-2 text-sm text-center">
+            <Lock className="w-3.5 h-3.5 flex-shrink-0" />
+            <span>
+              <strong>Your data is safe with us.</strong> TicketSafe is now fully GDPR-compliant — your privacy and cookie preferences are always in your control.{" "}
+              <Link to="/cookie-policy" className="underline underline-offset-2 hover:opacity-80 font-medium">
+                Learn more
+              </Link>
+            </span>
+          </div>
+          <button
+            onClick={() => setShowBanner(false)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:opacity-70 transition-opacity"
+            aria-label="Dismiss"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       <Header />
 
       <main className="flex-1">
