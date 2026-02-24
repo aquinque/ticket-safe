@@ -26,6 +26,7 @@ import Privacy from "./pages/Privacy";
 import TermsConditions from "./pages/TermsConditions";
 import CookiePolicy from "./pages/CookiePolicy";
 import RefundPolicy from "./pages/RefundPolicy";
+import HowItWorks from "./pages/HowItWorks";
 import OrganizerScan from "./pages/OrganizerScan";
 import NotFound from "./pages/NotFound";
 
@@ -59,6 +60,7 @@ const App = () => (
       <Route path="/terms" element={<TermsConditions />} />
       <Route path="/cookie-policy" element={<CookiePolicy />} />
       <Route path="/refund-policy" element={<RefundPolicy />} />
+      <Route path="/how-it-works" element={<HowItWorks />} />
       <Route path="/organizer/scan" element={<OrganizerScan />} />
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
       <Route path="*" element={<NotFound />} />

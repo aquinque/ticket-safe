@@ -122,6 +122,14 @@ const Header = () => {
             {/* SECONDARY NAVIGATION - Right side (informational) */}
             <div className="flex items-center gap-5 ml-auto mr-4">
               <Link
+                to="/how-it-works"
+                className={`text-sm transition-colors hover:text-muted-foreground ${
+                  isActive("/how-it-works") ? "text-muted-foreground font-medium" : "text-muted-foreground/70"
+                }`}
+              >
+                How It Works
+              </Link>
+              <Link
                 to="/about"
                 className={`text-sm transition-colors hover:text-muted-foreground ${
                   isActive("/about") ? "text-muted-foreground font-medium" : "text-muted-foreground/70"
