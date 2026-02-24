@@ -75,12 +75,11 @@ const Header = () => {
       <div className="container mx-auto px-3 md:px-4">
         <div className="flex h-14 md:h-16 lg:h-20 items-center justify-between">
           {/* Logo */}
-          <Link to="/" className="flex items-center">
-            <img
-              src="/ticketsafe-logo.png"
-              alt="TicketSafe"
-              className="h-16 md:h-24 lg:h-28 w-auto object-contain hover:opacity-90 transition-opacity mix-blend-multiply dark:mix-blend-screen"
-            />
+          <Link to="/" className="flex items-center gap-1.5 md:gap-2 font-bold text-base md:text-lg lg:text-xl">
+            <div className="w-7 h-7 md:w-8 md:h-8 bg-gradient-hero rounded-lg flex items-center justify-center">
+              <Ticket className="w-4 h-4 md:w-5 md:h-5 text-white" />
+            </div>
+            <span className="bg-gradient-hero bg-clip-text text-transparent">{t('common.appName')}</span>
           </Link>
 
           {/* Desktop Navigation - Reorganized */}
