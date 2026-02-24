@@ -124,8 +124,8 @@ const sellerSteps = [
     icon: Banknote,
     title: "Get Paid",
     description:
-      "Once the buyer confirms the ticket, we release 100% of the sale price directly to you within 24–48 hours.",
-    detail: "You keep 100% — the buyer pays the 5% platform fee on top.",
+      "Once the buyer confirms the ticket, we release your payout directly to you within 24–48 hours.",
+    detail: "You keep 95% of your listing price. Both sides pay a small 5% fee.",
     color: "bg-amber-500/10",
     iconColor: "text-amber-500",
   },
@@ -155,7 +155,7 @@ const faqs = [
   {
     question: "What is the 5% platform fee?",
     answer:
-      "The 5% fee is paid by the buyer on top of the ticket price. Sellers receive 100% of their asking price. The fee covers secure payment processing, ticket verification, and buyer protection.",
+      "Both sides pay a small 5% fee. Buyers pay 5% on top of the ticket price. Sellers have 5% deducted from their listing price as a platform commission. The fees cover secure payment processing, ticket verification, and buyer protection.",
   },
   {
     question: "What happens if the event is cancelled?",
@@ -385,8 +385,12 @@ const HowItWorks = () => {
                       <span className="font-semibold">€50.00</span>
                     </div>
                     <div className="flex justify-between items-center text-sm">
-                      <span className="text-muted-foreground">Platform fee (paid by buyer)</span>
-                      <span className="font-semibold text-primary">+€2.50 (5%)</span>
+                      <span className="text-muted-foreground">Buyer platform fee (+5%)</span>
+                      <span className="font-semibold text-primary">+€2.50</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-muted-foreground">Seller commission (−5%)</span>
+                      <span className="font-semibold text-destructive">−€2.50</span>
                     </div>
                     <Separator />
                     <div className="flex justify-between items-center">
@@ -395,7 +399,7 @@ const HowItWorks = () => {
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="font-bold text-green-600">Seller receives</span>
-                      <span className="font-bold text-lg text-green-600">€50.00</span>
+                      <span className="font-bold text-lg text-green-600">€47.50</span>
                     </div>
                   </div>
                 </div>
@@ -407,8 +411,8 @@ const HowItWorks = () => {
                     <p className="text-sm text-muted-foreground">Platform fee (paid by buyer)</p>
                   </div>
                   <div className="p-6 text-center">
-                    <p className="text-3xl font-bold text-green-600 mb-1">0%</p>
-                    <p className="text-sm text-muted-foreground">Fee for sellers</p>
+                    <p className="text-3xl font-bold text-green-600 mb-1">5%</p>
+                    <p className="text-sm text-muted-foreground">Seller commission</p>
                   </div>
                   <div className="p-6 text-center">
                     <p className="text-3xl font-bold text-blue-500 mb-1">24h</p>

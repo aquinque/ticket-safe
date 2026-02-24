@@ -18,6 +18,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useI18n } from "@/contexts/I18nContext";
 import { SEOHead } from "@/components/SEOHead";
 import { useTicketListings, TicketListing } from "@/contexts/TicketListingsContext";
+import { calcBreakdown } from "@/lib/fees";
 import { parseQRCode, verifyTicket, markTicketAsListed } from "@/lib/ticketVerification";
 import { TicketQRData, TicketVerificationResult } from "@/types/ticketVerification";
 import { useESCPEvents, ESCPEvent } from "@/hooks/useESCPEvents";
@@ -614,17 +615,26 @@ const Sell = () => {
                         <span className="font-medium">{formData.quantity}</span>
                       </div>
                       <hr className="border-border" />
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Platform commission (5%):</span>
+                        <span className="font-medium text-destructive">
+                          {formData.sellingPrice ?
+                            `-€${calcBreakdown(parseFloat(formData.sellingPrice), parseInt(formData.quantity)).sellerCommissionEuros.toFixed(2)}` :
+                            "-"
+                          }
+                        </span>
+                      </div>
                       <div className="flex justify-between text-lg font-semibold">
                         <span>{t('sell.totalEarnings')}</span>
                         <span className="text-primary">
                           {formData.sellingPrice ?
-                            `€${(parseFloat(formData.sellingPrice) * parseInt(formData.quantity) * 0.95).toFixed(2)}` :
+                            `€${calcBreakdown(parseFloat(formData.sellingPrice), parseInt(formData.quantity)).sellerPayoutEuros.toFixed(2)}` :
                             "-"
                           }
                         </span>
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        (5% platform fee deducted)
+                        (5% seller commission deducted from your listing price)
                       </p>
                     </div>
                   </CardContent>

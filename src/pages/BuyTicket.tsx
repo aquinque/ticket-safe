@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Calendar, MapPin, Users, CreditCard, ShieldCheck, FileImage } from "lucide-react";
 import { SEOHead } from "@/components/SEOHead";
 import { useTicketListings } from "@/contexts/TicketListingsContext";
+import { calcBreakdown } from "@/lib/fees";
 
 const BuyTicket = () => {
   const { listingId } = useParams();
@@ -28,9 +29,8 @@ const BuyTicket = () => {
   }
 
   const event = listing.event;
-  const totalPrice = listing.sellingPrice * listing.quantity;
-  const platformFee = totalPrice * 0.05;
-  const finalPrice = totalPrice + platformFee;
+  const fees = calcBreakdown(listing.sellingPrice, listing.quantity);
+  const { listPriceEuros: totalPrice, buyerFeeEuros: platformFee, buyerTotalEuros: finalPrice } = fees;
 
   const formatDateRange = () => {
     const startDate = new Date(event.date);

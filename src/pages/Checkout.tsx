@@ -12,6 +12,7 @@ import { SEOHead } from "@/components/SEOHead";
 import { useTicketListings } from "@/contexts/TicketListingsContext";
 import { Badge } from "@/components/ui/badge";
 import { mockRevolutPayment } from "@/lib/revolutPayment";
+import { calcBreakdown } from "@/lib/fees";
 import { toast } from "sonner";
 
 const Checkout = () => {
@@ -69,9 +70,8 @@ const Checkout = () => {
   }
 
   const event = listing.event;
-  const subtotal = listing.sellingPrice * listing.quantity;
-  const platformFee = subtotal * 0.05;
-  const totalAmount = subtotal + platformFee;
+  const fees = calcBreakdown(listing.sellingPrice, listing.quantity);
+  const { listPriceEuros: subtotal, buyerFeeEuros: platformFee, buyerTotalEuros: totalAmount } = fees;
 
   const formatDateRange = () => {
     const startDate = new Date(event.date);
