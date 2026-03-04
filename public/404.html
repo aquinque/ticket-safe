@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Ticket Safe</title>
+  <script>
+    // GitHub Pages SPA routing fix.
+    // When a user navigates directly to a deep URL (e.g. /auth, /marketplace/buy),
+    // GitHub Pages returns this 404.html. We redirect to the root with the path
+    // encoded as a query param, and index.html restores it via history.replaceState.
+    var l = window.location;
+    l.replace(
+      l.origin + '/?p=' +
+      encodeURIComponent(l.pathname.slice(1) + l.search) +
+      (l.hash ? l.hash : '')
+    );
+  </script>
+</head>
+<body></body>
+</html>

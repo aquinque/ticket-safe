@@ -23,6 +23,15 @@
   <meta property="og:description" content="The secure marketplace for verified students to buy and sell event tickets legally and safely. No scams, no bots—just real students.">
   <meta name="twitter:description" content="The secure marketplace for verified students to buy and sell event tickets legally and safely. No scams, no bots—just real students.">
   <link rel="icon" type="image/png" href="/ticket-safe-logo.png">
+  <script>
+    // Restore the path redirected from 404.html (GitHub Pages SPA routing fix)
+    (function() {
+      var p = new URLSearchParams(window.location.search).get('p');
+      if (p) {
+        window.history.replaceState(null, '', '/' + decodeURIComponent(p));
+      }
+    })();
+  </script>
 </head>
 
   <body>
