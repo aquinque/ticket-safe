@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -67,12 +66,7 @@ serve(async (req) => {
       );
     }
 
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? ''
-    );
-
-    const { email, fullName, university } = await req.json();
+    const { email, fullName } = await req.json();
 
     // Validation errors array
     const errors: string[] = [];
@@ -84,6 +78,8 @@ serve(async (req) => {
       errors.push('Email must be less than 255 characters');
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       errors.push('Invalid email format');
+    } else if (!email.toLowerCase().trim().endsWith('@edu.escp.eu')) {
+      errors.push('Only ESCP student email addresses (@edu.escp.eu) are accepted');
     }
 
     // Full name validation
@@ -95,36 +91,11 @@ serve(async (req) => {
       errors.push('Full name must be less than 100 characters');
     }
 
-    // University validation
-    if (!university || typeof university !== 'string') {
-      errors.push('University is required');
-    } else if (university.trim().length === 0) {
-      errors.push('University cannot be empty');
-    } else if (university.length > 200) {
-      errors.push('University name must be less than 200 characters');
-    }
-
     if (errors.length > 0) {
       return new Response(
         JSON.stringify({ valid: false, errors }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
-    }
-
-    // Optional: Verify university email domain
-    // Note: We're making this validation optional to allow broader signup access
-    try {
-      const { data: isValidDomain, error: domainError } = await supabase
-        .rpc('validate_university_email', { email_address: email });
-
-      // Only enforce if the RPC function exists and returns a valid response
-      if (!domainError && isValidDomain === false) {
-        console.warn('[INFO] Non-university email detected:', email);
-        // Allow signup anyway - just log the warning
-      }
-    } catch (err) {
-      // RPC function doesn't exist or failed - allow signup anyway
-      console.info('[INFO] University email validation skipped (function not available)');
     }
 
     return new Response(

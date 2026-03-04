@@ -28,20 +28,37 @@ const ResetPassword = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check if user has a valid session from the reset link
-    const checkSession = async () => {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      
-      if (error || !session) {
-        setIsValidToken(false);
-        toast.error("This reset link has expired or is invalid. Please request a new one.");
-        setTimeout(() => navigate("/auth"), 3000);
-      } else {
+    // Listen for PASSWORD_RECOVERY event — Supabase fires this when the hash
+    // fragment from the reset email is detected and exchanged for a session.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY' && session) {
         setIsValidToken(true);
       }
-    };
+    });
 
-    checkSession();
+    // Also check for an already-active session (e.g. user refreshed the page)
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        setIsValidToken(true);
+      }
+    });
+
+    // Timeout fallback: if no valid token detected after 4 s, mark as invalid
+    const timeout = setTimeout(() => {
+      setIsValidToken((prev) => {
+        if (prev === null) {
+          toast.error("This reset link has expired or is invalid. Please request a new one.");
+          setTimeout(() => navigate("/auth"), 3000);
+          return false;
+        }
+        return prev;
+      });
+    }, 4000);
+
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(timeout);
+    };
   }, [navigate]);
 
   const getPasswordStrength = (password: string): { strength: number; label: string; color: string } => {

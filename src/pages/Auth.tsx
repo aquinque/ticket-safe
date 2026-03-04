@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Loader2, Mail, Lock, User, GraduationCap, CheckCircle2, XCircle, Eye, EyeOff } from "lucide-react";
+import { Loader2, Mail, Lock, User, CheckCircle2, XCircle, Eye, EyeOff } from "lucide-react";
 import { z } from "zod";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -28,7 +28,6 @@ const Auth = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
-  const [university, setUniversity] = useState("");
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
@@ -46,16 +45,8 @@ const Auth = () => {
     return emailRegex.test(email);
   };
 
-  const isUniversityEmail = (email: string) => {
-    // Check for common university email patterns
-    return email.includes('.edu') || email.includes('.ac.') || email.includes('student');
-  };
-
-  const getUniversityFromEmail = (email: string): string => {
-    if (email.includes('escp.eu')) return 'ESCP';
-    // Add more university mappings as needed
-    const domain = email.split('@')[1];
-    return domain.split('.')[0].toUpperCase();
+  const isEscpEmail = (email: string) => {
+    return email.toLowerCase().trim().endsWith('@edu.escp.eu');
   };
 
   const getPasswordStrength = (password: string): { strength: number; label: string; color: string } => {
@@ -113,10 +104,8 @@ const Auth = () => {
           return;
         }
 
-        const passwordValidation = passwordSchema.safeParse(password);
-        if (!passwordValidation.success) {
-          const errors = passwordValidation.error.errors.map(e => e.message);
-          toast.error(errors[0]);
+        if (!password) {
+          toast.error("Please enter your password");
           setLoading(false);
           return;
         }
@@ -169,20 +158,14 @@ const Auth = () => {
           return;
         }
 
+        if (!isEscpEmail(email)) {
+          toast.error("Only ESCP student email addresses (@edu.escp.eu) are accepted");
+          setLoading(false);
+          return;
+        }
+
         if (!fullName.trim() || fullName.length > 100) {
           toast.error("Please enter a valid full name (max 100 characters)");
-          setLoading(false);
-          return;
-        }
-
-        if (!university || !university.trim()) {
-          toast.error("School is required");
-          setLoading(false);
-          return;
-        }
-
-        if (university.length > 200) {
-          toast.error("School name must be less than 200 characters");
           setLoading(false);
           return;
         }
@@ -195,7 +178,7 @@ const Auth = () => {
           return;
         }
 
-        const detectedUniversity = university || getUniversityFromEmail(email);
+        const detectedUniversity = "ESCP Business School";
 
         // Server-side validation via Edge Function
         const { data: validationData, error: validationError } = await supabase.functions.invoke(
@@ -204,7 +187,6 @@ const Auth = () => {
             body: {
               email: email.trim(),
               fullName: fullName.trim(),
-              university: detectedUniversity.trim(),
             },
           }
         );
@@ -265,11 +247,12 @@ const Auth = () => {
 
         if (data.user && data.session) {
           toast.success("Account created successfully!");
-          
-          // Wait for state to settle before navigating
           setTimeout(() => {
             navigate("/profile", { replace: true });
           }, 100);
+        } else if (data.user && !data.session) {
+          // Email confirmation required
+          toast.success("Account created! Please check your ESCP email to confirm your account.");
         }
       }
     } catch (error) {
@@ -308,7 +291,7 @@ const Auth = () => {
                 <Input
                   id="reset-email"
                   type="email"
-                  placeholder="your.email@university.edu"
+                  placeholder="firstname.lastname@edu.escp.eu"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -346,38 +329,17 @@ const Auth = () => {
                     required={!isLogin}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="university">
-                    <GraduationCap className="w-4 h-4 inline mr-2" />
-                    School
-                  </Label>
-                  <Input
-                    id="university"
-                    type="text"
-                    placeholder="Type 'escp' for ESCP Business School"
-                    value={university}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setUniversity(value);
-                      // Auto-suggest ESCP Business School
-                      if (value.toLowerCase().includes('escp') && value.toLowerCase() !== 'escp business school') {
-                        setUniversity('ESCP Business School');
-                      }
-                    }}
-                    required={!isLogin}
-                  />
-                </div>
               </>
             )}
             <div className="space-y-2">
               <Label htmlFor="email">
                 <Mail className="w-4 h-4 inline mr-2" />
-                University Email
+                {isLogin ? "Email" : "ESCP Student Email"}
               </Label>
               <Input
                 id="email"
                 type="email"
-                placeholder="name@university.edu"
+                placeholder={isLogin ? "firstname.lastname@edu.escp.eu" : "firstname.lastname@edu.escp.eu"}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
