@@ -1,3 +1,11 @@
+# Environment variables — never commit real secrets
+.env
+.env.local
+.env.*.local
+.env.production
+.env.staging
+# (keep .env.example committed as a template)
+
 # Logs
 logs
 *.log

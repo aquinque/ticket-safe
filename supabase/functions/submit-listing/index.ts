@@ -401,12 +401,31 @@ serve(async (req) => {
     }
 
     // -----------------------------------------------------------------------
-    // 7. Sanitize notes (strip HTML/JS injection vectors)
+    // 7. Validate notes via allowlist (defense-in-depth)
+    //
+    // Notes are stored as plain text in Postgres and rendered as text in React
+    // (auto-escaped), so HTML injection is already prevented at the display
+    // layer.  We validate here with the same allowlist the frontend enforces
+    // rather than attempting to strip HTML with regex, which CodeQL correctly
+    // flags as an incomplete multi-character sanitization pattern.
     // -----------------------------------------------------------------------
-    const sanitizedNotes =
-      typeof notes === "string" && notes.trim().length > 0
-        ? notes.trim().slice(0, 1000).replace(/<[^>]*>/g, "").replace(/on\w+\s*=/gi, "")
-        : null;
+    // Allowlist: letters, digits, whitespace, common punctuation.
+    // Must match the notesSchema regex in src/pages/marketplace/Sell.tsx.
+    const NOTES_ALLOWLIST = /^[a-zA-Z0-9\s.,!?'"()\-]*$/;
+    const rawNotes = typeof notes === "string" ? notes.trim() : "";
+    if (rawNotes.length > 1000) {
+      return jsonResponse(
+        { code: "INVALID_FORMAT", message: "Notes must be 1000 characters or fewer" },
+        400
+      );
+    }
+    if (rawNotes.length > 0 && !NOTES_ALLOWLIST.test(rawNotes)) {
+      return jsonResponse(
+        { code: "INVALID_FORMAT", message: "Notes contain invalid characters. Only letters, numbers, and basic punctuation are allowed." },
+        400
+      );
+    }
+    const sanitizedNotes: string | null = rawNotes.length > 0 ? rawNotes : null;
 
     // -----------------------------------------------------------------------
     // 8. Insert listing
