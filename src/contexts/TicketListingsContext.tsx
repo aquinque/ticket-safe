@@ -28,6 +28,10 @@ export interface TicketListing {
   verified: boolean;
   ticketId: string;
   qrHash: string;
+  /** university name, e.g. "ESCP Business School" */
+  university: string;
+  /** campus name, e.g. "Paris", "London" — null for multi-campus events */
+  campus: string | null;
 }
 
 interface TicketListingsContextType {
@@ -122,7 +126,9 @@ async function fetchAvailableListings(): Promise<TicketListing[]> {
       timestamp: row.created_at,
       verified: false,
       ticketId: row.id,
-      qrHash: "",
+      qrHash: "", // never expose the real hash to clients
+      university: ev?.university ?? "",
+      campus: ev?.campus ?? null,
     };
   });
 }

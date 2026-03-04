@@ -42,6 +42,7 @@ import {
   Loader2,
   ChevronLeft,
   ChevronRight,
+  GraduationCap,
 } from "lucide-react";
 import { SEOHead } from "@/components/SEOHead";
 import { useTicketListings, TicketListing } from "@/contexts/TicketListingsContext";
@@ -53,6 +54,27 @@ import { useTicketListings, TicketListing } from "@/contexts/TicketListingsConte
 const PAGE_SIZE = 10;
 
 // ---------------------------------------------------------------------------
+// Campus colour map (ESCP Phase 1 + extensible)
+// ---------------------------------------------------------------------------
+
+const CAMPUS_COLORS: Record<string, string> = {
+  paris:  "bg-blue-100 text-blue-800 border-blue-200",
+  london: "bg-rose-100 text-rose-800 border-rose-200",
+  berlin: "bg-slate-100 text-slate-800 border-slate-200",
+  madrid: "bg-orange-100 text-orange-800 border-orange-200",
+  turin:  "bg-violet-100 text-violet-800 border-violet-200",
+};
+
+function campusColor(campus: string | null): string {
+  if (!campus) return "";
+  const key = campus.toLowerCase();
+  for (const [k, v] of Object.entries(CAMPUS_COLORS)) {
+    if (key.includes(k)) return v;
+  }
+  return "bg-secondary text-secondary-foreground border-border";
+}
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
@@ -62,6 +84,8 @@ const Buy = () => {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [priceRange, setPriceRange] = useState("all");
+  const [universityFilter, setUniversityFilter] = useState("all");
+  const [campusFilter, setCampusFilter] = useState("all");
   const [expandedEvents, setExpandedEvents] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
 
@@ -75,6 +99,8 @@ const Buy = () => {
     eventDate: string;
     eventLocation: string;
     eventCategory: string;
+    eventUniversity: string;
+    eventCampus: string | null;
     tickets: TicketListing[];
     minPrice: number;
     totalAvailable: number;
@@ -90,6 +116,8 @@ const Buy = () => {
           eventDate: listing.event.date,
           eventLocation: listing.event.location,
           eventCategory: listing.event.category,
+          eventUniversity: listing.university,
+          eventCampus: listing.campus,
           tickets: [],
           minPrice: Infinity,
           totalAvailable: 0,
@@ -102,7 +130,23 @@ const Buy = () => {
       }
       return acc;
     }, {})
-  );
+  ).sort((a, b) => new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime());
+
+  // Unique universities and campuses for filter dropdowns
+  const allUniversities = [
+    ...new Set(eventGroups.map((g) => g.eventUniversity).filter(Boolean)),
+  ].sort();
+
+  const allCampuses = [
+    ...new Set(
+      eventGroups
+        .filter(
+          (g) => universityFilter === "all" || g.eventUniversity === universityFilter
+        )
+        .map((g) => g.eventCampus)
+        .filter((c): c is string => c !== null && c !== "")
+    ),
+  ].sort();
 
   // ---------------------------------------------------------------------------
   // Filtering
@@ -113,7 +157,8 @@ const Buy = () => {
     const matchesSearch =
       !q ||
       g.eventTitle.toLowerCase().includes(q) ||
-      g.eventLocation.toLowerCase().includes(q);
+      g.eventLocation.toLowerCase().includes(q) ||
+      g.eventUniversity.toLowerCase().includes(q);
 
     const mp = g.minPrice;
     const matchesPrice =
@@ -122,7 +167,13 @@ const Buy = () => {
       (priceRange === "20to50" && mp >= 20 && mp <= 50) ||
       (priceRange === "over50" && mp > 50);
 
-    return matchesSearch && matchesPrice;
+    const matchesUniversity =
+      universityFilter === "all" || g.eventUniversity === universityFilter;
+
+    const matchesCampus =
+      campusFilter === "all" || g.eventCampus === campusFilter;
+
+    return matchesSearch && matchesPrice && matchesUniversity && matchesCampus;
   });
 
   // Reset to page 1 when filters change
@@ -176,8 +227,8 @@ const Buy = () => {
           {/* Filters */}
           <Card className="mb-8">
             <CardContent className="pt-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="relative">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="relative sm:col-span-2 lg:col-span-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
                   <Input
                     placeholder="Search events or venues…"
@@ -200,6 +251,44 @@ const Buy = () => {
                     <SelectItem value="under20">Under €20</SelectItem>
                     <SelectItem value="20to50">€20 – €50</SelectItem>
                     <SelectItem value="over50">Over €50</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select
+                  value={universityFilter}
+                  onValueChange={(v) =>
+                    handleFilterChange(() => {
+                      setUniversityFilter(v);
+                      setCampusFilter("all");
+                    })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="University" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All universities</SelectItem>
+                    {allUniversities.map((u) => (
+                      <SelectItem key={u} value={u}>
+                        {u}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select
+                  value={campusFilter}
+                  onValueChange={(v) => handleFilterChange(() => setCampusFilter(v))}
+                  disabled={allCampuses.length === 0}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Campus" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All campuses</SelectItem>
+                    {allCampuses.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {c}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -268,11 +357,27 @@ const Buy = () => {
                                 <MapPin className="w-4 h-4" />
                                 <span>{group.eventLocation}</span>
                               </div>
+                              {group.eventUniversity && (
+                                <div className="flex items-center gap-2">
+                                  <GraduationCap className="w-4 h-4" />
+                                  <span>{group.eventUniversity}</span>
+                                </div>
+                              )}
                             </CardDescription>
                           </div>
-                          <Badge variant="secondary" className="text-base px-3 py-1">
-                            {group.eventCategory || "Event"}
-                          </Badge>
+                          <div className="flex flex-col items-end gap-2">
+                            <Badge variant="secondary" className="text-base px-3 py-1">
+                              {group.eventCategory || "Event"}
+                            </Badge>
+                            {group.eventCampus && (
+                              <Badge
+                                variant="outline"
+                                className={`text-xs px-2 py-0.5 ${campusColor(group.eventCampus)}`}
+                              >
+                                {group.eventCampus}
+                              </Badge>
+                            )}
+                          </div>
                         </div>
                       </CardHeader>
 
@@ -336,7 +441,7 @@ const Buy = () => {
                                 <Button
                                   variant="hero"
                                   onClick={() =>
-                                    navigate(`/buy-ticket/${ticket.id}`)
+                                    navigate(`/checkout?listing_id=${ticket.id}`)
                                   }
                                   className="ml-4"
                                 >

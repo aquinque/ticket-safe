@@ -28,6 +28,10 @@ import CookiePolicy from "./pages/CookiePolicy";
 import RefundPolicy from "./pages/RefundPolicy";
 import HowItWorks from "./pages/HowItWorks";
 import OrganizerScan from "./pages/OrganizerScan";
+import StripeReturn from "./pages/StripeReturn";
+import CheckoutSuccess from "./pages/CheckoutSuccess";
+import CheckoutCancel from "./pages/CheckoutCancel";
+import GalaESCP from "./pages/GalaESCP";
 import NotFound from "./pages/NotFound";
 
 const App = () => (
@@ -62,6 +66,10 @@ const App = () => (
       <Route path="/refund-policy" element={<RefundPolicy />} />
       <Route path="/how-it-works" element={<HowItWorks />} />
       <Route path="/organizer/scan" element={<OrganizerScan />} />
+      <Route path="/stripe-return" element={<StripeReturn />} />
+      <Route path="/checkout/success" element={<CheckoutSuccess />} />
+      <Route path="/checkout/cancel" element={<CheckoutCancel />} />
+      <Route path="/gala-escp" element={<GalaESCP />} />
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
       <Route path="*" element={<NotFound />} />
     </Routes>

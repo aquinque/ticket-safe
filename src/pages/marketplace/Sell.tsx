@@ -48,6 +48,12 @@ import {
   Loader2,
   ShieldCheck,
   PencilLine,
+  CreditCard,
+  BadgeCheck,
+  Clock,
+  Search,
+  X,
+  CalendarPlus,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Event } from "@/integrations/supabase/types/events";
@@ -81,15 +87,44 @@ const notesSchema = z
 // Component
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Stripe account status type
+// ---------------------------------------------------------------------------
+
+interface StripeAccountStatus {
+  has_account: boolean;
+  charges_enabled: boolean;
+  payouts_enabled: boolean;
+  details_submitted: boolean;
+  onboarding_status: "pending" | "restricted" | "complete";
+}
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
+
 const Sell = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const { refetchListings } = useTicketListings();
 
-  const [events, setEvents] = useState<Event[]>([]);
-  const [eventsLoading, setEventsLoading] = useState(true);
+  // Event autocomplete
+  const [eventSearch, setEventSearch] = useState("");
+  const [searchResults, setSearchResults] = useState<Event[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [showStubForm, setShowStubForm] = useState(false);
+  const [stubDate, setStubDate] = useState("");
+  const [isCreatingStub, setIsCreatingStub] = useState(false);
+  const suggestionsRef = useRef<HTMLDivElement>(null);
+
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Stripe onboarding state
+  const [stripeStatus, setStripeStatus] = useState<StripeAccountStatus | null>(null);
+  const [stripeLoading, setStripeLoading] = useState(true);
+  const [onboardingLoading, setOnboardingLoading] = useState(false);
 
   // QR state
   const [qrText, setQrText] = useState("");
@@ -116,40 +151,153 @@ const Sell = () => {
     }
   }, [user, authLoading, navigate]);
 
-  // Fetch active future events
+  // Fetch Stripe account status
   useEffect(() => {
     if (!user) return;
 
-    const fetchEvents = async () => {
+    const fetchStripeStatus = async () => {
       try {
-        const { data, error } = await supabase
-          .from("events")
-          .select("*")
-          .eq("is_active", true)
-          .gte("date", new Date().toISOString())
-          .order("date", { ascending: true });
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData.session?.access_token;
+        if (!token) return;
 
-        if (error) throw error;
-        setEvents(data ?? []);
+        const res = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stripe-account-status`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        const data: StripeAccountStatus = await res.json();
+        setStripeStatus(data);
       } catch {
-        toast.error("Failed to load events");
+        // Silently fail — user can still list, they'll be blocked at checkout
       } finally {
-        setEventsLoading(false);
+        setStripeLoading(false);
       }
     };
 
-    fetchEvents();
+    // Also handle ?onboarding=refresh (Stripe redirect when link expired)
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("onboarding") === "refresh") {
+      toast.info("Your onboarding link expired. Click 'Activate Payments' to get a new one.");
+    }
+
+    fetchStripeStatus();
   }, [user]);
 
+  const handleActivatePayments = async () => {
+    setOnboardingLoading(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) {
+        toast.error("Session expired. Please log in again.");
+        return;
+      }
+
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stripe-onboard-seller`,
+        { method: "POST", headers: { Authorization: `Bearer ${token}` } }
+      );
+      const data = await res.json();
+
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        toast.error(data.error ?? "Failed to start onboarding. Please try again.");
+      }
+    } catch {
+      toast.error("Network error. Please try again.");
+    } finally {
+      setOnboardingLoading(false);
+    }
+  };
+
+  // Debounced event search
+  useEffect(() => {
+    if (!user) return;
+    if (eventSearch.length < 2) {
+      setSearchResults([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setSearchLoading(true);
+      try {
+        // search_events is not in the generated types yet; cast via unknown
+        const { data, error } = await (supabase as unknown as {
+          rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>;
+        }).rpc("search_events", { query: eventSearch, max_results: 8 });
+        if (!error) {
+          setSearchResults((data as unknown as Event[]) ?? []);
+          setShowSuggestions(true);
+        }
+      } catch {
+        // silent — user can still type more
+      } finally {
+        setSearchLoading(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [eventSearch, user]);
+
+  // Close suggestions on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        suggestionsRef.current &&
+        !suggestionsRef.current.contains(e.target as Node)
+      ) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   // ---------------------------------------------------------------------------
-  // Event selection
+  // Create stub event when seller's event isn't listed
   // ---------------------------------------------------------------------------
 
-  const handleEventSelect = (eventId: string) => {
-    const ev = events.find((e) => e.id === eventId);
-    if (ev) {
-      setSelectedEvent(ev);
-      setFormData((prev) => ({ ...prev, eventId: ev.id, sellingPrice: "" }));
+  const handleCreateStub = async () => {
+    if (!stubDate || eventSearch.trim().length < 3) return;
+    setIsCreatingStub(true);
+    try {
+      const { data, error } = await (supabase as unknown as {
+        rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>;
+      }).rpc("create_stub_event", {
+        p_title:     eventSearch.trim(),
+        p_starts_at: new Date(stubDate).toISOString(),
+      });
+      if (error) throw error;
+      const stubId = data as string;
+      const stub: Event = {
+        id:                  stubId,
+        title:               eventSearch.trim(),
+        date:                new Date(stubDate).toISOString(),
+        location:            null,
+        category:            "Other",
+        university:          "ESCP Business School",
+        campus:              null,
+        image_url:           null,
+        is_active:           true,
+        base_price:          null,
+        external_source:     null,
+        external_event_id:   null,
+        needs_review:        true,
+        created_at:          new Date().toISOString(),
+        updated_at:          new Date().toISOString(),
+      };
+      setSelectedEvent(stub);
+      setFormData((prev) => ({ ...prev, eventId: stubId, sellingPrice: "" }));
+      setShowSuggestions(false);
+      setShowStubForm(false);
+      setStubDate("");
+      toast.success("Événement créé. Les détails seront complétés par un administrateur.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erreur lors de la création de l'événement.");
+    } finally {
+      setIsCreatingStub(false);
     }
   };
 
@@ -330,6 +478,67 @@ const Sell = () => {
             </p>
           </div>
 
+          {/* ---- Stripe onboarding banner ---- */}
+          {!stripeLoading && (
+            <div className="mb-8">
+              {stripeStatus?.charges_enabled ? (
+                <Alert className="bg-green-50 border-green-200">
+                  <BadgeCheck className="w-4 h-4 text-green-600" />
+                  <AlertDescription className="text-green-800 flex items-center justify-between">
+                    <span>
+                      <strong>Payments active.</strong> You'll receive payouts
+                      automatically when a buyer completes checkout.
+                    </span>
+                  </AlertDescription>
+                </Alert>
+              ) : stripeStatus?.details_submitted ? (
+                <Alert className="bg-amber-50 border-amber-300">
+                  <Clock className="w-4 h-4 text-amber-600" />
+                  <AlertDescription className="text-amber-800">
+                    <strong>Verification in progress.</strong> Stripe is reviewing
+                    your account. You can list tickets now — payouts activate once
+                    approved (usually a few minutes).
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                <Card className="border-2 border-primary/30 bg-primary/5">
+                  <CardContent className="pt-6">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                      <div className="flex items-start gap-3">
+                        <CreditCard className="w-6 h-6 text-primary mt-0.5 shrink-0" />
+                        <div>
+                          <p className="font-semibold">Activate payments to get paid</p>
+                          <p className="text-sm text-muted-foreground">
+                            Set up your Stripe account so you can receive money when
+                            your tickets sell. Takes ~2 minutes.
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="hero"
+                        onClick={handleActivatePayments}
+                        disabled={onboardingLoading}
+                        className="shrink-0"
+                      >
+                        {onboardingLoading ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Redirecting…
+                          </>
+                        ) : (
+                          <>
+                            <CreditCard className="w-4 h-4 mr-2" />
+                            Activate Payments
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          )}
+
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* ---- Main form ---- */}
             <div className="lg:col-span-2 space-y-6">
@@ -341,47 +550,151 @@ const Sell = () => {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
-                    <Label htmlFor="event">Select Event</Label>
-                    <Select
-                      value={formData.eventId}
-                      onValueChange={handleEventSelect}
-                      disabled={eventsLoading}
-                    >
-                      <SelectTrigger>
-                        <SelectValue
-                          placeholder={
-                            eventsLoading ? "Loading events…" : "Choose your event"
-                          }
+                    <Label htmlFor="eventSearch">Search for your event</Label>
+                    <div className="relative" ref={suggestionsRef}>
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+                        <Input
+                          id="eventSearch"
+                          placeholder="Gala ESCP, BDE soirée, Intercampus…"
+                          value={selectedEvent ? selectedEvent.title : eventSearch}
+                          onChange={(e) => {
+                            if (selectedEvent) {
+                              setSelectedEvent(null);
+                              setFormData((prev) => ({ ...prev, eventId: "", sellingPrice: "" }));
+                            }
+                            setEventSearch(e.target.value);
+                            setShowSuggestions(true);
+                          }}
+                          onFocus={() => {
+                            if (eventSearch.length >= 2) setShowSuggestions(true);
+                          }}
+                          className="pl-9 pr-8"
+                          autoComplete="off"
                         />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {events.length === 0 && !eventsLoading ? (
-                          <div className="p-4 text-sm text-muted-foreground text-center">
-                            No upcoming events available
-                          </div>
-                        ) : (
-                          events.map((ev) => (
-                            <SelectItem key={ev.id} value={ev.id}>
-                              <div className="flex flex-col">
-                                <span className="font-medium flex items-center gap-1.5">
+                        {searchLoading && (
+                          <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
+                        )}
+                        {selectedEvent && !searchLoading && (
+                          <button
+                            type="button"
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                            onClick={() => {
+                              setSelectedEvent(null);
+                              setEventSearch("");
+                              setFormData((prev) => ({ ...prev, eventId: "", sellingPrice: "" }));
+                            }}
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Suggestions dropdown */}
+                      {showSuggestions && !selectedEvent && (
+                        <div className="absolute z-50 w-full mt-1 bg-background border rounded-md shadow-md overflow-hidden max-h-64 overflow-y-auto">
+                          {searchResults.length > 0 ? (
+                            searchResults.map((ev) => (
+                              <button
+                                key={ev.id}
+                                type="button"
+                                className="w-full text-left px-4 py-3 hover:bg-muted/60 transition-colors border-b last:border-b-0"
+                                onClick={() => {
+                                  setSelectedEvent(ev);
+                                  setEventSearch(ev.title);
+                                  setFormData((prev) => ({ ...prev, eventId: ev.id, sellingPrice: "" }));
+                                  setShowSuggestions(false);
+                                }}
+                              >
+                                <p className="font-medium text-sm leading-none mb-1">
                                   {ev.title}
-                                  {/* needs_review removed - not in DB */}
-                                </span>
-                                <span className="text-xs text-muted-foreground">
-                                  {new Date(ev.date).toLocaleDateString("en-US", {
+                                  {ev.needs_review && (
+                                    <span className="ml-2 text-[10px] font-normal text-amber-600 border border-amber-300 bg-amber-50 rounded px-1 py-0.5">
+                                      à compléter
+                                    </span>
+                                  )}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {new Date(ev.date).toLocaleDateString("fr-FR", {
                                     day: "numeric",
                                     month: "long",
                                     year: "numeric",
-                                  })}{" "}
-                                  · {ev.location}
-                                  {ev.base_price != null && ` · Base: €${ev.base_price}`}
-                                </span>
-                              </div>
-                            </SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
+                                  })}
+                                  {ev.location && ` · ${ev.location}`}
+                                  {ev.base_price != null && ` · Base €${ev.base_price}`}
+                                </p>
+                              </button>
+                            ))
+                          ) : eventSearch.length >= 2 && !searchLoading ? (
+                            <div className="px-4 py-3">
+                              <p className="text-sm text-muted-foreground text-center mb-3">
+                                Aucun résultat pour &quot;{eventSearch}&quot;
+                              </p>
+                              {!showStubForm ? (
+                                <button
+                                  type="button"
+                                  className="w-full text-left px-3 py-2 rounded border border-dashed border-primary/40 text-sm text-primary hover:bg-primary/5 transition-colors flex items-center gap-2"
+                                  onClick={() => setShowStubForm(true)}
+                                >
+                                  <CalendarPlus className="w-4 h-4 shrink-0" />
+                                  Mon événement n&apos;est pas listé — le créer
+                                </button>
+                              ) : (
+                                <div className="space-y-3 p-3 rounded border bg-muted/30">
+                                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                                    Créer un événement
+                                  </p>
+                                  <Input
+                                    value={eventSearch}
+                                    onChange={(e) => setEventSearch(e.target.value)}
+                                    placeholder="Nom de l'événement"
+                                    className="text-sm"
+                                  />
+                                  <div>
+                                    <Label htmlFor="stubDate" className="text-xs text-muted-foreground">
+                                      Date de l&apos;événement
+                                    </Label>
+                                    <Input
+                                      id="stubDate"
+                                      type="datetime-local"
+                                      value={stubDate}
+                                      onChange={(e) => setStubDate(e.target.value)}
+                                      min={new Date().toISOString().slice(0, 16)}
+                                      className="text-sm"
+                                    />
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="hero"
+                                      className="flex-1"
+                                      disabled={!stubDate || eventSearch.trim().length < 3 || isCreatingStub}
+                                      onClick={handleCreateStub}
+                                    >
+                                      {isCreatingStub ? (
+                                        <><Loader2 className="w-3 h-3 mr-1 animate-spin" />Création…</>
+                                      ) : "Confirmer"}
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => setShowStubForm(false)}
+                                    >
+                                      Annuler
+                                    </Button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ) : null}
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Tapez au moins 2 caractères pour voir les suggestions.
+                    </p>
                   </div>
 
                   {selectedEvent && (

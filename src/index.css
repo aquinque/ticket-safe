@@ -19,22 +19,22 @@ All colors MUST be HSL.
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
     
-    /* ESCP Brand Colors - Professional Blue & White */
-    --primary: 220 100% 30%; /* Deep ESCP Blue */
+    /* TicketSafe Brand Colors - Teal/Aqua from Logo */
+    --primary: 180 65% 50%; /* Teal from logo */
     --primary-foreground: 0 0% 100%;
-    --primary-hover: 220 100% 35%;
-    
-    /* Brand Blue for CTAs */
-    --cta-blue: 221 100% 56%; /* Brand blue #1E5EFF */
-    --cta-blue-hover: 221 87% 48%; /* Darker blue #184BDC */
-    
-    --secondary: 215 95% 40%; /* Rich Blue */
+    --primary-hover: 180 65% 55%;
+
+    /* Brand Teal for CTAs */
+    --cta-blue: 180 65% 50%; /* Teal #40B5AD */
+    --cta-blue-hover: 180 65% 45%; /* Darker teal */
+
+    --secondary: 200 80% 45%; /* Complementary Blue */
     --secondary-foreground: 0 0% 100%;
-    --secondary-hover: 215 95% 45%;
-    
-    --accent: 210 100% 45%; /* Bright Accent Blue */
+    --secondary-hover: 200 80% 50%;
+
+    --accent: 175 70% 55%; /* Light Aqua Accent */
     --accent-foreground: 0 0% 100%;
-    --accent-hover: 210 100% 50%;
+    --accent-hover: 175 70% 60%;
     
     /* Neutral System */
     --muted: 210 20% 96%;
@@ -47,23 +47,23 @@ All colors MUST be HSL.
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
     
-    /* ESCP Gradients - Professional Blue Blends */
-    --gradient-hero: linear-gradient(135deg, hsl(220 100% 30%) 0%, hsl(215 95% 40%) 50%, hsl(210 100% 45%) 100%);
+    /* TicketSafe Gradients - Teal & Aqua Blends */
+    --gradient-hero: linear-gradient(135deg, hsl(180 65% 50%) 0%, hsl(175 70% 55%) 50%, hsl(200 80% 45%) 100%);
     --gradient-card: linear-gradient(145deg, hsl(var(--card)) 0%, hsl(var(--background)) 100%);
-    --gradient-accent: linear-gradient(135deg, hsl(220 100% 30%) 0%, hsl(210 100% 45%) 100%);
-    --gradient-purple-blue: linear-gradient(135deg, hsl(215 95% 40%) 0%, hsl(220 100% 30%) 50%, hsl(210 100% 45%) 100%);
-    
-    /* Professional Shadows - Deep Blue Glow */
-    --shadow-soft: 0 2px 12px 0 hsl(220 100% 30% / 0.08);
-    --shadow-card: 0 4px 20px 0 hsl(220 100% 30% / 0.12);
-    --shadow-hover: 0 8px 40px 0 hsl(220 100% 30% / 0.25);
-    --shadow-glow: 0 0 30px hsl(220 100% 30% / 0.35);
+    --gradient-accent: linear-gradient(135deg, hsl(180 65% 50%) 0%, hsl(175 70% 55%) 100%);
+    --gradient-purple-blue: linear-gradient(135deg, hsl(200 80% 45%) 0%, hsl(180 65% 50%) 50%, hsl(175 70% 55%) 100%);
+
+    /* Modern Shadows - Teal Glow */
+    --shadow-soft: 0 2px 12px 0 hsl(180 65% 50% / 0.08);
+    --shadow-card: 0 4px 20px 0 hsl(180 65% 50% / 0.12);
+    --shadow-hover: 0 8px 40px 0 hsl(180 65% 50% / 0.25);
+    --shadow-glow: 0 0 30px hsl(180 65% 50% / 0.35);
     
     /* Animations */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     --transition-bounce: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
 
-    --radius: 0.75rem;
+    --radius: 0rem;
 
     --sidebar-background: 0 0% 98%;
 

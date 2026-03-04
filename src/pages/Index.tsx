@@ -1,6 +1,7 @@
 import Header from "@/components/Header";
 import Hero from "@/components/Hero";
 import WhyTicketSafe from "@/components/WhyTicketSafe";
+import FeaturedGalaBanner from "@/components/FeaturedGalaBanner";
 import EventsSection from "@/components/EventsSection";
 import Footer from "@/components/Footer";
 import { SEOHead } from "@/components/SEOHead";
@@ -113,6 +114,7 @@ const Index = () => {
         </section>
 
         <WhyTicketSafe />
+        <FeaturedGalaBanner />
         <EventsSection />
       </main>
       <Footer />
