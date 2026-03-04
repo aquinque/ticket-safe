@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Menu, X, Ticket, User, LogOut, ChevronDown, Settings } from "lucide-react";
+import { Menu, X, User, LogOut, ChevronDown, Settings } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useI18n } from "@/contexts/I18nContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -79,7 +79,7 @@ const Header = () => {
             <img
               src="/ticket-safe-logo.png"
               alt="TicketSafe"
-              className="h-10 md:h-12 lg:h-14 w-auto object-contain"
+              className="h-12 md:h-14 lg:h-16 w-auto object-contain"
             />
           </Link>
 
