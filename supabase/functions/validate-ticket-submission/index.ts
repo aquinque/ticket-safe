@@ -107,7 +107,7 @@ serve(async (req) => {
     // Validate event exists and is active
     const { data: event, error: eventError } = await supabase
       .from('events')
-      .select('id, is_active, date, campus, base_price')
+      .select('id, is_active, date, ends_at, campus, base_price')
       .eq('id', eventId)
       .single();
 
@@ -125,9 +125,24 @@ serve(async (req) => {
       );
     }
 
-    // Check if event is in the future
-    const eventDate = new Date(event.date);
-    if (eventDate < new Date()) {
+    // Use ends_at if available; fallback = date + 8 h. Grace period = 6 h after end.
+    const startMs  = new Date(event.date).getTime();
+    const endsAtMs = event.ends_at
+      ? new Date(event.ends_at).getTime()
+      : startMs + 8 * 60 * 60 * 1000;
+    const graceMs  = 6 * 60 * 60 * 1000;
+    const nowMs    = Date.now();
+
+    console.log('[validate-ticket-submission] expiry check', {
+      event_id:  eventId,
+      starts_at: new Date(startMs).toISOString(),
+      ends_at:   new Date(endsAtMs).toISOString(),
+      grace_end: new Date(endsAtMs + graceMs).toISOString(),
+      now:       new Date(nowMs).toISOString(),
+      expired:   nowMs > endsAtMs + graceMs,
+    });
+
+    if (nowMs > endsAtMs + graceMs) {
       return new Response(
         JSON.stringify({ valid: false, errors: ['Cannot sell tickets for past events'] }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
