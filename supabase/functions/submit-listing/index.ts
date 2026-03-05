@@ -251,7 +251,7 @@ serve(async (req) => {
     // -----------------------------------------------------------------------
     const { data: event, error: eventError } = await supabase
       .from("events")
-      .select("id, is_active, date, campus, base_price, title")
+      .select("id, is_active, date, ends_at, campus, base_price, title")
       .eq("id", eventId.trim())
       .single();
 
@@ -263,7 +263,24 @@ serve(async (req) => {
       return jsonResponse({ code: "EXPIRED", message: "This event is no longer active" }, 400);
     }
 
-    if (new Date(event.date) < new Date()) {
+    // Use ends_at if available, otherwise start + 8 h, with a 6 h grace period.
+    const startMs  = new Date(event.date).getTime();
+    const endsAtMs = event.ends_at
+      ? new Date(event.ends_at).getTime()
+      : startMs + 8 * 60 * 60 * 1000;   // default: start + 8 h
+    const graceMs  = 6 * 60 * 60 * 1000; // 6 h grace after event end
+    const nowMs    = Date.now();
+
+    console.log('[submit-listing] event expiry check', {
+      event_id:  eventId,
+      starts_at: new Date(startMs).toISOString(),
+      ends_at:   new Date(endsAtMs).toISOString(),
+      grace_end: new Date(endsAtMs + graceMs).toISOString(),
+      now:       new Date(nowMs).toISOString(),
+      expired:   nowMs > endsAtMs + graceMs,
+    });
+
+    if (nowMs > endsAtMs + graceMs) {
       return jsonResponse({ code: "EXPIRED", message: "Cannot sell tickets for past events" }, 400);
     }
 

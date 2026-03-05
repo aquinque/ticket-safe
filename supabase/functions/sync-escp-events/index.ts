@@ -101,9 +101,14 @@ serve(async (req) => {
     for (const vevent of vevents) {
       const event = new ICAL.Event(vevent);
 
-      // Skip past events (use UTC comparison)
       const startDate = event.startDate.toJSDate();
-      if (startDate < now) continue;
+      // Use DTEND for expiry; fallback = start + 8 h. Grace period = 6 h after end.
+      const endDate   = event.endDate
+        ? event.endDate.toJSDate()
+        : new Date(startDate.getTime() + 8 * 60 * 60 * 1000);
+      const graceEnd  = new Date(endDate.getTime() + 6 * 60 * 60 * 1000);
+      // Skip events whose grace period has passed
+      if (graceEnd < now) continue;
 
       // Category
       let category = 'Other';
@@ -149,7 +154,7 @@ serve(async (req) => {
         description:        event.description || '',
         location,
         start_date:         startDate.toISOString(),
-        end_date:           event.endDate.toJSDate().toISOString(),
+        end_date:           endDate.toISOString(),
         organizer,
         campus,
         category,
@@ -236,6 +241,7 @@ serve(async (req) => {
             title:       ev.title,
             description: ev.description,
             date:        ev.start_date,
+            ends_at:     ev.end_date,
             location:    ev.location,
             category:    ev.category,
             is_active:   true,
@@ -255,6 +261,7 @@ serve(async (req) => {
               title:              ev.title,
               description:        ev.description,
               date:               ev.start_date,
+              ends_at:            ev.end_date,
               location:           ev.location,
               category:           ev.category,
               university:         'ESCP Business School',
