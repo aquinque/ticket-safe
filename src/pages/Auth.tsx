@@ -30,6 +30,7 @@ const Auth = () => {
   const [fullName, setFullName] = useState("");
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [pendingConfirmEmail, setPendingConfirmEmail] = useState<string | null>(null);
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
 
@@ -64,6 +65,24 @@ const Auth = () => {
   };
 
   const passwordStrength = getPasswordStrength(password);
+
+  const handleResendConfirmation = async () => {
+    if (!pendingConfirmEmail) return;
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: pendingConfirmEmail,
+        options: { emailRedirectTo: `${window.location.origin}/profile` },
+      });
+      if (error) throw error;
+      toast.success("Confirmation email resent. Check your inbox.");
+    } catch {
+      toast.error("Could not resend confirmation email. Try again later.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -127,12 +146,19 @@ const Auth = () => {
         });
 
         if (error) {
+          if (
+            error.message?.toLowerCase().includes('email not confirmed') ||
+            (error as { code?: string }).code === 'email_not_confirmed'
+          ) {
+            setPendingConfirmEmail(email.trim());
+            setLoading(false);
+            return;
+          }
           // Increment failed login attempts
           await supabase.rpc('increment_failed_login', {
             user_email: email.trim()
           });
-          
-          toast.error("Invalid credentials. Please check your email and password.");
+          toast.error("Invalid email or password.");
           setLoading(false);
           return;
         }
@@ -251,8 +277,8 @@ const Auth = () => {
             navigate("/profile", { replace: true });
           }, 100);
         } else if (data.user && !data.session) {
-          // Email confirmation required
-          toast.success("Account created! Please check your ESCP email to confirm your account.");
+          // Email confirmation required — show resend UI
+          setPendingConfirmEmail(email.trim());
         }
       }
     } catch (error) {
@@ -281,7 +307,28 @@ const Auth = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {showForgotPassword ? (
+          {pendingConfirmEmail ? (
+            <div className="space-y-4 text-center">
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Check your inbox</p>
+                <p className="text-sm text-muted-foreground">
+                  A confirmation link was sent to <strong>{pendingConfirmEmail}</strong>.
+                  Click it, then come back to log in.
+                </p>
+              </div>
+              <Button onClick={handleResendConfirmation} variant="outline" className="w-full" disabled={loading}>
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Resend confirmation email
+              </Button>
+              <button
+                type="button"
+                onClick={() => { setPendingConfirmEmail(null); setIsLogin(true); }}
+                className="text-sm text-primary hover:underline"
+              >
+                Back to sign in
+              </button>
+            </div>
+          ) : showForgotPassword ? (
             <form onSubmit={handleForgotPassword} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="reset-email">
@@ -425,7 +472,7 @@ const Auth = () => {
            </form>
           )}
 
-           {!showForgotPassword && (
+           {!showForgotPassword && !pendingConfirmEmail && (
              <>
                {isLogin && (
                  <div className="mt-3 text-center">
@@ -444,6 +491,7 @@ const Auth = () => {
                    onClick={() => {
                      setIsLogin(!isLogin);
                      setShowForgotPassword(false);
+                     setPendingConfirmEmail(null);
                    }}
                    className="text-primary hover:underline"
                  >
