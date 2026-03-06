@@ -464,15 +464,16 @@ serve(async (req) => {
     const { data: listing, error: insertError } = await supabase
       .from("tickets")
       .insert({
-        event_id: eventId.trim(),
-        seller_id: user.id,
-        selling_price: price,
-        quantity: qty,
-        notes: sanitizedNotes,
-        status: "available",
-        qr_hash: qrHash,
-        qr_verified: qrVerified,
-        needs_review: needsReview,
+        event_id:            eventId.trim(),
+        seller_id:           user.id,
+        selling_price:       price,
+        quantity:            qty,
+        notes:               sanitizedNotes,
+        status:              "available",
+        qr_hash:             qrHash,
+        qr_verified:         qrVerified,
+        needs_review:        needsReview,
+        verification_status: qrVerified ? "verified" : "pending",
       })
       .select(
         "id, event_id, seller_id, selling_price, quantity, notes, status, qr_verified, needs_review, created_at, updated_at, event:events(id, title, date, location, category, university, campus)"
@@ -484,7 +485,17 @@ serve(async (req) => {
       if (insertError.code === "23505") {
         return jsonResponse({ code: "ALREADY_LISTED", message: "This ticket is already listed on the marketplace" }, 409);
       }
-      throw insertError;
+      // Log + surface the real DB error for debugging
+      console.error("[submit-listing] Insert failed:", {
+        pg_code:    insertError.code,
+        pg_message: insertError.message,
+        pg_details: insertError.details,
+        pg_hint:    insertError.hint,
+      });
+      return jsonResponse(
+        { code: "INTERNAL_ERROR", message: `Database error: ${insertError.message}` },
+        500
+      );
     }
 
     // Return without exposing the raw hash
