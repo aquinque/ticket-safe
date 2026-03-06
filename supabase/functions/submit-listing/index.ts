@@ -314,11 +314,13 @@ serve(async (req) => {
 
     // 6b. Signature verification
     let qrVerified = false;
+    let qrType = "plain"; // for debug logging
     const signingSecret = Deno.env.get("TICKET_SIGNING_SECRET");
 
     const JWT_RE = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/;
 
     if (JWT_RE.test(trimmedQR)) {
+      qrType = "jwt";
       // --- Platform JWT ---
       if (signingSecret) {
         const { valid, payload } = await verifyJWTHS256(trimmedQR, signingSecret);
@@ -376,6 +378,7 @@ serve(async (req) => {
       // --- JSON or plain-text QR ---
       try {
         const qrJson = JSON.parse(trimmedQR) as Record<string, unknown>;
+        qrType = "json";
 
         if (typeof qrJson !== "object" || qrJson === null || Array.isArray(qrJson)) {
           return jsonResponse({ code: "INVALID_FORMAT", message: "QR code contains an invalid data format" }, 400);
@@ -447,21 +450,32 @@ serve(async (req) => {
     // -----------------------------------------------------------------------
     // 8. Insert listing
     // -----------------------------------------------------------------------
+    const needsReview = !qrVerified;
+
+    console.log("[submit-listing] qr decision", {
+      qr_type:      qrType,
+      qr_verified:  qrVerified,
+      needs_review: needsReview,
+      event_id:     eventId,
+      event_title:  event.title,
+      seller_id:    user.id,
+    });
+
     const { data: listing, error: insertError } = await supabase
       .from("tickets")
       .insert({
         event_id: eventId.trim(),
         seller_id: user.id,
-        original_price: event.base_price ?? 0,
         selling_price: price,
         quantity: qty,
         notes: sanitizedNotes,
         status: "available",
         qr_hash: qrHash,
         qr_verified: qrVerified,
+        needs_review: needsReview,
       })
       .select(
-        "id, event_id, seller_id, original_price, selling_price, quantity, notes, status, qr_verified, created_at, updated_at, event:events(id, title, date, location, category, university, campus)"
+        "id, event_id, seller_id, selling_price, quantity, notes, status, qr_verified, needs_review, created_at, updated_at, event:events(id, title, date, location, category, university, campus)"
       )
       .single();
 

@@ -54,6 +54,7 @@ import {
   Search,
   X,
   CalendarPlus,
+  Camera,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Event } from "@/integrations/supabase/types/events";
@@ -62,6 +63,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { SEOHead } from "@/components/SEOHead";
 import { decodeQRFromImage, isQRTextValid } from "@/lib/qrValidator";
+import { QRScanner } from "@/components/QRScanner";
 import {
   QR_ERROR_MESSAGES,
   CreateListingResponse,
@@ -128,7 +130,7 @@ const Sell = () => {
 
   // QR state
   const [qrText, setQrText] = useState("");
-  const [qrInputMode, setQrInputMode] = useState<"text" | "image">("text");
+  const [qrInputMode, setQrInputMode] = useState<"text" | "image" | "camera">("text");
   const [qrImageFile, setQrImageFile] = useState<File | null>(null);
   const [qrDecoding, setQrDecoding] = useState(false);
   const [qrDecodeError, setQrDecodeError] = useState<string | null>(null);
@@ -136,6 +138,7 @@ const Sell = () => {
 
   // Success state
   const [createdListingId, setCreatedListingId] = useState<string | null>(null);
+  const [listingNeedsReview, setListingNeedsReview] = useState(false);
 
   const [formData, setFormData] = useState({
     eventId: "",
@@ -308,19 +311,25 @@ const Sell = () => {
   const handleImageUpload = async (file: File) => {
     setQrImageFile(file);
     setQrDecodeError(null);
+    setQrText("");
     setQrDecoding(true);
+    console.log("[Sell] image upload received:", file.name, file.size, file.type);
     try {
       const decoded = await decodeQRFromImage(file);
       if (decoded) {
+        console.log("[Sell] decode success:", decoded);
         setQrText(decoded);
-        toast.success("QR code decoded from image.");
+        toast.success("QR code decoded.");
       } else {
+        console.warn("[Sell] decode returned null — no QR found in image");
         setQrDecodeError(
-          "No QR code found in the image. Please try a clearer photo or paste the text."
+          "No QR code detected in this image. Make sure the QR code is clearly visible, well-lit, and not blurry. Try uploading a screenshot instead of a photo."
         );
       }
     } catch (err: unknown) {
-      setQrDecodeError(err instanceof Error ? err.message : "Failed to decode image.");
+      const msg = err instanceof Error ? err.message : "Failed to decode image.";
+      console.error("[Sell] decode threw:", msg);
+      setQrDecodeError(msg);
     } finally {
       setQrDecoding(false);
     }
@@ -343,7 +352,7 @@ const Sell = () => {
     }
 
     if (!isQRTextValid(qrText)) {
-      toast.error("Please provide the QR code text from your ticket");
+      toast.error("QR not detected — please scan, upload, or paste the QR code from your ticket.");
       return;
     }
 
@@ -366,6 +375,18 @@ const Sell = () => {
         return;
       }
 
+      const payload = {
+        eventId: formData.eventId,
+        sellingPrice: price,
+        quantity: parseInt(formData.quantity, 10),
+        notes: formData.notes || undefined,
+        qrText,
+      };
+      console.log("[Sell] submitting to submit-listing:", {
+        ...payload,
+        qrText: qrText.length > 60 ? qrText.slice(0, 60) + "…" : qrText,
+      });
+
       const res = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/submit-listing`,
         {
@@ -374,23 +395,23 @@ const Sell = () => {
             "Content-Type": "application/json",
             Authorization: `Bearer ${accessToken}`,
           },
-          body: JSON.stringify({
-            eventId: formData.eventId,
-            sellingPrice: price,
-            quantity: parseInt(formData.quantity, 10),
-            notes: formData.notes || undefined,
-            qrText,
-          }),
+          body: JSON.stringify(payload),
         }
       );
 
       const result: CreateListingResponse = await res.json();
 
       if (result.code === "VALID") {
+        const pendingReview = !result.listing.qr_verified;
+        setListingNeedsReview(pendingReview);
         setCreatedListingId(result.listing.id);
         // Immediately refresh the marketplace so the listing is visible
         refetchListings();
-        toast.success("Your ticket is now live on the marketplace!");
+        if (pendingReview) {
+          toast.info("Ticket uploaded. Pending verification by our team.");
+        } else {
+          toast.success("Your ticket is now live on the marketplace!");
+        }
         // Reset form
         setFormData({ eventId: "", sellingPrice: "", quantity: "1", notes: "" });
         setSelectedEvent(null);
@@ -421,13 +442,27 @@ const Sell = () => {
         <Header />
         <main className="flex-1 flex items-center justify-center py-16">
           <div className="container mx-auto px-4 max-w-lg text-center">
-            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-              <ShieldCheck className="w-10 h-10 text-green-600" />
-            </div>
-            <h1 className="text-3xl font-bold mb-4">Ticket Listed!</h1>
-            <p className="text-muted-foreground mb-8">
-              Your ticket is now visible to all buyers in the marketplace.
-            </p>
+            {listingNeedsReview ? (
+              <>
+                <div className="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <Clock className="w-10 h-10 text-amber-600" />
+                </div>
+                <h1 className="text-3xl font-bold mb-4">Ticket Submitted</h1>
+                <p className="text-muted-foreground mb-8">
+                  Your ticket is pending verification. It will appear in the marketplace once reviewed by our team.
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <ShieldCheck className="w-10 h-10 text-green-600" />
+                </div>
+                <h1 className="text-3xl font-bold mb-4">Ticket Listed!</h1>
+                <p className="text-muted-foreground mb-8">
+                  Your ticket is now visible to all buyers in the marketplace.
+                </p>
+              </>
+            )}
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button variant="hero" asChild>
                 <Link to="/marketplace/buy">
@@ -439,6 +474,7 @@ const Sell = () => {
                 variant="outline"
                 onClick={() => {
                   setCreatedListingId(null);
+                  setListingNeedsReview(false);
                 }}
               >
                 List Another Ticket
@@ -738,7 +774,7 @@ const Sell = () => {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {/* Mode toggle */}
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
                     <Button
                       type="button"
                       size="sm"
@@ -755,9 +791,18 @@ const Sell = () => {
                     >
                       Upload image
                     </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={qrInputMode === "camera" ? "default" : "outline"}
+                      onClick={() => setQrInputMode("camera")}
+                    >
+                      <Camera className="w-3.5 h-3.5 mr-1.5" />
+                      Scan with camera
+                    </Button>
                   </div>
 
-                  {qrInputMode === "text" ? (
+                  {qrInputMode === "text" && (
                     <div>
                       <Label htmlFor="qrText">
                         QR code text
@@ -776,7 +821,9 @@ const Sell = () => {
                         link / text, and paste it here.
                       </p>
                     </div>
-                  ) : (
+                  )}
+
+                  {qrInputMode === "image" && (
                     <div>
                       <Label>Upload QR code image</Label>
                       <div
@@ -829,12 +876,26 @@ const Sell = () => {
                     </div>
                   )}
 
+                  {qrInputMode === "camera" && (
+                    <QRScanner
+                      onScan={(text) => {
+                        setQrText(text);
+                        setQrInputMode("text");
+                        toast.success("QR code scanned successfully.");
+                      }}
+                      onClose={() => setQrInputMode("text")}
+                    />
+                  )}
+
                   {qrText && isQRTextValid(qrText) && (
                     <Alert className="bg-green-50 border-green-200">
                       <CheckCircle2 className="w-4 h-4 text-green-600" />
-                      <AlertDescription className="text-green-800">
-                        QR code text received ({qrText.length} chars). Authenticity
-                        will be verified on submission.
+                      <AlertDescription className="text-green-800 space-y-1">
+                        <p className="font-medium">QR code received ({qrText.length} chars)</p>
+                        <p className="font-mono text-xs break-all text-green-700">
+                          {qrText.length > 80 ? qrText.slice(0, 80) + "…" : qrText}
+                        </p>
+                        <p className="text-xs">Authenticity will be verified on submission.</p>
                       </AlertDescription>
                     </Alert>
                   )}

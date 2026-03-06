@@ -2,48 +2,28 @@
  * Client-side QR utilities.
  *
  * - decodeQRFromImage: Extract QR text from an image file.
- *   Uses the BarcodeDetector Web API (Chrome 88+ / Edge 88+).
- *   Falls back gracefully on unsupported browsers.
+ *   Uses html5-qrcode (works in ALL browsers — no BarcodeDetector needed).
+ *
+ * - isQRTextValid: Quick sanity check before sending to the server.
  *
  * - parseQRPayload: Best-effort parse of raw QR text.
- *   Returns a typed object if the payload is JSON, otherwise
- *   returns the raw string in a wrapper so callers can display it.
- *
- * - isQRTextValid: Quick client-side sanity check before
- *   sending to the server.
  *
  * NOTE: Actual authenticity verification (HMAC, DB lookup, etc.)
  * is always performed server-side in the submit-listing edge function.
  */
 
-// ---------------------------------------------------------------------------
-// BarcodeDetector type shim (not yet in TypeScript lib)
-// ---------------------------------------------------------------------------
-
-interface DetectedBarcode {
-  rawValue: string;
-  format: string;
-}
-
-interface BarcodeDetectorConstructor {
-  new(options?: { formats?: string[] }): {
-    detect(source: ImageBitmapSource): Promise<DetectedBarcode[]>;
-  };
-  getSupportedFormats(): Promise<string[]>;
-}
-
-declare const BarcodeDetector: BarcodeDetectorConstructor | undefined;
+import { Html5Qrcode } from "html5-qrcode";
 
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
 /**
- * Attempt to decode a QR code from an uploaded image file.
+ * Decode a QR code from an uploaded image file using html5-qrcode.
+ * Works in Chrome, Firefox, Safari, Edge — no BarcodeDetector required.
  *
- * @param file  An image file (JPEG, PNG, WebP, …) containing a QR code.
- * @returns The decoded string, or null if no QR was found / decoding failed.
- * @throws  Error with a user-friendly message when the browser API is absent.
+ * @returns The decoded string, or null if no QR code was detected.
+ * @throws  Error on invalid file type / file too large.
  */
 export async function decodeQRFromImage(file: File): Promise<string | null> {
   if (!isImageFile(file)) {
@@ -53,26 +33,41 @@ export async function decodeQRFromImage(file: File): Promise<string | null> {
     throw new Error("Image file is too large (max 10 MB).");
   }
 
-  if (typeof BarcodeDetector === "undefined") {
-    throw new Error(
-      "QR code image detection is not supported in your browser. " +
-        "Please use Chrome or Edge, or paste the QR code text directly."
-    );
-  }
+  console.log(
+    "[qrValidator] decodeQRFromImage → received:",
+    file.name,
+    `${(file.size / 1024).toFixed(1)} KB`,
+    file.type,
+  );
 
-  let bitmap: ImageBitmap;
-  try {
-    bitmap = await createImageBitmap(file);
-  } catch {
-    throw new Error("Could not read the image. Please try a different file.");
-  }
+  // html5-qrcode.scanFile() needs a mounted DOM element (even a hidden one).
+  const tempId = `_qr_decode_${Date.now()}`;
+  const el = document.createElement("div");
+  el.id = tempId;
+  el.style.cssText = "display:none;position:absolute;left:-9999px;";
+  document.body.appendChild(el);
 
   try {
-    const detector = new BarcodeDetector({ formats: ["qr_code"] });
-    const results = await detector.detect(bitmap);
-    return results[0]?.rawValue ?? null;
-  } catch {
-    return null;
+    const scanner = new Html5Qrcode(tempId, { verbose: false });
+    try {
+      const result = await scanner.scanFile(file, /* showImage= */ false);
+      console.log("[qrValidator] decode success →", result);
+      return result;
+    } catch (err) {
+      // html5-qrcode rejects with a plain string, not an Error object, when
+      // no QR code is found.  Log it but return null — the caller handles UI.
+      console.warn(
+        "[qrValidator] decode failed →",
+        err instanceof Error ? err.message : String(err),
+      );
+      return null;
+    }
+  } finally {
+    try {
+      document.body.removeChild(el);
+    } catch {
+      /* already removed — ignore */
+    }
   }
 }
 
@@ -108,7 +103,7 @@ export function parseQRPayload(text: string): QRPayloadSummary {
         raw,
         type: "jwt",
         fields: Object.fromEntries(
-          Object.entries(json as Record<string, unknown>).map(([k, v]) => [k, String(v)])
+          Object.entries(json as Record<string, unknown>).map(([k, v]) => [k, String(v)]),
         ),
       };
     } catch {
@@ -123,7 +118,7 @@ export function parseQRPayload(text: string): QRPayloadSummary {
         raw,
         type: "json",
         fields: Object.fromEntries(
-          Object.entries(json).map(([k, v]) => [k, String(v)])
+          Object.entries(json).map(([k, v]) => [k, String(v)]),
         ),
       };
     }
