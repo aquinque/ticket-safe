@@ -136,6 +136,16 @@ const Sell = () => {
   const [qrDecodeError, setQrDecodeError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // QR verification status (PART 4)
+  type QRVerifyStatus = {
+    status: "valid" | "wrong_event" | "expired" | "already_used" | "unreadable_qr" | "invalid";
+    qr_type?: "platform" | "external";
+    needs_review?: boolean;
+    message: string;
+  };
+  const [qrVerifyStatus, setQrVerifyStatus] = useState<QRVerifyStatus | null>(null);
+  const [qrVerifying, setQrVerifying] = useState(false);
+
   // Success state
   const [createdListingId, setCreatedListingId] = useState<string | null>(null);
   const [listingNeedsReview, setListingNeedsReview] = useState(false);
@@ -257,6 +267,48 @@ const Sell = () => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // ---------------------------------------------------------------------------
+  // Auto-verify QR when text is ready
+  // ---------------------------------------------------------------------------
+
+  useEffect(() => {
+    if (!isQRTextValid(qrText) || !user) {
+      setQrVerifyStatus(null);
+      return;
+    }
+
+    let cancelled = false;
+    const verify = async () => {
+      setQrVerifying(true);
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData.session?.access_token;
+        if (!token || cancelled) return;
+
+        const res = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verify-qr`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ qrText, eventId: formData.eventId || undefined }),
+          }
+        );
+        const data: QRVerifyStatus = await res.json();
+        if (!cancelled) setQrVerifyStatus(data);
+      } catch {
+        // silent — verify is best-effort; submit-listing is the source of truth
+        if (!cancelled) setQrVerifyStatus(null);
+      } finally {
+        if (!cancelled) setQrVerifying(false);
+      }
+    };
+
+    // Debounce 400ms (user may be typing in paste mode)
+    const t = setTimeout(verify, 400);
+    return () => { cancelled = true; clearTimeout(t); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [qrText, formData.eventId, user]);
 
   // ---------------------------------------------------------------------------
   // Create stub event when seller's event isn't listed
@@ -888,16 +940,60 @@ const Sell = () => {
                   )}
 
                   {qrText && isQRTextValid(qrText) && (
-                    <Alert className="bg-green-50 border-green-200">
-                      <CheckCircle2 className="w-4 h-4 text-green-600" />
-                      <AlertDescription className="text-green-800 space-y-1">
-                        <p className="font-medium">QR code received ({qrText.length} chars)</p>
-                        <p className="font-mono text-xs break-all text-green-700">
-                          {qrText.length > 80 ? qrText.slice(0, 80) + "…" : qrText}
-                        </p>
-                        <p className="text-xs">Authenticity will be verified on submission.</p>
-                      </AlertDescription>
-                    </Alert>
+                    <>
+                      {/* Raw value preview */}
+                      <div className="rounded border bg-muted/40 px-3 py-2 font-mono text-xs break-all text-muted-foreground">
+                        {qrText.length > 100 ? qrText.slice(0, 100) + "…" : qrText}
+                      </div>
+
+                      {/* Verification status */}
+                      {qrVerifying && (
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          Verifying QR code…
+                        </div>
+                      )}
+
+                      {!qrVerifying && qrVerifyStatus && (
+                        <>
+                          {qrVerifyStatus.status === "valid" && (
+                            <Alert className={qrVerifyStatus.needs_review ? "bg-amber-50 border-amber-200" : "bg-green-50 border-green-200"}>
+                              {qrVerifyStatus.needs_review
+                                ? <Clock className="w-4 h-4 text-amber-600" />
+                                : <CheckCircle2 className="w-4 h-4 text-green-600" />
+                              }
+                              <AlertDescription className={qrVerifyStatus.needs_review ? "text-amber-800" : "text-green-800"}>
+                                {qrVerifyStatus.message}
+                              </AlertDescription>
+                            </Alert>
+                          )}
+                          {qrVerifyStatus.status === "already_used" && (
+                            <Alert variant="destructive">
+                              <AlertTriangle className="w-4 h-4" />
+                              <AlertDescription>{qrVerifyStatus.message}</AlertDescription>
+                            </Alert>
+                          )}
+                          {qrVerifyStatus.status === "expired" && (
+                            <Alert variant="destructive">
+                              <AlertTriangle className="w-4 h-4" />
+                              <AlertDescription>{qrVerifyStatus.message}</AlertDescription>
+                            </Alert>
+                          )}
+                          {qrVerifyStatus.status === "wrong_event" && (
+                            <Alert variant="destructive">
+                              <AlertTriangle className="w-4 h-4" />
+                              <AlertDescription>{qrVerifyStatus.message}</AlertDescription>
+                            </Alert>
+                          )}
+                          {(qrVerifyStatus.status === "invalid" || qrVerifyStatus.status === "unreadable_qr") && (
+                            <Alert variant="destructive">
+                              <AlertTriangle className="w-4 h-4" />
+                              <AlertDescription>{qrVerifyStatus.message}</AlertDescription>
+                            </Alert>
+                          )}
+                        </>
+                      )}
+                    </>
                   )}
                 </CardContent>
               </Card>
