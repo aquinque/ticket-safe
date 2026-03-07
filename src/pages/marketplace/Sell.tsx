@@ -62,7 +62,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { SEOHead } from "@/components/SEOHead";
-import { decodeQRFromImage, isQRTextValid } from "@/lib/qrValidator";
+import { decodeQRFromFile, isQRTextValid } from "@/lib/qrValidator";
 import { QRScanner } from "@/components/QRScanner";
 import {
   QR_ERROR_MESSAGES,
@@ -360,26 +360,29 @@ const Sell = () => {
   // QR image upload → decode
   // ---------------------------------------------------------------------------
 
-  const handleImageUpload = async (file: File) => {
+  const handleFileUpload = async (file: File) => {
     setQrImageFile(file);
     setQrDecodeError(null);
     setQrText("");
     setQrDecoding(true);
-    console.log("[Sell] image upload received:", file.name, file.size, file.type);
+    const isPDF = file.type === "application/pdf";
+    console.log("[Sell] file upload received:", file.name, file.size, file.type);
     try {
-      const decoded = await decodeQRFromImage(file);
+      const decoded = await decodeQRFromFile(file);
       if (decoded) {
-        console.log("[Sell] decode success:", decoded);
+        console.log("[Sell] decode success:", decoded.slice(0, 80));
         setQrText(decoded);
-        toast.success("QR code decoded.");
+        toast.success("Ticket accepted");
       } else {
-        console.warn("[Sell] decode returned null — no QR found in image");
+        console.warn("[Sell] decode returned null — no QR found");
         setQrDecodeError(
-          "No QR code detected in this image. Make sure the QR code is clearly visible, well-lit, and not blurry. Try uploading a screenshot instead of a photo."
+          isPDF
+            ? "No QR code detected in this PDF. Make sure the ticket PDF contains a QR code and is not password-protected."
+            : "No QR code detected in this image. Make sure the QR code is clearly visible and not blurry. Try uploading a cleaner screenshot."
         );
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to decode image.";
+      const msg = err instanceof Error ? err.message : "Failed to read file.";
       console.error("[Sell] decode threw:", msg);
       setQrDecodeError(msg);
     } finally {
@@ -494,27 +497,20 @@ const Sell = () => {
         <Header />
         <main className="flex-1 flex items-center justify-center py-16">
           <div className="container mx-auto px-4 max-w-lg text-center">
-            {listingNeedsReview ? (
-              <>
-                <div className="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <Clock className="w-10 h-10 text-amber-600" />
-                </div>
-                <h1 className="text-3xl font-bold mb-4">Ticket Submitted</h1>
-                <p className="text-muted-foreground mb-8">
-                  Your ticket is pending verification. It will appear in the marketplace once reviewed by our team.
-                </p>
-              </>
-            ) : (
-              <>
+            <>
                 <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
                   <ShieldCheck className="w-10 h-10 text-green-600" />
                 </div>
-                <h1 className="text-3xl font-bold mb-4">Ticket Listed!</h1>
+                <h1 className="text-3xl font-bold mb-4">Ticket published successfully!</h1>
                 <p className="text-muted-foreground mb-8">
                   Your ticket is now visible to all buyers in the marketplace.
+                  {listingNeedsReview && (
+                    <span className="block mt-2 text-sm">
+                      Our team will also review the ticket within 24h.
+                    </span>
+                  )}
                 </p>
               </>
-            )}
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button variant="hero" asChild>
                 <Link to="/marketplace/buy">
@@ -886,7 +882,7 @@ const Sell = () => {
                           <div className="flex flex-col items-center gap-2">
                             <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
                             <p className="text-sm text-muted-foreground">
-                              Decoding QR code…
+                              Reading ticket…
                             </p>
                           </div>
                         ) : qrImageFile ? (
@@ -901,10 +897,10 @@ const Sell = () => {
                           <div className="flex flex-col items-center gap-2">
                             <Upload className="w-8 h-8 text-muted-foreground" />
                             <p className="text-sm text-muted-foreground">
-                              Click to upload a QR code image
+                              Upload your ticket (PDF or screenshot)
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              JPEG, PNG, WebP · max 10 MB
+                              PDF, JPEG, PNG, WebP · max 25 MB
                             </p>
                           </div>
                         )}
@@ -912,11 +908,11 @@ const Sell = () => {
                       <input
                         ref={fileInputRef}
                         type="file"
-                        accept="image/jpeg,image/png,image/webp"
+                        accept="image/jpeg,image/png,image/webp,application/pdf"
                         className="hidden"
                         onChange={(e) => {
                           const file = e.target.files?.[0];
-                          if (file) handleImageUpload(file);
+                          if (file) handleFileUpload(file);
                         }}
                       />
                       {qrDecodeError && (
@@ -933,7 +929,7 @@ const Sell = () => {
                       onScan={(text) => {
                         setQrText(text);
                         setQrInputMode("text");
-                        toast.success("QR code scanned successfully.");
+                        toast.success("Ticket accepted");
                       }}
                       onClose={() => setQrInputMode("text")}
                     />
@@ -957,38 +953,56 @@ const Sell = () => {
                       {!qrVerifying && qrVerifyStatus && (
                         <>
                           {qrVerifyStatus.status === "valid" && (
-                            <Alert className={qrVerifyStatus.needs_review ? "bg-amber-50 border-amber-200" : "bg-green-50 border-green-200"}>
-                              {qrVerifyStatus.needs_review
-                                ? <Clock className="w-4 h-4 text-amber-600" />
-                                : <CheckCircle2 className="w-4 h-4 text-green-600" />
-                              }
-                              <AlertDescription className={qrVerifyStatus.needs_review ? "text-amber-800" : "text-green-800"}>
-                                {qrVerifyStatus.message}
+                            <Alert className="bg-green-50 border-green-200">
+                              <CheckCircle2 className="w-4 h-4 text-green-600" />
+                              <AlertDescription className="text-green-800 font-medium">
+                                Ticket accepted
+                                {qrVerifyStatus.needs_review && (
+                                  <span className="font-normal ml-1 text-green-700">
+                                    — will be reviewed before going live
+                                  </span>
+                                )}
                               </AlertDescription>
                             </Alert>
                           )}
                           {qrVerifyStatus.status === "already_used" && (
                             <Alert variant="destructive">
                               <AlertTriangle className="w-4 h-4" />
-                              <AlertDescription>{qrVerifyStatus.message}</AlertDescription>
+                              <AlertDescription>
+                                <span className="font-medium">Ticket rejected</span> — already sold or used
+                              </AlertDescription>
                             </Alert>
                           )}
                           {qrVerifyStatus.status === "expired" && (
                             <Alert variant="destructive">
                               <AlertTriangle className="w-4 h-4" />
-                              <AlertDescription>{qrVerifyStatus.message}</AlertDescription>
+                              <AlertDescription>
+                                <span className="font-medium">Ticket expired</span> — event has already taken place
+                              </AlertDescription>
                             </Alert>
                           )}
                           {qrVerifyStatus.status === "wrong_event" && (
                             <Alert variant="destructive">
                               <AlertTriangle className="w-4 h-4" />
-                              <AlertDescription>{qrVerifyStatus.message}</AlertDescription>
+                              <AlertDescription>
+                                <span className="font-medium">Wrong event</span> — this QR belongs to a different event
+                              </AlertDescription>
                             </Alert>
                           )}
-                          {(qrVerifyStatus.status === "invalid" || qrVerifyStatus.status === "unreadable_qr") && (
+                          {qrVerifyStatus.status === "invalid" && (
                             <Alert variant="destructive">
                               <AlertTriangle className="w-4 h-4" />
-                              <AlertDescription>{qrVerifyStatus.message}</AlertDescription>
+                              <AlertDescription>
+                                <span className="font-medium">Ticket rejected</span> — invalid or fraudulent QR code
+                              </AlertDescription>
+                            </Alert>
+                          )}
+                          {qrVerifyStatus.status === "unreadable_qr" && (
+                            <Alert variant="destructive">
+                              <AlertTriangle className="w-4 h-4" />
+                              <AlertDescription>
+                                <span className="font-medium">QR unreadable</span> — try uploading a clearer image
+                              </AlertDescription>
                             </Alert>
                           )}
                         </>
