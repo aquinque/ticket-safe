@@ -947,8 +947,8 @@ const Sell = () => {
               {(() => {
                 const price = parseFloat(formData.sellingPrice);
                 const qty = parseInt(formData.quantity, 10) || 1;
-                if (!isFinite(price) || price <= 0) return null;
-                const bd = calcBreakdown(price, qty);
+                const hasPrice = isFinite(price) && price > 0;
+                const bd = hasPrice ? calcBreakdown(price, qty) : null;
                 return (
                   <Card>
                     <CardHeader className="pb-3">
@@ -959,15 +959,15 @@ const Sell = () => {
                         <span className="text-muted-foreground">
                           Listing price{qty > 1 ? ` × ${qty}` : ""}
                         </span>
-                        <span>€{bd.listPriceEuros.toFixed(2)}</span>
+                        <span>{bd ? `€${bd.listPriceEuros.toFixed(2)}` : "—"}</span>
                       </div>
                       <div className="flex justify-between text-destructive/80">
                         <span>Platform commission (5%)</span>
-                        <span>−€{bd.sellerCommissionEuros.toFixed(2)}</span>
+                        <span>{bd ? `−€${bd.sellerCommissionEuros.toFixed(2)}` : "—"}</span>
                       </div>
                       <div className="flex justify-between font-bold text-green-700 border-t pt-2 mt-1">
                         <span>You receive</span>
-                        <span>€{bd.sellerPayoutEuros.toFixed(2)}</span>
+                        <span>{bd ? `€${bd.sellerPayoutEuros.toFixed(2)}` : "—"}</span>
                       </div>
                     </CardContent>
                   </Card>

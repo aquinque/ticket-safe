@@ -39,7 +39,7 @@ const EventsCatalog = () => {
   });
 
   const handleEventClick = (eventId: string) => {
-    navigate(`/event/${eventId}`);
+    navigate(`/event/${eventId}/tickets`);
   };
 
   const handleBuyTickets = (eventId: string, hasTickets: boolean) => {
