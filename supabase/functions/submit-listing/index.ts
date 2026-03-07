@@ -453,7 +453,11 @@ serve(async (req) => {
       seller_id:    user.id,
     });
 
-    const { data: listing, error: insertError } = await supabase
+    // ── Try full insert (with QR columns) ──────────────────────────────────
+    // Falls back to minimal insert if optional columns don't exist yet (42703).
+    let listing: Record<string, unknown> | null = null;
+
+    const fullInsert = await supabase
       .from("tickets")
       .insert({
         event_id:            eventId.trim(),
@@ -472,25 +476,54 @@ serve(async (req) => {
       )
       .single();
 
-    if (insertError) {
-      // Race condition: another insert with same qr_hash won
-      if (insertError.code === "23505") {
+    if (fullInsert.error) {
+      // Duplicate QR hash
+      if (fullInsert.error.code === "23505") {
         return jsonResponse({ code: "ALREADY_LISTED", message: "This ticket is already listed on the marketplace" }, 409);
       }
-      // Log + surface the real DB error for debugging
-      console.error("[submit-listing] Insert failed:", {
-        pg_code:    insertError.code,
-        pg_message: insertError.message,
-        pg_details: insertError.details,
-        pg_hint:    insertError.hint,
-      });
-      return jsonResponse(
-        { code: "INTERNAL_ERROR", message: `Database error: ${insertError.message}` },
-        500
-      );
+      // Column does not exist → schema not yet migrated, retry with minimal columns
+      if (fullInsert.error.code === "42703") {
+        console.warn("[submit-listing] Optional columns missing, falling back to minimal insert");
+        const minInsert = await supabase
+          .from("tickets")
+          .insert({
+            event_id:      eventId.trim(),
+            seller_id:     user.id,
+            selling_price: price,
+            status:        "available",
+          })
+          .select(
+            "id, event_id, seller_id, selling_price, status, created_at, updated_at, event:events(id, title, date, location, category, university, campus)"
+          )
+          .single();
+
+        if (minInsert.error) {
+          console.error("[submit-listing] Minimal insert also failed:", {
+            pg_code:    minInsert.error.code,
+            pg_message: minInsert.error.message,
+          });
+          return jsonResponse(
+            { code: "INTERNAL_ERROR", message: `Database error: ${minInsert.error.message}` },
+            500
+          );
+        }
+        listing = minInsert.data as Record<string, unknown>;
+      } else {
+        console.error("[submit-listing] Insert failed:", {
+          pg_code:    fullInsert.error.code,
+          pg_message: fullInsert.error.message,
+          pg_details: fullInsert.error.details,
+          pg_hint:    fullInsert.error.hint,
+        });
+        return jsonResponse(
+          { code: "INTERNAL_ERROR", message: `Database error: ${fullInsert.error.message}` },
+          500
+        );
+      }
+    } else {
+      listing = fullInsert.data as Record<string, unknown>;
     }
 
-    // Return without exposing the raw hash
     return jsonResponse({ code: "VALID", listing }, 201);
 
   } catch (err) {

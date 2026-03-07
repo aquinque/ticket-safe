@@ -47,9 +47,6 @@ import {
   ExternalLink,
   Loader2,
   ShieldCheck,
-  PencilLine,
-  CreditCard,
-  BadgeCheck,
   Clock,
   Search,
   X,
@@ -90,18 +87,6 @@ const notesSchema = z
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// Stripe account status type
-// ---------------------------------------------------------------------------
-
-interface StripeAccountStatus {
-  has_account: boolean;
-  charges_enabled: boolean;
-  payouts_enabled: boolean;
-  details_submitted: boolean;
-  onboarding_status: "pending" | "restricted" | "complete";
-}
-
-// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
@@ -122,11 +107,6 @@ const Sell = () => {
 
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Stripe onboarding state
-  const [stripeStatus, setStripeStatus] = useState<StripeAccountStatus | null>(null);
-  const [stripeLoading, setStripeLoading] = useState(true);
-  const [onboardingLoading, setOnboardingLoading] = useState(false);
 
   // QR state
   const [qrText, setQrText] = useState("");
@@ -163,66 +143,6 @@ const Sell = () => {
       navigate("/auth");
     }
   }, [user, authLoading, navigate]);
-
-  // Fetch Stripe account status
-  useEffect(() => {
-    if (!user) return;
-
-    const fetchStripeStatus = async () => {
-      try {
-        const { data: sessionData } = await supabase.auth.getSession();
-        const token = sessionData.session?.access_token;
-        if (!token) return;
-
-        const res = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stripe-account-status`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        const data: StripeAccountStatus = await res.json();
-        setStripeStatus(data);
-      } catch {
-        // Silently fail — user can still list, they'll be blocked at checkout
-      } finally {
-        setStripeLoading(false);
-      }
-    };
-
-    // Also handle ?onboarding=refresh (Stripe redirect when link expired)
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("onboarding") === "refresh") {
-      toast.info("Your onboarding link expired. Click 'Activate Payments' to get a new one.");
-    }
-
-    fetchStripeStatus();
-  }, [user]);
-
-  const handleActivatePayments = async () => {
-    setOnboardingLoading(true);
-    try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
-      if (!token) {
-        toast.error("Session expired. Please log in again.");
-        return;
-      }
-
-      const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stripe-onboard-seller`,
-        { method: "POST", headers: { Authorization: `Bearer ${token}` } }
-      );
-      const data = await res.json();
-
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        toast.error(data.error ?? "Failed to start onboarding. Please try again.");
-      }
-    } catch {
-      toast.error("Network error. Please try again.");
-    } finally {
-      setOnboardingLoading(false);
-    }
-  };
 
   // Debounced event search
   useEffect(() => {
@@ -561,67 +481,6 @@ const Sell = () => {
               Verify your ticket with its QR code and list it in under a minute.
             </p>
           </div>
-
-          {/* ---- Stripe onboarding banner ---- */}
-          {!stripeLoading && (
-            <div className="mb-8">
-              {stripeStatus?.charges_enabled ? (
-                <Alert className="bg-green-50 border-green-200">
-                  <BadgeCheck className="w-4 h-4 text-green-600" />
-                  <AlertDescription className="text-green-800 flex items-center justify-between">
-                    <span>
-                      <strong>Payments active.</strong> You'll receive payouts
-                      automatically when a buyer completes checkout.
-                    </span>
-                  </AlertDescription>
-                </Alert>
-              ) : stripeStatus?.details_submitted ? (
-                <Alert className="bg-amber-50 border-amber-300">
-                  <Clock className="w-4 h-4 text-amber-600" />
-                  <AlertDescription className="text-amber-800">
-                    <strong>Verification in progress.</strong> Stripe is reviewing
-                    your account. You can list tickets now — payouts activate once
-                    approved (usually a few minutes).
-                  </AlertDescription>
-                </Alert>
-              ) : (
-                <Card className="border-2 border-primary/30 bg-primary/5">
-                  <CardContent className="pt-6">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                      <div className="flex items-start gap-3">
-                        <CreditCard className="w-6 h-6 text-primary mt-0.5 shrink-0" />
-                        <div>
-                          <p className="font-semibold">Activate payments to get paid</p>
-                          <p className="text-sm text-muted-foreground">
-                            Set up your Stripe account so you can receive money when
-                            your tickets sell. Takes ~2 minutes.
-                          </p>
-                        </div>
-                      </div>
-                      <Button
-                        variant="hero"
-                        onClick={handleActivatePayments}
-                        disabled={onboardingLoading}
-                        className="shrink-0"
-                      >
-                        {onboardingLoading ? (
-                          <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            Redirecting…
-                          </>
-                        ) : (
-                          <>
-                            <CreditCard className="w-4 h-4 mr-2" />
-                            Activate Payments
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
-          )}
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* ---- Main form ---- */}
