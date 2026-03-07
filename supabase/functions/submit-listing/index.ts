@@ -160,26 +160,28 @@ serve(async (req) => {
     // 1. Authentication
     // -----------------------------------------------------------------------
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return jsonResponse({ code: "INVALID_FORMAT", message: "Authentication required" }, 401);
+    console.log("[submit-listing] auth header present:", !!authHeader);
+
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      console.error("[submit-listing] Missing or malformed Authorization header");
+      return jsonResponse({ code: "INVALID_FORMAT", message: "Authentication required. Please log in and try again." }, 401);
     }
 
-    const supabaseUser = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-      { global: { headers: { Authorization: authHeader } } }
-    );
+    const token = authHeader.slice(7);
 
-    const { data: { user }, error: authError } = await supabaseUser.auth.getUser();
-    if (authError || !user) {
-      return jsonResponse({ code: "INVALID_FORMAT", message: "Invalid or expired authentication" }, 401);
-    }
-
-    // Service-role client for privileged DB operations
+    // Use service-role client + getUser(token) — the most reliable auth pattern
+    // for Supabase Edge Functions (does not require SUPABASE_ANON_KEY).
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      console.error("[submit-listing] Auth failed:", authError?.message ?? "no user");
+      return jsonResponse({ code: "INVALID_FORMAT", message: "Session expired. Please log in again." }, 401);
+    }
+    console.log("[submit-listing] authenticated user:", user.id);
 
     // -----------------------------------------------------------------------
     // 2. Parse body

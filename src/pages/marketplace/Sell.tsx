@@ -342,7 +342,12 @@ const Sell = () => {
     setIsSubmitting(true);
 
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
+      // Get session — try refresh if token is missing or about to expire
+      let { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session?.access_token) {
+        const { data: refreshed } = await supabase.auth.refreshSession();
+        sessionData = refreshed;
+      }
       const accessToken = sessionData.session?.access_token;
       if (!accessToken) {
         toast.error("Session expired. Please log in again.");
@@ -369,10 +374,18 @@ const Sell = () => {
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${accessToken}`,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
           },
           body: JSON.stringify(payload),
         }
       );
+
+      // Surface raw error text if response is not JSON
+      if (!res.ok && res.headers.get("content-type")?.includes("text/html")) {
+        console.error("[Sell] non-JSON error response:", res.status, await res.text());
+        toast.error(`Server error (${res.status}). Please try again.`);
+        return;
+      }
 
       const result: CreateListingResponse = await res.json();
 
