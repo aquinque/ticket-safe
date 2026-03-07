@@ -37,11 +37,12 @@ export function useESCPEvents(options: UseESCPEventsOptions = {}) {
       setLoading(true);
       setError(null);
 
-      // Fetch all active future events
+      // Fetch all active future paid events (base_price > 0)
       const { data: eventsData, error: eventsErr } = await supabase
         .from('events')
         .select('*')
         .eq('is_active', true)
+        .gt('base_price', 0)
         .gte('date', new Date().toISOString())
         .order('date', { ascending: true });
 
