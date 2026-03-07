@@ -60,6 +60,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { SEOHead } from "@/components/SEOHead";
 import { decodeQRFromFile, isQRTextValid } from "@/lib/qrValidator";
+import { calcBreakdown } from "@/lib/fees";
 import { QRScanner } from "@/components/QRScanner";
 import {
   QR_ERROR_MESSAGES,
@@ -110,7 +111,7 @@ const Sell = () => {
 
   // QR state
   const [qrText, setQrText] = useState("");
-  const [qrInputMode, setQrInputMode] = useState<"text" | "image" | "camera">("text");
+  const [qrInputMode, setQrInputMode] = useState<"image" | "camera">("image");
   const [qrImageFile, setQrImageFile] = useState<File | null>(null);
   const [qrDecoding, setQrDecoding] = useState(false);
   const [qrDecodeError, setQrDecodeError] = useState<string | null>(null);
@@ -698,14 +699,6 @@ const Sell = () => {
                     <Button
                       type="button"
                       size="sm"
-                      variant={qrInputMode === "text" ? "default" : "outline"}
-                      onClick={() => setQrInputMode("text")}
-                    >
-                      Paste text
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
                       variant={qrInputMode === "image" ? "default" : "outline"}
                       onClick={() => setQrInputMode("image")}
                     >
@@ -721,27 +714,6 @@ const Sell = () => {
                       Scan with camera
                     </Button>
                   </div>
-
-                  {qrInputMode === "text" && (
-                    <div>
-                      <Label htmlFor="qrText">
-                        QR code text
-                        <span className="text-destructive ml-1">*</span>
-                      </Label>
-                      <Textarea
-                        id="qrText"
-                        placeholder="Paste the full text / data from your QR code here…"
-                        value={qrText}
-                        onChange={(e) => setQrText(e.target.value)}
-                        rows={4}
-                        className="font-mono text-sm"
-                      />
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Scan your QR code with your phone camera, copy the resulting
-                        link / text, and paste it here.
-                      </p>
-                    </div>
-                  )}
 
                   {qrInputMode === "image" && (
                     <div>
@@ -971,6 +943,36 @@ const Sell = () => {
                   ))}
                 </CardContent>
               </Card>
+
+              {(() => {
+                const price = parseFloat(formData.sellingPrice);
+                const qty = parseInt(formData.quantity, 10) || 1;
+                if (!isFinite(price) || price <= 0) return null;
+                const bd = calcBreakdown(price, qty);
+                return (
+                  <Card>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base">Your Earnings</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">
+                          Listing price{qty > 1 ? ` × ${qty}` : ""}
+                        </span>
+                        <span>€{bd.listPriceEuros.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-destructive/80">
+                        <span>Platform commission (5%)</span>
+                        <span>−€{bd.sellerCommissionEuros.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between font-bold text-green-700 border-t pt-2 mt-1">
+                        <span>You receive</span>
+                        <span>€{bd.sellerPayoutEuros.toFixed(2)}</span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })()}
 
               <Button
                 variant="hero"
