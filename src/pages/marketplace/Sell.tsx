@@ -563,11 +563,6 @@ const Sell = () => {
                               >
                                 <p className="font-medium text-sm leading-none mb-1">
                                   {ev.title}
-                                  {ev.needs_review && (
-                                    <span className="ml-2 text-[10px] font-normal text-amber-600 border border-amber-300 bg-amber-50 rounded px-1 py-0.5">
-                                      à compléter
-                                    </span>
-                                  )}
                                 </p>
                                 <p className="text-xs text-muted-foreground">
                                   {new Date(ev.date).toLocaleDateString("fr-FR", {
