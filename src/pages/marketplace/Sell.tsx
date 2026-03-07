@@ -1036,11 +1036,6 @@ const Sell = () => {
                         }
                         disabled={!selectedEvent}
                       />
-                      {selectedEvent?.base_price != null && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Max: €{(selectedEvent.base_price + 1).toFixed(2)} (base + €1)
-                        </p>
-                      )}
                     </div>
 
                     <div>
@@ -1092,7 +1087,7 @@ const Sell = () => {
                 <CardContent className="space-y-3 text-sm">
                   {[
                     "Provide the real QR code from your original ticket",
-                    "Set a fair price — max original + €1",
+                    "Set a fair price for your ticket",
                     "Each QR code can only be listed once",
                     "Only verified students can buy",
                     "Secure escrow payment processing",

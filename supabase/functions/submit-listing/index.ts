@@ -284,14 +284,6 @@ serve(async (req) => {
       return jsonResponse({ code: "EXPIRED", message: "Cannot sell tickets for past events" }, 400);
     }
 
-    // Price cap: base_price + €1
-    if (event.base_price !== null && price > event.base_price + 1) {
-      return jsonResponse(
-        { code: "INVALID_FORMAT", message: `Selling price cannot exceed €${(event.base_price + 1).toFixed(2)} (original price + €1)` },
-        400
-      );
-    }
-
     // -----------------------------------------------------------------------
     // 6. QR Validation
     // -----------------------------------------------------------------------
