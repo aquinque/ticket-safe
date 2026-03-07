@@ -74,7 +74,7 @@ export function useESCPEvents(options: UseESCPEventsOptions = {}) {
         const counts = countMap[e.id];
         return {
           id: e.id,
-          ical_uid: e.external_event_id ?? e.id,
+          ical_uid: e.id,
           title: e.title,
           description: e.description ?? '',
           location: e.location ?? '',

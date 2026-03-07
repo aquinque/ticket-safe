@@ -250,17 +250,15 @@ const Sell = () => {
       const stub: Event = {
         id:                  stubId,
         title:               eventSearch.trim(),
+        description:         null,
         date:                new Date(stubDate).toISOString(),
-        location:            null,
+        location:            "",
         category:            "Other",
         university:          "ESCP Business School",
         campus:              null,
         image_url:           null,
         is_active:           true,
         base_price:          null,
-        external_source:     null,
-        external_event_id:   null,
-        needs_review:        true,
         created_at:          new Date().toISOString(),
         updated_at:          new Date().toISOString(),
       };
@@ -772,10 +770,10 @@ const Sell = () => {
                     <QRScanner
                       onScan={(text) => {
                         setQrText(text);
-                        setQrInputMode("text");
+                        setQrInputMode("image");
                         toast.success("Ticket accepted");
                       }}
-                      onClose={() => setQrInputMode("text")}
+                      onClose={() => setQrInputMode("image")}
                     />
                   )}
 
