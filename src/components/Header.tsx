@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Menu, X, User, LogOut, ChevronDown, Settings } from "lucide-react";
+import Logo from "@/components/Logo";
 import { useAuth } from "@/hooks/useAuth";
 import { useI18n } from "@/contexts/I18nContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -75,12 +76,8 @@ const Header = () => {
       <div className="container mx-auto px-3 md:px-4">
         <div className="flex h-14 md:h-16 lg:h-20 items-center justify-between">
           {/* Logo */}
-          <Link to="/" className="flex items-center">
-            <img
-              src="/ticket-safe-logo.png"
-              alt="TicketSafe"
-              className="h-12 md:h-14 lg:h-16 w-auto object-contain"
-            />
+          <Link to="/" className="flex items-center hover:opacity-85 transition-opacity">
+            <Logo height={34} />
           </Link>
 
           {/* Desktop Navigation - Reorganized */}
