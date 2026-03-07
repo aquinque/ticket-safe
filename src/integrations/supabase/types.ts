@@ -479,6 +479,30 @@ export type Database = {
       }
       increment_failed_login: { Args: { user_email: string }; Returns: number }
       reset_failed_login: { Args: { user_email: string }; Returns: undefined }
+      search_events: {
+        Args: { max_results?: number; query: string }
+        Returns: {
+          base_price: number | null
+          campus: string | null
+          category: string
+          created_at: string
+          date: string
+          description: string | null
+          id: string
+          image_url: string | null
+          is_active: boolean
+          location: string
+          title: string
+          university: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "events"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       validate_university_email: {
         Args: { email_address: string }
         Returns: boolean
