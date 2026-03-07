@@ -61,7 +61,6 @@ async function fetchAvailableListings(): Promise<TicketListing[]> {
       event_id,
       seller_id,
       selling_price,
-      original_price,
       quantity,
       notes,
       status,

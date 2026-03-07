@@ -250,17 +250,15 @@ const Sell = () => {
       const stub: Event = {
         id:                  stubId,
         title:               eventSearch.trim(),
+        description:         null,
         date:                new Date(stubDate).toISOString(),
-        location:            null,
+        location:            "",
         category:            "Other",
         university:          "ESCP Business School",
         campus:              null,
         image_url:           null,
         is_active:           true,
         base_price:          null,
-        external_source:     null,
-        external_event_id:   null,
-        needs_review:        true,
         created_at:          new Date().toISOString(),
         updated_at:          new Date().toISOString(),
       };
@@ -565,11 +563,6 @@ const Sell = () => {
                               >
                                 <p className="font-medium text-sm leading-none mb-1">
                                   {ev.title}
-                                  {ev.needs_review && (
-                                    <span className="ml-2 text-[10px] font-normal text-amber-600 border border-amber-300 bg-amber-50 rounded px-1 py-0.5">
-                                      à compléter
-                                    </span>
-                                  )}
                                 </p>
                                 <p className="text-xs text-muted-foreground">
                                   {new Date(ev.date).toLocaleDateString("fr-FR", {
@@ -772,10 +765,10 @@ const Sell = () => {
                     <QRScanner
                       onScan={(text) => {
                         setQrText(text);
-                        setQrInputMode("text");
+                        setQrInputMode("image");
                         toast.success("Ticket accepted");
                       }}
-                      onClose={() => setQrInputMode("text")}
+                      onClose={() => setQrInputMode("image")}
                     />
                   )}
 
