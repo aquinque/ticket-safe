@@ -215,6 +215,63 @@ export async function decodeQRFromPDF(file: File): Promise<string | null> {
 }
 
 // ---------------------------------------------------------------------------
+// Text extraction from ticket files (PDF text layer or image)
+// ---------------------------------------------------------------------------
+
+/**
+ * Extract all visible text from a ticket file.
+ *
+ * - PDF   → uses pdfjs getTextContent() (fast, reliable, no ML)
+ * - Image → returns null (no browser OCR without Tesseract; handled by admin review)
+ *
+ * The extracted text is sent to submit-listing for server-side validation
+ * (event name match, date match, cross-event check).
+ */
+export async function extractTextFromFile(file: File): Promise<string | null> {
+  if (file.type === "application/pdf") {
+    try {
+      return await extractTextFromPDF(file);
+    } catch (e) {
+      console.warn("[qrValidator] PDF text extraction failed:", e);
+      return null;
+    }
+  }
+  // Images: no client-side OCR — server handles via admin review
+  return null;
+}
+
+async function extractTextFromPDF(file: File): Promise<string> {
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({
+    data: new Uint8Array(arrayBuffer),
+    // Disable font loading to speed up text extraction
+    disableFontFace: true,
+    verbosity: 0,
+  }).promise;
+
+  const parts: string[] = [];
+  const pages = Math.min(pdf.numPages, 5);
+
+  for (let i = 1; i <= pages; i++) {
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    const pageText = content.items
+      .map((item) => ("str" in item ? (item as { str: string }).str : ""))
+      .join(" ");
+    if (pageText.trim()) parts.push(pageText.trim());
+  }
+
+  const fullText = parts.join("\n");
+  console.log(
+    "[qrValidator] extracted PDF text:",
+    fullText.length,
+    "chars →",
+    fullText.slice(0, 120).replace(/\s+/g, " ")
+  );
+  return fullText;
+}
+
+// ---------------------------------------------------------------------------
 // Utilities
 // ---------------------------------------------------------------------------
 
