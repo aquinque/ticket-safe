@@ -355,14 +355,11 @@ const Sell = () => {
     setIsSubmitting(true);
 
     try {
-      // Get session — try refresh if token is missing or about to expire
-      let { data: sessionData } = await supabase.auth.getSession();
-      if (!sessionData.session?.access_token) {
-        const { data: refreshed } = await supabase.auth.refreshSession();
-        sessionData = refreshed;
-      }
-      const accessToken = sessionData.session?.access_token;
-      if (!accessToken) {
+      // Always force a token refresh to avoid "invalid jwt" errors from expired tokens.
+      // refreshSession() fetches a fresh token from Supabase auth server unconditionally.
+      const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
+      const accessToken = refreshed.session?.access_token;
+      if (refreshError || !accessToken) {
         toast.error("Session expired. Please log in again.");
         navigate("/auth");
         return;
