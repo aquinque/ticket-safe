@@ -65,6 +65,7 @@ async function fetchAvailableListings(): Promise<TicketListing[]> {
       quantity,
       notes,
       status,
+      qr_verified,
       created_at,
       event:events (
         id,
@@ -82,6 +83,7 @@ async function fetchAvailableListings(): Promise<TicketListing[]> {
     `
     )
     .eq("status", "available")
+    .eq("verification_status", "verified")
     .order("created_at", { ascending: false });
 
   if (error) throw error;
@@ -125,7 +127,7 @@ async function fetchAvailableListings(): Promise<TicketListing[]> {
       sellerId: row.seller_id,
       sellerName: seller?.full_name ?? "Anonymous",
       timestamp: row.created_at,
-      verified: false,
+      verified: row.qr_verified ?? false,
       ticketId: row.id,
       qrHash: "", // never expose the real hash to clients
       university: ev?.university ?? "",
