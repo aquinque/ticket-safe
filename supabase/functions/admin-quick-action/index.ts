@@ -105,7 +105,7 @@ function htmlPage(title: string, message: string, success: boolean, adminUrl: st
 // ---------------------------------------------------------------------------
 
 Deno.serve(async (req) => {
-  const siteUrl = Deno.env.get("SITE_URL") ?? "https://ticketsafe.fr";
+  const siteUrl = Deno.env.get("SITE_URL") ?? "https://ticket-safe.eu";
   const adminUrl = `${siteUrl}/admin/review`;
   const secret = Deno.env.get("TICKET_SIGNING_SECRET") ?? Deno.env.get("ADMIN_ACTION_SECRET");
 

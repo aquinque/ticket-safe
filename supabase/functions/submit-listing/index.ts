@@ -610,7 +610,7 @@ serve(async (req) => {
     // -----------------------------------------------------------------------
     if (needsReview) {
       const resendKey = Deno.env.get("RESEND_API_KEY");
-      const siteUrl = Deno.env.get("SITE_URL") ?? "https://ticketsafe.fr";
+      const siteUrl = Deno.env.get("SITE_URL") ?? "https://ticket-safe.eu";
       const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
       const actionSecret = Deno.env.get("TICKET_SIGNING_SECRET") ?? Deno.env.get("ADMIN_ACTION_SECRET");
 
@@ -656,7 +656,7 @@ serve(async (req) => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            from: "TicketSafe <notifications@ticketsafe.fr>",
+            from: "TicketSafe <notifications@ticket-safe.eu>",
             to: ["adrien.menard100@gmail.com"],
             subject: `[TicketSafe] Nouveau billet à vérifier — ${event.title}`,
             html: `
