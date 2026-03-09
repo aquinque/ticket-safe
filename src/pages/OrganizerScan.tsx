@@ -55,6 +55,8 @@ type ScanResultCode =
   | "ALREADY_USED"
   | "REVOKED"
   | "EXPIRED"
+  | "EVENT_NOT_STARTED"
+  | "EVENT_ENDED"
   | "SUSPECT_FRAUD"
   | "RATE_LIMITED";
 
@@ -62,11 +64,23 @@ interface ScanResult {
   valid: boolean;
   result: ScanResultCode;
   message: string;
+  buyer_info?: {
+    full_name: string;
+    email: string;
+    campus: string | null;
+    university: string;
+  };
+  event_info?: {
+    title: string;
+    date: string;
+    location: string | null;
+  };
   ticket_info?: {
     ticket_number?: string;
     event_title?: string;
     selling_price?: number;
     quantity?: number;
+    qr_verified?: boolean;
     scan_count?: number;
     owner_initials?: string;
     seat_info?: string | null;
@@ -477,61 +491,100 @@ const OrganizerScan = () => {
               {/* Scan result */}
               {scanResult && (
                 <Card className={`border-2 ${scanResult.valid ? "border-green-500 bg-green-50 dark:bg-green-950/30" : "border-red-400 bg-red-50 dark:bg-red-950/30"}`}>
-                  <CardContent className="pt-6">
-                    <div className="flex flex-col items-center text-center gap-4">
+                  <CardContent className="pt-6 space-y-4">
+                    {/* Status header */}
+                    <div className="flex flex-col items-center text-center gap-3">
                       {scanResult.valid
-                        ? <CheckCircle2 className="w-16 h-16 text-green-500" />
-                        : scanResult.result === "WRONG_EVENT"
-                          ? <AlertTriangle className="w-16 h-16 text-orange-500" />
-                          : <XCircle className="w-16 h-16 text-red-500" />
+                        ? <CheckCircle2 className="w-14 h-14 text-green-500" />
+                        : scanResult.result === "WRONG_EVENT" || scanResult.result === "EVENT_NOT_STARTED"
+                          ? <AlertTriangle className="w-14 h-14 text-orange-500" />
+                          : <XCircle className="w-14 h-14 text-red-500" />
                       }
                       <div>
-                        <p className={`text-2xl font-bold mb-1 ${scanResult.valid ? "text-green-700 dark:text-green-300" : "text-red-700 dark:text-red-300"}`}>
+                        <p className={`text-2xl font-bold ${scanResult.valid ? "text-green-700 dark:text-green-300" : "text-red-700 dark:text-red-300"}`}>
                           {scanResult.valid ? "Entry Granted" : "Entry Denied"}
                         </p>
-                        <p className="text-base text-foreground">{scanResult.message}</p>
+                        <p className="text-sm text-muted-foreground mt-1">{scanResult.message}</p>
                       </div>
+                    </div>
 
-                      {scanResult.ticket_info && (
-                        <div className="w-full bg-background/60 rounded-lg px-4 py-3 space-y-1.5 text-sm text-left">
-                          {scanResult.ticket_info.event_title && (
+                    {/* Buyer identity — shown only on valid scan */}
+                    {scanResult.valid && scanResult.buyer_info && (
+                      <div className="rounded-lg border-2 border-green-300 bg-white dark:bg-green-950/20 px-4 py-3">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-green-700 dark:text-green-400 mb-2">
+                          Verify buyer identity
+                        </p>
+                        <div className="space-y-1 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Name</span>
+                            <span className="font-semibold">{scanResult.buyer_info.full_name}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Email</span>
+                            <span className="font-mono text-xs">{scanResult.buyer_info.email}</span>
+                          </div>
+                          {scanResult.buyer_info.campus && (
                             <div className="flex justify-between">
-                              <span className="text-muted-foreground">Event</span>
-                              <span className="font-medium">{scanResult.ticket_info.event_title}</span>
+                              <span className="text-muted-foreground">Campus</span>
+                              <span>{scanResult.buyer_info.campus}</span>
                             </div>
                           )}
-                          {scanResult.ticket_info.ticket_number && (
-                            <div className="flex justify-between">
-                              <span className="text-muted-foreground">Ticket #</span>
-                              <span className="font-mono">{scanResult.ticket_info.ticket_number}</span>
-                            </div>
-                          )}
-                          {scanResult.ticket_info.quantity && (
-                            <div className="flex justify-between">
-                              <span className="text-muted-foreground">Qty</span>
-                              <span>{scanResult.ticket_info.quantity}</span>
-                            </div>
-                          )}
-                          {scanResult.ticket_info.scan_count !== undefined && (
-                            <div className="flex justify-between">
-                              <span className="text-muted-foreground">Scan #</span>
-                              <span>{scanResult.ticket_info.scan_count}</span>
-                            </div>
-                          )}
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">School</span>
+                            <span>{scanResult.buyer_info.university}</span>
+                          </div>
                         </div>
-                      )}
-
-                      <div className="flex gap-2 flex-wrap justify-center">
-                        <Badge variant="outline">{scanResult.result.replace(/_/g, " ")}</Badge>
-                        {scanResult.risk_level && (
-                          <Badge variant={scanResult.risk_level === "LOW" ? "secondary" : "destructive"}>
-                            Risk: {scanResult.risk_level}
-                          </Badge>
-                        )}
-                        {scanResult.fraud_signals?.map((s) => (
-                          <Badge key={s} variant="outline" className="text-xs">{s.replace(/_/g, " ")}</Badge>
-                        ))}
+                        <p className="text-xs text-muted-foreground mt-2 italic">
+                          Ask the attendee to show their student card to confirm identity.
+                        </p>
                       </div>
+                    )}
+
+                    {/* Ticket/event details */}
+                    {(scanResult.ticket_info || scanResult.event_info) && (
+                      <div className="bg-background/60 rounded-lg px-4 py-3 space-y-1.5 text-sm">
+                        {scanResult.event_info?.title && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Event</span>
+                            <span className="font-medium">{scanResult.event_info.title}</span>
+                          </div>
+                        )}
+                        {scanResult.ticket_info?.quantity && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Qty</span>
+                            <span>{scanResult.ticket_info.quantity}</span>
+                          </div>
+                        )}
+                        {scanResult.ticket_info?.selling_price && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Paid</span>
+                            <span>€{scanResult.ticket_info.selling_price}</span>
+                          </div>
+                        )}
+                        {scanResult.ticket_info?.qr_verified === false && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">QR status</span>
+                            <span className="text-amber-600 text-xs">Unverified (external ticket)</span>
+                          </div>
+                        )}
+                        {scanResult.ticket_info?.scan_count !== undefined && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Scan #</span>
+                            <span>{scanResult.ticket_info.scan_count}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Badges */}
+                    <div className="flex gap-2 flex-wrap justify-center">
+                      <Badge variant="outline">{scanResult.result.replace(/_/g, " ")}</Badge>
+                      {scanResult.risk_level && scanResult.risk_level !== "LOW" && (
+                        <Badge variant="destructive">Risk: {scanResult.risk_level}</Badge>
+                      )}
+                      {scanResult.fraud_signals?.map((s) => (
+                        <Badge key={s} variant="outline" className="text-xs">{s.replace(/_/g, " ")}</Badge>
+                      ))}
                     </div>
                   </CardContent>
                 </Card>

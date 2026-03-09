@@ -207,6 +207,73 @@ Deno.serve(async (req) => {
     }
 
     // ── 4b. External / plain text QR ──────────────────────────────────────
+    // If an eventId was provided, do a heuristic content check:
+    // try to extract text from the QR and see if it contains the event name/date.
+    // This catches obvious wrong-event listings (e.g. listing a Paris ticket under Turin).
+    if (eventId) {
+      const { data: selectedEvent } = await supabase
+        .from("events")
+        .select("title, date, campus, location")
+        .eq("id", eventId)
+        .maybeSingle();
+
+      if (selectedEvent) {
+        const qrLower = raw.toLowerCase();
+        // Extract keywords from event (title words, campus, location)
+        const titleWords = (selectedEvent.title as string)
+          .toLowerCase()
+          .split(/\s+/)
+          .filter((w: string) => w.length >= 4); // ignore short words
+        const campus = (selectedEvent.campus as string | null)?.toLowerCase() ?? "";
+        const location = (selectedEvent.location as string | null)?.toLowerCase() ?? "";
+
+        // Build list of candidate event-identifying keywords
+        const keywords = [...titleWords];
+        if (campus) keywords.push(campus);
+        if (location.length >= 4) keywords.push(location.split(",")[0].trim());
+
+        // Try to parse QR as JSON to get richer content to check
+        let qrContent = qrLower;
+        try {
+          const parsed = JSON.parse(raw);
+          qrContent = JSON.stringify(parsed).toLowerCase();
+        } catch { /* not JSON — use raw */ }
+
+        // If QR contains at least one strong keyword from a different event,
+        // we only warn (not block) because many external tickets are opaque tokens.
+        // We DO block if the QR clearly references a different known event name.
+        const { data: allEvents } = await supabase
+          .from("events")
+          .select("id, title, campus")
+          .eq("is_active", true)
+          .neq("id", eventId);
+
+        if (allEvents) {
+          for (const otherEvent of allEvents as Array<{ id: string; title: string; campus: string | null }>) {
+            const otherWords = otherEvent.title
+              .toLowerCase()
+              .split(/\s+/)
+              .filter((w: string) => w.length >= 5); // only strong words
+            const otherCampus = otherEvent.campus?.toLowerCase() ?? "";
+
+            const matchesOther = otherWords.some((w: string) => qrContent.includes(w)) ||
+              (otherCampus.length >= 4 && qrContent.includes(otherCampus));
+
+            const matchesSelected = keywords.some((k: string) => qrContent.includes(k));
+
+            if (matchesOther && !matchesSelected) {
+              console.warn("[verify-qr] QR content matches other event", { other: otherEvent.title });
+              return json({
+                status: "wrong_event",
+                message: `This QR code appears to be for "${otherEvent.title}", not the selected event.`,
+                qr_type: "external",
+              });
+            }
+          }
+        }
+      }
+    }
+
     console.log("[verify-qr] external QR accepted");
     return json({
       status: "valid",
