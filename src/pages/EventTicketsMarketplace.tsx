@@ -16,7 +16,7 @@ const EventTicketsMarketplace = () => {
   const { eventId } = useParams();
   const navigate = useNavigate();
   const { events } = useESCPEvents({ onlyWithTickets: false });
-  const { listings } = useTicketListings();
+  const { listings, isLoading: listingsLoading } = useTicketListings();
   const [event, setEvent] = useState<ESCPEvent | null>(null);
 
   useEffect(() => {
@@ -32,8 +32,8 @@ const EventTicketsMarketplace = () => {
     return null;
   }
 
-  // Filter listings for this specific event
-  const eventListings = listings.filter(listing => listing.event.id === event.id);
+  // Filter listings for this specific event using direct event_id comparison
+  const eventListings = listings.filter(listing => listing.eventId === eventId);
 
   const handleBuyTicket = (listingId: string) => {
     // TODO: Navigate to checkout with listing details
@@ -89,7 +89,23 @@ const EventTicketsMarketplace = () => {
           </div>
 
           {/* Listings */}
-          {eventListings.length === 0 ? (
+          {listingsLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[1, 2, 3].map(i => (
+                <Card key={i} className="overflow-hidden">
+                  <div className="bg-muted/30 p-6 border-b space-y-3">
+                    <div className="h-4 bg-muted rounded w-1/3 animate-pulse" />
+                    <div className="h-10 bg-muted rounded w-1/2 mx-auto animate-pulse" />
+                  </div>
+                  <div className="p-6 space-y-3">
+                    <div className="h-4 bg-muted rounded animate-pulse" />
+                    <div className="h-4 bg-muted rounded w-2/3 animate-pulse" />
+                    <div className="h-10 bg-muted rounded animate-pulse" />
+                  </div>
+                </Card>
+              ))}
+            </div>
+          ) : eventListings.length === 0 ? (
             <Alert className="max-w-2xl mx-auto">
               <Info className="w-4 h-4" />
               <AlertDescription>

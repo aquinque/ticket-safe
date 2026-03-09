@@ -17,6 +17,7 @@ import { EventData } from "@/data/eventsData";
 
 export interface TicketListing {
   id: string;
+  eventId: string;
   event: EventData;
   sellingPrice: number;
   quantity: number;
@@ -115,6 +116,7 @@ async function fetchAvailableListings(): Promise<TicketListing[]> {
 
     return {
       id: row.id,
+      eventId: row.event_id,
       event: eventData,
       sellingPrice: row.selling_price,
       quantity: row.quantity,
