@@ -75,7 +75,7 @@ const EventTicketsMarketplace = () => {
   }, [eventId]);
 
   const handleBuyTicket = (listingId: string) => {
-    navigate(`/checkout`, { state: { listingId } });
+    navigate(`/checkout?listing_id=${listingId}`);
   };
 
   if (loading) {
