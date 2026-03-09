@@ -1,18 +1,18 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Filter, RefreshCw } from "lucide-react";
+import { Search, Filter } from "lucide-react";
 import EventCard from "./EventCard";
 import { useI18n } from "@/contexts/I18nContext";
-import EventModal from "./EventModal";
 import { useESCPEvents } from "@/hooks/useESCPEvents";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const EventsSection = () => {
   const { t } = useI18n();
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedFilter, setSelectedFilter] = useState("all");
-  const [selectedEvent, setSelectedEvent] = useState<any>(null);
 
   // Fetch only events with available tickets
   const { events: escpEvents, loading, error } = useESCPEvents({ onlyWithTickets: true });
@@ -38,119 +38,108 @@ const EventsSection = () => {
     });
 
   return (
-    <>
-      <section className="py-6 md:py-8 bg-muted/30">
-        <div className="container mx-auto px-4 max-w-7xl">
-          {/* Search & Filters Bar */}
-          <div className="bg-card rounded-xl p-4 md:p-6 shadow-card mb-6 md:mb-8">
-            {/* Search */}
-            <div className="relative mb-4 md:mb-5">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-              <Input
-                placeholder="Search events..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 h-11 md:h-10 text-base md:text-sm"
-              />
-            </div>
-
-            {/* Category Filters */}
-            <div>
-              <div className="flex items-center gap-2 mb-2 md:mb-3">
-                <Filter className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm font-medium text-muted-foreground">Filter by category:</span>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {filters.map(filter => (
-                  <Button
-                    key={filter.id}
-                    variant={selectedFilter === filter.id ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setSelectedFilter(filter.id)}
-                    className="rounded-full h-9 md:h-8 text-sm px-3 md:px-4"
-                  >
-                    {filter.label}
-                  </Button>
-                ))}
-              </div>
-            </div>
+    <section className="py-6 md:py-8 bg-muted/30">
+      <div className="container mx-auto px-4 max-w-7xl">
+        {/* Search & Filters Bar */}
+        <div className="bg-card rounded-xl p-4 md:p-6 shadow-card mb-6 md:mb-8">
+          {/* Search */}
+          <div className="relative mb-4 md:mb-5">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+            <Input
+              placeholder="Search events..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 h-11 md:h-10 text-base md:text-sm"
+            />
           </div>
 
-          {/* Loading State */}
-          {loading && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-              {[1, 2, 3, 4, 5, 6].map((i) => (
-                <div key={i} className="space-y-3">
-                  <Skeleton className="h-40 md:h-48 w-full" />
-                  <Skeleton className="h-4 w-3/4" />
-                  <Skeleton className="h-4 w-1/2" />
-                </div>
+          {/* Category Filters */}
+          <div>
+            <div className="flex items-center gap-2 mb-2 md:mb-3">
+              <Filter className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm font-medium text-muted-foreground">Filter by category:</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {filters.map(filter => (
+                <Button
+                  key={filter.id}
+                  variant={selectedFilter === filter.id ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setSelectedFilter(filter.id)}
+                  className="rounded-full h-9 md:h-8 text-sm px-3 md:px-4"
+                >
+                  {filter.label}
+                </Button>
               ))}
             </div>
-          )}
-
-          {/* Error State */}
-          {error && !loading && (
-            <div className="text-center py-12">
-              <div className="w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Search className="w-8 h-8 text-destructive" />
-              </div>
-              <h3 className="text-xl font-semibold mb-2">Error loading events</h3>
-              <p className="text-muted-foreground">
-                {error.message || 'Failed to load events. Please try again later.'}
-              </p>
-            </div>
-          )}
-
-          {/* Events Grid */}
-          {!loading && !error && filteredEvents.length > 0 && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredEvents.map(event => (
-                <EventCard
-                  key={event.id}
-                  event={{
-                    id: event.id,
-                    title: event.title,
-                    date: event.start_date,
-                    time: "",
-                    location: event.location,
-                    category: event.category,
-                    organizer: event.organizer,
-                    description: event.description,
-                    filterCategory: event.category.toLowerCase(),
-                    image: '/placeholder.svg',
-                    isPastEvent: false,
-                  }}
-                  onClick={() => setSelectedEvent(event)}
-                />
-              ))}
-            </div>
-          )}
-
-          {/* No Results */}
-          {!loading && !error && filteredEvents.length === 0 && (
-            <div className="text-center py-12">
-              <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
-                <Search className="w-8 h-8 text-muted-foreground" />
-              </div>
-              <h3 className="text-xl font-semibold mb-2">{t('events.noEvents')}</h3>
-              <p className="text-muted-foreground">
-                No events with available tickets found. Check back later!
-              </p>
-            </div>
-          )}
+          </div>
         </div>
-      </section>
 
-      {/* Event Detail Modal */}
-      {selectedEvent && (
-        <EventModal
-          event={selectedEvent}
-          isOpen={!!selectedEvent}
-          onClose={() => setSelectedEvent(null)}
-        />
-      )}
-    </>
+        {/* Loading State */}
+        {loading && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="space-y-3">
+                <Skeleton className="h-40 md:h-48 w-full" />
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-4 w-1/2" />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Error State */}
+        {error && !loading && (
+          <div className="text-center py-12">
+            <div className="w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Search className="w-8 h-8 text-destructive" />
+            </div>
+            <h3 className="text-xl font-semibold mb-2">Error loading events</h3>
+            <p className="text-muted-foreground">
+              {error.message || 'Failed to load events. Please try again later.'}
+            </p>
+          </div>
+        )}
+
+        {/* Events Grid */}
+        {!loading && !error && filteredEvents.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredEvents.map(event => (
+              <EventCard
+                key={event.id}
+                event={{
+                  id: event.id,
+                  title: event.title,
+                  date: event.start_date,
+                  time: "",
+                  location: event.location,
+                  category: event.category,
+                  organizer: event.organizer,
+                  description: event.description,
+                  filterCategory: event.category.toLowerCase(),
+                  image: '/placeholder.svg',
+                  isPastEvent: false,
+                }}
+                onClick={() => navigate(`/event/${event.id}/tickets`)}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* No Results */}
+        {!loading && !error && filteredEvents.length === 0 && (
+          <div className="text-center py-12">
+            <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+              <Search className="w-8 h-8 text-muted-foreground" />
+            </div>
+            <h3 className="text-xl font-semibold mb-2">{t('events.noEvents')}</h3>
+            <p className="text-muted-foreground">
+              No events with available tickets found. Check back later!
+            </p>
+          </div>
+        )}
+      </div>
+    </section>
   );
 };
 

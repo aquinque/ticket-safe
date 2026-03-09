@@ -15,7 +15,7 @@ import { SEOHead } from "@/components/SEOHead";
 const EventTicketsMarketplace = () => {
   const { eventId } = useParams();
   const navigate = useNavigate();
-  const { events } = useESCPEvents({ onlyWithTickets: true });
+  const { events } = useESCPEvents({ onlyWithTickets: false });
   const { listings } = useTicketListings();
   const [event, setEvent] = useState<ESCPEvent | null>(null);
 
