@@ -105,11 +105,12 @@ Deno.serve(async (req) => {
     );
 
     // ── 2. Parse body ──────────────────────────────────────────────────────
-    let body: { qrText?: string; eventId?: string };
+    let body: { qrText?: string; eventId?: string; userId?: string };
     try { body = await req.json(); } catch { return json({ status: "unreadable_qr", message: "Invalid request body" }, 400); }
 
     const raw = (body.qrText ?? "").trim();
     const eventId = (body.eventId ?? "").trim() || null;
+    const userId = (body.userId ?? "").trim() || null;
 
     if (raw.length < 5) return json({ status: "unreadable_qr", message: "QR code is too short or empty" });
     if (raw.length > 10_000) return json({ status: "unreadable_qr", message: "QR code is too long" });
@@ -121,16 +122,22 @@ Deno.serve(async (req) => {
     const qrHash = await sha256hex(raw);
     const { data: existing } = await supabase
       .from("tickets")
-      .select("id, status")
+      .select("id, status, seller_id")
       .eq("qr_hash", qrHash)
       .not("status", "eq", "cancelled")
       .maybeSingle();
 
     if (existing) {
-      const msg = existing.status === "sold"
-        ? "This ticket has already been sold on the marketplace."
-        : "This QR code is already listed on the marketplace.";
-      return json({ status: "already_used", message: msg });
+      // Same seller relisting their own (non-sold, non-reserved) ticket → allow
+      if (userId && existing.seller_id === userId && existing.status === "available") {
+        console.log("[verify-qr] same-seller relist detected — allowing");
+        // Fall through to QR validation below (submit-listing will auto-cancel old listing)
+      } else {
+        const msg = existing.status === "sold"
+          ? "This ticket has already been sold on the marketplace."
+          : "This QR code is already listed on the marketplace.";
+        return json({ status: "already_used", message: msg });
+      }
     }
 
     // ── 4a. Platform JWT ───────────────────────────────────────────────────

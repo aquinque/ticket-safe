@@ -214,7 +214,7 @@ const Sell = () => {
           {
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ qrText, eventId: formData.eventId || undefined }),
+            body: JSON.stringify({ qrText, eventId: formData.eventId || undefined, userId: user.id }),
           }
         );
         const data: QRVerifyStatus = await res.json();
