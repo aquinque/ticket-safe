@@ -7,38 +7,132 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Calendar, MapPin, User, ShoppingCart, FileImage, Info, ShieldCheck } from "lucide-react";
-import { ESCPEvent, useESCPEvents } from "@/hooks/useESCPEvents";
-import { useTicketListings } from "@/contexts/TicketListingsContext";
+import { Calendar, MapPin, User, ShoppingCart, Info, ShieldCheck } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import { SEOHead } from "@/components/SEOHead";
+
+interface EventInfo {
+  id: string;
+  title: string;
+  date: string;
+  location: string | null;
+  category: string;
+}
+
+interface Listing {
+  id: string;
+  selling_price: number;
+  quantity: number;
+  notes: string | null;
+  created_at: string;
+  qr_verified: boolean;
+  seller: { full_name: string } | null;
+}
 
 const EventTicketsMarketplace = () => {
   const { eventId } = useParams();
   const navigate = useNavigate();
-  const { events } = useESCPEvents({ onlyWithTickets: false });
-  const { listings, isLoading: listingsLoading } = useTicketListings();
-  const [event, setEvent] = useState<ESCPEvent | null>(null);
+
+  const [event, setEvent] = useState<EventInfo | null>(null);
+  const [listings, setListings] = useState<Listing[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
-    const foundEvent = events.find(e => e.id === eventId);
-    if (foundEvent) {
-      setEvent(foundEvent);
-    } else if (events.length > 0) {
-      navigate("/events");
+    if (!eventId) return;
+
+    async function fetchData() {
+      setLoading(true);
+
+      // Fetch event directly by ID (no base_price / is_active filter)
+      const { data: eventData, error: eventErr } = await supabase
+        .from("events")
+        .select("id, title, date, location, category")
+        .eq("id", eventId)
+        .single();
+
+      if (eventErr || !eventData) {
+        setNotFound(true);
+        setLoading(false);
+        return;
+      }
+
+      setEvent(eventData as EventInfo);
+
+      // Fetch available tickets for this event directly
+      const { data: ticketData } = await supabase
+        .from("tickets")
+        .select(`
+          id,
+          selling_price,
+          quantity,
+          notes,
+          created_at,
+          qr_verified,
+          seller:profiles (full_name)
+        `)
+        .eq("event_id", eventId)
+        .eq("status", "available")
+        .order("created_at", { ascending: false });
+
+      setListings((ticketData as unknown as Listing[]) ?? []);
+      setLoading(false);
     }
-  }, [eventId, navigate, events]);
 
-  if (!event) {
-    return null;
-  }
-
-  // Filter listings for this specific event using direct event_id comparison
-  const eventListings = listings.filter(listing => listing.eventId === eventId);
+    fetchData();
+  }, [eventId]);
 
   const handleBuyTicket = (listingId: string) => {
-    // TODO: Navigate to checkout with listing details
     navigate(`/checkout`, { state: { listingId } });
   };
+
+  if (loading) {
+    return (
+      <>
+        <SEOHead titleKey="nav.home" descriptionKey="hero.subtitle" />
+        <Header />
+        <main className="min-h-screen bg-background py-8">
+          <div className="container mx-auto px-4 max-w-7xl">
+            <div className="mb-6"><BackButton /></div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[1, 2, 3].map(i => (
+                <Card key={i} className="overflow-hidden">
+                  <div className="bg-muted/30 p-6 border-b space-y-3">
+                    <div className="h-4 bg-muted rounded w-1/3 animate-pulse" />
+                    <div className="h-10 bg-muted rounded w-1/2 mx-auto animate-pulse" />
+                  </div>
+                  <div className="p-6 space-y-3">
+                    <div className="h-4 bg-muted rounded animate-pulse" />
+                    <div className="h-4 bg-muted rounded w-2/3 animate-pulse" />
+                    <div className="h-10 bg-muted rounded animate-pulse" />
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </main>
+        <Footer />
+      </>
+    );
+  }
+
+  if (notFound || !event) {
+    return (
+      <>
+        <Header />
+        <main className="min-h-screen bg-background py-8">
+          <div className="container mx-auto px-4 max-w-7xl">
+            <div className="mb-6"><BackButton /></div>
+            <Alert className="max-w-2xl mx-auto">
+              <Info className="w-4 h-4" />
+              <AlertDescription>Event not found.</AlertDescription>
+            </Alert>
+          </div>
+        </main>
+        <Footer />
+      </>
+    );
+  }
 
   return (
     <>
@@ -64,17 +158,19 @@ const EventTicketsMarketplace = () => {
                   <div className="flex items-center gap-2">
                     <Calendar className="w-4 h-4" />
                     <span className="text-sm">
-                      {new Date(event.start_date).toLocaleDateString('en-US', {
+                      {new Date(event.date).toLocaleDateString('en-US', {
                         month: 'long',
                         day: 'numeric',
                         year: 'numeric'
                       })}
                     </span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <MapPin className="w-4 h-4" />
-                    <span className="text-sm">{event.location}</span>
-                  </div>
+                  {event.location && (
+                    <div className="flex items-center gap-2">
+                      <MapPin className="w-4 h-4" />
+                      <span className="text-sm">{event.location}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -82,30 +178,21 @@ const EventTicketsMarketplace = () => {
 
           {/* Page Title */}
           <div className="mb-8">
-            <h2 className="text-2xl md:text-3xl font-bold mb-2">Available Tickets</h2>
+            <h2 className="text-2xl md:text-3xl font-bold mb-2">
+              Available Tickets
+              {listings.length > 0 && (
+                <span className="ml-3 text-lg font-normal text-muted-foreground">
+                  ({listings.length} listing{listings.length !== 1 ? 's' : ''})
+                </span>
+              )}
+            </h2>
             <p className="text-muted-foreground">
               Browse tickets listed by verified students for this event
             </p>
           </div>
 
           {/* Listings */}
-          {listingsLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[1, 2, 3].map(i => (
-                <Card key={i} className="overflow-hidden">
-                  <div className="bg-muted/30 p-6 border-b space-y-3">
-                    <div className="h-4 bg-muted rounded w-1/3 animate-pulse" />
-                    <div className="h-10 bg-muted rounded w-1/2 mx-auto animate-pulse" />
-                  </div>
-                  <div className="p-6 space-y-3">
-                    <div className="h-4 bg-muted rounded animate-pulse" />
-                    <div className="h-4 bg-muted rounded w-2/3 animate-pulse" />
-                    <div className="h-10 bg-muted rounded animate-pulse" />
-                  </div>
-                </Card>
-              ))}
-            </div>
-          ) : eventListings.length === 0 ? (
+          {listings.length === 0 ? (
             <Alert className="max-w-2xl mx-auto">
               <Info className="w-4 h-4" />
               <AlertDescription>
@@ -117,7 +204,7 @@ const EventTicketsMarketplace = () => {
             </Alert>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {eventListings.map(listing => (
+              {listings.map(listing => (
                 <Card key={listing.id} className="overflow-hidden hover:shadow-xl transition-all duration-300">
                   <CardContent className="p-0">
                     {/* Ticket Header */}
@@ -127,24 +214,18 @@ const EventTicketsMarketplace = () => {
                           <Badge variant="default">
                             {listing.quantity} ticket{listing.quantity > 1 ? 's' : ''}
                           </Badge>
-                          {listing.verified && (
+                          {listing.qr_verified && (
                             <Badge variant="default" className="bg-green-600 flex items-center gap-1">
                               <ShieldCheck className="w-3 h-3" />
                               Verified
                             </Badge>
                           )}
                         </div>
-                        {listing.files.length > 0 && (
-                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <FileImage className="w-3 h-3" />
-                            <span>{listing.files.length}</span>
-                          </div>
-                        )}
                       </div>
 
                       <div className="text-center">
                         <p className="text-sm text-muted-foreground mb-1">Price per ticket</p>
-                        <p className="text-4xl font-bold text-primary">€{listing.sellingPrice.toFixed(2)}</p>
+                        <p className="text-4xl font-bold text-primary">€{(listing.selling_price ?? 0).toFixed(2)}</p>
                       </div>
                     </div>
 
@@ -157,22 +238,22 @@ const EventTicketsMarketplace = () => {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm text-muted-foreground">Sold by</p>
-                          <p className="font-semibold truncate">{listing.sellerName}</p>
+                          <p className="font-semibold truncate">{listing.seller?.full_name ?? "Anonymous"}</p>
                         </div>
                       </div>
 
-                      {/* Description */}
-                      {listing.description && (
+                      {/* Notes */}
+                      {listing.notes && (
                         <div>
                           <p className="text-sm text-muted-foreground mb-1">Notes</p>
-                          <p className="text-sm line-clamp-3">{listing.description}</p>
+                          <p className="text-sm line-clamp-3">{listing.notes}</p>
                         </div>
                       )}
 
                       {/* Posted Time */}
                       <div>
                         <p className="text-xs text-muted-foreground">
-                          Listed {new Date(listing.timestamp).toLocaleDateString('en-US', {
+                          Listed {new Date(listing.created_at).toLocaleDateString('en-US', {
                             month: 'short',
                             day: 'numeric',
                             hour: '2-digit',
@@ -191,15 +272,6 @@ const EventTicketsMarketplace = () => {
                         <ShoppingCart className="w-4 h-4 mr-2" />
                         Buy This Ticket
                       </Button>
-
-                      {/* Photos Indicator */}
-                      {listing.files.length > 0 && (
-                        <div className="pt-4 border-t">
-                          <p className="text-xs text-center text-muted-foreground">
-                            Seller has attached {listing.files.length} photo{listing.files.length > 1 ? 's' : ''}
-                          </p>
-                        </div>
-                      )}
                     </div>
                   </CardContent>
                 </Card>
