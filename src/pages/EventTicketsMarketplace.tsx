@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Calendar, MapPin, User, ShoppingCart, Info, ShieldCheck } from "lucide-react";
+import { Calendar, MapPin, User, ShoppingCart, Info } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { SEOHead } from "@/components/SEOHead";
 
@@ -25,7 +25,6 @@ interface Listing {
   quantity: number;
   notes: string | null;
   created_at: string;
-  qr_verified: boolean;
   seller: { full_name: string } | null;
 }
 
@@ -60,21 +59,14 @@ const EventTicketsMarketplace = () => {
       setEvent(eventData as EventInfo);
 
       // Fetch available tickets for this event directly
-      const { data: ticketData } = await supabase
+      const { data: ticketData, error: ticketErr } = await supabase
         .from("tickets")
-        .select(`
-          id,
-          selling_price,
-          quantity,
-          notes,
-          created_at,
-          qr_verified,
-          seller:profiles (full_name)
-        `)
+        .select("id, selling_price, quantity, notes, created_at, seller:profiles(full_name)")
         .eq("event_id", eventId)
         .eq("status", "available")
         .order("created_at", { ascending: false });
 
+      if (ticketErr) console.error("Ticket fetch error:", ticketErr);
       setListings((ticketData as unknown as Listing[]) ?? []);
       setLoading(false);
     }
@@ -214,13 +206,7 @@ const EventTicketsMarketplace = () => {
                           <Badge variant="default">
                             {listing.quantity} ticket{listing.quantity > 1 ? 's' : ''}
                           </Badge>
-                          {listing.qr_verified && (
-                            <Badge variant="default" className="bg-green-600 flex items-center gap-1">
-                              <ShieldCheck className="w-3 h-3" />
-                              Verified
-                            </Badge>
-                          )}
-                        </div>
+                          </div>
                       </div>
 
                       <div className="text-center">
