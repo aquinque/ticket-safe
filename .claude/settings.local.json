@@ -13,7 +13,22 @@
       "Bash(npm run lint:*)",
       "Bash(find:*)",
       "Bash(npm run build:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(xargs cat:*)",
+      "Bash(supabase functions list:*)",
+      "Bash(where:*)",
+      "Bash(scoop:*)",
+      "Bash(npx supabase --version)",
+      "Bash(npx supabase:*)",
+      "Bash(ls:*)",
+      "Bash(curl:*)",
+      "Bash(gh auth status:*)",
+      "Bash(bun add:*)",
+      "Bash(npm test:*)",
+      "Bash(npx tsc:*)",
+      "WebFetch(domain:campuslife.escp.eu)",
+      "WebFetch(domain:static-prod-eu-west-1.campusgroups.com)",
+      "Bash(git pull:*)"
     ],
     "deny": [],
     "ask": []

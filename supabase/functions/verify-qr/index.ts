@@ -128,15 +128,23 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (existing) {
-      // Same seller relisting their own (non-sold, non-reserved) ticket → allow
-      if (userId && existing.seller_id === userId && existing.status === "available") {
+      if (existing.status === "sold") {
+        return json({ status: "already_used", message: "This ticket has already been sold on the marketplace." });
+      }
+      if (existing.status === "reserved") {
+        return json({ status: "already_used", message: "This ticket is currently being purchased by a buyer." });
+      }
+      // status === "available": same seller can relist (submit-listing will auto-cancel the old one)
+      if (userId && existing.seller_id === userId) {
         console.log("[verify-qr] same-seller relist detected — allowing");
-        // Fall through to QR validation below (submit-listing will auto-cancel old listing)
+        // Fall through to QR validation below
       } else {
-        const msg = existing.status === "sold"
-          ? "This ticket has already been sold on the marketplace."
-          : "This QR code is already listed on the marketplace.";
-        return json({ status: "already_used", message: msg });
+        // No userId provided, or belongs to another seller — soft warning, not hard block
+        // submit-listing will enforce the actual rule; pre-check is best-effort
+        return json({
+          status: "already_listed",
+          message: "A listing already exists for this QR code. If it's yours, submitting will update it.",
+        });
       }
     }
 

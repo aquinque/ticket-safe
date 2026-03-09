@@ -119,7 +119,7 @@ const Sell = () => {
 
   // QR verification status (PART 4)
   type QRVerifyStatus = {
-    status: "valid" | "wrong_event" | "expired" | "already_used" | "unreadable_qr" | "invalid";
+    status: "valid" | "wrong_event" | "expired" | "already_used" | "already_listed" | "unreadable_qr" | "invalid";
     qr_type?: "platform" | "external";
     needs_review?: boolean;
     message: string;

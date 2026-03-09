@@ -35,6 +35,7 @@ import StripeReturn from "./pages/StripeReturn";
 import CheckoutSuccess from "./pages/CheckoutSuccess";
 import CheckoutCancel from "./pages/CheckoutCancel";
 import GalaESCP from "./pages/GalaESCP";
+import Chat from "./pages/Chat";
 import NotFound from "./pages/NotFound";
 
 const App = () => (
@@ -76,6 +77,7 @@ const App = () => (
       <Route path="/checkout/success" element={<CheckoutSuccess />} />
       <Route path="/checkout/cancel" element={<CheckoutCancel />} />
       <Route path="/gala-escp" element={<GalaESCP />} />
+      <Route path="/chat" element={<Chat />} />
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
       <Route path="*" element={<NotFound />} />
     </Routes>
