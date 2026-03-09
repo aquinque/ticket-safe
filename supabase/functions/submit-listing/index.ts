@@ -372,17 +372,37 @@ serve(async (req) => {
     // Cancelled listings are excluded so the seller can relist the same ticket.
     const { data: duplicate } = await supabase
       .from("tickets")
-      .select("id, status")
+      .select("id, status, seller_id")
       .eq("qr_hash", qrHash)
       .not("status", "eq", "cancelled")
       .maybeSingle();
 
     if (duplicate) {
-      const msg =
-        duplicate.status === "sold"
-          ? "This ticket has already been sold on the marketplace"
-          : "This ticket is already listed on the marketplace";
-      return jsonResponse({ code: "ALREADY_LISTED", message: msg }, 409);
+      if (duplicate.status === "sold" || duplicate.status === "reserved") {
+        // Ticket already sold or being purchased — hard block
+        return jsonResponse({
+          code: "ALREADY_LISTED",
+          message: duplicate.status === "sold"
+            ? "This ticket has already been sold on the marketplace"
+            : "This ticket is currently being purchased by a buyer",
+        }, 409);
+      }
+
+      if (duplicate.seller_id === user.id) {
+        // Same seller relisting — cancel the old listing first, then proceed
+        console.log("[submit-listing] same seller relisting — cancelling old listing", duplicate.id);
+        await supabase
+          .from("tickets")
+          .update({ status: "cancelled" })
+          .eq("id", duplicate.id);
+        // Fall through to create new listing
+      } else {
+        // Different seller has the same QR — block
+        return jsonResponse({
+          code: "ALREADY_LISTED",
+          message: "This ticket is already listed on the marketplace by another seller",
+        }, 409);
+      }
     }
 
     // 6b. Signature verification
