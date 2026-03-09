@@ -38,6 +38,14 @@ import {
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
+interface EventInfo {
+  id: string;
+  title: string;
+  date: string;
+  location: string | null;
+  category: string;
+}
+
 interface RawListing {
   id: string;
   event_id: string;
@@ -45,15 +53,8 @@ interface RawListing {
   quantity: number;
   notes: string | null;
   status: string;
-  qr_verified: boolean | null;
   created_at: string;
-  event: {
-    id: string;
-    title: string;
-    date: string;
-    location: string | null;
-    category: string;
-  } | null;
+  event: EventInfo | null;
 }
 
 type StatusFilter = "all" | "available" | "sold" | "reserved";
@@ -121,38 +122,58 @@ const MyListings = () => {
     }
   }, [user, authLoading, navigate]);
 
-  // Fetch seller's listings
+  // Fetch seller's listings — two separate queries to avoid events-table RLS issues
   const fetchListings = async () => {
     if (!user) return;
     setLoading(true);
-    const { data, error } = await supabase
+
+    // 1. Fetch the seller's own tickets (simple query, no join)
+    const { data: ticketRows, error: ticketsError } = await supabase
       .from("tickets")
-      .select(`
-        id,
-        event_id,
-        selling_price,
-        quantity,
-        notes,
-        status,
-        qr_verified,
-        created_at,
-        event:events (
-          id,
-          title,
-          date,
-          location,
-          category
-        )
-      `)
+      .select("id, event_id, selling_price, quantity, notes, status, created_at")
       .eq("seller_id", user.id)
       .order("created_at", { ascending: false });
 
-    if (error) {
-      console.error("Error fetching listings:", error);
-      toast({ title: "Error loading listings", variant: "destructive" });
-    } else {
-      setListings((data as unknown as RawListing[]) ?? []);
+    if (ticketsError) {
+      console.error("Error fetching tickets:", ticketsError);
+      toast({ title: "Error loading listings", description: ticketsError.message, variant: "destructive" });
+      setLoading(false);
+      return;
     }
+
+    const rows = ticketRows ?? [];
+
+    if (rows.length === 0) {
+      setListings([]);
+      setLoading(false);
+      return;
+    }
+
+    // 2. Fetch event details for all unique event IDs
+    const eventIds = [...new Set(rows.map((r) => r.event_id).filter(Boolean))];
+    const { data: eventRows } = await supabase
+      .from("events")
+      .select("id, title, date, location, category")
+      .in("id", eventIds);
+
+    const eventsMap: Record<string, EventInfo> = {};
+    for (const ev of eventRows ?? []) {
+      eventsMap[ev.id] = ev as EventInfo;
+    }
+
+    // 3. Merge
+    const merged: RawListing[] = rows.map((r) => ({
+      id: r.id,
+      event_id: r.event_id,
+      selling_price: r.selling_price,
+      quantity: r.quantity ?? 1,
+      notes: r.notes,
+      status: r.status ?? "available",
+      created_at: r.created_at,
+      event: eventsMap[r.event_id] ?? null,
+    }));
+
+    setListings(merged);
     setLoading(false);
   };
 
