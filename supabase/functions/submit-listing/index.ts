@@ -289,43 +289,42 @@ serve(async (req) => {
 
     // -----------------------------------------------------------------------
     // 5b. Cross-event text validation (when PDF text is extracted client-side)
+    // Only blocks if the ticket text CLEARLY belongs to a different event:
+    // - at least 2 distinctive keywords (>=6 chars) from another event match
+    // - AND zero keywords from the selected event match
+    // This avoids false positives from shared words (e.g. "ticket", "escp").
     // -----------------------------------------------------------------------
     const rawExtractedText = typeof extractedText === "string" ? extractedText.toLowerCase().trim() : null;
 
-    if (rawExtractedText && rawExtractedText.length > 20) {
-      // Fetch all active events so we can cross-check keywords
+    if (rawExtractedText && rawExtractedText.length > 50) {
       const { data: allEvents } = await supabase
         .from("events")
         .select("id, title, campus")
         .eq("is_active", true);
 
       if (allEvents && allEvents.length > 0) {
+        // Only use long, distinctive words (>=6 chars) to avoid false positives
+        const COMMON = new Set(["ticket", "billet", "soiree", "event", "events", "price", "euros", "place", "places"]);
         const selectedKeywords = event.title.toLowerCase()
           .split(/\s+/)
-          .filter((w: string) => w.length >= 5);
-        const selectedCampus = (event.campus ?? "").toLowerCase();
+          .filter((w: string) => w.length >= 6 && !COMMON.has(w));
 
-        // Check if text clearly matches ANOTHER event but NOT the selected event
         for (const otherEvent of allEvents as { id: string; title: string; campus: string | null }[]) {
           if (otherEvent.id === eventId.trim()) continue;
 
           const otherKeywords = otherEvent.title.toLowerCase()
             .split(/\s+/)
-            .filter((w: string) => w.length >= 5);
-          const otherCampus = (otherEvent.campus ?? "").toLowerCase();
+            .filter((w: string) => w.length >= 6 && !COMMON.has(w));
 
-          const matchesOther =
-            otherKeywords.some((w: string) => rawExtractedText.includes(w)) ||
-            (otherCampus.length >= 4 && rawExtractedText.includes(otherCampus));
+          // Need at least 2 distinctive keyword matches to flag as wrong event
+          const otherMatches = otherKeywords.filter((w: string) => rawExtractedText.includes(w));
+          const selectedMatches = selectedKeywords.filter((k: string) => rawExtractedText.includes(k));
 
-          const matchesSelected =
-            selectedKeywords.some((k: string) => rawExtractedText.includes(k)) ||
-            (selectedCampus.length >= 4 && rawExtractedText.includes(selectedCampus));
-
-          if (matchesOther && !matchesSelected) {
+          if (otherMatches.length >= 2 && selectedMatches.length === 0) {
             console.log("[submit-listing] text cross-event mismatch", {
               selected: event.title,
               matched_other: otherEvent.title,
+              other_matches: otherMatches,
             });
             return jsonResponse({
               code: "INVALID_FORMAT",
