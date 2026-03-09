@@ -98,19 +98,11 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ status: "invalid", message: "Method not allowed" }, 405);
 
   try {
-    // ── 1. Auth ────────────────────────────────────────────────────────────
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) return json({ status: "invalid", message: "Authentication required" }, 401);
-
-    // Use service-role client + getUser(token) — most reliable pattern for edge functions.
-    // This avoids 401s from SUPABASE_ANON_KEY mismatch or slightly-expired JWTs.
+    // ── 1. Service-role DB client (no user auth required — read-only endpoint) ──
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
-    const token = authHeader.replace(/^Bearer\s+/i, "");
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    if (authError || !user) return json({ status: "invalid", message: "Invalid or expired session" }, 401);
 
     // ── 2. Parse body ──────────────────────────────────────────────────────
     let body: { qrText?: string; eventId?: string };
