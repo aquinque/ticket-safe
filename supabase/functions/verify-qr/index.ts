@@ -129,11 +129,13 @@ Deno.serve(async (req) => {
     console.log("[verify-qr] checking", { len: raw.length, isJWT: JWT_RE.test(raw), eventId });
 
     // ── 3. Deduplication ───────────────────────────────────────────────────
+    // Cancelled listings are excluded so the seller can relist the same ticket.
     const qrHash = await sha256hex(raw);
     const { data: existing } = await supabase
       .from("tickets")
       .select("id, status")
       .eq("qr_hash", qrHash)
+      .not("status", "eq", "cancelled")
       .maybeSingle();
 
     if (existing) {

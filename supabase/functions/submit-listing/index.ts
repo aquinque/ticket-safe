@@ -291,11 +291,13 @@ serve(async (req) => {
     // -----------------------------------------------------------------------
     const qrHash = await sha256hex(trimmedQR);
 
-    // 6a. Deduplication — same QR already in marketplace?
+    // 6a. Deduplication — same QR already active in marketplace?
+    // Cancelled listings are excluded so the seller can relist the same ticket.
     const { data: duplicate } = await supabase
       .from("tickets")
       .select("id, status")
       .eq("qr_hash", qrHash)
+      .not("status", "eq", "cancelled")
       .maybeSingle();
 
     if (duplicate) {
