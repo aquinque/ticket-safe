@@ -193,12 +193,13 @@ serve(async (req) => {
       return jsonResponse({ code: "INVALID_FORMAT", message: "Request body must be valid JSON" }, 400);
     }
 
-    const { eventId, sellingPrice, quantity, notes, qrText } = body as {
+    const { eventId, sellingPrice, quantity, notes, qrText, extractedText } = body as {
       eventId?: unknown;
       sellingPrice?: unknown;
       quantity?: unknown;
       notes?: unknown;
       qrText?: unknown;
+      extractedText?: unknown;
     };
 
     // -----------------------------------------------------------------------
@@ -284,6 +285,55 @@ serve(async (req) => {
 
     if (nowMs > endsAtMs + graceMs) {
       return jsonResponse({ code: "EXPIRED", message: "Cannot sell tickets for past events" }, 400);
+    }
+
+    // -----------------------------------------------------------------------
+    // 5b. Cross-event text validation (when PDF text is extracted client-side)
+    // -----------------------------------------------------------------------
+    const rawExtractedText = typeof extractedText === "string" ? extractedText.toLowerCase().trim() : null;
+
+    if (rawExtractedText && rawExtractedText.length > 20) {
+      // Fetch all active events so we can cross-check keywords
+      const { data: allEvents } = await supabase
+        .from("events")
+        .select("id, title, campus")
+        .eq("is_active", true);
+
+      if (allEvents && allEvents.length > 0) {
+        const selectedKeywords = event.title.toLowerCase()
+          .split(/\s+/)
+          .filter((w: string) => w.length >= 5);
+        const selectedCampus = (event.campus ?? "").toLowerCase();
+
+        // Check if text clearly matches ANOTHER event but NOT the selected event
+        for (const otherEvent of allEvents as { id: string; title: string; campus: string | null }[]) {
+          if (otherEvent.id === eventId.trim()) continue;
+
+          const otherKeywords = otherEvent.title.toLowerCase()
+            .split(/\s+/)
+            .filter((w: string) => w.length >= 5);
+          const otherCampus = (otherEvent.campus ?? "").toLowerCase();
+
+          const matchesOther =
+            otherKeywords.some((w: string) => rawExtractedText.includes(w)) ||
+            (otherCampus.length >= 4 && rawExtractedText.includes(otherCampus));
+
+          const matchesSelected =
+            selectedKeywords.some((k: string) => rawExtractedText.includes(k)) ||
+            (selectedCampus.length >= 4 && rawExtractedText.includes(selectedCampus));
+
+          if (matchesOther && !matchesSelected) {
+            console.log("[submit-listing] text cross-event mismatch", {
+              selected: event.title,
+              matched_other: otherEvent.title,
+            });
+            return jsonResponse({
+              code: "INVALID_FORMAT",
+              message: `This ticket appears to be for "${otherEvent.title}", not "${event.title}". Please upload the correct ticket.`,
+            }, 400);
+          }
+        }
+      }
     }
 
     // -----------------------------------------------------------------------

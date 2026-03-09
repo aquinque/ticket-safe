@@ -59,7 +59,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { SEOHead } from "@/components/SEOHead";
-import { decodeQRFromFile, isQRTextValid } from "@/lib/qrValidator";
+import { decodeQRFromFile, extractTextFromFile, isQRTextValid } from "@/lib/qrValidator";
 import { calcBreakdown } from "@/lib/fees";
 import { QRScanner } from "@/components/QRScanner";
 import {
@@ -126,6 +126,9 @@ const Sell = () => {
   };
   const [qrVerifyStatus, setQrVerifyStatus] = useState<QRVerifyStatus | null>(null);
   const [qrVerifying, setQrVerifying] = useState(false);
+
+  // Extracted ticket text (from PDF text layer)
+  const [extractedText, setExtractedText] = useState<string | null>(null);
 
   // Success state
   const [createdListingId, setCreatedListingId] = useState<string | null>(null);
@@ -283,11 +286,22 @@ const Sell = () => {
     setQrImageFile(file);
     setQrDecodeError(null);
     setQrText("");
+    setExtractedText(null);
     setQrDecoding(true);
     const isPDF = file.type === "application/pdf";
     console.log("[Sell] file upload received:", file.name, file.size, file.type);
     try {
-      const decoded = await decodeQRFromFile(file);
+      // Run QR decode and text extraction in parallel
+      const [decoded, text] = await Promise.all([
+        decodeQRFromFile(file),
+        extractTextFromFile(file),
+      ]);
+
+      if (text) {
+        setExtractedText(text);
+        console.log("[Sell] extracted text:", text.length, "chars →", text.slice(0, 80).replace(/\s+/g, " "));
+      }
+
       if (decoded) {
         console.log("[Sell] decode success:", decoded.slice(0, 80));
         setQrText(decoded);
@@ -360,6 +374,7 @@ const Sell = () => {
         quantity: parseInt(formData.quantity, 10),
         notes: formData.notes || undefined,
         qrText,
+        extractedText: extractedText || undefined,
       };
       console.log("[Sell] submitting to submit-listing:", {
         ...payload,
@@ -404,6 +419,7 @@ const Sell = () => {
         setSelectedEvent(null);
         setQrText("");
         setQrImageFile(null);
+        setExtractedText(null);
       } else {
         // Map code to friendly message
         const code = result.code as Exclude<QRValidationCode, "VALID">;
