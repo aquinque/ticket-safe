@@ -59,6 +59,34 @@ function jsonResponse(
   });
 }
 
+/**
+ * Generate a signed HS256 JWT for admin one-click approve/reject actions.
+ * Expires in 48 hours.
+ */
+async function generateActionJWT(
+  ticketId: string,
+  action: "approve" | "reject",
+  secret: string
+): Promise<string> {
+  const header = btoa(JSON.stringify({ alg: "HS256", typ: "JWT" }))
+    .replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+  const payload = btoa(JSON.stringify({
+    tid: ticketId,
+    act: action,
+    iat: Math.floor(Date.now() / 1000),
+    exp: Math.floor(Date.now() / 1000) + 172800, // 48h
+  })).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+  const data = `${header}.${payload}`;
+  const key = await crypto.subtle.importKey(
+    "raw", new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" }, false, ["sign"]
+  );
+  const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(data));
+  const sigB64 = btoa(String.fromCharCode(...new Uint8Array(sig)))
+    .replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+  return `${data}.${sigB64}`;
+}
+
 async function sha256hex(text: string): Promise<string> {
   const buf = await crypto.subtle.digest(
     "SHA-256",
@@ -583,7 +611,44 @@ serve(async (req) => {
     if (needsReview) {
       const resendKey = Deno.env.get("RESEND_API_KEY");
       const siteUrl = Deno.env.get("SITE_URL") ?? "https://ticketsafe.fr";
+      const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+      const actionSecret = Deno.env.get("TICKET_SIGNING_SECRET") ?? Deno.env.get("ADMIN_ACTION_SECRET");
+
       if (resendKey) {
+        // Fetch seller profile for display
+        const { data: sellerProfile } = await supabase
+          .from("profiles")
+          .select("full_name, email")
+          .eq("id", user.id)
+          .maybeSingle() as { data: { full_name: string; email: string } | null };
+
+        const sellerName = sellerProfile?.full_name ?? "Unknown";
+        const sellerEmail = sellerProfile?.email ?? user.email ?? "";
+        const listingId = listing?.id as string | undefined;
+
+        // Generate one-click approve/reject URLs if signing secret is available
+        let approveUrl = `${siteUrl}/admin/review`;
+        let rejectUrl = `${siteUrl}/admin/review`;
+        if (actionSecret && listingId) {
+          const approveToken = await generateActionJWT(listingId, "approve", actionSecret);
+          const rejectToken = await generateActionJWT(listingId, "reject", actionSecret);
+          approveUrl = `${supabaseUrl}/functions/v1/admin-quick-action?token=${approveToken}`;
+          rejectUrl = `${supabaseUrl}/functions/v1/admin-quick-action?token=${rejectToken}`;
+        }
+
+        // Ticket text preview (first 400 chars of extracted PDF text)
+        const textPreview = rawExtractedText
+          ? rawExtractedText.slice(0, 400).replace(/</g, "&lt;").replace(/>/g, "&gt;")
+          : null;
+
+        const qrBadge = qrType === "jwt"
+          ? `<span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:4px;font-size:12px">Platform QR</span>`
+          : `<span style="background:#fef9c3;color:#854d0e;padding:2px 8px;border-radius:4px;font-size:12px">External QR</span>`;
+
+        const eventDate = event.date
+          ? new Date(event.date).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })
+          : "";
+
         fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: {
@@ -593,20 +658,72 @@ serve(async (req) => {
           body: JSON.stringify({
             from: "TicketSafe <notifications@ticketsafe.fr>",
             to: ["adrien.menard100@gmail.com"],
-            subject: `[TicketSafe] New ticket pending review — ${event.title}`,
+            subject: `[TicketSafe] Nouveau billet à vérifier — ${event.title}`,
             html: `
-              <h2>New ticket pending review</h2>
-              <table style="border-collapse:collapse;font-family:sans-serif;font-size:14px">
-                <tr><td style="padding:4px 12px 4px 0;color:#666">Event</td><td><strong>${event.title}</strong></td></tr>
-                <tr><td style="padding:4px 12px 4px 0;color:#666">Price</td><td>€${price} × ${qty}</td></tr>
-                <tr><td style="padding:4px 12px 4px 0;color:#666">Seller ID</td><td>${user.id}</td></tr>
-                <tr><td style="padding:4px 12px 4px 0;color:#666">QR type</td><td>${qrType}</td></tr>
-              </table>
-              <br>
-              <a href="${siteUrl}/admin/review" style="background:#6366f1;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;font-family:sans-serif">
-                Review now →
-              </a>
-            `,
+<!DOCTYPE html>
+<html lang="fr">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+<div style="max-width:560px;margin:32px auto;background:white;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.08)">
+
+  <!-- Header -->
+  <div style="background:#6366f1;padding:24px 32px">
+    <p style="margin:0;font-size:13px;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.08em">TicketSafe · Admin</p>
+    <h1 style="margin:6px 0 0;font-size:20px;color:white;font-weight:600">Nouveau billet en attente de vérification</h1>
+  </div>
+
+  <!-- Ticket details -->
+  <div style="padding:28px 32px">
+    <table style="width:100%;border-collapse:collapse;font-size:14px">
+      <tr>
+        <td style="padding:8px 0;color:#888;width:40%;vertical-align:top">Événement</td>
+        <td style="padding:8px 0;font-weight:600;color:#111">${event.title}</td>
+      </tr>
+      <tr>
+        <td style="padding:8px 0;color:#888;border-top:1px solid #f0f0f0">Date</td>
+        <td style="padding:8px 0;color:#333;border-top:1px solid #f0f0f0">${eventDate}</td>
+      </tr>
+      <tr>
+        <td style="padding:8px 0;color:#888;border-top:1px solid #f0f0f0">Prix</td>
+        <td style="padding:8px 0;color:#333;border-top:1px solid #f0f0f0">€${price} × ${qty} billet${qty > 1 ? "s" : ""}</td>
+      </tr>
+      <tr>
+        <td style="padding:8px 0;color:#888;border-top:1px solid #f0f0f0">Vendeur</td>
+        <td style="padding:8px 0;color:#333;border-top:1px solid #f0f0f0">${sellerName}<br><span style="font-size:12px;color:#999">${sellerEmail}</span></td>
+      </tr>
+      <tr>
+        <td style="padding:8px 0;color:#888;border-top:1px solid #f0f0f0">QR Code</td>
+        <td style="padding:8px 0;border-top:1px solid #f0f0f0">${qrBadge}</td>
+      </tr>
+    </table>
+
+    ${textPreview ? `
+    <!-- Ticket text preview -->
+    <div style="margin-top:20px;background:#f8f8f8;border-left:3px solid #6366f1;border-radius:0 8px 8px 0;padding:14px 16px">
+      <p style="margin:0 0 6px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#888;font-weight:600">Contenu extrait du billet (PDF)</p>
+      <p style="margin:0;font-size:13px;color:#444;line-height:1.6;font-family:monospace;white-space:pre-wrap">${textPreview}${rawExtractedText && rawExtractedText.length > 400 ? "…" : ""}</p>
+    </div>` : ""}
+
+    <!-- Action buttons -->
+    <div style="margin-top:28px;display:flex;gap:12px">
+      <a href="${approveUrl}" style="display:inline-block;background:#16a34a;color:white;padding:12px 28px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:600;margin-right:12px">
+        ✓ Approuver
+      </a>
+      <a href="${rejectUrl}" style="display:inline-block;background:#dc2626;color:white;padding:12px 28px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:600">
+        ✗ Rejeter
+      </a>
+    </div>
+    <p style="margin:12px 0 0;font-size:12px;color:#999">Ces liens sont valables 48h. Pour rejeter avec une raison personnalisée, utilisez le panneau admin.</p>
+  </div>
+
+  <!-- Footer -->
+  <div style="padding:16px 32px;background:#fafafa;border-top:1px solid #f0f0f0;text-align:center">
+    <a href="${siteUrl}/admin/review" style="font-size:13px;color:#6366f1;text-decoration:none">Voir tous les billets en attente →</a>
+  </div>
+
+</div>
+</body>
+</html>`,
           }),
         }).catch((e: unknown) => console.warn("[submit-listing] email notification failed:", e));
       } else {
