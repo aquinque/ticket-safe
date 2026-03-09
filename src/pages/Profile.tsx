@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useI18n } from "@/contexts/I18nContext";
@@ -20,7 +21,8 @@ import {
   Clock,
   XCircle,
   Shield,
-  History
+  History,
+  ExternalLink
 } from "lucide-react";
 
 const Profile = () => {
@@ -416,6 +418,13 @@ const Profile = () => {
             </TabsContent>
 
             <TabsContent value="sales" className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div />
+                <Button variant="hero" size="sm" onClick={() => navigate("/settings/listings")} className="gap-2">
+                  <ExternalLink className="w-4 h-4" />
+                  Manage My Listings
+                </Button>
+              </div>
               <Card>
                 <CardHeader>
                   <CardTitle>{t('profile.salesHistory')}</CardTitle>

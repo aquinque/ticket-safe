@@ -20,6 +20,7 @@ import Settings from "./pages/Settings";
 import InterfaceSettings from "./pages/settings/InterfaceSettings";
 import PersonalInformation from "./pages/settings/PersonalInformation";
 import PurchaseHistory from "./pages/settings/PurchaseHistory";
+import MyListings from "./pages/settings/MyListings";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
 import Contact from "./pages/Contact";
@@ -59,6 +60,7 @@ const App = () => (
       <Route path="/settings/interface" element={<InterfaceSettings />} />
       <Route path="/settings/personal" element={<PersonalInformation />} />
       <Route path="/settings/purchases" element={<PurchaseHistory />} />
+      <Route path="/settings/listings" element={<MyListings />} />
       <Route path="/auth" element={<Auth />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/contact" element={<Contact />} />
