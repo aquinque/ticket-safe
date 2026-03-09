@@ -578,6 +578,43 @@ serve(async (req) => {
       listing = fullInsert.data as Record<string, unknown>;
     }
 
+    // -----------------------------------------------------------------------
+    // 9. Notify admin of pending ticket (fire-and-forget)
+    // -----------------------------------------------------------------------
+    if (needsReview) {
+      const resendKey = Deno.env.get("RESEND_API_KEY");
+      const siteUrl = Deno.env.get("SITE_URL") ?? "https://ticketsafe.fr";
+      if (resendKey) {
+        fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${resendKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            from: "TicketSafe <notifications@ticketsafe.fr>",
+            to: ["adrien.menard100@gmail.com"],
+            subject: `[TicketSafe] New ticket pending review — ${event.title}`,
+            html: `
+              <h2>New ticket pending review</h2>
+              <table style="border-collapse:collapse;font-family:sans-serif;font-size:14px">
+                <tr><td style="padding:4px 12px 4px 0;color:#666">Event</td><td><strong>${event.title}</strong></td></tr>
+                <tr><td style="padding:4px 12px 4px 0;color:#666">Price</td><td>€${price} × ${qty}</td></tr>
+                <tr><td style="padding:4px 12px 4px 0;color:#666">Seller ID</td><td>${user.id}</td></tr>
+                <tr><td style="padding:4px 12px 4px 0;color:#666">QR type</td><td>${qrType}</td></tr>
+              </table>
+              <br>
+              <a href="${siteUrl}/admin/review" style="background:#6366f1;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;font-family:sans-serif">
+                Review now →
+              </a>
+            `,
+          }),
+        }).catch((e: unknown) => console.warn("[submit-listing] email notification failed:", e));
+      } else {
+        console.log("[submit-listing] RESEND_API_KEY not set — skipping admin notification");
+      }
+    }
+
     return jsonResponse({ code: "VALID", listing }, 201);
 
   } catch (err) {
