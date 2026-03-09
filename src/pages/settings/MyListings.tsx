@@ -260,23 +260,21 @@ const MyListings = () => {
     setEditLoading(false);
   };
 
-  // ── Cancel listing ─────────────────────────────────────────────────────────
+  // ── Delete listing ─────────────────────────────────────────────────────────
   const confirmCancel = async () => {
     if (!cancelId) return;
     setCancelLoading(true);
     const { error } = await supabase
       .from("tickets")
-      .update({ status: "reserved" })
+      .delete()
       .eq("id", cancelId)
       .eq("seller_id", user!.id);
 
     if (error) {
-      toast({ title: "Failed to cancel listing", variant: "destructive" });
+      toast({ title: "Failed to delete listing", variant: "destructive" });
     } else {
-      setListings((prev) =>
-        prev.map((l) => (l.id === cancelId ? { ...l, status: "reserved" } : l))
-      );
-      toast({ title: "Listing cancelled", description: "Your ticket is no longer visible to buyers." });
+      setListings((prev) => prev.filter((l: RawListing) => l.id !== cancelId));
+      toast({ title: "Listing deleted", description: "Your ticket has been removed." });
       setCancelId(null);
     }
     setCancelLoading(false);
@@ -624,16 +622,16 @@ const MyListings = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Cancel Confirmation Dialog */}
+      {/* Delete Confirmation Dialog */}
       <Dialog open={!!cancelId} onOpenChange={(open) => !open && setCancelId(null)}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-destructive">
               <Trash2 className="w-5 h-5" />
-              Cancel Listing
+              Delete Listing
             </DialogTitle>
             <DialogDescription>
-              Are you sure you want to remove this listing? It will no longer be visible to buyers. This action cannot be undone.
+              Are you sure you want to delete this listing? It will be permanently removed. This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">
@@ -651,7 +649,7 @@ const MyListings = () => {
               ) : (
                 <Trash2 className="w-4 h-4" />
               )}
-              Yes, Cancel Listing
+              Yes, Delete
             </Button>
           </DialogFooter>
         </DialogContent>
