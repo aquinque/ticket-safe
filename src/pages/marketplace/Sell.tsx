@@ -78,7 +78,7 @@ const notesSchema = z
   .trim()
   .max(1000, "Notes must be less than 1000 characters")
   .regex(
-    /^[a-zA-Z0-9\s.,!?'"()\-]*$/,
+    /^[\p{L}\p{N}\s.,!?'"()\-:;€@#]*$/u,
     "Notes can only contain letters, numbers, and basic punctuation"
   )
   .optional();

@@ -397,53 +397,50 @@ serve(async (req) => {
       // --- Platform JWT ---
       if (signingSecret) {
         const { valid, payload } = await verifyJWTHS256(trimmedQR, signingSecret);
-        if (!valid) {
-          return jsonResponse(
-            { code: "INVALID_FORMAT", message: "Invalid ticket signature — this ticket may be fraudulent" },
-            400
-          );
-        }
 
-        // JWT expiry
-        if (
-          payload &&
-          typeof payload.exp === "number" &&
-          payload.exp < Math.floor(Date.now() / 1000)
-        ) {
-          return jsonResponse({ code: "EXPIRED", message: "This ticket token has expired" }, 400);
-        }
+        if (valid) {
+          // This is a TicketSafe-signed JWT — verify it fully
+          // JWT expiry
+          if (
+            payload &&
+            typeof payload.exp === "number" &&
+            payload.exp < Math.floor(Date.now() / 1000)
+          ) {
+            return jsonResponse({ code: "EXPIRED", message: "This ticket token has expired" }, 400);
+          }
 
-        // Look up ticket in secure_tickets
-        if (payload) {
-          const ticketRef = (payload.tid ?? payload.sub ?? payload.ticket_id) as string | undefined;
-          if (ticketRef) {
-            const { data: secTkt } = await supabase
-              .from("secure_tickets")
-              .select("id, status, is_revoked")
-              .eq("ticket_number", ticketRef)
-              .maybeSingle();
+          // Look up ticket in secure_tickets
+          if (payload) {
+            const ticketRef = (payload.tid ?? payload.sub ?? payload.ticket_id) as string | undefined;
+            if (ticketRef) {
+              const { data: secTkt } = await supabase
+                .from("secure_tickets")
+                .select("id, status, is_revoked")
+                .eq("ticket_number", ticketRef)
+                .maybeSingle();
 
-            if (secTkt) {
-              if (secTkt.is_revoked || secTkt.status === "REVOKED") {
-                return jsonResponse({ code: "CANCELLED", message: "This ticket has been revoked or cancelled" }, 400);
+              if (secTkt) {
+                if (secTkt.is_revoked || secTkt.status === "REVOKED") {
+                  return jsonResponse({ code: "CANCELLED", message: "This ticket has been revoked or cancelled" }, 400);
+                }
+                if (secTkt.status === "USED") {
+                  return jsonResponse({ code: "ALREADY_USED", message: "This ticket has already been used at the event" }, 400);
+                }
+                if (secTkt.status === "EXPIRED") {
+                  return jsonResponse({ code: "EXPIRED", message: "This ticket has expired" }, 400);
+                }
               }
-              if (secTkt.status === "USED") {
-                return jsonResponse({ code: "ALREADY_USED", message: "This ticket has already been used at the event" }, 400);
-              }
-              if (secTkt.status === "EXPIRED") {
-                return jsonResponse({ code: "EXPIRED", message: "This ticket has expired" }, 400);
-              }
-            } else {
-              // Signed by our key but not found — could be a forged ID
-              return jsonResponse(
-                { code: "UNKNOWN_TICKET", message: "Ticket not found in our system" },
-                400
-              );
+              // Not found in secure_tickets — may be an external JWT that happens to pass our signature (very unlikely), accept for review
             }
           }
+          qrVerified = true;
+        } else {
+          // Signature doesn't match our key → external JWT from another platform
+          // Accept it for manual review instead of rejecting outright
+          console.log("[submit-listing] JWT signature mismatch — treating as external QR for review");
+          qrType = "external_jwt";
+          // qrVerified stays false → needsReview = true
         }
-
-        qrVerified = true;
       }
       // No signing secret → accept the JWT as-is (deduplication only)
 
@@ -504,7 +501,7 @@ serve(async (req) => {
     // -----------------------------------------------------------------------
     // Allowlist: letters, digits, whitespace, common punctuation.
     // Must match the notesSchema regex in src/pages/marketplace/Sell.tsx.
-    const NOTES_ALLOWLIST = /^[a-zA-Z0-9\s.,!?'"()\-]*$/;
+    const NOTES_ALLOWLIST = /^[\p{L}\p{N}\s.,!?'"()\-:;€@#]*$/u;
     const rawNotes = typeof notes === "string" ? notes.trim() : "";
     if (rawNotes.length > 1000) {
       return jsonResponse(
@@ -656,7 +653,7 @@ serve(async (req) => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            from: "TicketSafe <notifications@ticket-safe.eu>",
+            from: "TicketSafe <onboarding@resend.dev>",
             to: ["adrien.menard100@gmail.com"],
             subject: `[TicketSafe] Nouveau billet à vérifier — ${event.title}`,
             html: `

@@ -102,19 +102,15 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) return json({ status: "invalid", message: "Authentication required" }, 401);
 
-    const supabaseUser = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-      { global: { headers: { Authorization: authHeader } } }
-    );
-    const { data: { user }, error: authError } = await supabaseUser.auth.getUser();
-    if (authError || !user) return json({ status: "invalid", message: "Invalid or expired session" }, 401);
-
-    // Service-role client for DB queries
+    // Use service-role client + getUser(token) — most reliable pattern for edge functions.
+    // This avoids 401s from SUPABASE_ANON_KEY mismatch or slightly-expired JWTs.
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
+    const token = authHeader.replace(/^Bearer\s+/i, "");
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) return json({ status: "invalid", message: "Invalid or expired session" }, 401);
 
     // ── 2. Parse body ──────────────────────────────────────────────────────
     let body: { qrText?: string; eventId?: string };
@@ -158,10 +154,10 @@ Deno.serve(async (req) => {
       const { valid, payload } = await verifyJWTHS256(raw, signingSecret);
 
       if (!valid) {
-        return json({
-          status: "invalid",
-          message: "Invalid QR code signature — this ticket may be fraudulent.",
-        });
+        // Signature doesn't match our key → external JWT from another ticketing platform.
+        // Accept it for manual review rather than rejecting.
+        console.log("[verify-qr] JWT signature mismatch — treating as external QR");
+        return json({ status: "valid", qr_type: "external", needs_review: true, message: "External QR accepted — ticket will be reviewed before appearing in the marketplace." });
       }
 
       // JWT expiry
