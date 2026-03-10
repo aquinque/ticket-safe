@@ -390,6 +390,14 @@ const Sell = () => {
         }
       );
 
+      // Handle auth errors (gateway "Invalid JWT" or 401)
+      if (res.status === 401) {
+        console.error("[Sell] 401 auth error from submit-listing");
+        toast.error("Session expired. Please log in again.");
+        navigate("/auth");
+        return;
+      }
+
       // Surface raw error text if response is not JSON
       if (!res.ok && res.headers.get("content-type")?.includes("text/html")) {
         console.error("[Sell] non-JSON error response:", res.status, await res.text());

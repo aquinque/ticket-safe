@@ -1,1 +1,13 @@
 project_id = "djvhrllwzgnjnrijhiem"
+
+# Disable gateway JWT verification for functions that handle auth internally.
+# These functions use service-role client + getUser(token) for authentication,
+# so the gateway check is redundant and causes "Invalid JWT" errors.
+[functions.submit-listing]
+verify_jwt = false
+
+[functions.verify-qr]
+verify_jwt = false
+
+[functions.stripe-create-checkout]
+verify_jwt = false
