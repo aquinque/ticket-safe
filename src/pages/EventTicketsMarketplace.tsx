@@ -65,7 +65,7 @@ const EventTicketsMarketplace = () => {
         .from("tickets")
         .select("id, selling_price, quantity, notes, created_at, seller:profiles(full_name)")
         .eq("event_id", eventId)
-        .eq("status", "available")
+        .in("status", ["available", "reserved"])
         .order("created_at", { ascending: false });
 
       if (ticketErr) console.error("Ticket fetch error:", ticketErr);

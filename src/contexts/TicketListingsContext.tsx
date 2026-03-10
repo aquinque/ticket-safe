@@ -82,7 +82,7 @@ async function fetchAvailableListings(): Promise<TicketListing[]> {
       )
     `
     )
-    .eq("status", "available")
+    .in("status", ["available", "reserved"])
     .order("created_at", { ascending: false });
 
   if (error) throw error;

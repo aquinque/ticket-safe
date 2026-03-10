@@ -49,11 +49,11 @@ export function useESCPEvents(options: UseESCPEventsOptions = {}) {
 
       if (eventsErr) throw eventsErr;
 
-      // Fetch available ticket counts in one query
+      // Fetch ticket counts (include reserved — they auto-release after 30 min)
       const { data: ticketData } = await supabase
         .from('tickets')
         .select('event_id, selling_price')
-        .eq('status', 'available');
+        .in('status', ['available', 'reserved']);
 
       // Build per-event aggregates
       const countMap: Record<string, { count: number; minPrice: number; maxPrice: number }> = {};

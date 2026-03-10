@@ -5,17 +5,14 @@
  * Authorization: Bearer <user-jwt>
  * Body: { listingId: string }
  *
- * Standard Stripe Checkout (platform account — no Connect).
- * Buyer pays the platform. Platform pays seller separately.
- *
  * Flow:
  *  1. Authenticate buyer
- *  2. Fetch listing (must be status='available', not own listing)
- *  3. Reserve listing (prevents double-buy race condition)
- *  4. Create pending transaction row
- *  5. Create Stripe Checkout Session (standard charge, no transfer_data)
- *  6. Store session ID on transaction
- *  7. Return { checkout_url, session_id }
+ *  2. Release stale reservations (>5 min)
+ *  3. Fetch listing (must be status='available')
+ *  4. Reserve listing atomically (prevents double-buy)
+ *  5. Create Stripe Checkout Session
+ *  6. Return { checkout_url }
+ *  On any failure after reservation → restore ticket to 'available'
  */
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -29,68 +26,66 @@ const corsHeaders = {
 };
 
 const PLATFORM_FEE_PERCENT = 5;
+const RESERVATION_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const stripeSecretKey = Deno.env.get("STRIPE_SECRET_KEY");
+  const siteUrl = Deno.env.get("SITE_URL") ?? "http://localhost:5173";
+
+  if (!stripeSecretKey || !supabaseUrl || !supabaseKey) {
+    return json({ error: "Server misconfigured." }, 500);
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseKey);
+  let reservedListingId: string | null = null;
+
   try {
-    const stripeSecretKey = Deno.env.get("STRIPE_SECRET_KEY");
-    const supabaseUrl     = Deno.env.get("SUPABASE_URL");
-    const supabaseKey     = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    const siteUrl         = Deno.env.get("SITE_URL") ?? "http://localhost:5173";
-
-    if (!stripeSecretKey || !supabaseUrl || !supabaseKey) {
-      throw new Error("Missing required environment variables");
-    }
-
-    // ── Auth ─────────────────────────────────────────────────────────────────
+    // ── Auth ──────────────────────────────────────────────────────────────
     const authHeader = req.headers.get("Authorization") ?? "";
     if (!authHeader.startsWith("Bearer ")) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json({ error: "Unauthorized" }, 401);
     }
 
-    const supabase = createClient(supabaseUrl, supabaseKey);
     const { data: { user }, error: authError } =
       await supabase.auth.getUser(authHeader.slice(7));
 
     if (authError || !user) {
-      return new Response(JSON.stringify({ error: "Invalid or expired token" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json({ error: "Session expired. Please log in again." }, 401);
     }
 
-    // ── Parse body ────────────────────────────────────────────────────────────
+    // ── Parse body ────────────────────────────────────────────────────────
     let listingId: string;
     try {
       ({ listingId } = await req.json());
     } catch {
-      return new Response(JSON.stringify({ error: "Invalid JSON body" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json({ error: "Invalid request." }, 400);
     }
     if (!listingId || typeof listingId !== "string") {
-      return new Response(JSON.stringify({ error: "listingId is required" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json({ error: "listingId is required." }, 400);
     }
 
-    // ── Release stale reservations (>30 min) ──────────────────────────────────
-    const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+    // ── Release stale reservations ────────────────────────────────────────
+    const cutoff = new Date(Date.now() - RESERVATION_TTL_MS).toISOString();
     await supabase
       .from("tickets")
       .update({ status: "available" })
       .eq("status", "reserved")
-      .lt("updated_at", thirtyMinAgo);
+      .lt("updated_at", cutoff);
 
-    // ── Fetch listing ─────────────────────────────────────────────────────────
+    // ── Fetch listing ─────────────────────────────────────────────────────
     const { data: listing, error: listingError } = await supabase
       .from("tickets")
       .select("*, events(id, title, description)")
@@ -99,120 +94,108 @@ serve(async (req) => {
       .maybeSingle();
 
     if (listingError || !listing) {
-      return new Response(
-        JSON.stringify({ error: "This ticket is no longer available." }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return json({ error: "This ticket is no longer available." }, 404);
     }
 
     if (listing.seller_id === user.id) {
-      return new Response(
-        JSON.stringify({ error: "You cannot purchase your own ticket." }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return json({ error: "You cannot purchase your own ticket." }, 400);
     }
 
-    // ── Reserve listing ───────────────────────────────────────────────────────
-    const { count: reservedCount } = await supabase
+    // ── Reserve (atomic) ──────────────────────────────────────────────────
+    const { count } = await supabase
       .from("tickets")
       .update({ status: "reserved" })
       .eq("id", listingId)
       .eq("status", "available")
       .select("id", { count: "exact", head: true });
 
-    if ((reservedCount ?? 0) === 0) {
-      return new Response(
-        JSON.stringify({ error: "This ticket was just purchased by someone else." }),
-        { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    if ((count ?? 0) === 0) {
+      return json({ error: "This ticket was just purchased by someone else." }, 409);
     }
+    reservedListingId = listingId; // track for cleanup on error
 
-    // ── Amounts ───────────────────────────────────────────────────────────────
-    const qty                 = listing.quantity ?? 1;
-    const pricePerTicketCents = Math.round(listing.selling_price * 100);
-    const totalAmountCents    = pricePerTicketCents * qty;
-    const feeAmountCents      = Math.round((totalAmountCents * PLATFORM_FEE_PERCENT) / 100);
+    // ── Amounts ───────────────────────────────────────────────────────────
+    const qty = listing.quantity ?? 1;
+    const totalCents = Math.round(listing.selling_price * 100) * qty;
+    const feeCents = Math.round((totalCents * PLATFORM_FEE_PERCENT) / 100);
 
-    // ── Create transaction ────────────────────────────────────────────────────
-    const { data: transaction, error: txError } = await supabase
+    // ── Transaction row ───────────────────────────────────────────────────
+    const { data: tx, error: txErr } = await supabase
       .from("transactions")
       .insert({
-        buyer_id:  user.id,
+        buyer_id: user.id,
         seller_id: listing.seller_id,
         ticket_id: listingId,
-        amount:    listing.selling_price * qty,
-        fee_amount: feeAmountCents / 100,
-        quantity:  qty,
-        status:    "pending",
+        amount: listing.selling_price * qty,
+        fee_amount: feeCents / 100,
+        quantity: qty,
+        status: "pending",
       })
       .select("id")
       .single();
 
-    if (txError || !transaction) {
-      await supabase.from("tickets").update({ status: "available" }).eq("id", listingId);
-      throw new Error("Failed to create transaction: " + txError?.message);
+    if (txErr || !tx) {
+      throw new Error("Failed to create transaction: " + txErr?.message);
     }
 
-    // ── Stripe Checkout Session (standard — no Connect) ───────────────────────
+    // ── Stripe Checkout ───────────────────────────────────────────────────
     const stripe = new Stripe(stripeSecretKey, {
       apiVersion: "2024-06-20",
       httpClient: Stripe.createFetchHttpClient(),
     });
 
-    const eventTitle = (listing.events as { title?: string } | null)?.title ?? "Event Ticket";
+    const eventTitle =
+      (listing.events as { title?: string } | null)?.title ?? "Event Ticket";
 
-    let session: Stripe.Checkout.Session;
-    try {
-      session = await stripe.checkout.sessions.create({
-        payment_method_types: ["card"],
-        line_items: [
-          {
-            price_data: {
-              currency: "eur",
-              product_data: {
-                name: eventTitle,
-                description: listing.notes
-                  ? `${qty} ticket(s) — ${listing.notes}`
-                  : `${qty} ticket(s)`,
-              },
-              unit_amount: Math.round(totalAmountCents / qty),
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ["card"],
+      line_items: [
+        {
+          price_data: {
+            currency: "eur",
+            product_data: {
+              name: eventTitle,
+              description: listing.notes
+                ? `${qty} ticket(s) — ${listing.notes}`
+                : `${qty} ticket(s)`,
             },
-            quantity: qty,
+            unit_amount: Math.round(totalCents / qty),
           },
-        ],
-        mode: "payment",
-        success_url: `${siteUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${siteUrl}/checkout/cancel?listing_id=${listingId}`,
-        metadata: {
-          listing_id:     listingId,
-          buyer_id:       user.id,
-          seller_id:      listing.seller_id,
-          transaction_id: transaction.id,
+          quantity: qty,
         },
-        expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
-      });
-    } catch (stripeErr) {
-      await supabase.from("tickets").update({ status: "available" }).eq("id", listingId);
-      await supabase.from("transactions").update({ status: "cancelled" }).eq("id", transaction.id);
-      throw stripeErr;
-    }
+      ],
+      mode: "payment",
+      success_url: `${siteUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${siteUrl}/checkout/cancel?listing_id=${listingId}`,
+      metadata: {
+        listing_id: listingId,
+        buyer_id: user.id,
+        seller_id: listing.seller_id,
+        transaction_id: tx.id,
+      },
+      expires_at: Math.floor(Date.now() / 1000) + 5 * 60, // 5 min expiry
+    });
 
-    // ── Store session ID ──────────────────────────────────────────────────────
+    // Store session ID
     await supabase
       .from("transactions")
       .update({ stripe_checkout_session_id: session.id })
-      .eq("id", transaction.id);
+      .eq("id", tx.id);
 
-    return new Response(
-      JSON.stringify({ checkout_url: session.url, session_id: session.id }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    reservedListingId = null; // success — don't release
+    return json({ checkout_url: session.url, session_id: session.id });
 
   } catch (err) {
     console.error("[stripe-create-checkout]", err);
-    return new Response(
-      JSON.stringify({ error: "Failed to create checkout session. Please try again." }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+
+    // Always release reservation on any error
+    if (reservedListingId) {
+      await supabase
+        .from("tickets")
+        .update({ status: "available" })
+        .eq("id", reservedListingId);
+    }
+
+    return json({ error: "Failed to create checkout session. Please try again." }, 500);
   }
 });

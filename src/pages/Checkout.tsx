@@ -66,21 +66,15 @@ const Checkout = () => {
     }
 
     async function fetchListing() {
-      // Release stale reservations (>30 min) so tickets become available again
-      const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
-      await supabase
-        .from("tickets")
-        .update({ status: "available" })
-        .eq("status", "reserved")
-        .lt("updated_at", thirtyMinAgo);
-
+      // Don't filter by status — the server handles availability when paying.
+      // This prevents "not found" errors for tickets temporarily reserved.
       const { data, error } = await supabase
         .from("tickets")
         .select(
-          "id, selling_price, quantity, notes, seller:profiles(full_name), event:events(id, title, date, location, category, image_url)"
+          "id, selling_price, quantity, notes, status, seller:profiles(full_name), event:events(id, title, date, location, category, image_url)"
         )
         .eq("id", listingId)
-        .eq("status", "available")
+        .not("status", "in", "(sold,cancelled)")
         .maybeSingle();
 
       if (error || !data) {
