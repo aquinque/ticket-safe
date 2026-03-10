@@ -68,8 +68,13 @@ serve(async (req) => {
 
     // ── Parse body ────────────────────────────────────────────────────────
     let listingId: string;
+    let agreedPrice: number | null = null;
     try {
-      ({ listingId } = await req.json());
+      const body = await req.json();
+      listingId = body.listingId;
+      if (body.agreedPrice && typeof body.agreedPrice === "number" && body.agreedPrice > 0) {
+        agreedPrice = body.agreedPrice;
+      }
     } catch {
       return json({ error: "Invalid request." }, 400);
     }
@@ -125,7 +130,9 @@ serve(async (req) => {
 
     // ── Amounts ───────────────────────────────────────────────────────────
     const qty = listing.quantity ?? 1;
-    const totalCents = Math.round(listing.selling_price * 100) * qty;
+    // Use negotiated price if provided, otherwise use the listing price
+    const unitPrice = agreedPrice ?? listing.selling_price;
+    const totalCents = Math.round(unitPrice * 100) * qty;
     const feeCents = Math.round((totalCents * PLATFORM_FEE_PERCENT) / 100);
 
     // ── Transaction row ───────────────────────────────────────────────────
@@ -135,7 +142,7 @@ serve(async (req) => {
         buyer_id: user.id,
         seller_id: listing.seller_id,
         ticket_id: listingId,
-        amount: listing.selling_price * qty,
+        amount: unitPrice * qty,
         fee_amount: feeCents / 100,
         quantity: qty,
         status: "pending",
@@ -181,6 +188,7 @@ serve(async (req) => {
         buyer_id: user.id,
         seller_id: listing.seller_id,
         transaction_id: tx.id,
+        ...(agreedPrice ? { agreed_price: String(agreedPrice) } : {}),
       },
       expires_at: Math.floor(Date.now() / 1000) + 5 * 60, // 5 min expiry
     });

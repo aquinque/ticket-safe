@@ -44,6 +44,8 @@ const Checkout = () => {
   const { user, loading: authLoading } = useAuth();
   const [searchParams] = useSearchParams();
   const listingId = searchParams.get("listing_id");
+  const agreedPriceParam = searchParams.get("agreed_price");
+  const agreedPrice = agreedPriceParam ? parseFloat(agreedPriceParam) : null;
 
   const [listing, setListing] = useState<ListingData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -129,7 +131,8 @@ const Checkout = () => {
 
   // --- Amounts ---
   const event = listing.event;
-  const subtotal = listing.selling_price * listing.quantity;
+  const unitPrice = agreedPrice ?? listing.selling_price;
+  const subtotal = unitPrice * listing.quantity;
   const platformFee = Math.round(subtotal * PLATFORM_FEE_PERCENT) / 100;
   const total = subtotal + platformFee;
 
@@ -156,7 +159,7 @@ const Checkout = () => {
         {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ listingId }),
+          body: JSON.stringify({ listingId, ...(agreedPrice ? { agreedPrice } : {}) }),
         }
       );
       const data = await res.json();
@@ -192,7 +195,7 @@ const Checkout = () => {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-          body: JSON.stringify({ listingId }),
+          body: JSON.stringify({ listingId, ...(agreedPrice ? { agreedPrice } : {}) }),
         }
       );
 
@@ -252,9 +255,19 @@ const Checkout = () => {
 
               {/* Order summary */}
               <div className="space-y-2">
+                {agreedPrice && agreedPrice !== listing.selling_price && (
+                  <div className="p-3 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-md mb-2">
+                    <p className="text-sm font-medium text-green-800 dark:text-green-200">
+                      Negotiated price: €{agreedPrice.toFixed(2)}
+                    </p>
+                    <p className="text-xs text-green-600 dark:text-green-400">
+                      Original listing: €{listing.selling_price.toFixed(2)}
+                    </p>
+                  </div>
+                )}
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">
-                    {listing.quantity} ticket{listing.quantity > 1 ? "s" : ""} x €{listing.selling_price.toFixed(2)}
+                    {listing.quantity} ticket{listing.quantity > 1 ? "s" : ""} x €{unitPrice.toFixed(2)}
                   </span>
                   <span>€{subtotal.toFixed(2)}</span>
                 </div>
