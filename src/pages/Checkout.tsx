@@ -139,6 +139,36 @@ const Checkout = () => {
     year: "numeric",
   });
 
+  const isDev = window.location.hostname === "localhost";
+
+  // --- Dev: simulate purchase without Stripe ---
+  const handleSimulate = async () => {
+    if (!user || !listingId) return;
+    setIsProcessing(true);
+    setPaymentError(null);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) { navigate("/auth"); return; }
+
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/dev-simulate-purchase`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ listingId }),
+        }
+      );
+      const data = await res.json();
+      if (!res.ok) { setPaymentError(data.error ?? "Simulation failed"); return; }
+      navigate(`/checkout/success?session_id=dev_${data.transactionId}`);
+    } catch {
+      setPaymentError("Network error.");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   // --- Stripe Checkout ---
   const handleCheckout = async () => {
     if (!user || !listingId) return;
@@ -259,29 +289,45 @@ const Checkout = () => {
               )}
 
               {/* Pay button */}
-              <Button
-                variant="hero"
-                size="lg"
-                className="w-full"
-                onClick={handleCheckout}
-                disabled={isProcessing}
-              >
-                {isProcessing ? (
-                  <>
+              {isDev ? (
+                <Button
+                  variant="hero"
+                  size="lg"
+                  className="w-full bg-orange-500 hover:bg-orange-600"
+                  onClick={handleSimulate}
+                  disabled={isProcessing}
+                >
+                  {isProcessing ? (
                     <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                    Redirecting to Stripe…
-                  </>
-                ) : (
-                  <>
-                    <CreditCard className="w-5 h-5 mr-2" />
-                    Pay €{total.toFixed(2)}
-                  </>
-                )}
-              </Button>
+                  ) : (
+                    "[DEV] Simulate Purchase — skip Stripe"
+                  )}
+                </Button>
+              ) : (
+                <Button
+                  variant="hero"
+                  size="lg"
+                  className="w-full"
+                  onClick={handleCheckout}
+                  disabled={isProcessing}
+                >
+                  {isProcessing ? (
+                    <>
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                      Redirecting to Stripe…
+                    </>
+                  ) : (
+                    <>
+                      <CreditCard className="w-5 h-5 mr-2" />
+                      Pay €{total.toFixed(2)}
+                    </>
+                  )}
+                </Button>
+              )}
 
               <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
                 <ShieldCheck className="w-3.5 h-3.5" />
-                Secure payment powered by Stripe
+                {isDev ? "Dev mode — Stripe disabled" : "Secure payment powered by Stripe"}
               </div>
             </CardContent>
           </Card>
