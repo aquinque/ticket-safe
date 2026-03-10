@@ -12,6 +12,7 @@ export interface ESCPEvent {
   url?: string;
   start_date: string;
   end_date: string;
+  image_url?: string | null;
   available_tickets?: number;
   min_price?: number;
   max_price?: number;
@@ -82,6 +83,7 @@ export function useESCPEvents(options: UseESCPEventsOptions = {}) {
           category: e.category,
           start_date: e.date,
           end_date: e.date,
+          image_url: e.image_url ?? null,
           available_tickets: counts?.count ?? 0,
           min_price: counts && counts.minPrice !== Infinity ? counts.minPrice : undefined,
           max_price: counts && counts.maxPrice !== -Infinity ? counts.maxPrice : undefined,

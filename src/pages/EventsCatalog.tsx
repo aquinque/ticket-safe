@@ -10,6 +10,7 @@ import { Search, Calendar, MapPin, Users, ShoppingBag } from "lucide-react";
 import { useESCPEvents } from "@/hooks/useESCPEvents";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SEOHead } from "@/components/SEOHead";
+import { getEventImage } from "@/lib/eventImages";
 
 const EventsCatalog = () => {
   const navigate = useNavigate();
@@ -154,7 +155,13 @@ const EventsCatalog = () => {
                     onClick={() => handleEventClick(event.id)}
                   >
                     {/* Event Image/Header */}
-                    <div className="relative h-48 bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+                    <div className="relative h-48 overflow-hidden">
+                      <img
+                        src={getEventImage(event.image_url, event.category)}
+                        alt={event.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
                       <div className="absolute top-3 right-3">
                         <Badge variant={hasTickets ? "default" : "secondary"}>
                           {event.category || 'Event'}

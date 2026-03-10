@@ -378,24 +378,19 @@ serve(async (req) => {
       .maybeSingle();
 
     if (duplicate) {
-      if (duplicate.status === "sold" || duplicate.status === "reserved") {
-        // Ticket already sold or being purchased — hard block
-        return jsonResponse({
-          code: "ALREADY_LISTED",
-          message: duplicate.status === "sold"
-            ? "This ticket has already been sold on the marketplace"
-            : "This ticket is currently being purchased by a buyer",
-        }, 409);
-      }
-
+      // Same seller can always relist their own ticket (cancel old, create new)
       if (duplicate.seller_id === user.id) {
-        // Same seller relisting — cancel the old listing first, then proceed
-        console.log("[submit-listing] same seller relisting — cancelling old listing", duplicate.id);
+        console.log("[submit-listing] same seller relisting — removing old listing", duplicate.id);
         await supabase
           .from("tickets")
-          .update({ status: "cancelled" })
+          .delete()
           .eq("id", duplicate.id);
         // Fall through to create new listing
+      } else if (duplicate.status === "sold") {
+        return jsonResponse({
+          code: "ALREADY_LISTED",
+          message: "This ticket has already been sold on the marketplace",
+        }, 409);
       } else {
         // Different seller has the same QR — block
         return jsonResponse({

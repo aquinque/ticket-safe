@@ -10,6 +10,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Calendar, MapPin, User, ShoppingCart, Info } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { SEOHead } from "@/components/SEOHead";
+import { getEventImage } from "@/lib/eventImages";
 
 interface EventInfo {
   id: string;
@@ -17,6 +18,7 @@ interface EventInfo {
   date: string;
   location: string | null;
   category: string;
+  image_url: string | null;
 }
 
 interface Listing {
@@ -46,7 +48,7 @@ const EventTicketsMarketplace = () => {
       // Fetch event directly by ID (no base_price / is_active filter)
       const { data: eventData, error: eventErr } = await supabase
         .from("events")
-        .select("id, title, date, location, category")
+        .select("id, title, date, location, category, image_url")
         .eq("id", eventId)
         .single();
 
@@ -139,7 +141,12 @@ const EventTicketsMarketplace = () => {
           {/* Event Header */}
           <div className="mb-8">
             <div className="flex flex-col md:flex-row gap-6 items-start">
-              <div className="relative w-full md:w-64 h-40 md:h-48 rounded-xl overflow-hidden flex-shrink-0 bg-gradient-to-br from-primary/20 to-primary/5">
+              <div className="relative w-full md:w-64 h-40 md:h-48 rounded-xl overflow-hidden flex-shrink-0">
+                <img
+                  src={getEventImage(event.image_url, event.category)}
+                  alt={event.title}
+                  className="w-full h-full object-cover"
+                />
               </div>
               <div className="flex-1">
                 <Badge variant="secondary" className="mb-2">

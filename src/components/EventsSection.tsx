@@ -7,6 +7,7 @@ import EventCard from "./EventCard";
 import { useI18n } from "@/contexts/I18nContext";
 import { useESCPEvents } from "@/hooks/useESCPEvents";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getEventImage } from "@/lib/eventImages";
 
 const EventsSection = () => {
   const { t } = useI18n();
@@ -117,7 +118,7 @@ const EventsSection = () => {
                   organizer: event.organizer,
                   description: event.description,
                   filterCategory: event.category.toLowerCase(),
-                  image: '/placeholder.svg',
+                  image: getEventImage(event.image_url, event.category),
                   isPastEvent: false,
                 }}
                 onClick={() => navigate(`/event/${event.id}/tickets`)}
