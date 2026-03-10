@@ -410,7 +410,7 @@ const Sell = () => {
         setCreatedListingId(result.listing.id);
         // Immediately refresh the marketplace so the listing is visible
         refetchListings();
-        toast.success("Your ticket is now live on the marketplace!");
+        toast.success("Ticket submitted — pending admin approval.");
         // Reset form
         setFormData({ eventId: "", sellingPrice: "", quantity: "1", notes: "" });
         setSelectedEvent(null);
@@ -446,9 +446,9 @@ const Sell = () => {
                 <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
                   <ShieldCheck className="w-10 h-10 text-green-600" />
                 </div>
-                <h1 className="text-3xl font-bold mb-4">Ticket published successfully!</h1>
+                <h1 className="text-3xl font-bold mb-4">Ticket submitted for review!</h1>
                 <p className="text-muted-foreground mb-8">
-                  Your ticket is now visible to all buyers in the marketplace.
+                  Your ticket is pending admin approval. It will appear in the marketplace once verified.
                 </p>
               </>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">

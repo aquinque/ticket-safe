@@ -548,6 +548,7 @@ serve(async (req) => {
 
     // ── Try full insert (with QR columns) ──────────────────────────────────
     // Falls back to minimal insert if optional columns don't exist yet (42703).
+    // ALL tickets start as pending and require admin approval before going live.
     let listing: Record<string, unknown> | null = null;
 
     const fullInsert = await supabase
@@ -561,8 +562,8 @@ serve(async (req) => {
         status:              "available",
         qr_hash:             qrHash,
         qr_verified:         qrVerified,
-        needs_review:        needsReview,
-        verification_status: qrVerified ? "verified" : "pending",
+        needs_review:        true,
+        verification_status: "pending",
       })
       .select(
         "id, event_id, seller_id, selling_price, quantity, notes, status, qr_verified, needs_review, created_at, updated_at, event:events(id, title, date, location, category, university, campus)"
@@ -619,8 +620,9 @@ serve(async (req) => {
 
     // -----------------------------------------------------------------------
     // 9. Notify admin of pending ticket (fire-and-forget)
+    // ALL tickets require admin approval — always send notification email.
     // -----------------------------------------------------------------------
-    if (needsReview) {
+    if (true) {
       const resendKey = Deno.env.get("RESEND_API_KEY");
       const siteUrl = Deno.env.get("SITE_URL") ?? "https://ticket-safe.eu";
       const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
