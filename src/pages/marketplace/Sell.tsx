@@ -818,6 +818,14 @@ const Sell = () => {
                               </AlertDescription>
                             </Alert>
                           )}
+                          {qrVerifyStatus.status === "already_listed" && (
+                            <Alert className="bg-yellow-50 border-yellow-300">
+                              <AlertTriangle className="w-4 h-4 text-yellow-600" />
+                              <AlertDescription className="text-yellow-800">
+                                <span className="font-medium">Already listed</span> — submitting will replace your existing listing
+                              </AlertDescription>
+                            </Alert>
+                          )}
                           {qrVerifyStatus.status === "expired" && (
                             <Alert variant="destructive">
                               <AlertTriangle className="w-4 h-4" />
