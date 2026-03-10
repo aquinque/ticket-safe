@@ -51,7 +51,6 @@ import {
   Search,
   X,
   CalendarPlus,
-  Camera,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Event } from "@/integrations/supabase/types/events";
@@ -61,7 +60,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { SEOHead } from "@/components/SEOHead";
 import { decodeQRFromFile, extractTextFromFile, isQRTextValid } from "@/lib/qrValidator";
 import { calcBreakdown } from "@/lib/fees";
-import { QRScanner } from "@/components/QRScanner";
 import {
   QR_ERROR_MESSAGES,
   CreateListingResponse,
@@ -111,7 +109,6 @@ const Sell = () => {
 
   // QR state
   const [qrText, setQrText] = useState("");
-  const [qrInputMode, setQrInputMode] = useState<"image" | "camera">("image");
   const [qrImageFile, setQrImageFile] = useState<File | null>(null);
   const [qrDecoding, setQrDecoding] = useState(false);
   const [qrDecodeError, setQrDecodeError] = useState<string | null>(null);
@@ -338,7 +335,7 @@ const Sell = () => {
     }
 
     if (!isQRTextValid(qrText)) {
-      toast.error("QR not detected — please scan, upload, or paste the QR code from your ticket.");
+      toast.error("QR not detected — please upload a photo or PDF of your ticket.");
       return;
     }
 
@@ -363,6 +360,20 @@ const Sell = () => {
         return;
       }
 
+      // Encode ticket file as base64 for admin email attachment (max 4 MB)
+      let fileBase64: string | undefined;
+      let fileName: string | undefined;
+      let fileMimeType: string | undefined;
+      if (qrImageFile && qrImageFile.size <= 4 * 1024 * 1024) {
+        const ab = await qrImageFile.arrayBuffer();
+        const bytes = new Uint8Array(ab);
+        let binary = "";
+        for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+        fileBase64 = btoa(binary);
+        fileName = qrImageFile.name;
+        fileMimeType = qrImageFile.type;
+      }
+
       const payload = {
         eventId: formData.eventId,
         sellingPrice: price,
@@ -370,6 +381,9 @@ const Sell = () => {
         notes: formData.notes || undefined,
         qrText,
         extractedText: extractedText || undefined,
+        fileBase64,
+        fileName,
+        fileMimeType,
       };
       console.log("[Sell] submitting to submit-listing:", {
         ...payload,
@@ -694,30 +708,8 @@ const Sell = () => {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {/* Mode toggle */}
-                  <div className="flex gap-2 flex-wrap">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant={qrInputMode === "image" ? "default" : "outline"}
-                      onClick={() => setQrInputMode("image")}
-                    >
-                      Upload image
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant={qrInputMode === "camera" ? "default" : "outline"}
-                      onClick={() => setQrInputMode("camera")}
-                    >
-                      <Camera className="w-3.5 h-3.5 mr-1.5" />
-                      Scan with camera
-                    </Button>
-                  </div>
-
-                  {qrInputMode === "image" && (
-                    <div>
-                      <Label>Upload QR code image</Label>
+                  <div>
+                      <Label>Upload your ticket</Label>
                       <div
                         className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-primary transition-colors"
                         onClick={() => fileInputRef.current?.click()}
@@ -766,18 +758,6 @@ const Sell = () => {
                         </Alert>
                       )}
                     </div>
-                  )}
-
-                  {qrInputMode === "camera" && (
-                    <QRScanner
-                      onScan={(text) => {
-                        setQrText(text);
-                        setQrInputMode("image");
-                        toast.success("Ticket accepted");
-                      }}
-                      onClose={() => setQrInputMode("image")}
-                    />
-                  )}
 
                   {qrText && isQRTextValid(qrText) && (
                     <>

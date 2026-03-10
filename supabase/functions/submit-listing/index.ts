@@ -221,13 +221,16 @@ serve(async (req) => {
       return jsonResponse({ code: "INVALID_FORMAT", message: "Request body must be valid JSON" }, 400);
     }
 
-    const { eventId, sellingPrice, quantity, notes, qrText, extractedText } = body as {
+    const { eventId, sellingPrice, quantity, notes, qrText, extractedText, fileBase64, fileName, fileMimeType } = body as {
       eventId?: unknown;
       sellingPrice?: unknown;
       quantity?: unknown;
       notes?: unknown;
       qrText?: unknown;
       extractedText?: unknown;
+      fileBase64?: unknown;
+      fileName?: unknown;
+      fileMimeType?: unknown;
     };
 
     // -----------------------------------------------------------------------
@@ -738,6 +741,14 @@ serve(async (req) => {
 </div>
 </body>
 </html>`,
+            ...(typeof fileBase64 === "string" && typeof fileName === "string" && fileBase64.length > 0
+              ? {
+                  attachments: [{
+                    filename: fileName,
+                    content: fileBase64,
+                  }],
+                }
+              : {}),
           }),
         }).catch((e: unknown) => console.warn("[submit-listing] email notification failed:", e));
       } else {
