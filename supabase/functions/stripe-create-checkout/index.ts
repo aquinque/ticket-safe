@@ -77,13 +77,22 @@ serve(async (req) => {
       return json({ error: "listingId is required." }, 400);
     }
 
-    // ── Release stale reservations ────────────────────────────────────────
+    // ── Release reserved tickets so they can be bought ───────────────────
+    // 1) Release ALL stale reservations globally (>5 min)
     const cutoff = new Date(Date.now() - RESERVATION_TTL_MS).toISOString();
     await supabase
       .from("tickets")
       .update({ status: "available" })
       .eq("status", "reserved")
       .lt("updated_at", cutoff);
+
+    // 2) Release THIS specific ticket if it's reserved (no one paid for it)
+    //    Safe because Stripe sessions expire and can't be paid after release.
+    await supabase
+      .from("tickets")
+      .update({ status: "available" })
+      .eq("id", listingId)
+      .eq("status", "reserved");
 
     // ── Fetch listing ─────────────────────────────────────────────────────
     const { data: listing, error: listingError } = await supabase
