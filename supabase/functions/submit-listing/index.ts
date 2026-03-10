@@ -671,7 +671,7 @@ serve(async (req) => {
           },
           body: JSON.stringify({
             from: "TicketSafe <onboarding@resend.dev>",
-            to: ["adrien.menard100@gmail.com"],
+            to: ["achillequinquenel@gmail.com"],
             subject: `[TicketSafe] Nouveau billet à vérifier — ${event.title}`,
             html: `
 <!DOCTYPE html>
