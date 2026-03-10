@@ -36,6 +36,8 @@ import CheckoutSuccess from "./pages/CheckoutSuccess";
 import CheckoutCancel from "./pages/CheckoutCancel";
 import GalaESCP from "./pages/GalaESCP";
 import Chat from "./pages/Chat";
+import Messages from "./pages/Messages";
+import ChatRoom from "./pages/ChatRoom";
 import NotFound from "./pages/NotFound";
 
 const App = () => (
@@ -78,6 +80,8 @@ const App = () => (
       <Route path="/checkout/cancel" element={<CheckoutCancel />} />
       <Route path="/gala-escp" element={<GalaESCP />} />
       <Route path="/chat" element={<Chat />} />
+      <Route path="/messages" element={<Messages />} />
+      <Route path="/messages/:conversationId" element={<ChatRoom />} />
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
       <Route path="*" element={<NotFound />} />
     </Routes>

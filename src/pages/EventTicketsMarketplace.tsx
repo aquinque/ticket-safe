@@ -7,10 +7,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Calendar, MapPin, User, ShoppingCart, Info } from "lucide-react";
+import { Calendar, MapPin, User, ShoppingCart, Info, MessageSquare } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { SEOHead } from "@/components/SEOHead";
 import { getEventImage } from "@/lib/eventImages";
+import { useAuth } from "@/hooks/useAuth";
+import { getOrCreateConversation } from "@/hooks/useChat";
+import { toast } from "sonner";
 
 interface EventInfo {
   id: string;
@@ -23,6 +26,7 @@ interface EventInfo {
 
 interface Listing {
   id: string;
+  seller_id: string;
   selling_price: number;
   quantity: number;
   notes: string | null;
@@ -33,6 +37,7 @@ interface Listing {
 const EventTicketsMarketplace = () => {
   const { eventId } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const [event, setEvent] = useState<EventInfo | null>(null);
   const [listings, setListings] = useState<Listing[]>([]);
@@ -63,7 +68,7 @@ const EventTicketsMarketplace = () => {
       // Fetch available tickets for this event directly
       const { data: ticketData, error: ticketErr } = await supabase
         .from("tickets")
-        .select("id, selling_price, quantity, notes, created_at, seller:profiles(full_name)")
+        .select("id, seller_id, selling_price, quantity, notes, created_at, seller:profiles(full_name)")
         .eq("event_id", eventId)
         .in("status", ["available", "reserved"])
         .order("created_at", { ascending: false });
@@ -78,6 +83,23 @@ const EventTicketsMarketplace = () => {
 
   const handleBuyTicket = (listingId: string) => {
     navigate(`/checkout?listing_id=${listingId}`);
+  };
+
+  const handleMakeOffer = async (listing: Listing) => {
+    if (!user) {
+      navigate("/auth");
+      return;
+    }
+    if (user.id === listing.seller_id) {
+      toast.error("You can't make an offer on your own ticket");
+      return;
+    }
+    try {
+      const convId = await getOrCreateConversation(listing.id, user.id, listing.seller_id);
+      navigate(`/messages/${convId}`);
+    } catch {
+      toast.error("Failed to start conversation");
+    }
   };
 
   if (loading) {
@@ -255,16 +277,27 @@ const EventTicketsMarketplace = () => {
                         </p>
                       </div>
 
-                      {/* Buy Button */}
-                      <Button
-                        variant="hero"
-                        size="lg"
-                        className="w-full"
-                        onClick={() => handleBuyTicket(listing.id)}
-                      >
-                        <ShoppingCart className="w-4 h-4 mr-2" />
-                        Buy This Ticket
-                      </Button>
+                      {/* Action Buttons */}
+                      <div className="flex gap-2">
+                        <Button
+                          variant="hero"
+                          size="lg"
+                          className="flex-1"
+                          onClick={() => handleBuyTicket(listing.id)}
+                        >
+                          <ShoppingCart className="w-4 h-4 mr-2" />
+                          Buy
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="lg"
+                          className="flex-1"
+                          onClick={() => handleMakeOffer(listing)}
+                        >
+                          <MessageSquare className="w-4 h-4 mr-2" />
+                          Offer
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
