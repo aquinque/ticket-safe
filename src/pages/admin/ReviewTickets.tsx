@@ -138,7 +138,8 @@ const ReviewTickets = () => {
 
     setProcessing(ticketId);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: refreshed } = await supabase.auth.refreshSession();
+      const session = refreshed.session;
       if (!session) throw new Error("Not authenticated");
 
       const res = await fetch(
