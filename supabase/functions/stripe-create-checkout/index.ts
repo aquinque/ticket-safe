@@ -111,14 +111,14 @@ serve(async (req) => {
     }
 
     // ── Reserve (atomic) ──────────────────────────────────────────────────
-    const { count } = await supabase
+    const { data: reserved } = await supabase
       .from("tickets")
       .update({ status: "reserved" })
       .eq("id", listingId)
       .eq("status", "available")
-      .select("id", { count: "exact", head: true });
+      .select("id");
 
-    if ((count ?? 0) === 0) {
+    if (!reserved || reserved.length === 0) {
       return json({ error: "This ticket was just purchased by someone else." }, 409);
     }
     reservedListingId = listingId; // track for cleanup on error
@@ -157,7 +157,7 @@ serve(async (req) => {
       (listing.events as { title?: string } | null)?.title ?? "Event Ticket";
 
     const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card"],
+      automatic_payment_methods: { enabled: true },
       line_items: [
         {
           price_data: {
