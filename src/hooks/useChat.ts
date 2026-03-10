@@ -271,6 +271,21 @@ export function useChatRoom(conversationId: string | null) {
         sender_id: user.id,
         content: `Proposed a new price: €${price.toFixed(2)}`,
       });
+
+      // Fire-and-forget: notify recipient of new offer
+      supabase.auth.getSession().then(({ data }) => {
+        const token = data.session?.access_token;
+        if (!token) return;
+        fetch(
+          `${import.meta.env.VITE_SUPABASE_URL ?? "https://lgmnatfvdzzjzyxlenry.supabase.co"}/functions/v1/notify-new-message`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ conversationId, senderId: user.id, offerPrice: price }),
+          }
+        ).catch(() => {});
+      });
+
       return true;
     },
     [user, conversationId]

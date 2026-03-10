@@ -31,9 +31,9 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
   );
 
-  let conversationId: string, senderId: string;
+  let conversationId: string, senderId: string, offerPrice: number | undefined;
   try {
-    ({ conversationId, senderId } = await req.json());
+    ({ conversationId, senderId, offerPrice } = await req.json());
   } catch {
     return json({ error: "Invalid JSON" }, 400);
   }
@@ -77,21 +77,30 @@ Deno.serve(async (req) => {
     body: JSON.stringify({
       from: "TicketSafe <onboarding@resend.dev>",
       to: [recipient.email],
-      subject: `New message from ${senderName} — ${eventTitle}`,
+      subject: offerPrice
+        ? `New price offer €${offerPrice.toFixed(2)} from ${senderName} — ${eventTitle}`
+        : `New message from ${senderName} — ${eventTitle}`,
       html: `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"></head>
 <body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
 <div style="max-width:560px;margin:32px auto;background:white;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.08)">
-  <div style="background:#6366f1;padding:24px 32px">
-    <p style="margin:0;font-size:13px;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.08em">TicketSafe · Messages</p>
-    <h1 style="margin:6px 0 0;font-size:20px;color:white;font-weight:600">You have a new message</h1>
+  <div style="background:${offerPrice ? "#f59e0b" : "#6366f1"};padding:24px 32px">
+    <p style="margin:0;font-size:13px;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.08em">TicketSafe · ${offerPrice ? "Price Offer" : "Messages"}</p>
+    <h1 style="margin:6px 0 0;font-size:20px;color:white;font-weight:600">${offerPrice ? `New price offer: €${offerPrice.toFixed(2)}` : "You have a new message"}</h1>
   </div>
   <div style="padding:28px 32px">
     <p style="font-size:15px;color:#333;margin:0 0 16px">Hi ${recipient.full_name ?? "there"},</p>
-    <p style="font-size:15px;color:#333;margin:0 0 24px"><strong>${senderName}</strong> sent you a message about <strong>${eventTitle}</strong>.</p>
+    ${offerPrice
+      ? `<p style="font-size:15px;color:#333;margin:0 0 16px"><strong>${senderName}</strong> proposed a new price for <strong>${eventTitle}</strong>.</p>
+         <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:16px 20px;margin-bottom:24px;text-align:center">
+           <p style="margin:0;font-size:13px;color:#92400e;text-transform:uppercase;letter-spacing:.06em">Proposed price</p>
+           <p style="margin:4px 0 0;font-size:28px;font-weight:700;color:#d97706">€${offerPrice.toFixed(2)}</p>
+         </div>`
+      : `<p style="font-size:15px;color:#333;margin:0 0 24px"><strong>${senderName}</strong> sent you a message about <strong>${eventTitle}</strong>.</p>`
+    }
     <a href="${siteUrl}/messages/${conversationId}"
-       style="display:inline-block;background:#6366f1;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:600">
-      View message →
+       style="display:inline-block;background:${offerPrice ? "#f59e0b" : "#6366f1"};color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:600">
+      ${offerPrice ? "Accept or decline →" : "View message →"}
     </a>
     <p style="font-size:12px;color:#aaa;margin:24px 0 0">You received this because you have an active conversation on TicketSafe.</p>
   </div>
