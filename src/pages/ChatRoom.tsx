@@ -77,7 +77,10 @@ const ChatRoom = () => {
       )
       .eq("id", conversationId)
       .single()
-      .then(({ data }) => setMeta(data as unknown as ConversationMeta));
+      .then(({ data, error }) => {
+        if (error) console.error("Conversation fetch error:", error);
+        setMeta(data as unknown as ConversationMeta);
+      });
   }, [conversationId]);
 
   // Auto-scroll on new messages
@@ -86,10 +89,12 @@ const ChatRoom = () => {
   }, [messages]);
 
   const handleSend = async () => {
-    if (!input.trim()) return;
-    setSending(true);
-    await sendMessage(input);
+    if (!input.trim() || sending) return;
+    const text = input;
     setInput("");
+    setSending(true);
+    const ok = await sendMessage(text);
+    if (!ok) setInput(text); // Restore input on failure
     setSending(false);
   };
 
@@ -100,9 +105,11 @@ const ChatRoom = () => {
       return;
     }
     setSending(true);
-    await sendOffer(price);
-    setOfferInput("");
-    setShowOfferInput(false);
+    const ok = await sendOffer(price);
+    if (ok) {
+      setOfferInput("");
+      setShowOfferInput(false);
+    }
     setSending(false);
   };
 

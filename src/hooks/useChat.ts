@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { toast } from "sonner";
 
 export interface Message {
   id: string;
@@ -141,7 +142,30 @@ export function useChatRoom(conversationId: string | null) {
           filter: `conversation_id=eq.${conversationId}`,
         },
         (payload) => {
-          setMessages((prev) => [...prev, payload.new as Message]);
+          const newMsg = payload.new as Message;
+          setMessages((prev) => {
+            // Replace optimistic message or skip if already present
+            const hasOptimistic = prev.some(
+              (m) =>
+                m.sender_id === newMsg.sender_id &&
+                m.content === newMsg.content &&
+                m.id !== newMsg.id &&
+                Math.abs(new Date(m.created_at).getTime() - new Date(newMsg.created_at).getTime()) < 5000
+            );
+            if (hasOptimistic) {
+              return prev.map((m) =>
+                m.sender_id === newMsg.sender_id &&
+                m.content === newMsg.content &&
+                m.id !== newMsg.id &&
+                Math.abs(new Date(m.created_at).getTime() - new Date(newMsg.created_at).getTime()) < 5000
+                  ? newMsg
+                  : m
+              );
+            }
+            // Skip exact duplicates
+            if (prev.some((m) => m.id === newMsg.id)) return prev;
+            return [...prev, newMsg];
+          });
         }
       )
       .on(
@@ -171,21 +195,42 @@ export function useChatRoom(conversationId: string | null) {
 
   // Send a message
   const sendMessage = useCallback(
-    async (content: string) => {
-      if (!user || !conversationId || !content.trim()) return;
-      await supabase.from("messages").insert({
+    async (content: string): Promise<boolean> => {
+      if (!user || !conversationId || !content.trim()) return false;
+
+      // Optimistic update — add message immediately
+      const optimisticId = crypto.randomUUID();
+      const optimisticMsg: Message = {
+        id: optimisticId,
+        conversation_id: conversationId,
+        sender_id: user.id,
+        content: content.trim(),
+        created_at: new Date().toISOString(),
+      };
+      setMessages((prev) => [...prev, optimisticMsg]);
+
+      const { error } = await supabase.from("messages").insert({
         conversation_id: conversationId,
         sender_id: user.id,
         content: content.trim(),
       });
+
+      if (error) {
+        console.error("sendMessage error:", error);
+        // Remove optimistic message on failure
+        setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
+        toast.error("Failed to send message");
+        return false;
+      }
+      return true;
     },
     [user, conversationId]
   );
 
   // Send a counter-offer
   const sendOffer = useCallback(
-    async (price: number) => {
-      if (!user || !conversationId || price <= 0) return;
+    async (price: number): Promise<boolean> => {
+      if (!user || !conversationId || price <= 0) return false;
       // Expire any existing pending offers in this conversation
       await supabase
         .from("offers")
@@ -193,17 +238,25 @@ export function useChatRoom(conversationId: string | null) {
         .eq("conversation_id", conversationId)
         .eq("status", "pending");
 
-      await supabase.from("offers").insert({
+      const { error: offerErr } = await supabase.from("offers").insert({
         conversation_id: conversationId,
         proposer_id: user.id,
         price,
       });
+
+      if (offerErr) {
+        console.error("sendOffer error:", offerErr);
+        toast.error("Failed to send offer");
+        return false;
+      }
+
       // Also send a system-style message
       await supabase.from("messages").insert({
         conversation_id: conversationId,
         sender_id: user.id,
         content: `Proposed a new price: €${price.toFixed(2)}`,
       });
+      return true;
     },
     [user, conversationId]
   );
@@ -212,13 +265,19 @@ export function useChatRoom(conversationId: string | null) {
   const respondToOffer = useCallback(
     async (offerId: string, accept: boolean) => {
       if (!user) return;
-      await supabase
+      const { error } = await supabase
         .from("offers")
         .update({
           status: accept ? "accepted" : "rejected",
           responded_at: new Date().toISOString(),
         })
         .eq("id", offerId);
+
+      if (error) {
+        console.error("respondToOffer error:", error);
+        toast.error("Failed to respond to offer");
+        return;
+      }
 
       // Send a confirmation message
       const offer = offers.find((o) => o.id === offerId);
