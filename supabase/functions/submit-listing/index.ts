@@ -743,6 +743,27 @@ serve(async (req) => {
       }
     }
 
+    // -----------------------------------------------------------------------
+    // 10. Update event base_price to MIN of available ticket prices
+    //     so the event appears in the buy-tickets catalogue.
+    // -----------------------------------------------------------------------
+    const { data: priceAgg } = await supabase
+      .from("tickets")
+      .select("selling_price")
+      .eq("event_id", eventId.trim())
+      .eq("status", "available")
+      .order("selling_price", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (priceAgg) {
+      await supabase
+        .from("events")
+        .update({ base_price: priceAgg.selling_price })
+        .eq("id", eventId.trim());
+      console.log("[submit-listing] updated event base_price to", priceAgg.selling_price);
+    }
+
     return jsonResponse({ code: "VALID", listing }, 201);
 
   } catch (err) {

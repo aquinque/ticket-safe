@@ -1,4 +1,4 @@
-project_id = "djvhrllwzgnjnrijhiem"
+project_id = "lgmnatfvdzzjzyxlenry"
 
 # Disable gateway JWT verification for functions that handle auth internally.
 # These functions use service-role client + getUser(token) for authentication,
