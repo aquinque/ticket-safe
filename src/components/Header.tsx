@@ -143,14 +143,6 @@ const Header = () => {
               >
                 {t('nav.contact')}
               </Link>
-              <Link
-                to="/chat"
-                className={`text-sm transition-colors hover:text-muted-foreground ${
-                  isActive("/chat") ? "text-muted-foreground font-medium" : "text-muted-foreground/70"
-                }`}
-              >
-                Claude Code
-              </Link>
               {user && (
                 <Link
                   to="/settings"

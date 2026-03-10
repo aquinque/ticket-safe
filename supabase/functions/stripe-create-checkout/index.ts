@@ -82,6 +82,14 @@ serve(async (req) => {
       });
     }
 
+    // ── Release stale reservations (>30 min) ──────────────────────────────────
+    const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+    await supabase
+      .from("tickets")
+      .update({ status: "available" })
+      .eq("status", "reserved")
+      .lt("updated_at", thirtyMinAgo);
+
     // ── Fetch listing ─────────────────────────────────────────────────────────
     const { data: listing, error: listingError } = await supabase
       .from("tickets")

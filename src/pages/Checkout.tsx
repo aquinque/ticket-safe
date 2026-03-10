@@ -66,6 +66,14 @@ const Checkout = () => {
     }
 
     async function fetchListing() {
+      // Release stale reservations (>30 min) so tickets become available again
+      const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+      await supabase
+        .from("tickets")
+        .update({ status: "available" })
+        .eq("status", "reserved")
+        .lt("updated_at", thirtyMinAgo);
+
       const { data, error } = await supabase
         .from("tickets")
         .select(
