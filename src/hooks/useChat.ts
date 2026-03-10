@@ -222,6 +222,21 @@ export function useChatRoom(conversationId: string | null) {
         toast.error("Failed to send message");
         return false;
       }
+
+      // Fire-and-forget: notify recipient by email
+      supabase.auth.getSession().then(({ data }) => {
+        const token = data.session?.access_token;
+        if (!token) return;
+        fetch(
+          `${import.meta.env.VITE_SUPABASE_URL ?? "https://lgmnatfvdzzjzyxlenry.supabase.co"}/functions/v1/notify-new-message`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ conversationId, senderId: user.id }),
+          }
+        ).catch(() => {});
+      });
+
       return true;
     },
     [user, conversationId]
