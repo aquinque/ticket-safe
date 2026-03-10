@@ -230,7 +230,6 @@ const Sell = () => {
     // Debounce 400ms (user may be typing in paste mode)
     const t = setTimeout(verify, 400);
     return () => { cancelled = true; clearTimeout(t); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [qrText, formData.eventId, user]);
 
   // ---------------------------------------------------------------------------
