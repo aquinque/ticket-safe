@@ -39,6 +39,7 @@ import Chat from "./pages/Chat";
 import Messages from "./pages/Messages";
 import ChatRoom from "./pages/ChatRoom";
 import NotFound from "./pages/NotFound";
+import ChatBubble from "./components/ChatBubble";
 
 const App = () => (
   <TooltipProvider>
@@ -85,6 +86,7 @@ const App = () => (
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
       <Route path="*" element={<NotFound />} />
     </Routes>
+    <ChatBubble />
   </TooltipProvider>
 );
 

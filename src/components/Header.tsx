@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Menu, X, User, LogOut, ChevronDown, Settings, MessageSquare } from "lucide-react";
+import { Menu, X, User, LogOut, ChevronDown, Settings } from "lucide-react";
 import Logo from "@/components/Logo";
 import { useAuth } from "@/hooks/useAuth";
 import { useI18n } from "@/contexts/I18nContext";
@@ -144,24 +144,14 @@ const Header = () => {
                 {t('nav.contact')}
               </Link>
               {user && (
-                <>
-                  <Link
-                    to="/messages"
-                    className={`text-sm transition-colors hover:text-muted-foreground ${
-                      isActive("/messages") ? "text-muted-foreground font-medium" : "text-muted-foreground/70"
-                    }`}
-                  >
-                    <MessageSquare className="w-4 h-4" />
-                  </Link>
-                  <Link
-                    to="/settings"
-                    className={`text-sm transition-colors hover:text-muted-foreground ${
-                      isActive("/settings") ? "text-muted-foreground font-medium" : "text-muted-foreground/70"
-                    }`}
-                  >
-                    <Settings className="w-4 h-4" />
-                  </Link>
-                </>
+                <Link
+                  to="/settings"
+                  className={`text-sm transition-colors hover:text-muted-foreground ${
+                    isActive("/settings") ? "text-muted-foreground font-medium" : "text-muted-foreground/70"
+                  }`}
+                >
+                  <Settings className="w-4 h-4" />
+                </Link>
               )}
             </div>
           </nav>
@@ -265,28 +255,16 @@ const Header = () => {
                   {t('nav.contact')}
                 </Link>
                 {user && (
-                  <>
-                    <Link
-                      to="/messages"
-                      className={`px-3 py-2.5 rounded-md text-sm transition-colors hover:bg-muted flex items-center gap-2 ${
-                        isActive("/messages") ? "text-muted-foreground font-medium" : "text-muted-foreground/70"
-                      }`}
-                      onClick={() => setIsMenuOpen(false)}
-                    >
-                      <MessageSquare className="w-4 h-4" />
-                      Messages
-                    </Link>
-                    <Link
-                      to="/settings"
-                      className={`px-3 py-2.5 rounded-md text-sm transition-colors hover:bg-muted flex items-center gap-2 ${
-                        isActive("/settings") ? "text-muted-foreground font-medium" : "text-muted-foreground/70"
-                      }`}
-                      onClick={() => setIsMenuOpen(false)}
-                    >
-                      <Settings className="w-4 h-4" />
-                      {t('nav.settings')}
-                    </Link>
-                  </>
+                  <Link
+                    to="/settings"
+                    className={`px-3 py-2.5 rounded-md text-sm transition-colors hover:bg-muted flex items-center gap-2 ${
+                      isActive("/settings") ? "text-muted-foreground font-medium" : "text-muted-foreground/70"
+                    }`}
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    <Settings className="w-4 h-4" />
+                    {t('nav.settings')}
+                  </Link>
                 )}
               </div>
 
