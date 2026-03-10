@@ -180,6 +180,12 @@ const Header = () => {
                   <DropdownMenuItem onClick={() => navigate("/profile")}>
                     {t('nav.profile')}
                   </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate("/settings/purchases")}>
+                    My Purchases
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate("/settings/listings")}>
+                    My Listings
+                  </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleSignOut}>
                     <LogOut className="h-4 w-4 mr-2" />

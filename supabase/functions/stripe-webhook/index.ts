@@ -114,6 +114,59 @@ serve(async (req) => {
             })
             .eq("id", listingId)
             .in("status", ["available", "reserved"]);
+
+          // Send confirmation email to buyer
+          const buyerId = session.metadata?.buyer_id;
+          if (buyerId) {
+            const [{ data: buyerProfile }, { data: ticketRow }] = await Promise.all([
+              supabase.from("profiles").select("full_name, email").eq("id", buyerId).maybeSingle(),
+              supabase.from("tickets").select("file_url, event:events(title, date, location)").eq("id", listingId).maybeSingle(),
+            ]);
+            const buyerEmail = buyerProfile?.email;
+            const buyerName = buyerProfile?.full_name ?? "there";
+            const resendKey = Deno.env.get("RESEND_API_KEY");
+            if (resendKey && buyerEmail) {
+              const ev = ticketRow?.event as { title?: string; date?: string; location?: string } | null;
+              const eventTitle = ev?.title ?? "Event Ticket";
+              const eventDate = ev?.date
+                ? new Date(ev.date).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })
+                : "—";
+              const qty = session.metadata ? (parseInt(session.metadata.qty ?? "1") || 1) : 1;
+              const total = (session.amount_total ?? 0) / 100;
+              await fetch("https://api.resend.com/emails", {
+                method: "POST",
+                headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  from: "TicketSafe <onboarding@resend.dev>",
+                  to: [buyerEmail],
+                  subject: `Your ticket for ${eventTitle} is confirmed!`,
+                  html: `<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+<div style="max-width:560px;margin:32px auto;background:white;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.08)">
+  <div style="background:#6366f1;padding:24px 32px">
+    <p style="margin:0;font-size:13px;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.08em">TicketSafe</p>
+    <h1 style="margin:6px 0 0;font-size:22px;color:white;font-weight:600">Your ticket is confirmed!</h1>
+  </div>
+  <div style="padding:28px 32px">
+    <p style="font-size:15px;color:#333;margin:0 0 20px">Hi ${buyerName},</p>
+    <p style="font-size:15px;color:#333;margin:0 0 24px">Your purchase is confirmed. Here are your ticket details:</p>
+    <table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:24px">
+      <tr style="border-bottom:1px solid #f0f0f0"><td style="padding:10px 0;color:#888;width:40%">Event</td><td style="padding:10px 0;color:#111;font-weight:600">${eventTitle}</td></tr>
+      <tr style="border-bottom:1px solid #f0f0f0"><td style="padding:10px 0;color:#888">Date</td><td style="padding:10px 0;color:#111">${eventDate}</td></tr>
+      <tr style="border-bottom:1px solid #f0f0f0"><td style="padding:10px 0;color:#888">Location</td><td style="padding:10px 0;color:#111">${ev?.location ?? "—"}</td></tr>
+      <tr style="border-bottom:1px solid #f0f0f0"><td style="padding:10px 0;color:#888">Quantity</td><td style="padding:10px 0;color:#111">${qty} ticket${qty > 1 ? "s" : ""}</td></tr>
+      <tr><td style="padding:10px 0;color:#888">Total paid</td><td style="padding:10px 0;color:#6366f1;font-weight:700;font-size:16px">€${total.toFixed(2)}</td></tr>
+    </table>
+    ${ticketRow?.file_url ? `<div style="background:#f0f0ff;border-radius:8px;padding:16px;margin-bottom:24px"><p style="margin:0 0 8px;font-size:13px;color:#6366f1;font-weight:600;text-transform:uppercase;letter-spacing:.06em">Your ticket file</p><a href="${ticketRow.file_url}" style="color:#6366f1;font-size:14px;text-decoration:none;font-weight:500">Download your ticket →</a></div>` : ""}
+    <p style="font-size:13px;color:#888;margin:0">This ticket is registered in your name. View it in <strong>My Purchases</strong> on TicketSafe.</p>
+  </div>
+  <div style="padding:16px 32px;background:#fafafa;border-top:1px solid #f0f0f0"><p style="margin:0;font-size:12px;color:#bbb;text-align:center">TicketSafe · Secure peer-to-peer ticket resale</p></div>
+</div></body></html>`,
+                }),
+              });
+            }
+          }
         }
         break;
       }
