@@ -64,20 +64,29 @@ Deno.serve(async (req) => {
     }
 
     // Fetch ticket + seller info for email
-    const { data: ticket } = await supabase
+    const { data: ticket, error: ticketFetchErr } = await supabase
       .from("tickets")
       .select("seller_id, event:events(title, date, location)")
       .eq("id", ticketId)
       .maybeSingle();
 
-    const { data: seller } = ticket?.seller_id
-      ? await supabase.from("profiles").select("full_name, email").eq("id", ticket.seller_id).maybeSingle()
-      : { data: null };
+    console.log("[admin-review-ticket] ticket fetch:", { ticket, ticketFetchErr });
 
     const resendKey = Deno.env.get("RESEND_API_KEY");
     const ev = ticket?.event as { title?: string; date?: string; location?: string } | null;
     const eventTitle = ev?.title ?? "your ticket";
     const siteUrl = Deno.env.get("SITE_URL") ?? "https://ticket-safe.vercel.app";
+
+    // Get seller email from auth (guaranteed) + name from profiles
+    let sellerEmail: string | null = null;
+    let sellerName = "there";
+    if (ticket?.seller_id) {
+      const { data: authUser } = await supabase.auth.admin.getUserById(ticket.seller_id);
+      sellerEmail = authUser?.user?.email ?? null;
+      const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", ticket.seller_id).maybeSingle();
+      sellerName = profile?.full_name ?? sellerEmail?.split("@")[0] ?? "there";
+      console.log("[admin-review-ticket] seller:", { sellerEmail, sellerName });
+    }
 
     if (action === "approve") {
       const { error } = await supabase
@@ -89,13 +98,14 @@ Deno.serve(async (req) => {
       if (error) return json({ error: error.message }, 500);
 
       // Email seller: ticket approved
-      if (resendKey && seller?.email) {
-        await fetch("https://api.resend.com/emails", {
+      if (resendKey && sellerEmail) {
+        console.log("[admin-review-ticket] sending approval email to", sellerEmail);
+        const emailRes = await fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
           body: JSON.stringify({
             from: "TicketSafe <onboarding@resend.dev>",
-            to: [seller.email],
+            to: [sellerEmail],
             subject: `Your ticket for ${eventTitle} is live on the marketplace!`,
             html: `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"></head>
@@ -106,7 +116,7 @@ Deno.serve(async (req) => {
     <h1 style="margin:6px 0 0;font-size:22px;color:white;font-weight:600">Your ticket is approved!</h1>
   </div>
   <div style="padding:28px 32px">
-    <p style="font-size:15px;color:#333;margin:0 0 16px">Hi ${seller.full_name ?? "there"},</p>
+    <p style="font-size:15px;color:#333;margin:0 0 16px">Hi ${sellerName},</p>
     <p style="font-size:15px;color:#333;margin:0 0 24px">
       Your ticket for <strong>${eventTitle}</strong> has been approved by our team and is now <strong>live on the marketplace</strong>.
       Buyers can now find and purchase it.
@@ -123,6 +133,7 @@ Deno.serve(async (req) => {
 </body></html>`,
           }),
         });
+        console.log("[admin-review-ticket] approval email result:", emailRes.status);
       }
 
       console.log("[admin-review-ticket] approved", { ticketId, adminId: user.id });
@@ -142,13 +153,13 @@ Deno.serve(async (req) => {
     if (error) return json({ error: error.message }, 500);
 
     // Email seller: ticket rejected
-    if (resendKey && seller?.email) {
+    if (resendKey && sellerEmail) {
       await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
         body: JSON.stringify({
           from: "TicketSafe <onboarding@resend.dev>",
-          to: [seller.email],
+          to: [sellerEmail],
           subject: `Your ticket for ${eventTitle} could not be approved`,
           html: `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"></head>
@@ -159,7 +170,7 @@ Deno.serve(async (req) => {
     <h1 style="margin:6px 0 0;font-size:22px;color:white;font-weight:600">Ticket not approved</h1>
   </div>
   <div style="padding:28px 32px">
-    <p style="font-size:15px;color:#333;margin:0 0 16px">Hi ${seller.full_name ?? "there"},</p>
+    <p style="font-size:15px;color:#333;margin:0 0 16px">Hi ${sellerName},</p>
     <p style="font-size:15px;color:#333;margin:0 0 16px">
       Unfortunately, your ticket for <strong>${eventTitle}</strong> could not be approved.
     </p>
