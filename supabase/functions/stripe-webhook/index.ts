@@ -105,10 +105,13 @@ serve(async (req) => {
             })
             .eq("id", transactionId);
 
-          // Mark listing as sold (only if still reserved — defensive guard)
+          // Mark listing as sold and assign to buyer (nominative ticket)
           await supabase
             .from("tickets")
-            .update({ status: "sold" })
+            .update({
+              status: "sold",
+              buyer_id: session.metadata?.buyer_id ?? null,
+            })
             .eq("id", listingId)
             .in("status", ["available", "reserved"]);
         }
