@@ -148,11 +148,11 @@ const ChatRoom = () => {
   const listPrice = meta?.ticket?.selling_price ?? 0;
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="h-dvh bg-background flex flex-col overflow-hidden">
       <SEOHead titleKey="common.appName" descriptionKey="common.appName" />
       <Header />
-      <main className="flex-1 flex flex-col">
-        <div className="container mx-auto px-4 max-w-2xl flex flex-col flex-1 py-4">
+      <main className="flex-1 flex flex-col overflow-hidden">
+        <div className="container mx-auto px-4 max-w-2xl flex flex-col flex-1 py-4 overflow-hidden">
           {/* Top bar */}
           <div className="flex items-center gap-3 mb-4">
             <BackButton />
@@ -223,8 +223,8 @@ const ChatRoom = () => {
           )}
 
           {/* Messages area */}
-          <Card className="flex-1 flex flex-col overflow-hidden">
-            <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3 min-h-[300px] max-h-[50vh]">
+          <Card className="flex-1 flex flex-col overflow-hidden min-h-0">
+            <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
               {loading && (
                 <div className="flex justify-center py-8">
                   <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -321,7 +321,6 @@ const ChatRoom = () => {
           </Card>
         </div>
       </main>
-      <Footer />
     </div>
   );
 };

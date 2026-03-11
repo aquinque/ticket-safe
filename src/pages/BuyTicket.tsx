@@ -64,7 +64,7 @@ const BuyTicket = () => {
 
           <div className="grid md:grid-cols-2 gap-8">
             {/* Event Image */}
-            <div className="relative h-80 md:h-auto rounded-xl overflow-hidden">
+            <div className="relative h-48 sm:h-64 md:h-auto rounded-xl overflow-hidden">
               <img
                 src={event.image}
                 alt={event.title}

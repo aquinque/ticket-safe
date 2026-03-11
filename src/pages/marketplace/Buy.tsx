@@ -333,9 +333,9 @@ const Buy = () => {
                     {/* Content */}
                     <div className="flex-1">
                       <CardHeader>
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="flex-1">
-                            <CardTitle className="text-2xl mb-2">
+                        <div className="flex items-start justify-between gap-2 flex-wrap sm:flex-nowrap">
+                          <div className="flex-1 min-w-0">
+                            <CardTitle className="text-lg sm:text-2xl mb-2 break-words">
                               {group.eventTitle}
                             </CardTitle>
                             <CardDescription className="space-y-1">
@@ -365,8 +365,8 @@ const Buy = () => {
                               )}
                             </CardDescription>
                           </div>
-                          <div className="flex flex-col items-end gap-2">
-                            <Badge variant="secondary" className="text-base px-3 py-1">
+                          <div className="flex flex-col items-end gap-2 shrink-0">
+                            <Badge variant="secondary" className="text-xs sm:text-base px-2 sm:px-3 py-1">
                               {group.eventCategory || "Event"}
                             </Badge>
                             {group.eventCampus && (
@@ -382,13 +382,13 @@ const Buy = () => {
                       </CardHeader>
 
                       <CardContent>
-                        <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center justify-between mb-4 gap-3">
                           <div>
                             <p className="text-sm text-muted-foreground">
                               {group.totalAvailable} ticket
                               {group.totalAvailable !== 1 ? "s" : ""} available from
                             </p>
-                            <p className="text-2xl font-bold text-primary">
+                            <p className="text-xl sm:text-2xl font-bold text-primary">
                               €{group.minPrice.toFixed(2)}
                             </p>
                           </div>
