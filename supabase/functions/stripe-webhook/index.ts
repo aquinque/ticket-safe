@@ -139,7 +139,7 @@ serve(async (req) => {
                 method: "POST",
                 headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
                 body: JSON.stringify({
-                  from: "TicketSafe <onboarding@resend.dev>",
+                  from: "TicketSafe <noreply@ticket-safe.eu>",
                   to: [buyerEmail],
                   subject: `Your ticket for ${eventTitle} is confirmed!`,
                   html: `<!DOCTYPE html>

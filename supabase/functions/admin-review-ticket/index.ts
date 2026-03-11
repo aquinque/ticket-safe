@@ -104,7 +104,7 @@ Deno.serve(async (req) => {
           method: "POST",
           headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
           body: JSON.stringify({
-            from: "TicketSafe <onboarding@resend.dev>",
+            from: "TicketSafe <noreply@ticket-safe.eu>",
             to: [sellerEmail],
             subject: `Your ticket for ${eventTitle} is live on the marketplace!`,
             html: `<!DOCTYPE html>
@@ -158,7 +158,7 @@ Deno.serve(async (req) => {
         method: "POST",
         headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
         body: JSON.stringify({
-          from: "TicketSafe <onboarding@resend.dev>",
+          from: "TicketSafe <noreply@ticket-safe.eu>",
           to: [sellerEmail],
           subject: `Your ticket for ${eventTitle} could not be approved`,
           html: `<!DOCTYPE html>

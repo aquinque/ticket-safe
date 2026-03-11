@@ -93,7 +93,7 @@ Deno.serve(async (req) => {
     method: "POST",
     headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      from: "TicketSafe <onboarding@resend.dev>",
+      from: "TicketSafe <noreply@ticket-safe.eu>",
       to: [recipientEmail],
       subject: offerPrice
         ? `New price offer €${offerPrice.toFixed(2)} from ${senderName} — ${eventTitle}`
