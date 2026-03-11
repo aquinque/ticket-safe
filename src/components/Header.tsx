@@ -260,8 +260,8 @@ const Header = () => {
               <div className="flex flex-col gap-1.5 mb-2 pb-4 border-b border-border">
                 <Link
                   to="/about"
-                  className={`px-3 py-2.5 rounded-md text-sm transition-colors hover:bg-muted ${
-                    isActive("/about") ? "text-muted-foreground font-medium" : "text-muted-foreground/70"
+                  className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors hover:bg-muted ${
+                    isActive("/about") ? "text-primary" : "text-foreground"
                   }`}
                   onClick={() => setIsMenuOpen(false)}
                 >
@@ -269,8 +269,8 @@ const Header = () => {
                 </Link>
                 <Link
                   to="/contact"
-                  className={`px-3 py-2.5 rounded-md text-sm transition-colors hover:bg-muted ${
-                    isActive("/contact") ? "text-muted-foreground font-medium" : "text-muted-foreground/70"
+                  className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors hover:bg-muted ${
+                    isActive("/contact") ? "text-primary" : "text-foreground"
                   }`}
                   onClick={() => setIsMenuOpen(false)}
                 >
@@ -279,8 +279,8 @@ const Header = () => {
                 {user && (
                   <Link
                     to="/messages"
-                    className={`px-3 py-2.5 rounded-md text-sm transition-colors hover:bg-muted flex items-center gap-2 ${
-                      location.pathname.startsWith("/messages") ? "text-muted-foreground font-medium" : "text-muted-foreground/70"
+                    className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors hover:bg-muted flex items-center gap-2 ${
+                      location.pathname.startsWith("/messages") ? "text-primary" : "text-foreground"
                     }`}
                     onClick={() => { setIsMenuOpen(false); markAllRead(); }}
                   >
@@ -296,8 +296,8 @@ const Header = () => {
                 {user && (
                   <Link
                     to="/settings"
-                    className={`px-3 py-2.5 rounded-md text-sm transition-colors hover:bg-muted flex items-center gap-2 ${
-                      isActive("/settings") ? "text-muted-foreground font-medium" : "text-muted-foreground/70"
+                    className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors hover:bg-muted flex items-center gap-2 ${
+                      isActive("/settings") ? "text-primary" : "text-foreground"
                     }`}
                     onClick={() => setIsMenuOpen(false)}
                   >
