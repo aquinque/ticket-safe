@@ -83,7 +83,7 @@ const Header = () => {
         <div className="flex h-14 md:h-16 lg:h-20 items-center justify-between">
           {/* Logo */}
           <Link to="/" className="flex items-center hover:opacity-85 transition-opacity">
-            <Logo height={44} />
+            <Logo height={36} />
           </Link>
 
           {/* Desktop Navigation - Reorganized */}
