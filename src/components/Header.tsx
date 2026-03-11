@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Menu, X, User, LogOut, ChevronDown, Settings } from "lucide-react";
+import { Menu, X, User, LogOut, ChevronDown, Settings, MessageSquare } from "lucide-react";
 import Logo from "@/components/Logo";
 import { useAuth } from "@/hooks/useAuth";
 import { useI18n } from "@/contexts/I18nContext";
 import { supabase } from "@/integrations/supabase/client";
+import { useUnreadMessages } from "@/hooks/useUnreadMessages";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,6 +23,12 @@ const Header = () => {
   const { user, signOut } = useAuth();
   const { t } = useI18n();
   const navigate = useNavigate();
+  const { unreadCount, markAllRead } = useUnreadMessages();
+
+  useEffect(() => {
+    if (location.pathname.startsWith("/messages")) markAllRead();
+  }, [location.pathname]);
+
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 10);
@@ -144,6 +151,22 @@ const Header = () => {
               </Link>
               {user && (
                 <Link
+                  to="/messages"
+                  className={`relative text-sm transition-colors hover:text-muted-foreground ${
+                    location.pathname.startsWith("/messages") ? "text-muted-foreground" : "text-muted-foreground/70"
+                  }`}
+                  onClick={markAllRead}
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-0.5 text-[10px] font-bold text-white leading-none">
+                      {unreadCount > 9 ? "9+" : unreadCount}
+                    </span>
+                  )}
+                </Link>
+              )}
+              {user && (
+                <Link
                   to="/settings"
                   className={`text-sm transition-colors hover:text-muted-foreground ${
                     isActive("/settings") ? "text-muted-foreground font-medium" : "text-muted-foreground/70"
@@ -253,6 +276,23 @@ const Header = () => {
                 >
                   {t('nav.contact')}
                 </Link>
+                {user && (
+                  <Link
+                    to="/messages"
+                    className={`px-3 py-2.5 rounded-md text-sm transition-colors hover:bg-muted flex items-center gap-2 ${
+                      location.pathname.startsWith("/messages") ? "text-muted-foreground font-medium" : "text-muted-foreground/70"
+                    }`}
+                    onClick={() => { setIsMenuOpen(false); markAllRead(); }}
+                  >
+                    <MessageSquare className="w-4 h-4" />
+                    Messages
+                    {unreadCount > 0 && (
+                      <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white leading-none">
+                        {unreadCount > 9 ? "9+" : unreadCount}
+                      </span>
+                    )}
+                  </Link>
+                )}
                 {user && (
                   <Link
                     to="/settings"
