@@ -118,13 +118,15 @@ serve(async (req) => {
           // Send confirmation email to buyer
           const buyerId = session.metadata?.buyer_id;
           if (buyerId) {
-            const [{ data: buyerProfile }, { data: ticketRow }] = await Promise.all([
-              supabase.from("profiles").select("full_name, email").eq("id", buyerId).maybeSingle(),
+            const [{ data: buyerAuth }, { data: buyerProfile }, { data: ticketRow }] = await Promise.all([
+              supabase.auth.admin.getUserById(buyerId),
+              supabase.from("profiles").select("full_name").eq("id", buyerId).maybeSingle(),
               supabase.from("tickets").select("file_url, event:events(title, date, location)").eq("id", listingId).maybeSingle(),
             ]);
-            const buyerEmail = buyerProfile?.email;
-            const buyerName = buyerProfile?.full_name ?? "there";
+            const buyerEmail = buyerAuth?.user?.email ?? null;
+            const buyerName = buyerProfile?.full_name ?? buyerEmail?.split("@")[0] ?? "there";
             const resendKey = Deno.env.get("RESEND_API_KEY");
+            console.log("[checkout.session.completed] buyer email:", buyerEmail, "resendKey set:", !!resendKey);
             if (resendKey && buyerEmail) {
               const ev = ticketRow?.event as { title?: string; date?: string; location?: string } | null;
               const eventTitle = ev?.title ?? "Event Ticket";
@@ -133,7 +135,7 @@ serve(async (req) => {
                 : "—";
               const qty = session.metadata ? (parseInt(session.metadata.qty ?? "1") || 1) : 1;
               const total = (session.amount_total ?? 0) / 100;
-              await fetch("https://api.resend.com/emails", {
+              const emailRes = await fetch("https://api.resend.com/emails", {
                 method: "POST",
                 headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -165,6 +167,8 @@ serve(async (req) => {
 </div></body></html>`,
                 }),
               });
+              const emailBody = await emailRes.json().catch(() => ({}));
+              console.log("[checkout.session.completed] Resend result:", emailRes.status, JSON.stringify(emailBody));
             }
           }
         }

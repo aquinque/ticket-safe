@@ -4,7 +4,7 @@
  * Called after a message is inserted in a conversation.
  * Sends an email notification to the recipient.
  *
- * POST body: { conversationId: string; senderId: string }
+ * POST body: { conversationId: string; senderId: string; offerPrice?: number }
  * Auth: Bearer <user-jwt>
  */
 
@@ -38,45 +38,63 @@ Deno.serve(async (req) => {
     return json({ error: "Invalid JSON" }, 400);
   }
 
-  // Fetch conversation with participants + ticket/event info
-  const { data: conv } = await supabase
+  console.log("[notify-new-message] called", { conversationId, senderId, offerPrice });
+
+  // Fetch conversation with participant ids + ticket/event info
+  const { data: conv, error: convErr } = await supabase
     .from("conversations")
     .select(`
       id, buyer_id, seller_id,
       ticket:tickets(selling_price, quantity, event:events(title, date)),
-      buyer:profiles!conversations_buyer_id_fkey(full_name, email),
-      seller:profiles!conversations_seller_id_fkey(full_name, email)
+      buyer:profiles!conversations_buyer_id_fkey(full_name),
+      seller:profiles!conversations_seller_id_fkey(full_name)
     `)
     .eq("id", conversationId)
     .maybeSingle();
 
-  if (!conv) return json({ ok: true }); // silently ignore if not found
+  console.log("[notify-new-message] conv fetch:", { found: !!conv, convErr });
+
+  if (!conv) return json({ ok: true });
 
   // Determine recipient (the other party)
   const isSenderBuyer = conv.buyer_id === senderId;
-  const recipient = isSenderBuyer
-    ? (conv.seller as { full_name: string; email: string } | null)
-    : (conv.buyer as { full_name: string; email: string } | null);
-  const sender = isSenderBuyer
-    ? (conv.buyer as { full_name: string; email: string } | null)
-    : (conv.seller as { full_name: string; email: string } | null);
+  const recipientId = isSenderBuyer ? conv.seller_id : conv.buyer_id;
+  const recipientProfile = isSenderBuyer
+    ? (conv.seller as { full_name: string } | null)
+    : (conv.buyer as { full_name: string } | null);
+  const senderProfile = isSenderBuyer
+    ? (conv.buyer as { full_name: string } | null)
+    : (conv.seller as { full_name: string } | null);
 
-  if (!recipient?.email) return json({ ok: true });
+  // Get recipient email from auth.users (guaranteed — profiles.email may be stale/null)
+  const { data: recipientAuth } = await supabase.auth.admin.getUserById(recipientId);
+  const recipientEmail = recipientAuth?.user?.email ?? null;
+  const recipientName = recipientProfile?.full_name ?? recipientEmail?.split("@")[0] ?? "there";
+  const senderName = senderProfile?.full_name ?? "Someone";
+
+  console.log("[notify-new-message] recipient:", { recipientEmail, recipientName, senderName });
+
+  if (!recipientEmail) {
+    console.log("[notify-new-message] no recipient email found, skipping");
+    return json({ ok: true });
+  }
 
   const resendKey = Deno.env.get("RESEND_API_KEY");
-  if (!resendKey) return json({ ok: true });
+  if (!resendKey) {
+    console.log("[notify-new-message] RESEND_API_KEY not set, skipping");
+    return json({ ok: true });
+  }
 
   const ev = (conv.ticket as { event?: { title?: string; date?: string } } | null)?.event;
   const eventTitle = ev?.title ?? "a ticket";
-  const senderName = sender?.full_name ?? "Someone";
   const siteUrl = Deno.env.get("SITE_URL") ?? "https://ticket-safe.vercel.app";
 
-  await fetch("https://api.resend.com/emails", {
+  const emailRes = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       from: "TicketSafe <onboarding@resend.dev>",
-      to: [recipient.email],
+      to: [recipientEmail],
       subject: offerPrice
         ? `New price offer €${offerPrice.toFixed(2)} from ${senderName} — ${eventTitle}`
         : `New message from ${senderName} — ${eventTitle}`,
@@ -89,7 +107,7 @@ Deno.serve(async (req) => {
     <h1 style="margin:6px 0 0;font-size:20px;color:white;font-weight:600">${offerPrice ? `New price offer: €${offerPrice.toFixed(2)}` : "You have a new message"}</h1>
   </div>
   <div style="padding:28px 32px">
-    <p style="font-size:15px;color:#333;margin:0 0 16px">Hi ${recipient.full_name ?? "there"},</p>
+    <p style="font-size:15px;color:#333;margin:0 0 16px">Hi ${recipientName},</p>
     ${offerPrice
       ? `<p style="font-size:15px;color:#333;margin:0 0 16px"><strong>${senderName}</strong> proposed a new price for <strong>${eventTitle}</strong>.</p>
          <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:16px 20px;margin-bottom:24px;text-align:center">
@@ -108,6 +126,9 @@ Deno.serve(async (req) => {
 </body></html>`,
     }),
   });
+
+  const emailBody = await emailRes.json().catch(() => ({}));
+  console.log("[notify-new-message] Resend result:", emailRes.status, JSON.stringify(emailBody));
 
   return json({ ok: true });
 });
