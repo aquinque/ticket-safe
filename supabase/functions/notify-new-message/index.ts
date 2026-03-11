@@ -1,11 +1,6 @@
 /**
  * notify-new-message — Supabase Edge Function
- *
- * Called after a message is inserted in a conversation.
- * Sends an email notification to the recipient.
- *
  * POST body: { conversationId: string; senderId: string; offerPrice?: number }
- * Auth: Bearer <user-jwt>
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -38,56 +33,72 @@ Deno.serve(async (req) => {
     return json({ error: "Invalid JSON" }, 400);
   }
 
-  console.log("[notify-new-message] called", { conversationId, senderId, offerPrice });
+  console.log("[notify] called", { conversationId, senderId, offerPrice });
 
-  // Fetch conversation with participant ids + ticket/event info
+  // Step 1: fetch conversation (buyer_id, seller_id, ticket_id) — no FK joins
   const { data: conv, error: convErr } = await supabase
     .from("conversations")
-    .select(`
-      id, buyer_id, seller_id,
-      ticket:tickets(selling_price, quantity, event:events(title, date)),
-      buyer:profiles!conversations_buyer_id_fkey(full_name),
-      seller:profiles!conversations_seller_id_fkey(full_name)
-    `)
+    .select("id, buyer_id, seller_id, ticket_id")
     .eq("id", conversationId)
     .maybeSingle();
 
-  console.log("[notify-new-message] conv fetch:", { found: !!conv, convErr });
-
+  console.log("[notify] conv:", conv, "err:", convErr?.message);
   if (!conv) return json({ ok: true });
 
-  // Determine recipient (the other party)
-  const isSenderBuyer = conv.buyer_id === senderId;
-  const recipientId = isSenderBuyer ? conv.seller_id : conv.buyer_id;
-  const recipientProfile = isSenderBuyer
-    ? (conv.seller as { full_name: string } | null)
-    : (conv.buyer as { full_name: string } | null);
-  const senderProfile = isSenderBuyer
-    ? (conv.buyer as { full_name: string } | null)
-    : (conv.seller as { full_name: string } | null);
+  // Step 2: determine recipient
+  const recipientId = conv.buyer_id === senderId ? conv.seller_id : conv.buyer_id;
+  const senderIsbuyer = conv.buyer_id === senderId;
 
-  // Get recipient email from auth.users (guaranteed — profiles.email may be stale/null)
-  const { data: recipientAuth } = await supabase.auth.admin.getUserById(recipientId);
+  // Step 3: get recipient email from auth (guaranteed, bypasses profiles)
+  const { data: recipientAuth, error: authErr } = await supabase.auth.admin.getUserById(recipientId);
   const recipientEmail = recipientAuth?.user?.email ?? null;
-  const recipientName = recipientProfile?.full_name ?? recipientEmail?.split("@")[0] ?? "there";
-  const senderName = senderProfile?.full_name ?? "Someone";
+  console.log("[notify] recipientEmail:", recipientEmail, "authErr:", authErr?.message);
+  if (!recipientEmail) return json({ ok: true });
 
-  console.log("[notify-new-message] recipient:", { recipientEmail, recipientName, senderName });
+  // Step 4: get sender profile name
+  const { data: senderProfile } = await supabase
+    .from("profiles")
+    .select("full_name")
+    .eq("id", senderId)
+    .maybeSingle();
+  const senderName = (senderProfile as any)?.full_name ?? "Someone";
 
-  if (!recipientEmail) {
-    console.log("[notify-new-message] no recipient email found, skipping");
-    return json({ ok: true });
+  // Step 5: get recipient profile name
+  const { data: recipientProfile } = await supabase
+    .from("profiles")
+    .select("full_name")
+    .eq("id", recipientId)
+    .maybeSingle();
+  const recipientName = (recipientProfile as any)?.full_name ?? recipientEmail.split("@")[0];
+
+  // Step 6: get event title from ticket
+  let eventTitle = "a ticket";
+  if (conv.ticket_id) {
+    const { data: ticket } = await supabase
+      .from("tickets")
+      .select("event_id")
+      .eq("id", conv.ticket_id)
+      .maybeSingle();
+    if ((ticket as any)?.event_id) {
+      const { data: event } = await supabase
+        .from("events")
+        .select("title")
+        .eq("id", (ticket as any).event_id)
+        .maybeSingle();
+      if ((event as any)?.title) eventTitle = (event as any).title;
+    }
   }
+
+  console.log("[notify] sending to:", recipientEmail, "event:", eventTitle, "offer:", offerPrice);
 
   const resendKey = Deno.env.get("RESEND_API_KEY");
   if (!resendKey) {
-    console.log("[notify-new-message] RESEND_API_KEY not set, skipping");
+    console.log("[notify] no RESEND_API_KEY");
     return json({ ok: true });
   }
 
-  const ev = (conv.ticket as { event?: { title?: string; date?: string } } | null)?.event;
-  const eventTitle = ev?.title ?? "a ticket";
-  const siteUrl = Deno.env.get("SITE_URL") ?? "https://ticket-safe.vercel.app";
+  const siteUrl = Deno.env.get("SITE_URL") ?? "https://ticket-safe.eu";
+  const isOffer = !!offerPrice;
 
   const emailRes = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -95,32 +106,35 @@ Deno.serve(async (req) => {
     body: JSON.stringify({
       from: "TicketSafe <noreply@ticket-safe.eu>",
       to: [recipientEmail],
-      subject: offerPrice
-        ? `New price offer €${offerPrice.toFixed(2)} from ${senderName} — ${eventTitle}`
+      subject: isOffer
+        ? `New price offer €${offerPrice!.toFixed(2)} from ${senderName} — ${eventTitle}`
         : `New message from ${senderName} — ${eventTitle}`,
       html: `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"></head>
 <body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
 <div style="max-width:560px;margin:32px auto;background:white;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.08)">
-  <div style="background:${offerPrice ? "#f59e0b" : "#6366f1"};padding:24px 32px">
-    <p style="margin:0;font-size:13px;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.08em">TicketSafe · ${offerPrice ? "Price Offer" : "Messages"}</p>
-    <h1 style="margin:6px 0 0;font-size:20px;color:white;font-weight:600">${offerPrice ? `New price offer: €${offerPrice.toFixed(2)}` : "You have a new message"}</h1>
+  <div style="background:${isOffer ? "#f59e0b" : "#6366f1"};padding:24px 32px">
+    <p style="margin:0;font-size:13px;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.08em">TicketSafe · ${isOffer ? "Price Offer" : "Messages"}</p>
+    <h1 style="margin:6px 0 0;font-size:20px;color:white;font-weight:600">${isOffer ? `New price offer: €${offerPrice!.toFixed(2)}` : "You have a new message"}</h1>
   </div>
   <div style="padding:28px 32px">
     <p style="font-size:15px;color:#333;margin:0 0 16px">Hi ${recipientName},</p>
-    ${offerPrice
+    ${isOffer
       ? `<p style="font-size:15px;color:#333;margin:0 0 16px"><strong>${senderName}</strong> proposed a new price for <strong>${eventTitle}</strong>.</p>
          <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:16px 20px;margin-bottom:24px;text-align:center">
            <p style="margin:0;font-size:13px;color:#92400e;text-transform:uppercase;letter-spacing:.06em">Proposed price</p>
-           <p style="margin:4px 0 0;font-size:28px;font-weight:700;color:#d97706">€${offerPrice.toFixed(2)}</p>
+           <p style="margin:4px 0 0;font-size:28px;font-weight:700;color:#d97706">€${offerPrice!.toFixed(2)}</p>
          </div>`
       : `<p style="font-size:15px;color:#333;margin:0 0 24px"><strong>${senderName}</strong> sent you a message about <strong>${eventTitle}</strong>.</p>`
     }
     <a href="${siteUrl}/messages/${conversationId}"
-       style="display:inline-block;background:${offerPrice ? "#f59e0b" : "#6366f1"};color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:600">
-      ${offerPrice ? "Accept or decline →" : "View message →"}
+       style="display:inline-block;background:${isOffer ? "#f59e0b" : "#6366f1"};color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:600">
+      ${isOffer ? "Accept or decline →" : "View message →"}
     </a>
     <p style="font-size:12px;color:#aaa;margin:24px 0 0">You received this because you have an active conversation on TicketSafe.</p>
+  </div>
+  <div style="padding:16px 32px;background:#fafafa;border-top:1px solid #f0f0f0">
+    <p style="margin:0;font-size:12px;color:#bbb;text-align:center">TicketSafe · Secure peer-to-peer ticket resale</p>
   </div>
 </div>
 </body></html>`,
@@ -128,7 +142,7 @@ Deno.serve(async (req) => {
   });
 
   const emailBody = await emailRes.json().catch(() => ({}));
-  console.log("[notify-new-message] Resend result:", emailRes.status, JSON.stringify(emailBody));
+  console.log("[notify] Resend result:", emailRes.status, JSON.stringify(emailBody));
 
-  return json({ ok: true });
+  return json({ ok: true, resend: emailRes.status });
 });
