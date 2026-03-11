@@ -127,24 +127,24 @@ const Header = () => {
             <div className="flex items-center gap-5 ml-auto mr-4">
               <Link
                 to="/how-it-works"
-                className={`text-sm transition-colors hover:text-muted-foreground ${
-                  isActive("/how-it-works") ? "text-muted-foreground font-medium" : "text-muted-foreground/70"
+                className={`text-sm font-semibold transition-colors hover:text-primary ${
+                  isActive("/how-it-works") ? "text-primary" : "text-foreground"
                 }`}
               >
                 How It Works
               </Link>
               <Link
                 to="/about"
-                className={`text-sm transition-colors hover:text-muted-foreground ${
-                  isActive("/about") ? "text-muted-foreground font-medium" : "text-muted-foreground/70"
+                className={`text-sm font-semibold transition-colors hover:text-primary ${
+                  isActive("/about") ? "text-primary" : "text-foreground"
                 }`}
               >
                 {t('nav.about')}
               </Link>
               <Link
                 to="/contact"
-                className={`text-sm transition-colors hover:text-muted-foreground ${
-                  isActive("/contact") ? "text-muted-foreground font-medium" : "text-muted-foreground/70"
+                className={`text-sm font-semibold transition-colors hover:text-primary ${
+                  isActive("/contact") ? "text-primary" : "text-foreground"
                 }`}
               >
                 {t('nav.contact')}
@@ -207,8 +207,8 @@ const Header = () => {
               </DropdownMenu>
             ) : (
               <>
-                <Button variant="ghost" className="h-10 px-4" asChild>
-                  <Link to="/auth" className="text-muted-foreground hover:text-primary">
+                <Button variant="ghost" className="h-10 px-4 font-semibold" asChild>
+                  <Link to="/auth" className="text-foreground hover:text-primary">
                     {t('nav.login')}
                   </Link>
                 </Button>
