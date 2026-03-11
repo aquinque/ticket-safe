@@ -28,6 +28,9 @@ const CATEGORY_IMAGES: Record<string, string> = {
   // Arts / culture / exhibition
   arts:
     "https://images.unsplash.com/photo-1578301978693-85fa9c0320b9?w=800&h=400&fit=crop&q=85",
+  // Graduation ceremony
+  graduation:
+    "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=800&h=400&fit=crop&q=85",
   // General event / festival crowd
   other:
     "https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?w=800&h=400&fit=crop&q=85",
