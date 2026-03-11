@@ -115,13 +115,13 @@ serve(async (req) => {
             .eq("id", listingId)
             .in("status", ["available", "reserved"]);
 
-          // Send confirmation email to buyer
+          // Send confirmation email to buyer + notification to seller
           const buyerId = session.metadata?.buyer_id;
           if (buyerId) {
             const [{ data: buyerAuth }, { data: buyerProfile }, { data: ticketRow }] = await Promise.all([
               supabase.auth.admin.getUserById(buyerId),
               supabase.from("profiles").select("full_name").eq("id", buyerId).maybeSingle(),
-              supabase.from("tickets").select("file_url, event:events(title, date, location)").eq("id", listingId).maybeSingle(),
+              supabase.from("tickets").select("file_url, seller_id, event:events(title, date, location)").eq("id", listingId).maybeSingle(),
             ]);
             const buyerEmail = buyerAuth?.user?.email ?? null;
             const buyerName = buyerProfile?.full_name ?? buyerEmail?.split("@")[0] ?? "there";
@@ -168,7 +168,57 @@ serve(async (req) => {
                 }),
               });
               const emailBody = await emailRes.json().catch(() => ({}));
-              console.log("[checkout.session.completed] Resend result:", emailRes.status, JSON.stringify(emailBody));
+              console.log("[checkout.session.completed] buyer Resend result:", emailRes.status, JSON.stringify(emailBody));
+            }
+
+            // Send notification email to seller
+            const sellerId = (ticketRow as any)?.seller_id;
+            if (resendKey && sellerId) {
+              const [{ data: sellerAuth }, { data: sellerProfile }] = await Promise.all([
+                supabase.auth.admin.getUserById(sellerId),
+                supabase.from("profiles").select("full_name").eq("id", sellerId).maybeSingle(),
+              ]);
+              const sellerEmail = sellerAuth?.user?.email ?? null;
+              const sellerName = (sellerProfile as any)?.full_name ?? sellerEmail?.split("@")[0] ?? "there";
+              const ev = (ticketRow as any)?.event as { title?: string; date?: string; location?: string } | null;
+              const eventTitle = ev?.title ?? "Event Ticket";
+              const total = (session.amount_total ?? 0) / 100;
+              const fee = total * 0.05;
+              const payout = total - fee;
+              console.log("[checkout.session.completed] seller email:", sellerEmail);
+              if (sellerEmail) {
+                const sellerRes = await fetch("https://api.resend.com/emails", {
+                  method: "POST",
+                  headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    from: "TicketSafe <noreply@ticket-safe.eu>",
+                    to: [sellerEmail],
+                    subject: `Your ticket for ${eventTitle} has been sold!`,
+                    html: `<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+<div style="max-width:560px;margin:32px auto;background:white;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.08)">
+  <div style="background:#10b981;padding:24px 32px">
+    <p style="margin:0;font-size:13px;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.08em">TicketSafe</p>
+    <h1 style="margin:6px 0 0;font-size:22px;color:white;font-weight:600">Your ticket has been sold!</h1>
+  </div>
+  <div style="padding:28px 32px">
+    <p style="font-size:15px;color:#333;margin:0 0 20px">Hi ${sellerName},</p>
+    <p style="font-size:15px;color:#333;margin:0 0 24px">Great news — your ticket for <strong>${eventTitle}</strong> has been purchased.</p>
+    <table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:24px">
+      <tr style="border-bottom:1px solid #f0f0f0"><td style="padding:10px 0;color:#888;width:45%">Sale price</td><td style="padding:10px 0;color:#111;font-weight:600">€${total.toFixed(2)}</td></tr>
+      <tr style="border-bottom:1px solid #f0f0f0"><td style="padding:10px 0;color:#888">Platform fee (5%)</td><td style="padding:10px 0;color:#888">−€${fee.toFixed(2)}</td></tr>
+      <tr><td style="padding:10px 0;color:#888">Your payout</td><td style="padding:10px 0;color:#10b981;font-weight:700;font-size:16px">€${payout.toFixed(2)}</td></tr>
+    </table>
+    <p style="font-size:13px;color:#888;margin:0">The payout will be transferred to your Stripe account automatically. View your sales in <strong>My Listings</strong> on TicketSafe.</p>
+  </div>
+  <div style="padding:16px 32px;background:#fafafa;border-top:1px solid #f0f0f0"><p style="margin:0;font-size:12px;color:#bbb;text-align:center">TicketSafe · Secure peer-to-peer ticket resale</p></div>
+</div></body></html>`,
+                  }),
+                });
+                const sellerEmailBody = await sellerRes.json().catch(() => ({}));
+                console.log("[checkout.session.completed] seller Resend result:", sellerRes.status, JSON.stringify(sellerEmailBody));
+              }
             }
           }
         }
