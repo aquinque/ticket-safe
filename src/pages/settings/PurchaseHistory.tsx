@@ -35,22 +35,13 @@ const PurchaseHistory = () => {
     const fetchPurchases = async () => {
       try {
         setLoading(true);
-
-        // Fetch purchases (transactions where user is buyer)
         const { data: purchaseData, error: purchaseError } = await supabase
           .from('transactions')
-          .select(`
-            *,
-            ticket:tickets(
-              event:events(title, university, date)
-            )
-          `)
+          .select(`*, ticket:tickets(event:events(title, university, date))`)
           .eq('buyer_id', user.id)
           .order('created_at', { ascending: false });
 
-        if (purchaseError) {
-          console.error('Error fetching purchases:', purchaseError);
-        }
+        if (purchaseError) console.error('Error fetching purchases:', purchaseError);
 
         setPurchases(purchaseData?.map(p => ({
           id: p.id,
@@ -60,7 +51,6 @@ const PurchaseHistory = () => {
           quantity: p.quantity,
           status: p.status === 'completed' ? 'confirmed' : p.status,
           campus: p.ticket?.event?.university || "Unknown",
-          purchaseDate: p.created_at
         })) || []);
       } catch (error) {
         console.error("Error fetching purchase history:", error);
@@ -75,146 +65,124 @@ const PurchaseHistory = () => {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "confirmed":
-        return <Badge variant="secondary" className="bg-accent/10 text-accent">Confirmed</Badge>;
+        return <Badge className="bg-green-100 text-green-700 border-0 text-xs">Confirmed</Badge>;
       case "pending":
-        return <Badge variant="outline" className="text-primary">Pending</Badge>;
+        return <Badge variant="outline" className="text-primary text-xs">Pending</Badge>;
       case "cancelled":
-        return <Badge variant="destructive">Cancelled</Badge>;
+        return <Badge variant="destructive" className="text-xs">Cancelled</Badge>;
       default:
-        return <Badge variant="outline">{status}</Badge>;
+        return <Badge variant="outline" className="text-xs">{status}</Badge>;
     }
   };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case "confirmed":
-        return <CheckCircle2 className="w-4 h-4 text-accent" />;
-      case "pending":
-        return <Clock className="w-4 h-4 text-primary" />;
-      case "cancelled":
-        return <XCircle className="w-4 h-4 text-destructive" />;
-      default:
-        return <Clock className="w-4 h-4 text-muted-foreground" />;
+      case "confirmed": return <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />;
+      case "pending":   return <Clock className="w-4 h-4 text-primary shrink-0" />;
+      case "cancelled": return <XCircle className="w-4 h-4 text-destructive shrink-0" />;
+      default:          return <Clock className="w-4 h-4 text-muted-foreground shrink-0" />;
     }
   };
+
+  const totalSpent = purchases.reduce((sum, p) => sum + (p.price || 0), 0);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <SEOHead titleKey="nav.settings" descriptionKey="settings.description" />
       <Header />
-      <main className="py-16 flex-1">
-        <div className="container mx-auto px-4 max-w-4xl">
-          <div className="mb-6">
+      <main className="py-8 md:py-16 flex-1">
+        <div className="container mx-auto px-4 max-w-3xl">
+          <div className="mb-5">
             <BackButton fallbackPath="/settings" />
           </div>
 
           {/* Page Header */}
-          <div className="mb-8">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-xl bg-green-50 dark:bg-green-950/30 flex items-center justify-center">
-                <ShoppingBag className="w-5 h-5 text-green-600" />
-              </div>
-              <h1 className="text-4xl font-bold">Purchase History</h1>
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 rounded-xl bg-green-50 dark:bg-green-950/30 flex items-center justify-center shrink-0">
+              <ShoppingBag className="w-5 h-5 text-green-600" />
             </div>
-            <p className="text-muted-foreground">
-              View all your ticket purchases and transaction details
-            </p>
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold leading-tight">Purchase History</h1>
+              <p className="text-sm text-muted-foreground">All your ticket purchases</p>
+            </div>
           </div>
 
-          {/* Statistics */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          {/* Stats — 3 compact cards */}
+          <div className="grid grid-cols-3 gap-3 mb-6">
             <Card>
-              <CardContent className="p-6 text-center">
-                <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center mx-auto mb-2">
-                  <ShoppingBag className="w-5 h-5 text-primary" />
+              <CardContent className="p-4 text-center">
+                <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center mx-auto mb-1.5">
+                  <ShoppingBag className="w-4 h-4 text-primary" />
                 </div>
-                <h3 className="text-2xl font-bold">{purchases.length}</h3>
-                <p className="text-sm text-muted-foreground">Total Purchases</p>
+                <p className="text-xl font-bold">{purchases.length}</p>
+                <p className="text-xs text-muted-foreground leading-tight">Purchases</p>
               </CardContent>
             </Card>
-
             <Card>
-              <CardContent className="p-6 text-center">
-                <div className="w-10 h-10 bg-accent/10 rounded-xl flex items-center justify-center mx-auto mb-2">
-                  <CheckCircle2 className="w-5 h-5 text-accent" />
+              <CardContent className="p-4 text-center">
+                <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center mx-auto mb-1.5">
+                  <CheckCircle2 className="w-4 h-4 text-green-600" />
                 </div>
-                <h3 className="text-2xl font-bold">
-                  {purchases.filter(p => p.status === 'confirmed').length}
-                </h3>
-                <p className="text-sm text-muted-foreground">Confirmed</p>
+                <p className="text-xl font-bold">{purchases.filter(p => p.status === 'confirmed').length}</p>
+                <p className="text-xs text-muted-foreground leading-tight">Confirmed</p>
               </CardContent>
             </Card>
-
             <Card>
-              <CardContent className="p-6 text-center">
-                <div className="w-10 h-10 bg-secondary/10 rounded-xl flex items-center justify-center mx-auto mb-2">
-                  <Euro className="w-5 h-5 text-secondary" />
+              <CardContent className="p-4 text-center">
+                <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center mx-auto mb-1.5">
+                  <Euro className="w-4 h-4 text-blue-600" />
                 </div>
-                <h3 className="text-2xl font-bold">
-                  {purchases.reduce((sum, p) => sum + (p.price as number || 0), 0)}€
-                </h3>
-                <p className="text-sm text-muted-foreground">Total Spent</p>
+                <p className="text-xl font-bold">{totalSpent.toFixed(0)}€</p>
+                <p className="text-xs text-muted-foreground leading-tight">Total spent</p>
               </CardContent>
             </Card>
           </div>
 
-          {/* Purchase History */}
+          {/* Purchase list */}
           <Card>
-            <CardHeader>
-              <CardTitle>All Purchases</CardTitle>
-              <CardDescription>
-                Complete list of all your ticket purchases
-              </CardDescription>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">All Purchases</CardTitle>
+              <CardDescription className="text-xs">Complete list of your ticket purchases</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-0">
               {loading ? (
-                <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
-                  <p className="text-sm text-muted-foreground">Loading purchases...</p>
+                <div className="text-center py-10">
+                  <div className="animate-spin rounded-full h-7 w-7 border-b-2 border-primary mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">Loading...</p>
                 </div>
               ) : purchases.length === 0 ? (
                 <div className="text-center py-12">
-                  <ShoppingBag className="w-12 h-12 text-muted-foreground/50 mx-auto mb-3" />
-                  <p className="text-muted-foreground">No purchases yet</p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Your ticket purchases will appear here
-                  </p>
+                  <ShoppingBag className="w-10 h-10 text-muted-foreground/40 mx-auto mb-3" />
+                  <p className="text-muted-foreground font-medium">No purchases yet</p>
+                  <p className="text-sm text-muted-foreground mt-1">Your ticket purchases will appear here</p>
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="divide-y divide-border">
                   {purchases.map((purchase) => (
-                    <div
-                      key={purchase.id}
-                      className="flex items-center gap-4 p-4 border border-border rounded-lg hover:bg-muted/30 transition-colors"
-                    >
-                      {getStatusIcon(purchase.status as string)}
-
-                      <div className="flex-1 space-y-1">
-                        <h3 className="font-medium">{purchase.eventTitle as string}</h3>
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          <div className="flex items-center gap-1">
-                            <Calendar className="w-3 h-3" />
-                            {new Date(purchase.date as string).toLocaleDateString(
-                              language === 'fr' ? 'fr-FR' : 'en-US'
-                            )}
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <MapPin className="w-3 h-3" />
-                            {purchase.campus as string}
-                          </div>
-                          <span>Qty: {purchase.quantity as number}</span>
+                    <div key={purchase.id} className="py-3.5 first:pt-0 last:pb-0">
+                      {/* Top row: icon + title + price */}
+                      <div className="flex items-start gap-2.5">
+                        <div className="mt-0.5">{getStatusIcon(purchase.status)}</div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-sm leading-snug truncate">{purchase.eventTitle}</p>
                         </div>
-                        <p className="text-xs text-muted-foreground">
-                          Purchased on{' '}
-                          {new Date(purchase.date).toLocaleDateString(
-                            language === 'fr' ? 'fr-FR' : 'en-US'
-                          )}
-                        </p>
+                        <div className="shrink-0 text-right">
+                          <p className="font-bold text-base leading-none">{Number(purchase.price).toFixed(2)}€</p>
+                        </div>
                       </div>
 
-                      <div className="text-right">
-                        <div className="font-semibold text-lg">{purchase.price as number}€</div>
-                        {getStatusBadge(purchase.status as string)}
+                      {/* Bottom row: meta + badge */}
+                      <div className="mt-1.5 ml-6 flex flex-wrap items-center gap-x-3 gap-y-1">
+                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <Calendar className="w-3 h-3" />
+                          {new Date(purchase.date).toLocaleDateString(language === 'fr' ? 'fr-FR' : 'en-US')}
+                        </span>
+                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <MapPin className="w-3 h-3" />
+                          {purchase.campus}
+                        </span>
+                        <span className="text-xs text-muted-foreground">× {purchase.quantity}</span>
+                        {getStatusBadge(purchase.status)}
                       </div>
                     </div>
                   ))}
