@@ -22,8 +22,8 @@ const ChatBubble = () => {
   const location = useLocation();
   const [open, setOpen] = useState(false);
 
-  // Only load conversations when the user is logged in and panel is open
-  const { conversations, loading } = useConversations();
+  // Only fetch conversations when the bubble is open (lazy loading)
+  const { conversations, loading, refresh } = useConversations(open);
 
   // Close panel on route change
   useEffect(() => {
@@ -38,7 +38,12 @@ const ChatBubble = () => {
     <>
       {/* Floating bubble button */}
       <button
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          setOpen((v) => {
+            if (!v) refresh(); // Refresh conversations when opening
+            return !v;
+          });
+        }}
         className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200 flex items-center justify-center"
         aria-label="Messages"
       >

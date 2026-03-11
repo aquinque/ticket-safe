@@ -128,10 +128,33 @@ serve(async (req) => {
     }
     reservedListingId = listingId; // track for cleanup on error
 
+    // ── Validate agreed price against an actual accepted offer ─────────
+    let verifiedAgreedPrice: number | null = null;
+    if (agreedPrice) {
+      // Find an accepted offer for this ticket where this buyer is the buyer
+      const { data: acceptedOffer } = await supabase
+        .from("offers")
+        .select("price, conversation:conversations!inner(ticket_id, buyer_id)")
+        .eq("status", "accepted")
+        .eq("conversations.ticket_id", listingId)
+        .eq("conversations.buyer_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (acceptedOffer && Math.abs(acceptedOffer.price - agreedPrice) < 0.01) {
+        verifiedAgreedPrice = acceptedOffer.price;
+      } else {
+        // agreedPrice doesn't match any accepted offer — ignore it, use listing price
+        console.warn(
+          `[stripe-create-checkout] agreedPrice ${agreedPrice} doesn't match any accepted offer for ticket ${listingId}, buyer ${user.id}. Using listing price.`
+        );
+      }
+    }
+
     // ── Amounts ───────────────────────────────────────────────────────────
     const qty = listing.quantity ?? 1;
-    // Use negotiated price if provided, otherwise use the listing price
-    const unitPrice = agreedPrice ?? listing.selling_price;
+    const unitPrice = verifiedAgreedPrice ?? listing.selling_price;
     const totalCents = Math.round(unitPrice * 100) * qty;
     const feeCents = Math.round((totalCents * PLATFORM_FEE_PERCENT) / 100);
 
@@ -188,7 +211,7 @@ serve(async (req) => {
         buyer_id: user.id,
         seller_id: listing.seller_id,
         transaction_id: tx.id,
-        ...(agreedPrice ? { agreed_price: String(agreedPrice) } : {}),
+        ...(verifiedAgreedPrice ? { agreed_price: String(verifiedAgreedPrice) } : {}),
       },
       expires_at: Math.floor(Date.now() / 1000) + 5 * 60, // 5 min expiry
     });

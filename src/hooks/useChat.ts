@@ -38,13 +38,14 @@ export interface Conversation {
   seller: { full_name: string } | null;
 }
 
-/** Fetch all conversations for the current user */
-export function useConversations() {
+/** Fetch all conversations for the current user.
+ *  Pass `enabled: false` to skip the initial fetch (lazy loading). */
+export function useConversations(enabled = true) {
   const { user } = useAuth();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetch = useCallback(async () => {
+  const fetchConvos = useCallback(async () => {
     if (!user) return;
     setLoading(true);
 
@@ -64,10 +65,10 @@ export function useConversations() {
   }, [user]);
 
   useEffect(() => {
-    fetch();
-  }, [fetch]);
+    if (enabled) fetchConvos();
+  }, [fetchConvos, enabled]);
 
-  return { conversations, loading, refresh: fetch };
+  return { conversations, loading, refresh: fetchConvos };
 }
 
 /** Get or create a conversation for a specific ticket + buyer */
