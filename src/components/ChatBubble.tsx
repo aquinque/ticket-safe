@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { MessageSquare, X } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useConversations } from "@/hooks/useChat";
+import { useUnreadMessages } from "@/hooks/useUnreadMessages";
 import { getEventImage } from "@/lib/eventImages";
 
 function formatTimeAgo(dateStr: string): string {
@@ -24,6 +25,7 @@ const ChatBubble = () => {
 
   // Only fetch conversations when the bubble is open (lazy loading)
   const { conversations, loading, refresh } = useConversations(open);
+  const { unreadCount, markAllRead } = useUnreadMessages();
 
   // Close panel on route change
   useEffect(() => {
@@ -40,7 +42,10 @@ const ChatBubble = () => {
       <button
         onClick={() => {
           setOpen((v) => {
-            if (!v) refresh(); // Refresh conversations when opening
+            if (!v) {
+              refresh();
+              markAllRead();
+            }
             return !v;
           });
         }}
@@ -51,6 +56,11 @@ const ChatBubble = () => {
           <X className="w-6 h-6" />
         ) : (
           <MessageSquare className="w-6 h-6" />
+        )}
+        {!open && unreadCount > 0 && (
+          <span className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[11px] font-bold text-white leading-none ring-2 ring-background">
+            {unreadCount > 9 ? "9+" : unreadCount}
+          </span>
         )}
       </button>
 
