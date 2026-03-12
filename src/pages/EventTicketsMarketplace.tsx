@@ -198,7 +198,7 @@ const EventTicketsMarketplace = () => {
           </div>
 
           {/* Page Title */}
-          <div className="mb-8">
+          <div className="mb-6">
             <h2 className="text-2xl md:text-3xl font-bold mb-2">
               Available Tickets
               {listings.length > 0 && (
@@ -209,6 +209,14 @@ const EventTicketsMarketplace = () => {
             </h2>
             <p className="text-muted-foreground">
               Browse tickets listed by verified students for this event
+            </p>
+          </div>
+
+          {/* Make an offer hint */}
+          <div className="mb-8 flex items-start gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3">
+            <MessageSquare className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+            <p className="text-sm text-primary/90">
+              <span className="font-semibold">Not happy with the price?</span> Use <span className="font-semibold">"Make an Offer"</span> on any listing to chat directly with the seller and negotiate.
             </p>
           </div>
 
@@ -278,24 +286,24 @@ const EventTicketsMarketplace = () => {
                       </div>
 
                       {/* Action Buttons */}
-                      <div className="flex gap-2">
+                      <div className="space-y-2">
                         <Button
                           variant="hero"
                           size="lg"
-                          className="flex-1"
+                          className="w-full"
                           onClick={() => handleBuyTicket(listing.id)}
                         >
                           <ShoppingCart className="w-4 h-4 mr-2" />
-                          Buy
+                          Buy Now
                         </Button>
                         <Button
                           variant="outline"
                           size="lg"
-                          className="flex-1"
+                          className="w-full border-primary/40 text-primary hover:bg-primary/5 hover:border-primary"
                           onClick={() => handleMakeOffer(listing)}
                         >
                           <MessageSquare className="w-4 h-4 mr-2" />
-                          Offer
+                          Make an Offer — Chat with Seller
                         </Button>
                       </div>
                     </div>
