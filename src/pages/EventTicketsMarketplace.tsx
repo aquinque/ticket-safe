@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Calendar, MapPin, User, ShoppingCart, Info, MessageSquare } from "lucide-react";
+import { Calendar, MapPin, User, ShoppingCart, Info, MessageSquare, HelpCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { SEOHead } from "@/components/SEOHead";
 import { getEventImage } from "@/lib/eventImages";
@@ -222,15 +222,24 @@ const EventTicketsMarketplace = () => {
 
           {/* Listings */}
           {listings.length === 0 ? (
-            <Alert className="max-w-2xl mx-auto">
-              <Info className="w-4 h-4" />
-              <AlertDescription>
-                <p className="font-semibold mb-2">No tickets available yet</p>
-                <p className="text-sm text-muted-foreground">
-                  Be the first to list your ticket for this event, or check back later for new listings.
-                </p>
-              </AlertDescription>
-            </Alert>
+            <div className="max-w-lg mx-auto text-center py-10">
+              <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+                <Info className="w-8 h-8 text-muted-foreground" aria-hidden="true" />
+              </div>
+              <h3 className="text-lg font-semibold mb-2">No tickets listed yet</h3>
+              <p className="text-sm text-muted-foreground mb-6">
+                No one has listed a ticket for this event yet. Be the first, or get notified when one appears.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <Button variant="hero" onClick={() => navigate("/sell")} aria-label="Sell your ticket for this event">
+                  <ShoppingCart className="w-4 h-4 mr-2" />
+                  List your ticket
+                </Button>
+                <Button variant="outline" onClick={() => toast.info("Ticket alerts coming soon — we'll notify you when a ticket is listed for this event.")} aria-label="Get notified when a ticket is listed">
+                  Notify me
+                </Button>
+              </div>
+            </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {listings.map(listing => (
@@ -246,10 +255,31 @@ const EventTicketsMarketplace = () => {
                           </div>
                       </div>
 
-                      <div className="text-center">
-                        <p className="text-sm text-muted-foreground mb-1">Price per ticket</p>
-                        <p className="text-4xl font-bold text-primary">€{(listing.selling_price ?? 0).toFixed(2)}</p>
-                      </div>
+                      {(() => {
+                        const price = listing.selling_price ?? 0;
+                        const fee = Math.round(price * 5) / 100;
+                        const total = price + fee;
+                        return (
+                          <div className="text-center">
+                            <p className="text-sm text-muted-foreground mb-1">Price per ticket</p>
+                            <p className="text-4xl font-bold text-primary">€{price.toFixed(2)}</p>
+                            <div className="mt-2 text-xs text-muted-foreground space-y-0.5">
+                              <div className="flex items-center justify-center gap-1">
+                                <span>+5% fee = <strong className="text-foreground">€{total.toFixed(2)} total</strong></span>
+                                <a
+                                  href="/how-it-works#pricing"
+                                  className="inline-flex text-muted-foreground hover:text-primary"
+                                  title="Why a fee?"
+                                  aria-label="Learn about the platform fee"
+                                  onClick={(e) => { e.stopPropagation(); }}
+                                >
+                                  <HelpCircle className="w-3.5 h-3.5" />
+                                </a>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
 
                     {/* Ticket Details */}

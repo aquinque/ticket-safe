@@ -26,7 +26,7 @@ export const eventsList: EventData[] = [
     location: "Location TBA",
     organizer: "Turin Campus",
     description: "We are glad to invite you to the 2026 Turin Gran Gala. The Gala is the perfect time to celebrate the ESCP's successes over the past year and is the biggest event on the Turin Campus' social calendar!",
-    category: "Gala",
+    category: "Galas",
     filterCategory: "galas",
     image: galaBanner,
     isPastEvent: false

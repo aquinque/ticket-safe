@@ -149,32 +149,6 @@ const Header = () => {
               >
                 {t('nav.contact')}
               </Link>
-              {user && (
-                <Link
-                  to="/messages"
-                  className={`relative text-sm transition-colors hover:text-muted-foreground ${
-                    location.pathname.startsWith("/messages") ? "text-muted-foreground" : "text-muted-foreground/70"
-                  }`}
-                  onClick={markAllRead}
-                >
-                  <MessageSquare className="w-4 h-4" />
-                  {unreadCount > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-0.5 text-[10px] font-bold text-white leading-none">
-                      {unreadCount > 9 ? "9+" : unreadCount}
-                    </span>
-                  )}
-                </Link>
-              )}
-              {user && (
-                <Link
-                  to="/settings"
-                  className={`text-sm transition-colors hover:text-muted-foreground ${
-                    isActive("/settings") ? "text-muted-foreground font-medium" : "text-muted-foreground/70"
-                  }`}
-                >
-                  <Settings className="w-4 h-4" />
-                </Link>
-              )}
             </div>
           </nav>
 
@@ -197,6 +171,10 @@ const Header = () => {
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate("/settings/listings")}>
                     My Listings
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate("/settings")}>
+                    <Settings className="h-4 w-4 mr-2" />
+                    {t('nav.settings')}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleSignOut}>

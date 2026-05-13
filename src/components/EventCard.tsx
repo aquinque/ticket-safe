@@ -1,9 +1,22 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, MapPin, ShieldCheck } from "lucide-react";
+import { Calendar, MapPin, ShieldCheck, Clock } from "lucide-react";
 import { useI18n } from "@/contexts/I18nContext";
 import { EventData } from "@/data/eventsData";
+
+function getDateBadge(dateString: string): { label: string; urgent: boolean } | null {
+  if (!dateString) return null;
+  const now = new Date();
+  const event = new Date(dateString);
+  const diffMs = event.getTime() - now.getTime();
+  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+  if (diffDays < 0) return null;
+  if (diffDays === 0) return { label: "Tonight", urgent: true };
+  if (diffDays === 1) return { label: "Tomorrow", urgent: true };
+  if (diffDays <= 7) return { label: `In ${diffDays} days`, urgent: false };
+  return null;
+}
 
 interface EventCardProps {
   event: EventData;
@@ -40,8 +53,8 @@ const EventCard = ({ event, onClick }: EventCardProps) => {
 
   const getTypeColor = (eventType: string) => {
     const type = eventType.toLowerCase();
-    if (type.includes('party') || type.includes('halloween')) return 'bg-gradient-hero text-white border-transparent';
-    if (type.includes('gala')) return 'bg-gradient-accent text-white border-transparent';
+    if (type.includes('parties') || type.includes('party') || type.includes('halloween')) return 'bg-gradient-hero text-white border-transparent';
+    if (type.includes('galas') || type.includes('gala')) return 'bg-gradient-accent text-white border-transparent';
     if (type.includes('conference') || type.includes('panel')) return 'bg-primary/10 text-primary border-primary/20';
     if (type.includes('sustainability') || type.includes('swap')) return 'bg-accent/10 text-accent border-accent/20';
     if (type.includes('ceremony')) return 'bg-secondary/10 text-secondary border-secondary/20';
@@ -82,13 +95,31 @@ const EventCard = ({ event, onClick }: EventCardProps) => {
 
         {/* Event Ended Badge */}
         {event.isPastEvent && (
-          <Badge 
+          <Badge
             variant="secondary"
             className="absolute bottom-4 left-4 bg-black/80 text-white backdrop-blur-md"
           >
             {t('events.eventEnded')}
           </Badge>
         )}
+
+        {/* Date imminence badge */}
+        {!event.isPastEvent && (() => {
+          const badge = getDateBadge(event.date);
+          if (!badge) return null;
+          return (
+            <Badge
+              className={`absolute bottom-4 right-4 backdrop-blur-md flex items-center gap-1 ${
+                badge.urgent
+                  ? "bg-amber-500 text-white border-transparent"
+                  : "bg-white/90 text-foreground border-border"
+              }`}
+            >
+              <Clock className="w-3 h-3" aria-hidden="true" />
+              {badge.label}
+            </Badge>
+          );
+        })()}
 
         {/* Gradient Overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />

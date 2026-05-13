@@ -49,9 +49,9 @@ const buyerSteps = [
   {
     step: "03",
     icon: ShieldCheck,
-    title: "Buy with Confidence",
+    title: "Buy or Make an Offer",
     description:
-      "Click 'Buy' and pay securely through our platform. Your money is held in escrow — the seller only gets paid after you confirm receipt.",
+      "Click 'Buy' to purchase at the listed price, or use 'Make an Offer' to chat with the seller and agree on a price. Payment is held in escrow — the seller only gets paid after you confirm receipt.",
     detail: "100% money-back guarantee if the ticket is invalid or the event is cancelled.",
     color: "bg-green-500/10",
     iconColor: "text-green-500",
@@ -102,10 +102,10 @@ const sellerSteps = [
   {
     step: "03",
     icon: Bell,
-    title: "Get Notified of a Sale",
+    title: "Get Notified of Interest",
     description:
-      "We notify you instantly when someone buys your ticket. No need to negotiate — the price is fixed and clear.",
-    detail: "Buyers can't haggle — your price is your price.",
+      "We notify you instantly when someone buys your ticket at your listed price — or when a buyer sends you a message to discuss.",
+    detail: "Buyers can use 'Make an Offer' to negotiate. You decide whether to accept.",
     color: "bg-green-500/10",
     iconColor: "text-green-500",
   },
@@ -153,9 +153,14 @@ const faqs = [
       "Yes — you can remove your listing at any time before a buyer completes a purchase. Once a purchase is made, cancellation may result in a penalty to protect the buyer.",
   },
   {
+    question: "Can I negotiate the price with the seller?",
+    answer:
+      "Yes — use the 'Make an Offer' button on any listing to open a private chat with the seller. You can propose a price, and the seller can accept, reject, or counter. Once both sides agree, checkout uses your negotiated price. The listed price stays unchanged for other buyers.",
+  },
+  {
     question: "What is the 5% platform fee?",
     answer:
-      "Both sides pay a small 5% fee. Buyers pay 5% on top of the ticket price. Sellers have 5% deducted from their listing price as a platform commission. The fees cover secure payment processing, ticket verification, and buyer protection.",
+      "Both sides pay a small 5% fee. Buyers pay 5% on top of the ticket price (or negotiated price). Sellers have 5% deducted from the sale price as a platform commission. The fees cover secure payment processing, ticket verification, and buyer protection.",
   },
   {
     question: "What happens if the event is cancelled?",

@@ -6,16 +6,29 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Search, Calendar, MapPin, Users, ShoppingBag } from "lucide-react";
+import { Search, Calendar, MapPin, Users, ShoppingBag, Bell, Tag, Clock } from "lucide-react";
 import { useESCPEvents } from "@/hooks/useESCPEvents";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SEOHead } from "@/components/SEOHead";
 import { getEventImage } from "@/lib/eventImages";
+import { toast } from "sonner";
+
+function isTonight(d: string) { const ev = new Date(d), now = new Date(); return ev.getFullYear()===now.getFullYear()&&ev.getMonth()===now.getMonth()&&ev.getDate()===now.getDate(); }
+function isThisWeek(d: string) { const ev = new Date(d), now = new Date(), end = new Date(now); end.setDate(now.getDate()+7); return ev>=now&&ev<=end; }
+function isThisMonth(d: string) { const ev = new Date(d), now = new Date(); return ev.getFullYear()===now.getFullYear()&&ev.getMonth()===now.getMonth()&&ev>=now; }
+
+const DATE_FILTERS = [
+  { id: "all-dates", label: "Any date" },
+  { id: "tonight",   label: "Tonight" },
+  { id: "this-week", label: "This week" },
+  { id: "this-month",label: "This month" },
+];
 
 const EventsCatalog = () => {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedFilter, setSelectedFilter] = useState("all");
+  const [dateFilter, setDateFilter] = useState("all-dates");
 
   // Fetch ALL events (not filtered by tickets)
   const { events: allEvents, loading, error } = useESCPEvents({ onlyWithTickets: false });
@@ -36,11 +49,21 @@ const EventsCatalog = () => {
                          event.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          (event.organizer && event.organizer.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesFilter = selectedFilter === "all" || event.category === selectedFilter;
-    return matchesSearch && matchesFilter;
+    const d = event.start_date;
+    const matchesDate =
+      dateFilter === "all-dates" ||
+      (dateFilter === "tonight" && isTonight(d)) ||
+      (dateFilter === "this-week" && isThisWeek(d)) ||
+      (dateFilter === "this-month" && isThisMonth(d));
+    return matchesSearch && matchesFilter && matchesDate;
   });
 
   const handleEventClick = (eventId: string) => {
     navigate(`/event/${eventId}/tickets`);
+  };
+
+  const handleNotifyMe = () => {
+    toast.info("Ticket alerts coming soon — we'll notify you by email when tickets are listed for this category.");
   };
 
   const handleBuyTickets = (eventId: string, hasTickets: boolean) => {
@@ -96,7 +119,7 @@ const EventsCatalog = () => {
                   />
                 </div>
 
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2 mb-3">
                   {filters.map((filter) => (
                     <Button
                       key={filter.id}
@@ -104,8 +127,27 @@ const EventsCatalog = () => {
                       size="sm"
                       onClick={() => setSelectedFilter(filter.id)}
                       className="rounded-full"
+                      aria-pressed={selectedFilter === filter.id}
                     >
                       {filter.label}
+                    </Button>
+                  ))}
+                </div>
+                <div className="flex items-center gap-2 mb-2">
+                  <Clock className="w-4 h-4 text-muted-foreground" aria-hidden="true" />
+                  <span className="text-sm font-medium text-muted-foreground">When:</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {DATE_FILTERS.map((f) => (
+                    <Button
+                      key={f.id}
+                      variant={dateFilter === f.id ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setDateFilter(f.id)}
+                      className="rounded-full"
+                      aria-pressed={dateFilter === f.id}
+                    >
+                      {f.label}
                     </Button>
                   ))}
                 </div>
@@ -174,6 +216,14 @@ const EventsCatalog = () => {
                           </Badge>
                         </div>
                       )}
+                      {(() => {
+                        const d = event.start_date;
+                        if (isTonight(d)) return <Badge className="absolute bottom-3 right-3 bg-amber-500 text-white border-transparent flex items-center gap-1"><Clock className="w-3 h-3" />Tonight</Badge>;
+                        const diffDays = Math.ceil((new Date(d).getTime() - Date.now()) / 86400000);
+                        if (diffDays === 1) return <Badge className="absolute bottom-3 right-3 bg-amber-500 text-white border-transparent flex items-center gap-1"><Clock className="w-3 h-3" />Tomorrow</Badge>;
+                        if (diffDays > 1 && diffDays <= 7) return <Badge className="absolute bottom-3 right-3 bg-white/90 text-foreground border-border flex items-center gap-1"><Clock className="w-3 h-3" />In {diffDays} days</Badge>;
+                        return null;
+                      })()}
                     </div>
 
                     {/* Event Details */}
@@ -239,16 +289,45 @@ const EventsCatalog = () => {
             </div>
           )}
 
-          {/* No Results */}
+          {/* Actionable Empty State */}
           {!loading && !error && filteredEvents.length === 0 && (
-            <div className="text-center py-12">
+            <div className="text-center py-12 max-w-lg mx-auto">
               <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
-                <Search className="w-8 h-8 text-muted-foreground" />
+                <Search className="w-8 h-8 text-muted-foreground" aria-hidden="true" />
               </div>
               <h3 className="text-xl font-semibold mb-2">No events found</h3>
-              <p className="text-muted-foreground">
-                Try adjusting your search or filters
+              <p className="text-muted-foreground mb-6">
+                Try adjusting your search or filters — or take action below.
               </p>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <Button
+                  variant="hero"
+                  onClick={() => navigate("/events")}
+                  className="gap-2"
+                  aria-label="View events with available tickets"
+                >
+                  <ShoppingBag className="w-4 h-4" />
+                  Events with tickets
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleNotifyMe}
+                  className="gap-2"
+                  aria-label="Get notified when tickets are listed"
+                >
+                  <Bell className="w-4 h-4" />
+                  Notify me
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => navigate("/sell")}
+                  className="gap-2"
+                  aria-label="List your ticket for sale"
+                >
+                  <Tag className="w-4 h-4" />
+                  List your ticket
+                </Button>
+              </div>
             </div>
           )}
         </div>

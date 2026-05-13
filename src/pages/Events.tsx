@@ -22,22 +22,33 @@ const Events = () => {
             <BackButton />
           </div>
 
-          {/* Page Header - Single, Clear Title */}
+          {/* Page Header */}
           <div className="text-center mb-10">
             <h1 className="text-4xl md:text-5xl font-bold mb-4">
               Available Events
             </h1>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-6">
-              Browse events with tickets currently available for purchase
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-3">
+              Events with tickets currently listed for sale by verified students.
+            </p>
+            <p className="text-sm text-muted-foreground mb-6">
+              Don't see your event?{" "}
+              <button
+                onClick={() => navigate("/catalog")}
+                className="text-primary underline underline-offset-4 hover:no-underline font-medium"
+              >
+                Browse the full ESCP catalog
+              </button>
+              {" "}— no tickets required.
             </p>
             <Button
               variant="outline"
               onClick={() => navigate("/catalog")}
               className="gap-2 text-xs"
               size="sm"
+              aria-label="View full event catalog including events without tickets"
             >
               <List className="w-4 h-4" />
-              View Full Catalog
+              Full Catalog (all events)
             </Button>
           </div>
         </div>

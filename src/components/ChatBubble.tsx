@@ -49,9 +49,16 @@ const ChatBubble = () => {
             return !v;
           });
         }}
-        className="fixed bottom-6 right-6 z-[9999] w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200 flex items-center justify-center"
-        aria-label="Messages"
+        className="fixed bottom-6 right-6 z-[9999] w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200 flex items-center justify-center group"
+        aria-label="Open messages"
+        title="Messages — chat with buyers and sellers"
       >
+        {/* Tooltip label on hover */}
+        {!open && (
+          <span className="absolute right-16 bottom-1/2 translate-y-1/2 hidden group-hover:block bg-foreground text-background text-xs font-medium px-2 py-1 rounded-md whitespace-nowrap pointer-events-none">
+            Messages
+          </span>
+        )}
         {open ? (
           <X className="w-6 h-6" />
         ) : (
