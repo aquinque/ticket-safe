@@ -142,7 +142,7 @@ const Checkout = () => {
     year: "numeric",
   });
 
-  const isDev = window.location.hostname === "localhost";
+  const isDev = import.meta.env.DEV;
 
   // --- Dev: simulate purchase without Stripe ---
   const handleSimulate = async () => {

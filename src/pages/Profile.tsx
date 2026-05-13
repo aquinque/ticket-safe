@@ -79,7 +79,7 @@ const Profile = () => {
               name: user.user_metadata?.full_name || user.email?.split('@')[0] || "User",
               email: user.email || "",
               campus: user.user_metadata?.university || "",
-              memberSince: new Date().toISOString(),
+              memberSince: user.created_at || new Date().toISOString(),
               totalPurchases: 0,
               totalSales: 0,
               totalSaved: 0,
@@ -327,7 +327,7 @@ const Profile = () => {
                             <h4 className="font-medium text-sm">{purchase.eventTitle}</h4>
                             <div className="flex items-center gap-2 text-xs text-muted-foreground">
                               <Calendar className="w-3 h-3" />
-                              {new Date(purchase.date).toLocaleDateString('fr-FR')}
+                              {new Date(purchase.date).toLocaleDateString(language === 'fr' ? 'fr-FR' : 'en-US')}
                             </div>
                           </div>
                           <div className="text-right">
@@ -352,13 +352,13 @@ const Profile = () => {
                     {sales.length === 0 ? (
                       <p className="text-sm text-muted-foreground text-center py-4">{t('profile.noTransactions')}</p>
                     ) : (
-                      sales.map((sale) => (
+                      sales.slice(0, 3).map((sale) => (
                         <div key={sale.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
                           <div className="space-y-1">
                             <h4 className="font-medium text-sm">{sale.eventTitle}</h4>
                             <div className="flex items-center gap-2 text-xs text-muted-foreground">
                               <Calendar className="w-3 h-3" />
-                              {new Date(sale.date).toLocaleDateString('fr-FR')}
+                              {new Date(sale.date).toLocaleDateString(language === 'fr' ? 'fr-FR' : 'en-US')}
                             </div>
                           </div>
                           <div className="text-right">

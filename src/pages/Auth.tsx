@@ -170,11 +170,7 @@ const Auth = () => {
           });
           
           toast.success("Welcome back!");
-          
-          // Wait for state to settle before navigating
-          setTimeout(() => {
-            navigate("/profile", { replace: true });
-          }, 100);
+          // Navigation handled by the useEffect watching user state
         }
       } else {
         // Client-side validation for signup
@@ -273,9 +269,7 @@ const Auth = () => {
 
         if (data.user && data.session) {
           toast.success("Account created successfully!");
-          setTimeout(() => {
-            navigate("/profile", { replace: true });
-          }, 100);
+          // Navigation handled by the useEffect watching user state
         } else if (data.user && !data.session) {
           // Email confirmation required — show resend UI
           setPendingConfirmEmail(email.trim());

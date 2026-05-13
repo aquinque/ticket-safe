@@ -40,10 +40,10 @@ const PersonalInformation = () => {
   const handleSaveProfile = async () => {
     // Validate password if provided
     if (newPassword) {
-      if (newPassword.length < 6) {
+      if (newPassword.length < 12) {
         toast({
           title: "Password too short",
-          description: "Password must be at least 6 characters long",
+          description: "Password must be at least 12 characters long",
           variant: "destructive",
         });
         return;
@@ -193,15 +193,15 @@ const PersonalInformation = () => {
                     type="password"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Enter new password (min. 6 characters)"
+                    placeholder="Enter new password (min. 12 characters)"
                   />
                   {newPassword && (
                     <div className="space-y-1">
                       <div className="flex items-center gap-2 text-xs">
-                        {newPassword.length >= 6 ? (
-                          <span className="text-green-600">✓ At least 6 characters</span>
+                        {newPassword.length >= 12 ? (
+                          <span className="text-green-600">✓ At least 12 characters</span>
                         ) : (
-                          <span className="text-muted-foreground">○ At least 6 characters</span>
+                          <span className="text-muted-foreground">○ At least 12 characters</span>
                         )}
                       </div>
                     </div>

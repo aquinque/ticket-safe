@@ -22,7 +22,7 @@ const EventDetail = () => {
       setEvent(foundEvent);
     } else if (events.length > 0) {
       // Only redirect if events are loaded and event not found
-      navigate("/events");
+      navigate("/marketplace");
     }
   }, [eventId, navigate, events]);
 

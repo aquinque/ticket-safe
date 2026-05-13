@@ -55,6 +55,7 @@ interface RawListing {
   status: string;
   created_at: string;
   event: EventInfo | null;
+  qr_verified?: boolean;
 }
 
 type StatusFilter = "all" | "available" | "sold" | "reserved";

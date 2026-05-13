@@ -92,7 +92,7 @@ const EventsCatalog = () => {
               </div>
               <Button
                 variant="hero"
-                onClick={() => navigate("/events")}
+                onClick={() => navigate("/marketplace")}
                 className="gap-2"
               >
                 <ShoppingBag className="w-4 h-4" />
@@ -302,7 +302,7 @@ const EventsCatalog = () => {
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
                 <Button
                   variant="hero"
-                  onClick={() => navigate("/events")}
+                  onClick={() => navigate("/marketplace")}
                   className="gap-2"
                   aria-label="View events with available tickets"
                 >

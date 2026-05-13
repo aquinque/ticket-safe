@@ -62,10 +62,10 @@ export function useESCPEvents(options: UseESCPEventsOptions = {}) {
           countMap[t.event_id] = { count: 0, minPrice: Infinity, maxPrice: -Infinity };
         }
         countMap[t.event_id].count++;
-        if (t.selling_price < countMap[t.event_id].minPrice) {
+        if (t.selling_price != null && t.selling_price < countMap[t.event_id].minPrice) {
           countMap[t.event_id].minPrice = t.selling_price;
         }
-        if (t.selling_price > countMap[t.event_id].maxPrice) {
+        if (t.selling_price != null && t.selling_price > countMap[t.event_id].maxPrice) {
           countMap[t.event_id].maxPrice = t.selling_price;
         }
       }
