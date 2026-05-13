@@ -301,7 +301,7 @@ const About = () => {
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Button variant="secondary" size="lg" asChild>
-                  <Link to="/events">
+                  <Link to="/marketplace">
                     <School className="w-5 h-5" />
                     {t('about.ctaDiscoverEvents')}
                     <ArrowRight className="w-5 h-5" />

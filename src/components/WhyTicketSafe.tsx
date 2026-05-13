@@ -129,7 +129,7 @@ const WhyTicketSafe = () => {
             </p>
             <div className="flex flex-col gap-3 md:flex-row md:gap-4 justify-center">
               <Link
-                to="/events"
+                to="/marketplace"
                 className="inline-flex items-center justify-center h-12 md:h-11 px-8 bg-primary text-primary-foreground font-semibold rounded-md hover:bg-primary/90 transition-colors"
               >
                 Browse Available Events

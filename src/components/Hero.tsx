@@ -38,7 +38,7 @@ const Hero = () => {
           {/* CTA Buttons — primary = Find a ticket, secondary = Sell */}
           <div className="flex flex-col gap-3 md:flex-row md:gap-4 justify-center mb-6 md:mb-8 animate-slide-up">
             <Button variant="hero" size="lg" asChild className="h-14 md:h-12 text-base font-semibold">
-              <Link to="/events" aria-label="Find a ticket on the marketplace">
+              <Link to="/marketplace" aria-label="Find a ticket on the marketplace">
                 <Search className="w-5 h-5" />
                 Find a Ticket
                 <ArrowRight className="w-5 h-5" />

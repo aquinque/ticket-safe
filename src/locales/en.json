@@ -346,7 +346,33 @@
     "sell": {
       "title": "Sell Tickets - TicketSafe Marketplace",
       "description": "List your tickets for sale and connect with verified student buyers"
-    }
+    },
+    "title": "Marketplace",
+    "subtitle": "Browse tickets from verified ESCP students",
+    "toggleAvailable": "Available now",
+    "toggleAll": "All upcoming events",
+    "toggleAllTooltip": "Includes events with no tickets currently for sale.",
+    "emptyTitle": "No tickets listed right now",
+    "emptySubtitle": "Browse all upcoming events to be ready, or get notified when one is posted.",
+    "browseCatalog": "Browse all upcoming events",
+    "notifyMe": "Notify me",
+    "listYourTicket": "List your ticket",
+    "availableEvents": "Available Events",
+    "allEvents": "All Upcoming Events",
+    "withTickets": "{count} ticket{plural} available",
+    "noTickets": "No tickets yet",
+    "viewTickets": "View tickets — from €{price}",
+    "sellYourTicket": "Sell your ticket"
+  },
+  "trust": {
+    "escrowPayments": "Escrow Payments",
+    "escrowPaymentsDesc": "Your payment is held safely until you confirm you received the ticket.",
+    "buyerGuarantee": "Buyer Guarantee",
+    "buyerGuaranteeDesc": "Full refund if the ticket is invalid or the event is cancelled, including the platform fee.",
+    "stripe": "Powered by Stripe",
+    "stripeDesc": "Payments processed by Stripe — your card details never reach us.",
+    "verifiedStudents": "Verified ESCP Students",
+    "verifiedStudentsDesc": "Only verified ESCP students can buy or sell."
   },
   "notFound": {
     "title": "404",

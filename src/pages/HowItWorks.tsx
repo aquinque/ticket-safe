@@ -199,7 +199,7 @@ const HowItWorks = () => {
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button variant="hero" size="lg" asChild className="h-12 px-8 font-semibold">
-                <Link to="/events">
+                <Link to="/marketplace">
                   <Search className="w-5 h-5" />
                   Browse Tickets
                   <ArrowRight className="w-5 h-5" />
@@ -293,7 +293,7 @@ const HowItWorks = () => {
 
             <div className="text-center mt-10">
               <Button variant="hero" size="lg" asChild className="h-12 px-8 font-semibold">
-                <Link to="/events">
+                <Link to="/marketplace">
                   Start Browsing Tickets
                   <ArrowRight className="w-5 h-5" />
                 </Link>
@@ -493,7 +493,7 @@ const HowItWorks = () => {
                 </Link>
               </Button>
               <Button variant="outline" size="lg" asChild className="h-12 px-8">
-                <Link to="/events">Browse Tickets First</Link>
+                <Link to="/marketplace">Browse Tickets First</Link>
               </Button>
             </div>
           </div>

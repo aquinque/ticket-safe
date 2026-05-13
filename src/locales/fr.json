@@ -346,7 +346,33 @@
     "sell": {
       "title": "Vendre des billets - Marketplace TicketSafe",
       "description": "Listez vos billets à vendre et connectez-vous avec des acheteurs étudiants vérifiés"
-    }
+    },
+    "title": "Marketplace",
+    "subtitle": "Parcourez les billets des étudiants ESCP vérifiés",
+    "toggleAvailable": "Disponibles maintenant",
+    "toggleAll": "Tous les événements",
+    "toggleAllTooltip": "Inclut les événements sans billets actuellement en vente.",
+    "emptyTitle": "Aucun billet disponible pour l'instant",
+    "emptySubtitle": "Parcourez tous les événements à venir pour être prêt, ou soyez notifié dès qu'un billet est posté.",
+    "browseCatalog": "Voir tous les événements",
+    "notifyMe": "M'avertir",
+    "listYourTicket": "Mettre mon billet en vente",
+    "availableEvents": "Événements disponibles",
+    "allEvents": "Tous les événements à venir",
+    "withTickets": "{count} billet{plural} disponible{plural}",
+    "noTickets": "Aucun billet",
+    "viewTickets": "Voir les billets — dès {price}€",
+    "sellYourTicket": "Vendre votre billet"
+  },
+  "trust": {
+    "escrowPayments": "Paiements en séquestre",
+    "escrowPaymentsDesc": "Votre paiement est conservé en sécurité jusqu'à ce que vous confirmiez la réception du billet.",
+    "buyerGuarantee": "Garantie acheteur",
+    "buyerGuaranteeDesc": "Remboursement complet si le billet est invalide ou l'événement annulé, frais de plateforme inclus.",
+    "stripe": "Propulsé par Stripe",
+    "stripeDesc": "Paiements traités par Stripe — vos coordonnées bancaires ne nous parviennent jamais.",
+    "verifiedStudents": "Étudiants ESCP vérifiés",
+    "verifiedStudentsDesc": "Seuls les étudiants ESCP vérifiés peuvent acheter ou vendre."
   },
   "notFound": {
     "title": "404",

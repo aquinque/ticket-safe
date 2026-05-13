@@ -1,12 +1,13 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import { CookieConsent } from "@/components/CookieConsent";
 import ScrollToTop from "@/components/ScrollToTop";
 import Index from "./pages/Index";
 import Events from "./pages/Events";
 import EventsCatalog from "./pages/EventsCatalog";
+import Marketplace from "./pages/Marketplace";
 import EventDetail from "./pages/EventDetail";
 import EventTicketsMarketplace from "./pages/EventTicketsMarketplace";
 import BuyTicket from "./pages/BuyTicket";
@@ -49,9 +50,10 @@ const App = () => (
     <ScrollToTop />
     <Routes>
       <Route path="/" element={<Index />} />
+      <Route path="/marketplace" element={<Marketplace />} />
+      <Route path="/catalog" element={<Navigate to="/marketplace?view=all" replace />} />
       <Route path="/events" element={<Events />} />
       <Route path="/events/:id" element={<Events />} />
-      <Route path="/catalog" element={<EventsCatalog />} />
       <Route path="/event/:eventId" element={<EventDetail />} />
       <Route path="/event/:eventId/tickets" element={<EventTicketsMarketplace />} />
       <Route path="/buy-ticket/:listingId" element={<BuyTicket />} />

@@ -212,14 +212,6 @@ const EventTicketsMarketplace = () => {
             </p>
           </div>
 
-          {/* Make an offer hint */}
-          <div className="mb-8 flex items-start gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3">
-            <MessageSquare className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
-            <p className="text-sm text-primary/90">
-              <span className="font-semibold">Not happy with the price?</span> Use <span className="font-semibold">"Make an Offer"</span> on any listing to chat directly with the seller and negotiate.
-            </p>
-          </div>
-
           {/* Listings */}
           {listings.length === 0 ? (
             <div className="max-w-lg mx-auto text-center py-10">
@@ -241,6 +233,14 @@ const EventTicketsMarketplace = () => {
               </div>
             </div>
           ) : (
+            <>
+            {/* Make an offer hint — only shown when listings exist */}
+            <div className="mb-8 flex items-start gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3">
+              <MessageSquare className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+              <p className="text-sm text-primary/90">
+                <span className="font-semibold">Not happy with the price?</span> Use <span className="font-semibold">"Make an Offer"</span> on any listing to chat directly with the seller and negotiate.
+              </p>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {listings.map(listing => (
                 <Card key={listing.id} className="overflow-hidden hover:shadow-xl transition-all duration-300">
@@ -341,6 +341,7 @@ const EventTicketsMarketplace = () => {
                 </Card>
               ))}
             </div>
+            </>
           )}
         </div>
       </main>

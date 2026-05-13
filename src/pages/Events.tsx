@@ -33,7 +33,7 @@ const Events = () => {
             <p className="text-sm text-muted-foreground mb-6">
               Don't see your event?{" "}
               <button
-                onClick={() => navigate("/catalog")}
+                onClick={() => navigate("/marketplace?view=all")}
                 className="text-primary underline underline-offset-4 hover:no-underline font-medium"
               >
                 Browse the full ESCP catalog
@@ -42,7 +42,7 @@ const Events = () => {
             </p>
             <Button
               variant="outline"
-              onClick={() => navigate("/catalog")}
+              onClick={() => navigate("/marketplace?view=all")}
               className="gap-2 text-xs"
               size="sm"
               aria-label="View full event catalog including events without tickets"

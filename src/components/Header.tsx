@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Menu, X, User, LogOut, ChevronDown, Settings, MessageSquare } from "lucide-react";
+import { Menu, X, User, LogOut, Settings, MessageSquare } from "lucide-react";
 import Logo from "@/components/Logo";
 import { useAuth } from "@/hooks/useAuth";
 import { useI18n } from "@/contexts/I18nContext";
@@ -73,8 +73,6 @@ const Header = () => {
     navigate("/auth");
   };
 
-  const eventsMenuActive = location.pathname === "/events" || location.pathname === "/catalog";
-
   return (
     <header className={`sticky top-0 z-50 w-full border-b border-border transition-all duration-300 ${
       isScrolled ? 'bg-background/80 backdrop-blur-xl shadow-lg' : 'bg-background/95 backdrop-blur-lg shadow-soft'
@@ -90,28 +88,16 @@ const Header = () => {
           <nav className="hidden md:flex items-center flex-1 ml-8">
             {/* PRIMARY CTAs - Left/Center (where eye lands first) */}
             <div className="flex items-center gap-3">
-              {/* Marketplace Dropdown - Primary CTA */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="marketplace"
-                    className={`font-semibold gap-1.5 h-10 px-4 ${
-                      eventsMenuActive ? "shadow-glow" : ""
-                    }`}
-                  >
-                    {t('nav.marketplace')}
-                    <ChevronDown className="w-4 h-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start">
-                  <DropdownMenuItem onClick={() => navigate("/events")}>
-                    Available Events
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate("/catalog")}>
-                    Full Catalog
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              {/* Marketplace - Primary CTA */}
+              <Button
+                variant="marketplace"
+                className={`font-semibold h-10 px-4 ${
+                  location.pathname === "/marketplace" ? "shadow-glow" : ""
+                }`}
+                asChild
+              >
+                <Link to="/marketplace">{t('nav.marketplace')}</Link>
+              </Button>
 
               {/* Sell Ticket - Primary CTA */}
               <Button
@@ -222,7 +208,7 @@ const Header = () => {
                   asChild
                   onClick={() => setIsMenuOpen(false)}
                 >
-                  <Link to="/events">{t('nav.marketplace')}</Link>
+                  <Link to="/marketplace">{t('nav.marketplace')}</Link>
                 </Button>
                 <Button
                   variant="marketplace"

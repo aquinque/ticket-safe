@@ -117,7 +117,7 @@ const Checkout = () => {
                 <p className="text-muted-foreground mb-4">
                   This ticket is no longer available.
                 </p>
-                <Button onClick={() => navigate("/events")}>
+                <Button onClick={() => navigate("/marketplace")}>
                   Browse Events
                 </Button>
               </CardContent>

@@ -203,7 +203,7 @@ const EventsSection = () => {
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <Button
                 variant="hero"
-                onClick={() => navigate("/catalog")}
+                onClick={() => navigate("/marketplace?view=all")}
                 className="gap-2"
                 aria-label="Browse full event catalog"
               >
