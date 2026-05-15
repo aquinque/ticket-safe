@@ -33,6 +33,7 @@ import RefundPolicy from "./pages/RefundPolicy";
 import HowItWorks from "./pages/HowItWorks";
 import OrganizerScan from "./pages/OrganizerScan";
 import ReviewTickets from "./pages/admin/ReviewTickets";
+import EventDraft from "./pages/admin/EventDraft";
 import StripeReturn from "./pages/StripeReturn";
 import CheckoutSuccess from "./pages/CheckoutSuccess";
 import CheckoutCancel from "./pages/CheckoutCancel";
@@ -42,6 +43,7 @@ import Messages from "./pages/Messages";
 import ChatRoom from "./pages/ChatRoom";
 import NotFound from "./pages/NotFound";
 import ChatBubble from "./components/ChatBubble";
+import AssistantWidget from "./components/AssistantWidget";
 
 const App = () => (
   <ErrorBoundary>
@@ -80,6 +82,7 @@ const App = () => (
       <Route path="/how-it-works" element={<HowItWorks />} />
       <Route path="/organizer/scan" element={<OrganizerScan />} />
       <Route path="/admin/review" element={<ReviewTickets />} />
+      <Route path="/admin/event-draft" element={<EventDraft />} />
       <Route path="/stripe-return" element={<StripeReturn />} />
       <Route path="/checkout/success" element={<CheckoutSuccess />} />
       <Route path="/checkout/cancel" element={<CheckoutCancel />} />
@@ -91,6 +94,7 @@ const App = () => (
       <Route path="*" element={<NotFound />} />
     </Routes>
     <ChatBubble />
+    <AssistantWidget />
   </TooltipProvider>
   </ErrorBoundary>
 );

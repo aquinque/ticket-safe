@@ -11,3 +11,15 @@ verify_jwt = false
 
 [functions.stripe-create-checkout]
 verify_jwt = false
+
+# AI assistant chatbot — public; auth is optional.
+[functions.ai-assistant]
+verify_jwt = false
+
+# AI event draft — admin-only; auth verified internally.
+[functions.ai-event-draft]
+verify_jwt = false
+
+# AI ticket score — admin-only; auth verified internally.
+[functions.ai-ticket-score]
+verify_jwt = false

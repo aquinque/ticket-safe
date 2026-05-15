@@ -26,6 +26,7 @@ import {
   Calendar,
   MapPin,
   Euro,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
@@ -34,6 +35,20 @@ import { supabase } from "@/integrations/supabase/client";
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
+
+interface AiSignal {
+  name: string;
+  score: number;
+  weight: number;
+  detail: string;
+}
+
+interface AiAssessment {
+  score: number;
+  recommendation: "approve" | "reject" | "review";
+  signals: AiSignal[];
+  generated_at: string;
+}
 
 interface PendingTicket {
   id: string;
@@ -44,6 +59,8 @@ interface PendingTicket {
   notes: string | null;
   qr_verified: boolean;
   created_at: string;
+  ai_score: number | null;
+  ai_assessment: AiAssessment | null;
   event: {
     id: string;
     title: string;
@@ -72,6 +89,7 @@ const ReviewTickets = () => {
   const [processing, setProcessing] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState<Record<string, string>>({});
   const [showRejectForm, setShowRejectForm] = useState<string | null>(null);
+  const [scoring, setScoring] = useState<string | null>(null);
 
   // Redirect if not logged in
   useEffect(() => {
@@ -103,7 +121,7 @@ const ReviewTickets = () => {
         .from("tickets")
         .select(`
           id, status, verification_status, selling_price, quantity,
-          notes, qr_verified, created_at,
+          notes, qr_verified, created_at, ai_score, ai_assessment,
           event:events(id, title, date, location, campus),
           seller:profiles(full_name, email, campus)
         `)
@@ -128,6 +146,41 @@ const ReviewTickets = () => {
   // ---------------------------------------------------------------------------
   // Actions
   // ---------------------------------------------------------------------------
+
+  const runAiScan = async (ticketId: string) => {
+    setScoring(ticketId);
+    try {
+      const { data: refreshed } = await supabase.auth.refreshSession();
+      const session = refreshed.session;
+      if (!session) throw new Error("Not authenticated");
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-ticket-score`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({ ticketId }),
+        }
+      );
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error ?? "Scan failed");
+      setTickets((prev) =>
+        prev.map((t) =>
+          t.id === ticketId
+            ? { ...t, ai_score: result.score, ai_assessment: result.assessment }
+            : t
+        )
+      );
+      toast.success(`AI score: ${result.score}/100 (${result.recommendation})`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "AI scan failed");
+    } finally {
+      setScoring(null);
+    }
+  };
 
   const handleAction = async (ticketId: string, action: "approve" | "reject") => {
     const reason = rejectReason[ticketId] ?? "";
@@ -254,6 +307,20 @@ const ReviewTickets = () => {
                         {ticket.qr_verified && (
                           <Badge variant="secondary" className="text-xs">QR verified</Badge>
                         )}
+                        {ticket.ai_score !== null && (
+                          <Badge
+                            variant="outline"
+                            className={
+                              ticket.ai_score >= 80
+                                ? "text-green-700 border-green-400 bg-green-50"
+                                : ticket.ai_score >= 60
+                                ? "text-amber-700 border-amber-400 bg-amber-50"
+                                : "text-red-700 border-red-400 bg-red-50"
+                            }
+                          >
+                            AI {ticket.ai_score}/100
+                          </Badge>
+                        )}
                       </div>
                     </div>
                   </CardHeader>
@@ -293,6 +360,24 @@ const ReviewTickets = () => {
                       </div>
                     )}
 
+                    {/* AI assessment breakdown */}
+                    {ticket.ai_assessment && (
+                      <div className="p-3 bg-background border border-border rounded-lg text-sm space-y-1">
+                        <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide flex items-center gap-1">
+                          <Sparkles className="w-3 h-3" />
+                          AI assessment — recommends{" "}
+                          <strong className="text-foreground">{ticket.ai_assessment.recommendation}</strong>
+                        </p>
+                        <ul className="text-xs space-y-0.5">
+                          {ticket.ai_assessment.signals.map((s) => (
+                            <li key={s.name} className="text-muted-foreground">
+                              <span className="font-medium text-foreground">{s.name}</span>: {s.score}/100 — {s.detail}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
                     {/* Submitted */}
                     <p className="text-xs text-muted-foreground">
                       Submitted {new Date(ticket.created_at).toLocaleString("fr-FR")}
@@ -316,6 +401,22 @@ const ReviewTickets = () => {
 
                     {/* Action buttons */}
                     <div className="flex gap-2 pt-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={scoring === ticket.id || processing === ticket.id}
+                        onClick={() => runAiScan(ticket.id)}
+                        title="Run AI authenticity scan"
+                      >
+                        {scoring === ticket.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <>
+                            <Sparkles className="w-4 h-4 mr-1.5" />
+                            AI scan
+                          </>
+                        )}
+                      </Button>
                       <Button
                         size="sm"
                         variant="hero"
