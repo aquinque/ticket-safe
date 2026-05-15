@@ -12,10 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { SEOHead } from "@/components/SEOHead";
 import { getEventImage } from "@/lib/eventImages";
 import { toast } from "sonner";
-
-function isTonight(d: string) { const ev = new Date(d), now = new Date(); return ev.getFullYear()===now.getFullYear()&&ev.getMonth()===now.getMonth()&&ev.getDate()===now.getDate(); }
-function isThisWeek(d: string) { const ev = new Date(d), now = new Date(), end = new Date(now); end.setDate(now.getDate()+7); return ev>=now&&ev<=end; }
-function isThisMonth(d: string) { const ev = new Date(d), now = new Date(); return ev.getFullYear()===now.getFullYear()&&ev.getMonth()===now.getMonth()&&ev>=now; }
+import { isTonight, matchesDateFilter, type DateFilterId } from "@/lib/dateFilters";
 
 const DATE_FILTERS = [
   { id: "all-dates", label: "Any date" },
@@ -49,12 +46,7 @@ const EventsCatalog = () => {
                          event.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          (event.organizer && event.organizer.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesFilter = selectedFilter === "all" || event.category === selectedFilter;
-    const d = event.start_date;
-    const matchesDate =
-      dateFilter === "all-dates" ||
-      (dateFilter === "tonight" && isTonight(d)) ||
-      (dateFilter === "this-week" && isThisWeek(d)) ||
-      (dateFilter === "this-month" && isThisMonth(d));
+    const matchesDate = matchesDateFilter(event.start_date, dateFilter as DateFilterId);
     return matchesSearch && matchesFilter && matchesDate;
   });
 

@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { CookieConsent } from "@/components/CookieConsent";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import ScrollToTop from "@/components/ScrollToTop";
 import Index from "./pages/Index";
 import Events from "./pages/Events";
@@ -43,6 +44,7 @@ import NotFound from "./pages/NotFound";
 import ChatBubble from "./components/ChatBubble";
 
 const App = () => (
+  <ErrorBoundary>
   <TooltipProvider>
     <Toaster />
     <Sonner />
@@ -90,6 +92,7 @@ const App = () => (
     </Routes>
     <ChatBubble />
   </TooltipProvider>
+  </ErrorBoundary>
 );
 
 export default App;

@@ -29,6 +29,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { isTonight, matchesDateFilter, type DateFilterId } from "@/lib/dateFilters";
 
 type ViewMode = "available" | "all";
 
@@ -48,20 +49,6 @@ const CATEGORY_FILTERS = [
   { id: "Sustainability", label: "Sustainability" },
   { id: "Other", label: "Other" },
 ];
-
-function isTonight(d: string) {
-  const ev = new Date(d), now = new Date();
-  return ev.getFullYear() === now.getFullYear() && ev.getMonth() === now.getMonth() && ev.getDate() === now.getDate();
-}
-function isThisWeek(d: string) {
-  const ev = new Date(d), now = new Date(), end = new Date(now);
-  end.setDate(now.getDate() + 7);
-  return ev >= now && ev <= end;
-}
-function isThisMonth(d: string) {
-  const ev = new Date(d), now = new Date();
-  return ev.getFullYear() === now.getFullYear() && ev.getMonth() === now.getMonth() && ev >= now;
-}
 
 export default function Marketplace() {
   const { t } = useI18n();
@@ -92,12 +79,7 @@ export default function Marketplace() {
       ev.location.toLowerCase().includes(search.toLowerCase()) ||
       (ev.organizer && ev.organizer.toLowerCase().includes(search.toLowerCase()));
     const matchesCategory = category === "all" || ev.category === category;
-    const d = ev.start_date;
-    const matchesDate =
-      dateFilter === "all-dates" ||
-      (dateFilter === "tonight" && isTonight(d)) ||
-      (dateFilter === "this-week" && isThisWeek(d)) ||
-      (dateFilter === "this-month" && isThisMonth(d));
+    const matchesDate = matchesDateFilter(ev.start_date, dateFilter as DateFilterId);
     return matchesSearch && matchesCategory && matchesDate;
   });
 

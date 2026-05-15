@@ -14,6 +14,7 @@ import { getEventImage } from "@/lib/eventImages";
 import { useAuth } from "@/hooks/useAuth";
 import { getOrCreateConversation } from "@/hooks/useChat";
 import { toast } from "sonner";
+import { calcBreakdown } from "@/lib/fees";
 
 interface EventInfo {
   id: string;
@@ -257,15 +258,14 @@ const EventTicketsMarketplace = () => {
 
                       {(() => {
                         const price = listing.selling_price ?? 0;
-                        const fee = Math.round(price * 5) / 100;
-                        const total = price + fee;
+                        const breakdown = calcBreakdown(price, 1);
                         return (
                           <div className="text-center">
                             <p className="text-sm text-muted-foreground mb-1">Price per ticket</p>
                             <p className="text-4xl font-bold text-primary">€{price.toFixed(2)}</p>
                             <div className="mt-2 text-xs text-muted-foreground space-y-0.5">
                               <div className="flex items-center justify-center gap-1">
-                                <span>+5% fee = <strong className="text-foreground">€{total.toFixed(2)} total</strong></span>
+                                <span>+5% fee = <strong className="text-foreground">€{breakdown.buyerTotalEuros.toFixed(2)} total</strong></span>
                                 <a
                                   href="/how-it-works#pricing"
                                   className="inline-flex text-muted-foreground hover:text-primary"

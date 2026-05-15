@@ -9,28 +9,7 @@ import { useESCPEvents } from "@/hooks/useESCPEvents";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getEventImage } from "@/lib/eventImages";
 import { toast } from "sonner";
-
-function isTonight(dateStr: string): boolean {
-  const d = new Date(dateStr);
-  const now = new Date();
-  return d.getFullYear() === now.getFullYear() &&
-    d.getMonth() === now.getMonth() &&
-    d.getDate() === now.getDate();
-}
-
-function isThisWeek(dateStr: string): boolean {
-  const d = new Date(dateStr);
-  const now = new Date();
-  const weekEnd = new Date(now);
-  weekEnd.setDate(now.getDate() + 7);
-  return d >= now && d <= weekEnd;
-}
-
-function isThisMonth(dateStr: string): boolean {
-  const d = new Date(dateStr);
-  const now = new Date();
-  return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d >= now;
-}
+import { matchesDateFilter, type DateFilterId } from "@/lib/dateFilters";
 
 const DATE_FILTERS = [
   { id: "all-dates", label: "Any date" },
@@ -66,12 +45,7 @@ const EventsSection = () => {
 
     const matchesCategory = selectedFilter === "all" || event.category === selectedFilter;
 
-    const dateStr = event.start_date;
-    const matchesDate =
-      dateFilter === "all-dates" ||
-      (dateFilter === "tonight" && isTonight(dateStr)) ||
-      (dateFilter === "this-week" && isThisWeek(dateStr)) ||
-      (dateFilter === "this-month" && isThisMonth(dateStr));
+    const matchesDate = matchesDateFilter(event.start_date, dateFilter as DateFilterId);
 
     return matchesSearch && matchesCategory && matchesDate;
   });

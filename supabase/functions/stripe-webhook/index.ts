@@ -76,6 +76,29 @@ serve(async (req) => {
   // ---- process event ------------------------------------------------------
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+  // Idempotency guard: Stripe retries webhook events when the receiver returns 5xx
+  // or times out. Without this guard, a single completed checkout would re-fire
+  // confirmation emails on every retry. We insert into stripe_webhook_events on the
+  // event_id (PK) — if it conflicts, we've already processed this event and bail.
+  {
+    const { error: idemErr } = await supabase
+      .from("stripe_webhook_events")
+      .insert({ event_id: event.id, event_type: event.type });
+
+    if (idemErr) {
+      // Postgres unique violation = duplicate event, already processed — ack and exit.
+      if (idemErr.code === "23505") {
+        console.log(`[stripe-webhook] Duplicate event ${event.id} (${event.type}) — already processed, skipping.`);
+        return new Response(JSON.stringify({ received: true, duplicate: true }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      // Other DB error — log but continue so Stripe retries. This avoids losing events.
+      console.error("[stripe-webhook] Idempotency insert failed:", idemErr);
+    }
+  }
+
   try {
     switch (event.type) {
       // ---------------------------------------------------------------------
