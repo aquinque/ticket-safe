@@ -42,9 +42,8 @@ const WhyTicketSafe = () => {
           <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold mb-3 md:mb-4">
             Why Ticket Safe?
           </h2>
-          <p className="text-sm md:text-base lg:text-lg text-muted-foreground max-w-3xl mx-auto px-4">
-            Stop worrying about risky student resales. Ticket Safe provides a secure,
-            trusted platform for buying and selling ESCP event tickets between verified students.
+          <p className="text-sm md:text-base lg:text-lg text-muted-foreground max-w-2xl mx-auto px-4">
+            Secure bank-to-bank payments. The easiest way to find tickets — and buyers.
           </p>
         </div>
 
@@ -123,9 +122,8 @@ const WhyTicketSafe = () => {
             <h3 className="text-xl md:text-2xl font-bold mb-2 md:mb-3">
               Ready to buy or sell safely?
             </h3>
-            <p className="text-sm md:text-base text-muted-foreground mb-4 md:mb-6 max-w-2xl mx-auto px-2">
-              Join hundreds of ESCP students who trust Ticket Safe for secure ticket resales.
-              No more stress, no more scams—just safe transactions.
+            <p className="text-sm md:text-base text-muted-foreground mb-4 md:mb-6 max-w-xl mx-auto px-2">
+              Find a ticket, find a buyer — paid bank-to-bank, in minutes.
             </p>
             <div className="flex flex-col gap-3 md:flex-row md:gap-4 justify-center">
               <Link

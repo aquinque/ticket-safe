@@ -32,7 +32,7 @@ const Hero = () => {
 
           {/* Mobile tagline */}
           <p className="md:hidden text-sm text-muted-foreground mb-6 animate-slide-up">
-            ESCP students only · Escrow payments · Zero scams
+            Bank-secure payments · Easier to find tickets and buyers
           </p>
 
           {/* CTA Buttons — primary = Find a ticket, secondary = Sell */}

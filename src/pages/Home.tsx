@@ -57,9 +57,6 @@ const Home = () => {
                 student events.
               </span>
             </h1>
-            <p className="text-sm md:text-lg text-muted-foreground max-w-2xl leading-relaxed">
-              Galas, parties, sports, conferences — sold by your campus societies, resold safely between students. <span className="text-foreground font-semibold">No scalpers, no fake tickets, no middlemen.</span>
-            </p>
           </div>
 
           {/* Two paths */}
@@ -87,7 +84,7 @@ const Home = () => {
                   Buy event<br />tickets
                 </h2>
                 <p className="text-sm md:text-base text-white/80 mb-8 leading-relaxed max-w-sm">
-                  Tickets sold directly by verified student associations — galas, parties, sports, conferences. No middlemen, no markup.
+                  All your campus events in one place. Tickets sold directly by student associations.
                 </p>
                 <div className="inline-flex items-center gap-2 font-bold text-white group-hover:gap-3 transition-all">
                   Browse events
@@ -119,7 +116,7 @@ const Home = () => {
                   Resale<br />marketplace
                 </h2>
                 <p className="text-sm md:text-base text-muted-foreground mb-8 leading-relaxed max-w-sm">
-                  Buy or sell a ticket for a sold-out event. Every listing is QR-verified, payments are held in escrow.
+                  Sold out? Find a ticket from another student. Got an extra? List it in two minutes and find a buyer fast.
                 </p>
                 <div className="inline-flex items-center gap-2 font-bold text-primary group-hover:gap-3 transition-all">
                   Go to marketplace

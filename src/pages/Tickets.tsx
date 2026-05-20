@@ -229,7 +229,7 @@ const Tickets = () => {
                 <span className="text-white/90">straight from the organizers.</span>
               </h1>
               <p className="text-base md:text-lg text-white/80 max-w-xl mb-8 leading-relaxed">
-                Buy tickets for galas, parties, conferences and sports — sold and verified by EBS Paris student societies. No scalpers, no fake tickets.
+                All EBS Paris events in one place. Tickets sold directly by your campus societies — galas, parties, sports, conferences.
               </p>
 
               {/* School picker */}
