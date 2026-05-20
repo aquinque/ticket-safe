@@ -59,10 +59,10 @@ const buyerSteps = [
   {
     step: "04",
     icon: QrCode,
-    title: "Receive Your Ticket",
+    title: "Get Your Ticket Instantly",
     description:
-      "The seller transfers your ticket digitally within 24 hours. Your QR code is verified and ready to scan at the door.",
-    detail: "All tickets are authenticated by TicketSafe before transfer.",
+      "Your ticket is delivered automatically the moment your payment clears. The QR code is verified and ready to scan at the door — no chasing the seller.",
+    detail: "Every ticket is authenticated by Ticket Safe before it's released to you.",
     color: "bg-purple-500/10",
     iconColor: "text-purple-500",
   },
@@ -112,19 +112,19 @@ const sellerSteps = [
   {
     step: "04",
     icon: QrCode,
-    title: "Transfer the Ticket",
+    title: "Automatic Transfer",
     description:
-      "Send the QR code or ticket file to the buyer through the platform within 24 hours of the sale.",
-    detail: "The buyer confirms receipt before funds are released.",
+      "Once the buyer's payment clears, Ticket Safe releases the QR code to them automatically. You don't send anything yourself — the platform handles delivery.",
+    detail: "No more chasing buyers on WhatsApp or sending screenshots.",
     color: "bg-purple-500/10",
     iconColor: "text-purple-500",
   },
   {
     step: "05",
     icon: Banknote,
-    title: "Get Paid",
+    title: "Get Paid Automatically",
     description:
-      "Once the buyer confirms the ticket, we release your payout directly to you within 24–48 hours.",
+      "Your payout is sent directly to your bank account via Stripe Connect — typically the next business day after the payment clears.",
     detail: "You keep 95% of your listing price. Both sides pay a small 5% fee.",
     color: "bg-amber-500/10",
     iconColor: "text-amber-500",
@@ -145,7 +145,7 @@ const faqs = [
   {
     question: "How long until the seller gets paid?",
     answer:
-      "Sellers are paid within 24–48 hours after the buyer confirms receipt of the ticket. Funds are held in escrow until then to protect both parties.",
+      "Once the buyer's payment clears, your payout is sent to your bank account via Stripe Connect on a rolling daily schedule — typically the next business day. No manual confirmation needed.",
   },
   {
     question: "Can I cancel my listing after posting it?",
