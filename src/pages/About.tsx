@@ -48,19 +48,12 @@ const About = () => {
       features: ["ESCP Student Events", "Verification System", "Secure Payments"]
     },
     {
-      phase: "Phase 2", 
-      title: "Business Schools Expansion",
-      description: "Partnerships with student associations from top schools",
+      phase: "Phase 2",
+      title: "Business Schools",
+      description: "Expanding to top business schools across France",
       status: "planned",
-      features: ["HEC, ESCP, Mines", "Inter-school Network", "Cross Events"]
+      features: ["HEC Paris", "ESSEC", "EM Lyon", "EDHEC, Mines & more"]
     },
-    {
-      phase: "Phase 3",
-      title: "Public Events",
-      description: "Opening to concerts and general public events",
-      status: "future",
-      features: ["Public Concerts", "Festivals", "Theaters and Shows"]
-    }
   ];
 
   const values = [
@@ -162,7 +155,7 @@ const About = () => {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
               {roadmapSteps.map((step, index) => (
                 <Card key={index} className={`relative ${
                   step.status === 'active' ? 'ring-2 ring-primary bg-primary/5' : 

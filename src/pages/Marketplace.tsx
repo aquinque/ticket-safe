@@ -13,17 +13,23 @@ import { useI18n } from "@/contexts/I18nContext";
 import { getEventImage } from "@/lib/eventImages";
 import { toast } from "sonner";
 import {
+  ArrowRight,
+  Banknote,
   Bell,
   Calendar,
   Clock,
   Filter,
+  GraduationCap,
   HelpCircle,
   MapPin,
+  QrCode,
   Search,
+  ShieldCheck,
   ShoppingBag,
   Tag,
   Users,
 } from "lucide-react";
+import { Link } from "react-router-dom";
 import {
   Tooltip,
   TooltipContent,
@@ -404,6 +410,49 @@ export default function Marketplace() {
             </div>
           )}
         </div>
+
+        {/* ===== How It Works (resale flow) ===== */}
+        <section className="py-14 md:py-20 border-t border-border bg-muted/20">
+          <div className="container mx-auto px-4">
+            <div className="text-center mb-10">
+              <h2 className="text-2xl md:text-3xl font-bold mb-3">How resale works</h2>
+              <p className="text-muted-foreground max-w-xl mx-auto">
+                Safe student-to-student ticket resale in 4 simple steps.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 max-w-4xl mx-auto mb-10">
+              {[
+                { icon: GraduationCap, title: "Sign up", description: "Verify your student email instantly", color: "bg-primary/10", iconColor: "text-primary" },
+                { icon: ShieldCheck, title: "Buy or list", description: "Browse verified tickets or list yours in 2 minutes", color: "bg-blue-500/10", iconColor: "text-blue-500" },
+                { icon: QrCode, title: "Secure transfer", description: "Tickets are authenticated and transferred safely", color: "bg-purple-500/10", iconColor: "text-purple-500" },
+                { icon: Banknote, title: "Pay or get paid", description: "Escrow protects buyers. Sellers get paid within 24h.", color: "bg-green-500/10", iconColor: "text-green-500" },
+              ].map((step, index) => {
+                const Icon = step.icon;
+                return (
+                  <div key={index} className="flex flex-col items-center text-center gap-3 p-4 rounded-xl bg-card border border-border hover:shadow-md transition-shadow">
+                    <div className={`w-12 h-12 rounded-xl ${step.color} flex items-center justify-center`}>
+                      <Icon className={`w-6 h-6 ${step.iconColor}`} />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-sm mb-1">{step.title}</p>
+                      <p className="text-xs text-muted-foreground leading-relaxed">{step.description}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="text-center">
+              <Button variant="outline" asChild className="font-semibold">
+                <Link to="/how-it-works">
+                  See full guide
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Link>
+              </Button>
+            </div>
+          </div>
+        </section>
       </main>
 
       <Footer />

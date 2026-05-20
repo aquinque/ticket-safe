@@ -40,20 +40,22 @@ export function stripHtml(html: string): string {
 }
 
 /**
- * Validate and sanitize user input
+ * Validate and sanitize user input.
+ * Uses DOMPurify with no allowed tags — strips ALL HTML and dangerous characters,
+ * then enforces a length cap. Safe to render anywhere (text content, attributes).
  */
 export function sanitizeInput(input: string, maxLength: number = 1000): string {
-  // Trim whitespace
-  let sanitized = input.trim();
-
-  // Limit length
+  if (typeof input !== 'string') return '';
+  // 1. Strip ALL HTML via DOMPurify (safer than naive `[<>]` removal).
+  let sanitized = DOMPurify.sanitize(input, { ALLOWED_TAGS: [], ALLOWED_ATTR: [] });
+  // 2. Normalize whitespace / trim.
+  sanitized = sanitized.replace(/\s+/g, ' ').trim();
+  // 3. Strip zero-width / bidi-override characters used in homoglyph attacks.
+  sanitized = sanitized.replace(/[​-‏‪-‮⁠-⁤﻿]/g, '');
+  // 4. Enforce length cap (default 1000 chars).
   if (sanitized.length > maxLength) {
     sanitized = sanitized.substring(0, maxLength);
   }
-
-  // Remove dangerous characters
-  sanitized = sanitized.replace(/[<>]/g, '');
-
   return sanitized;
 }
 
@@ -296,46 +298,71 @@ class RateLimiter {
 export const rateLimiter = new RateLimiter();
 
 // =====================================================
-// SECURE STORAGE
+// SECURE STORAGE — AES-GCM via Web Crypto
+// Encrypts payloads before persisting in localStorage. The encryption key
+// is derived per-origin and persisted in sessionStorage so the page lifecycle
+// is the trust boundary — closing the tab destroys the key.
 // =====================================================
 
+const SECURE_KEY_NAME = '__ts_sec_k';
+
+async function deriveSessionKey(): Promise<CryptoKey> {
+  // Load or generate a 256-bit raw key for this session (sessionStorage = cleared on tab close).
+  let raw: Uint8Array;
+  const stored = sessionStorage.getItem(SECURE_KEY_NAME);
+  if (stored) {
+    raw = Uint8Array.from(atob(stored), (c) => c.charCodeAt(0));
+  } else {
+    raw = new Uint8Array(32);
+    crypto.getRandomValues(raw);
+    sessionStorage.setItem(SECURE_KEY_NAME, btoa(String.fromCharCode(...raw)));
+  }
+  return crypto.subtle.importKey('raw', raw, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
+}
+
 /**
- * Encrypt data before storing in localStorage
+ * Encrypt a string with AES-GCM and store in localStorage.
+ * The ciphertext is namespaced and includes a fresh IV per write.
  */
 export async function secureStore(key: string, value: string): Promise<void> {
   try {
-    // Generate a key from user session (or use a fixed salt)
-    const encoder = new TextEncoder();
-    const data = encoder.encode(value);
-
-    // Simple XOR encryption (for demo - use proper encryption in production)
-    const encrypted = btoa(String.fromCharCode(...data));
-
-    localStorage.setItem(`secure_${key}`, encrypted);
+    const cryptoKey = await deriveSessionKey();
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const ciphertext = new Uint8Array(
+      await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, cryptoKey, new TextEncoder().encode(value)),
+    );
+    // Encode IV + ciphertext together as base64 for storage.
+    const payload = new Uint8Array(iv.length + ciphertext.length);
+    payload.set(iv, 0);
+    payload.set(ciphertext, iv.length);
+    localStorage.setItem(`secure_${key}`, btoa(String.fromCharCode(...payload)));
   } catch (error) {
-    console.error('Failed to securely store data:', error);
+    console.error('secureStore failed:', error);
   }
 }
 
 /**
- * Decrypt data from localStorage
+ * Decrypt a value previously written by secureStore. Returns null on missing or tampered data.
  */
 export async function secureRetrieve(key: string): Promise<string | null> {
   try {
-    const encrypted = localStorage.getItem(`secure_${key}`);
-    if (!encrypted) return null;
-
-    // Decrypt
-    const data = atob(encrypted);
-    return data;
-  } catch (error) {
-    console.error('Failed to retrieve secure data:', error);
+    const blob = localStorage.getItem(`secure_${key}`);
+    if (!blob) return null;
+    const payload = Uint8Array.from(atob(blob), (c) => c.charCodeAt(0));
+    if (payload.length < 13) return null;
+    const iv = payload.slice(0, 12);
+    const ciphertext = payload.slice(12);
+    const cryptoKey = await deriveSessionKey();
+    const plaintext = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, cryptoKey, ciphertext);
+    return new TextDecoder().decode(plaintext);
+  } catch {
+    // Tampering, wrong key (new session), or corrupted data — fail closed.
     return null;
   }
 }
 
 /**
- * Securely delete data from localStorage
+ * Securely delete an encrypted value from localStorage.
  */
 export function secureDelete(key: string): void {
   localStorage.removeItem(`secure_${key}`);
@@ -441,7 +468,10 @@ export function generateDeviceFingerprint(): string {
 }
 
 /**
- * Detect suspicious session activity
+ * Detect signals of automation/bot traffic. Intentionally does NOT try to
+ * detect devtools — that's user-hostile, unreliable, and not a meaningful
+ * security control. Real abuse prevention belongs on the server (rate
+ * limiting, CAPTCHA on auth, RLS).
  */
 export function detectSuspiciousActivity(): {
   isSuspicious: boolean;
@@ -449,21 +479,13 @@ export function detectSuspiciousActivity(): {
 } {
   const reasons: string[] = [];
 
-  // Check if devtools is open (potential debugging/tampering)
-  const devToolsOpen = /./;
-  devToolsOpen.toString = function () {
-    reasons.push('Developer tools detected');
-    return 'devtools';
-  };
-  console.log('%c', devToolsOpen);
-
-  // Check for automation tools
-  if (navigator.webdriver) {
+  // Headless browser / automation tooling signal.
+  if (typeof navigator !== 'undefined' && navigator.webdriver) {
     reasons.push('Automated browser detected');
   }
 
-  // Check for unusual screen size (potential bot)
-  if (screen.width < 100 || screen.height < 100) {
+  // Implausible viewport — typical headless screenshot tools.
+  if (typeof screen !== 'undefined' && (screen.width < 100 || screen.height < 100)) {
     reasons.push('Unusual screen dimensions');
   }
 

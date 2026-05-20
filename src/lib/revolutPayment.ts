@@ -1,10 +1,22 @@
-import axios from 'axios';
+/**
+ * Revolut payment client — DISABLED.
+ *
+ * Payments are processed through Stripe via Supabase edge functions
+ * (`stripe-create-checkout`, `stripe-webhook`). The previous version of this
+ * file made direct calls to the Revolut Merchant API using a bearer key read
+ * from `VITE_REVOLUT_API_KEY` — which would have been bundled into the
+ * browser, leaking the key to every visitor.
+ *
+ * The helpers below are kept only so that any lingering import compiles.
+ * Each function throws if called. To re-enable Revolut, build a Supabase
+ * edge function that holds the API key server-side and call that function
+ * from the frontend instead.
+ */
 
-// Revolut API configuration
-const REVOLUT_API_BASE = import.meta.env.VITE_REVOLUT_API_BASE || 'https://merchant.revolut.com/api/1.0';
-const REVOLUT_API_KEY = import.meta.env.VITE_REVOLUT_API_KEY || '';
+const DISABLED_MSG =
+  'Revolut frontend integration is disabled. Use the Stripe edge functions for payments.';
 
-interface RevolutOrderRequest {
+export interface RevolutOrderRequest {
   amount: number;
   currency: string;
   description: string;
@@ -13,7 +25,7 @@ interface RevolutOrderRequest {
   metadata?: Record<string, string>;
 }
 
-interface RevolutOrderResponse {
+export interface RevolutOrderResponse {
   id: string;
   public_id: string;
   state: string;
@@ -22,83 +34,30 @@ interface RevolutOrderResponse {
   currency: string;
 }
 
-interface RevolutPayoutRequest {
+export interface RevolutPayoutRequest {
   account_id: string;
   amount: number;
   currency: string;
   reference: string;
-  receiver: {
-    email: string;
-    name: string;
-  };
+  receiver: { email: string; name: string };
 }
 
-/**
- * Create a Revolut payment order for buying tickets
- */
 export const createRevolutOrder = async (
-  params: RevolutOrderRequest
+  _params: RevolutOrderRequest,
 ): Promise<RevolutOrderResponse> => {
-  try {
-    const response = await axios.post<RevolutOrderResponse>(
-      `${REVOLUT_API_BASE}/orders`,
-      params,
-      {
-        headers: {
-          'Authorization': `Bearer ${REVOLUT_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-      }
-    );
-    return response.data;
-  } catch (error) {
-    console.error('Error creating Revolut order:', error);
-    throw new Error('Failed to create payment order');
-  }
+  throw new Error(DISABLED_MSG);
 };
 
-/**
- * Get order status from Revolut
- */
-export const getRevolutOrderStatus = async (orderId: string): Promise<RevolutOrderResponse> => {
-  try {
-    const response = await axios.get<RevolutOrderResponse>(
-      `${REVOLUT_API_BASE}/orders/${orderId}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${REVOLUT_API_KEY}`,
-        },
-      }
-    );
-    return response.data;
-  } catch (error) {
-    console.error('Error getting Revolut order status:', error);
-    throw new Error('Failed to get order status');
-  }
+export const getRevolutOrderStatus = async (
+  _orderId: string,
+): Promise<RevolutOrderResponse> => {
+  throw new Error(DISABLED_MSG);
 };
 
-/**
- * Create a payout for seller when ticket is sold
- */
 export const createRevolutPayout = async (
-  params: RevolutPayoutRequest
+  _params: RevolutPayoutRequest,
 ): Promise<unknown> => {
-  try {
-    const response = await axios.post(
-      `${REVOLUT_API_BASE}/payouts`,
-      params,
-      {
-        headers: {
-          'Authorization': `Bearer ${REVOLUT_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-      }
-    );
-    return response.data;
-  } catch (error) {
-    console.error('Error creating Revolut payout:', error);
-    throw new Error('Failed to create payout');
-  }
+  throw new Error(DISABLED_MSG);
 };
 
 /**
@@ -108,33 +67,16 @@ export const createRevolutPayout = async (
  */
 export const calculatePaymentBreakdown = (ticketPrice: number, quantity: number) => {
   const subtotal = ticketPrice * quantity;
-  const buyerFee = Math.round(subtotal * 100 * 0.05) / 100; // 5% buyer fee
+  const buyerFee = Math.round(subtotal * 100 * 0.05) / 100;
   const totalAmount = subtotal + buyerFee;
-  const sellerCommission = Math.round(subtotal * 100 * 0.05) / 100; // 5% seller commission
+  const sellerCommission = Math.round(subtotal * 100 * 0.05) / 100;
   const sellerPayout = subtotal - sellerCommission;
-
-  return {
-    subtotal,
-    buyerFee,
-    totalAmount,
-    sellerCommission,
-    sellerPayout,
-  };
+  return { subtotal, buyerFee, totalAmount, sellerCommission, sellerPayout };
 };
 
-/**
- * Mock function for development - simulates Revolut payment
- * Remove this when using real Revolut API
- */
 export const mockRevolutPayment = async (
-  amount: number,
-  description: string
+  _amount: number,
+  _description: string,
 ): Promise<{ success: boolean; orderId: string }> => {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 1500));
-
-  return {
-    success: true,
-    orderId: `mock_order_${Date.now()}`,
-  };
+  throw new Error(DISABLED_MSG);
 };

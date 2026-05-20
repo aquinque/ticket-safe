@@ -51,12 +51,21 @@ const Home = () => {
       {/* Main */}
       <main className="flex-1 flex items-center justify-center relative z-10 px-4 py-8 md:py-12">
         <div className="w-full max-w-5xl">
-          {/* Trust kicker */}
-          <div className="flex justify-center mb-8 md:mb-10 animate-fade-in">
+          {/* Positioning headline — clarifies what TicketSafe actually is */}
+          <div className="flex flex-col items-center text-center gap-4 mb-9 md:mb-12 animate-fade-in">
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white border border-border shadow-soft text-xs font-semibold tracking-wide text-foreground/80">
               <ShieldCheck className="w-3.5 h-3.5 text-primary" />
-              Secure tickets · Verified by TicketSafe
+              The trusted marketplace for student events
             </div>
+            <h1 className="text-3xl md:text-5xl font-black text-foreground leading-[1.05] tracking-tight max-w-3xl">
+              Built by students,{" "}
+              <span className="bg-gradient-hero bg-clip-text text-transparent">
+                for students.
+              </span>
+            </h1>
+            <p className="text-sm md:text-base text-muted-foreground max-w-xl leading-relaxed">
+              Buy tickets directly from your campus societies, or trade with fellow students on the secure resale marketplace. No scalpers, no fake tickets, no middlemen.
+            </p>
           </div>
 
           {/* Two paths */}
@@ -84,7 +93,7 @@ const Home = () => {
                   Buy event<br />tickets
                 </h2>
                 <p className="text-sm md:text-base text-white/80 mb-8 leading-relaxed max-w-sm">
-                  Discover events sold directly by verified organizers. Concerts, galas, parties, festivals — straight from the source.
+                  Tickets sold directly by verified student associations — galas, parties, sports, conferences. No middlemen, no markup.
                 </p>
                 <div className="inline-flex items-center gap-2 font-bold text-white group-hover:gap-3 transition-all">
                   Browse events

@@ -27,6 +27,10 @@ const corsHeaders = {
 
 const PLATFORM_FEE_PERCENT = 5;
 const RESERVATION_TTL_MS = 5 * 60 * 1000; // 5 minutes
+// Hard caps to prevent abuse — a single transaction can never exceed these bounds.
+const MAX_UNIT_PRICE_EUR = 5000;   // €5,000 / ticket
+const MAX_QUANTITY = 50;
+const MIN_UNIT_PRICE_EUR = 0.5;
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -72,7 +76,13 @@ serve(async (req) => {
     try {
       const body = await req.json();
       listingId = body.listingId;
-      if (body.agreedPrice && typeof body.agreedPrice === "number" && body.agreedPrice > 0) {
+      if (
+        body.agreedPrice !== undefined &&
+        typeof body.agreedPrice === "number" &&
+        Number.isFinite(body.agreedPrice) &&
+        body.agreedPrice >= MIN_UNIT_PRICE_EUR &&
+        body.agreedPrice <= MAX_UNIT_PRICE_EUR
+      ) {
         agreedPrice = body.agreedPrice;
       }
     } catch {
@@ -80,6 +90,10 @@ serve(async (req) => {
     }
     if (!listingId || typeof listingId !== "string") {
       return json({ error: "listingId is required." }, 400);
+    }
+    // UUID v4 sanity check on listingId (defence-in-depth even though Supabase parameterizes)
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(listingId)) {
+      return json({ error: "Invalid listing identifier." }, 400);
     }
 
     // ── Release reserved tickets so they can be bought ───────────────────
@@ -152,9 +166,19 @@ serve(async (req) => {
       }
     }
 
-    // ── Amounts ───────────────────────────────────────────────────────────
-    const qty = listing.quantity ?? 1;
-    const unitPrice = verifiedAgreedPrice ?? listing.selling_price;
+    // ── Amounts (hard bounds enforced) ───────────────────────────────────
+    const qty = Math.min(Math.max(1, listing.quantity ?? 1), MAX_QUANTITY);
+    const rawUnitPrice = verifiedAgreedPrice ?? listing.selling_price;
+    // Clamp unit price to [MIN, MAX] regardless of DB value (defence in depth).
+    const unitPrice = Math.min(
+      Math.max(MIN_UNIT_PRICE_EUR, Number(rawUnitPrice) || 0),
+      MAX_UNIT_PRICE_EUR,
+    );
+    if (unitPrice !== Number(rawUnitPrice)) {
+      console.warn(
+        `[stripe-create-checkout] unit price clamped for listing ${listingId}: ${rawUnitPrice} -> ${unitPrice}`,
+      );
+    }
     const totalCents = Math.round(unitPrice * 100) * qty;
     const feeCents = Math.round((totalCents * PLATFORM_FEE_PERCENT) / 100);
 

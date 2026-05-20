@@ -2,8 +2,11 @@
   # Security Headers for ticket-safe
 
   # Content Security Policy (CSP)
-  # Prevents XSS by controlling which resources can be loaded
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://esm.sh; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https: blob:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://merchant.revolut.com https://sandbox-merchant.revolut.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+  # Prevents XSS by controlling which resources can be loaded.
+  # NOTE: 'unsafe-inline' kept for styles only (shadcn/Tailwind dynamic styles).
+  # script-src does NOT allow 'unsafe-eval' or external CDNs — all JS must be self-hosted.
+  # Stripe Checkout is whitelisted for frame-src so the hosted checkout can load.
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https: blob:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com; frame-src https://js.stripe.com https://checkout.stripe.com https://hooks.stripe.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests
 
   # Prevent clickjacking attacks
   X-Frame-Options: DENY
