@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { ArrowRight, Ticket, Repeat2, ShieldCheck, QrCode, Lock, Sparkles } from "lucide-react";
+import { ArrowRight, Ticket, Repeat2, ShieldCheck, QrCode, Lock, Sparkles, GraduationCap } from "lucide-react";
 import Logo from "@/components/Logo";
 import { SEOHead } from "@/components/SEOHead";
 
@@ -33,12 +33,6 @@ const Home = () => {
           </Link>
           <nav className="flex items-center gap-2 md:gap-4 text-sm">
             <Link
-              to="/how-it-works"
-              className="hidden sm:inline-flex px-3 py-2 rounded-lg font-medium text-foreground/70 hover:text-foreground transition-colors"
-            >
-              How it works
-            </Link>
-            <Link
               to="/auth"
               className="inline-flex items-center px-4 py-2 rounded-lg font-semibold text-primary border border-primary/20 hover:bg-primary/5 transition-colors"
             >
@@ -51,20 +45,20 @@ const Home = () => {
       {/* Main */}
       <main className="flex-1 flex items-center justify-center relative z-10 px-4 py-8 md:py-12">
         <div className="w-full max-w-5xl">
-          {/* Positioning headline — clarifies what TicketSafe actually is */}
+          {/* Positioning headline — explicitly says what TicketSafe is */}
           <div className="flex flex-col items-center text-center gap-4 mb-9 md:mb-12 animate-fade-in">
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white border border-border shadow-soft text-xs font-semibold tracking-wide text-foreground/80">
-              <ShieldCheck className="w-3.5 h-3.5 text-primary" />
-              The trusted marketplace for student events
+              <GraduationCap className="w-3.5 h-3.5 text-primary" />
+              Student-only · Verified by university email
             </div>
-            <h1 className="text-3xl md:text-5xl font-black text-foreground leading-[1.05] tracking-tight max-w-3xl">
-              Built by students,{" "}
+            <h1 className="text-3xl md:text-5xl lg:text-6xl font-black text-foreground leading-[1.05] tracking-tight max-w-3xl">
+              The ticket platform built for{" "}
               <span className="bg-gradient-hero bg-clip-text text-transparent">
-                for students.
+                student events.
               </span>
             </h1>
-            <p className="text-sm md:text-base text-muted-foreground max-w-xl leading-relaxed">
-              Buy tickets directly from your campus societies, or trade with fellow students on the secure resale marketplace. No scalpers, no fake tickets, no middlemen.
+            <p className="text-sm md:text-lg text-muted-foreground max-w-2xl leading-relaxed">
+              Galas, parties, sports, conferences — sold by your campus societies, resold safely between students. <span className="text-foreground font-semibold">No scalpers, no fake tickets, no middlemen.</span>
             </p>
           </div>
 

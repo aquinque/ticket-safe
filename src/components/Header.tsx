@@ -120,14 +120,6 @@ const Header = ({ minimal = false }: HeaderProps) => {
             {/* SECONDARY NAVIGATION - Right side (informational) */}
             <div className="flex items-center gap-5 ml-auto mr-4">
               <Link
-                to="/how-it-works"
-                className={`text-sm font-semibold transition-colors hover:text-primary ${
-                  isActive("/how-it-works") ? "text-primary" : "text-foreground"
-                }`}
-              >
-                How It Works
-              </Link>
-              <Link
                 to="/about"
                 className={`text-sm font-semibold transition-colors hover:text-primary ${
                   isActive("/about") ? "text-primary" : "text-foreground"
