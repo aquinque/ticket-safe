@@ -120,6 +120,14 @@ const Header = ({ minimal = false }: HeaderProps) => {
             {/* SECONDARY NAVIGATION - Right side (informational) */}
             <div className="flex items-center gap-5 ml-auto mr-4">
               <Link
+                to="/how-it-works"
+                className={`text-sm font-semibold transition-colors hover:text-primary ${
+                  isActive("/how-it-works") ? "text-primary" : "text-foreground"
+                }`}
+              >
+                How It Works
+              </Link>
+              <Link
                 to="/about"
                 className={`text-sm font-semibold transition-colors hover:text-primary ${
                   isActive("/about") ? "text-primary" : "text-foreground"
@@ -222,8 +230,17 @@ const Header = ({ minimal = false }: HeaderProps) => {
                 </div>
               )}
 
-              {/* SECONDARY navigation - About, Contact & Settings */}
+              {/* SECONDARY navigation - How It Works, About, Contact & Settings */}
               <div className="flex flex-col gap-1.5 mb-2 pb-4 border-b border-border">
+                <Link
+                  to="/how-it-works"
+                  className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors hover:bg-muted ${
+                    isActive("/how-it-works") ? "text-primary" : "text-foreground"
+                  }`}
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  How It Works
+                </Link>
                 <Link
                   to="/about"
                   className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors hover:bg-muted ${
