@@ -5,6 +5,8 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import { CookieConsent } from "@/components/CookieConsent";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import ScrollToTop from "@/components/ScrollToTop";
+import Home from "./pages/Home";
+import Tickets from "./pages/Tickets";
 import Index from "./pages/Index";
 import Events from "./pages/Events";
 import EventsCatalog from "./pages/EventsCatalog";
@@ -41,6 +43,8 @@ import Chat from "./pages/Chat";
 import Messages from "./pages/Messages";
 import ChatRoom from "./pages/ChatRoom";
 import NotFound from "./pages/NotFound";
+import Organizers from "./pages/organizers/Organizers";
+import OrganizerApply from "./pages/organizers/OrganizerApply";
 import ChatBubble from "./components/ChatBubble";
 
 const App = () => (
@@ -51,7 +55,9 @@ const App = () => (
     <CookieConsent />
     <ScrollToTop />
     <Routes>
-      <Route path="/" element={<Index />} />
+      <Route path="/" element={<Home />} />
+      <Route path="/tickets" element={<Tickets />} />
+      <Route path="/resale" element={<Index />} />
       <Route path="/marketplace" element={<Marketplace />} />
       <Route path="/catalog" element={<Navigate to="/marketplace?view=all" replace />} />
       <Route path="/events" element={<Events />} />
@@ -87,6 +93,8 @@ const App = () => (
       <Route path="/chat" element={<Chat />} />
       <Route path="/messages" element={<Messages />} />
       <Route path="/messages/:conversationId" element={<ChatRoom />} />
+      <Route path="/organizers" element={<Organizers />} />
+      <Route path="/organizers/apply" element={<OrganizerApply />} />
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
       <Route path="*" element={<NotFound />} />
     </Routes>

@@ -15,7 +15,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-const Header = () => {
+interface HeaderProps {
+  /** When true, hides the Marketplace dropdown and Sell Tickets CTA. Used on pages
+   *  that are not part of the resale flow (e.g. /tickets primary sales). */
+  minimal?: boolean;
+}
+
+const Header = ({ minimal = false }: HeaderProps) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [userName, setUserName] = useState<string>("");
   const [isScrolled, setIsScrolled] = useState(false);
@@ -87,27 +93,29 @@ const Header = () => {
           {/* Desktop Navigation - Reorganized */}
           <nav className="hidden md:flex items-center flex-1 ml-8">
             {/* PRIMARY CTAs - Left/Center (where eye lands first) */}
-            <div className="flex items-center gap-3">
-              {/* Marketplace - Primary CTA */}
-              <Button
-                variant="marketplace"
-                className={`font-semibold h-10 px-4 ${
-                  location.pathname === "/marketplace" ? "shadow-glow" : ""
-                }`}
-                asChild
-              >
-                <Link to="/marketplace">{t('nav.marketplace')}</Link>
-              </Button>
+            {!minimal && (
+              <div className="flex items-center gap-3">
+                {/* Marketplace - Primary CTA */}
+                <Button
+                  variant="marketplace"
+                  className={`font-semibold h-10 px-4 ${
+                    location.pathname === "/marketplace" ? "shadow-glow" : ""
+                  }`}
+                  asChild
+                >
+                  <Link to="/marketplace">{t('nav.marketplace')}</Link>
+                </Button>
 
-              {/* Sell Ticket - Primary CTA */}
-              <Button
-                variant="marketplace"
-                className="font-semibold h-10 px-4"
-                asChild
-              >
-                <Link to="/sell">{t('nav.sellTickets')}</Link>
-              </Button>
-            </div>
+                {/* Sell Ticket - Primary CTA */}
+                <Button
+                  variant="marketplace"
+                  className="font-semibold h-10 px-4"
+                  asChild
+                >
+                  <Link to="/sell">{t('nav.sellTickets')}</Link>
+                </Button>
+              </div>
+            )}
 
             {/* SECONDARY NAVIGATION - Right side (informational) */}
             <div className="flex items-center gap-5 ml-auto mr-4">
@@ -201,24 +209,26 @@ const Header = () => {
           <div className="md:hidden border-t border-border bg-background/95 backdrop-blur-md">
             <nav className="flex flex-col gap-2.5 p-4">
               {/* PRIMARY CTAs - Marketplace & Sell Ticket */}
-              <div className="flex flex-col gap-2.5 mb-2 pb-3 border-b border-border">
-                <Button
-                  variant="marketplace"
-                  className="w-full h-12 font-semibold text-base"
-                  asChild
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  <Link to="/marketplace">{t('nav.marketplace')}</Link>
-                </Button>
-                <Button
-                  variant="marketplace"
-                  className="w-full h-12 font-semibold text-base"
-                  asChild
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  <Link to="/sell">{t('nav.sellTickets')}</Link>
-                </Button>
-              </div>
+              {!minimal && (
+                <div className="flex flex-col gap-2.5 mb-2 pb-3 border-b border-border">
+                  <Button
+                    variant="marketplace"
+                    className="w-full h-12 font-semibold text-base"
+                    asChild
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    <Link to="/marketplace">{t('nav.marketplace')}</Link>
+                  </Button>
+                  <Button
+                    variant="marketplace"
+                    className="w-full h-12 font-semibold text-base"
+                    asChild
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    <Link to="/sell">{t('nav.sellTickets')}</Link>
+                  </Button>
+                </div>
+              )}
 
               {/* SECONDARY navigation - About, Contact & Settings */}
               <div className="flex flex-col gap-1.5 mb-2 pb-4 border-b border-border">

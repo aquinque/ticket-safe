@@ -6,7 +6,7 @@ import Footer from "@/components/Footer";
 import { SEOHead } from "@/components/SEOHead";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, ShieldCheck, QrCode, Banknote, GraduationCap, Lock, X } from "lucide-react";
+import { ArrowRight, ShieldCheck, QrCode, Banknote, GraduationCap, Lock, X, Sparkles, Rocket } from "lucide-react";
 import { useState } from "react";
 
 const steps = [
@@ -114,6 +114,44 @@ const Index = () => {
 
         <WhyTicketSafe />
         <EventsSection />
+
+        {/* ===== STUDIO TEASER — for organizers ===== */}
+        <section className="py-16 md:py-20">
+          <div className="container mx-auto px-4">
+            <div
+              className="relative max-w-4xl mx-auto rounded-3xl p-8 md:p-12 overflow-hidden text-white"
+              style={{ background: "var(--gradient-hero)" }}
+            >
+              <div
+                className="pointer-events-none absolute -top-20 -right-20 w-72 h-72 rounded-full opacity-40 blur-3xl"
+                style={{ background: "radial-gradient(circle, hsl(210 100% 65%), transparent 70%)" }}
+              />
+              <div className="relative flex flex-col md:flex-row md:items-center gap-6 md:gap-10">
+                <div className="flex-1">
+                  <div className="text-xs uppercase tracking-[0.2em] font-bold text-white/80 mb-2">
+                    For organizers
+                  </div>
+                  <h3 className="text-2xl md:text-3xl font-black mb-3 leading-tight">
+                    Organizing an event at EBS Paris?
+                  </h3>
+                  <p className="text-white/85 text-sm md:text-base max-w-md leading-relaxed">
+                    Apply for TicketSafe Studio — branded event pages, ticket tiers, real-time dashboard.
+                  </p>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  <Link
+                    to="/organizers"
+                    className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl font-bold bg-white text-primary hover:bg-white/95 hover:scale-[1.02] transition-all"
+                  >
+                    <Rocket className="w-4 h-4" />
+                    Discover Studio
+                    <ArrowRight className="w-4 h-4" />
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
       </main>
       <Footer />
     </div>

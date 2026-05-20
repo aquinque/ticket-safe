@@ -63,6 +63,33 @@ All colors MUST be HSL.
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     --transition-bounce: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
 
+    /* ===== STUDIO — Creator/Organizer palette (event-tech) =====
+       Used in /organizers section. Bold, immersive, gradient-heavy.
+       Does NOT replace base theme — coexists. */
+    --studio-bg: 240 28% 7%;          /* near-black, slight violet */
+    --studio-surface: 240 26% 11%;
+    --studio-elevated: 240 22% 15%;
+    --studio-foreground: 0 0% 98%;
+    --studio-muted: 240 10% 65%;
+    --studio-border: 240 18% 22%;
+
+    --studio-electric: 256 100% 65%;  /* electric violet */
+    --studio-magenta: 320 100% 62%;
+    --studio-coral: 14 100% 64%;
+    --studio-cyan: 190 100% 60%;
+    --studio-lime: 80 90% 60%;
+
+    --gradient-studio-hero: radial-gradient(ellipse at 20% 10%, hsl(256 100% 65% / 0.55), transparent 55%),
+                            radial-gradient(ellipse at 80% 30%, hsl(320 100% 62% / 0.45), transparent 55%),
+                            radial-gradient(ellipse at 50% 90%, hsl(14 100% 64% / 0.35), transparent 60%),
+                            linear-gradient(135deg, hsl(240 28% 7%) 0%, hsl(245 30% 10%) 100%);
+    --gradient-studio-cta: linear-gradient(120deg, hsl(256 100% 65%) 0%, hsl(320 100% 62%) 50%, hsl(14 100% 64%) 100%);
+    --gradient-studio-card: linear-gradient(145deg, hsl(240 22% 15% / 0.85) 0%, hsl(240 26% 11% / 0.85) 100%);
+    --gradient-studio-glow: linear-gradient(135deg, hsl(256 100% 65% / 0.18) 0%, hsl(320 100% 62% / 0.18) 100%);
+
+    --shadow-studio-glow: 0 0 80px hsl(256 100% 65% / 0.35), 0 0 30px hsl(320 100% 62% / 0.25);
+    --shadow-studio-card: 0 24px 60px -20px hsl(256 100% 65% / 0.35);
+
     --radius: 0.75rem;
 
     --sidebar-background: 0 0% 98%;
@@ -170,3 +197,88 @@ All colors MUST be HSL.
     @apply leading-7;
   }
 }
+
+/* ===== STUDIO utilities — scoped helpers for /organizers area ===== */
+@layer utilities {
+  .studio-surface {
+    background-color: hsl(var(--studio-surface));
+    color: hsl(var(--studio-foreground));
+  }
+  .studio-bg {
+    background-color: hsl(var(--studio-bg));
+    color: hsl(var(--studio-foreground));
+  }
+  .studio-hero-bg {
+    background: var(--gradient-studio-hero);
+    color: hsl(var(--studio-foreground));
+  }
+  .studio-cta-bg {
+    background-image: var(--gradient-studio-cta);
+    background-size: 200% 200%;
+    animation: studio-cta-pan 8s ease-in-out infinite;
+    color: white;
+  }
+  .studio-text-gradient {
+    background: var(--gradient-studio-cta);
+    background-size: 200% 200%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: studio-cta-pan 6s ease-in-out infinite;
+  }
+  .studio-card {
+    background: var(--gradient-studio-card);
+    border: 1px solid hsl(var(--studio-border));
+    backdrop-filter: blur(12px);
+    box-shadow: var(--shadow-studio-card);
+  }
+  .studio-glow {
+    box-shadow: var(--shadow-studio-glow);
+  }
+  .studio-border {
+    border-color: hsl(var(--studio-border));
+  }
+  .studio-muted {
+    color: hsl(var(--studio-muted));
+  }
+  .studio-noise::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.04;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  }
+}
+
+@keyframes studio-cta-pan {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@keyframes studio-blob {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(40px, -30px) scale(1.1); }
+  66% { transform: translate(-30px, 30px) scale(0.95); }
+}
+
+@keyframes studio-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-12px); }
+}
+
+@keyframes studio-marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+@keyframes studio-pulse-ring {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+
+.animate-studio-blob { animation: studio-blob 16s ease-in-out infinite; }
+.animate-studio-float { animation: studio-float 4s ease-in-out infinite; }
+.animate-studio-marquee { animation: studio-marquee 30s linear infinite; }
+.animate-studio-pulse-ring { animation: studio-pulse-ring 2.4s cubic-bezier(0,.4,.6,1) infinite; }

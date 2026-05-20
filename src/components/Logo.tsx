@@ -6,12 +6,15 @@
 interface LogoProps {
   /** Height in pixels (icon scales proportionally). Defaults to 32. */
   height?: number;
+  /** Wordmark color variant. "light" makes the text white for dark backgrounds. */
+  variant?: "default" | "light";
 }
 
-const Logo = ({ height = 32 }: LogoProps) => {
+const Logo = ({ height = 32, variant = "default" }: LogoProps) => {
   const iconSize = height;
   const fontSize = Math.round(height * 0.52);
   const gap = Math.round(height * 0.28);
+  const isLight = variant === "light";
 
   return (
     <span
@@ -68,12 +71,12 @@ const Logo = ({ height = 32 }: LogoProps) => {
           fontSize,
           letterSpacing: "-0.02em",
           lineHeight: 1,
-          color: "hsl(220 100% 30%)",
+          color: isLight ? "white" : "hsl(220 100% 30%)",
           fontFamily: "inherit",
         }}
       >
         Ticket
-        <span style={{ color: "hsl(210 100% 45%)" }}>Safe</span>
+        <span style={{ color: isLight ? "hsl(210 100% 70%)" : "hsl(210 100% 45%)" }}>Safe</span>
       </span>
     </span>
   );
