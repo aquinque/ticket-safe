@@ -215,29 +215,29 @@ const Tickets = () => {
             style={{ background: "radial-gradient(circle, hsl(240 100% 67%), transparent 70%)" }}
           />
 
-          <div className="container mx-auto px-4 py-14 md:py-20 relative">
+          <div className="container mx-auto px-4 py-10 md:py-20 relative">
             <div className="max-w-3xl">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 backdrop-blur border border-white/20 text-xs font-semibold tracking-wider uppercase mb-5">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 backdrop-blur border border-white/20 text-[10px] md:text-xs font-semibold tracking-wider uppercase mb-4 md:mb-5">
                 <Sparkles className="w-3 h-3" />
                 Beta — Direct from campus
               </div>
-              <h1 className="text-4xl md:text-6xl font-black tracking-tight leading-[1.05] mb-5">
+              <h1 className="text-3xl md:text-6xl font-black tracking-tight leading-[1.05] mb-4 md:mb-5">
                 ESCP events,<br />
                 <span className="text-white/90">straight from the organizers.</span>
               </h1>
-              <p className="text-base md:text-lg text-white/80 max-w-xl mb-8 leading-relaxed">
+              <p className="text-sm md:text-lg text-white/80 max-w-xl mb-7 md:mb-8 leading-relaxed">
                 All ESCP events in one place — tickets sold directly by your campus societies.
               </p>
 
               {/* School */}
-              <div className="mb-6">
-                <div className="text-[11px] uppercase tracking-[0.2em] font-bold text-white/70 mb-3">
+              <div className="mb-5 md:mb-6">
+                <div className="text-[10px] md:text-[11px] uppercase tracking-[0.2em] font-bold text-white/70 mb-2 md:mb-3">
                   Your school
                 </div>
-                <div className="flex flex-wrap items-center gap-3">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
                   <button
                     type="button"
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl font-semibold text-sm bg-white text-primary shadow-lg cursor-default"
+                    className="inline-flex items-center gap-2 px-4 min-h-[44px] rounded-xl font-semibold text-sm bg-white text-primary shadow-lg cursor-default w-fit"
                     aria-pressed="true"
                   >
                     <Check className="w-4 h-4" />
@@ -250,8 +250,8 @@ const Tickets = () => {
               </div>
 
               {/* Campus picker */}
-              <div className="mb-2">
-                <div className="text-[11px] uppercase tracking-[0.2em] font-bold text-white/70 mb-3">
+              <div>
+                <div className="text-[10px] md:text-[11px] uppercase tracking-[0.2em] font-bold text-white/70 mb-2 md:mb-3">
                   Campus
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -262,7 +262,7 @@ const Tickets = () => {
                         key={c.id}
                         type="button"
                         onClick={() => setSelectedCampus(c.id)}
-                        className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-semibold text-sm transition-all ${
+                        className={`inline-flex items-center gap-1.5 px-3.5 min-h-[40px] rounded-lg font-semibold text-sm transition-all ${
                           selected
                             ? "bg-white text-primary shadow-md scale-[1.02]"
                             : "bg-white/10 backdrop-blur hover:bg-white/20 text-white border border-white/20"
@@ -279,35 +279,35 @@ const Tickets = () => {
               {/* Big resale CTA */}
               <Link
                 to="/resale"
-                className="group relative mt-7 block w-full max-w-3xl rounded-2xl overflow-hidden bg-white text-foreground p-5 md:p-6 hover:scale-[1.01] hover:shadow-2xl transition-all duration-300"
+                className="group relative mt-6 md:mt-7 block w-full max-w-3xl rounded-2xl overflow-hidden bg-white text-foreground p-4 md:p-6 hover:shadow-2xl transition-all duration-300"
               >
                 <div
                   className="pointer-events-none absolute -top-16 -right-16 w-56 h-56 rounded-full opacity-30 blur-3xl"
                   style={{ background: "radial-gradient(circle, hsl(221 100% 56% / 0.5), transparent 70%)" }}
                 />
-                <div className="relative flex items-center gap-4 md:gap-5">
+                <div className="relative flex items-center gap-3 md:gap-5">
                   <div
-                    className="w-14 h-14 md:w-16 md:h-16 rounded-2xl flex items-center justify-center shrink-0"
+                    className="w-12 h-12 md:w-16 md:h-16 rounded-xl md:rounded-2xl flex items-center justify-center shrink-0"
                     style={{ background: "var(--gradient-hero)" }}
                   >
-                    <Repeat2 className="w-7 h-7 md:w-8 md:h-8 text-white" />
+                    <Repeat2 className="w-6 h-6 md:w-8 md:h-8 text-white" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-[10px] uppercase tracking-[0.2em] font-bold text-primary mb-1">
+                    <div className="text-[10px] uppercase tracking-[0.2em] font-bold text-primary mb-0.5 md:mb-1">
                       Resale marketplace
                     </div>
-                    <div className="text-lg md:text-xl font-black text-foreground leading-tight">
+                    <div className="text-base md:text-xl font-black text-foreground leading-tight">
                       Buy or resell a ticket
                     </div>
-                    <div className="text-xs md:text-sm text-muted-foreground mt-0.5">
+                    <div className="hidden sm:block text-xs md:text-sm text-muted-foreground mt-0.5">
                       Secondhand seats between students — payments held in escrow.
                     </div>
                   </div>
-                  <div className="hidden sm:flex items-center gap-2 px-5 py-3 rounded-xl bg-primary text-primary-foreground font-bold text-sm shrink-0 group-hover:gap-3 transition-all">
+                  <div className="hidden md:flex items-center gap-2 px-5 py-3 rounded-xl bg-primary text-primary-foreground font-bold text-sm shrink-0 group-hover:gap-3 transition-all">
                     Go
                     <ArrowRight className="w-4 h-4" />
                   </div>
-                  <ArrowRight className="sm:hidden w-5 h-5 text-primary shrink-0" />
+                  <ArrowRight className="md:hidden w-5 h-5 text-primary shrink-0" />
                 </div>
               </Link>
             </div>
@@ -316,8 +316,9 @@ const Tickets = () => {
 
         {/* ===================== FILTER & SEARCH ===================== */}
         <section className="sticky top-0 z-20 bg-background/95 backdrop-blur-lg border-b border-border">
-          <div className="container mx-auto px-4 py-4">
-            <div className="flex flex-col md:flex-row md:items-center gap-3">
+          <div className="container mx-auto px-4 py-3 md:py-4">
+            {/* Desktop / tablet: school chip + categories + search on one row */}
+            <div className="hidden md:flex md:items-center gap-3">
               <div className="flex items-center gap-2 text-sm">
                 <div
                   className="w-7 h-7 rounded-lg flex items-center justify-center text-white font-black text-xs"
@@ -333,7 +334,7 @@ const Tickets = () => {
                 </div>
               </div>
 
-              <div className="hidden md:block w-px h-8 bg-border mx-1" />
+              <div className="w-px h-8 bg-border mx-1" />
 
               {/* Categories */}
               <div className="flex gap-1.5 overflow-x-auto -mx-1 px-1 flex-1">
@@ -365,16 +366,59 @@ const Tickets = () => {
                 />
               </div>
             </div>
+
+            {/* Mobile: compact two-row layout — search + categories scroll */}
+            <div className="md:hidden flex flex-col gap-2.5">
+              <div className="flex items-center gap-2">
+                <div
+                  className="w-6 h-6 rounded-md flex items-center justify-center text-white font-black text-[10px] flex-shrink-0"
+                  style={{ background: "var(--gradient-hero)" }}
+                  aria-hidden="true"
+                >
+                  ES
+                </div>
+                <span className="text-xs font-bold text-foreground truncate">
+                  ESCP · {selectedCampus === "all" ? "All campuses" : selectedCampusMeta.label}
+                </span>
+                <div className="relative flex-1 ml-1">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                  <input
+                    type="search"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Search…"
+                    className="w-full pl-8 pr-3 py-2 rounded-lg bg-muted border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40"
+                  />
+                </div>
+              </div>
+              {/* Horizontal scrolling categories */}
+              <div className="flex gap-1.5 overflow-x-auto -mx-4 px-4 pb-0.5 scrollbar-thin">
+                {categories.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => setCategory(c.id)}
+                    className={`shrink-0 px-3 min-h-[32px] rounded-full text-xs font-semibold transition-colors ${
+                      category === c.id
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    {c.label}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </section>
 
         {/* ===================== EVENTS GRID ===================== */}
-        <section className="py-10 md:py-14">
+        <section className="py-8 md:py-14">
           <div className="container mx-auto px-4">
             {filteredEvents.length === 0 ? (
               <EmptyState query={query} category={category} />
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
                 {filteredEvents.map((e) => (
                   <EventCard key={e.id} event={e} />
                 ))}
@@ -384,9 +428,9 @@ const Tickets = () => {
         </section>
 
         {/* ===================== COMING SOON ===================== */}
-        <section className="py-10 bg-muted/30 border-y border-border">
+        <section className="py-8 bg-muted/30 border-y border-border">
           <div className="container mx-auto px-4 text-center">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-card border border-border text-xs font-semibold text-muted-foreground">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-card border border-border text-xs font-semibold text-muted-foreground">
               <Lock className="w-3 h-3" />
               More schools coming soon
             </div>
@@ -394,22 +438,22 @@ const Tickets = () => {
         </section>
 
         {/* ===================== CTA ORGANIZER ===================== */}
-        <section className="py-16 md:py-20">
+        <section className="py-12 md:py-20">
           <div className="container mx-auto px-4">
             <div
-              className="relative max-w-4xl mx-auto rounded-3xl p-8 md:p-12 overflow-hidden text-white"
+              className="relative max-w-4xl mx-auto rounded-2xl md:rounded-3xl p-6 md:p-12 overflow-hidden text-white"
               style={{ background: "var(--gradient-hero)" }}
             >
               <div
                 className="pointer-events-none absolute -top-20 -right-20 w-72 h-72 rounded-full opacity-40 blur-3xl"
                 style={{ background: "radial-gradient(circle, hsl(210 100% 65%), transparent 70%)" }}
               />
-              <div className="relative flex flex-col md:flex-row md:items-center gap-6 md:gap-10">
+              <div className="relative flex flex-col md:flex-row md:items-center gap-5 md:gap-10">
                 <div className="flex-1">
-                  <div className="text-xs uppercase tracking-[0.2em] font-bold text-white/80 mb-2">
+                  <div className="text-[10px] md:text-xs uppercase tracking-[0.2em] font-bold text-white/80 mb-2">
                     For student societies
                   </div>
-                  <h3 className="text-2xl md:text-3xl font-black mb-3 leading-tight">
+                  <h3 className="text-xl md:text-3xl font-black mb-2 md:mb-3 leading-tight">
                     Selling tickets for your event?
                   </h3>
                   <p className="text-white/85 text-sm md:text-base max-w-md leading-relaxed">
@@ -418,7 +462,7 @@ const Tickets = () => {
                 </div>
                 <Link
                   to="/organizers"
-                  className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl font-bold bg-white text-primary hover:bg-white/95 hover:scale-[1.03] transition-all shrink-0"
+                  className="inline-flex items-center justify-center gap-2 px-6 min-h-[48px] rounded-xl font-bold bg-white text-primary hover:bg-white/95 hover:scale-[1.03] transition-all shrink-0"
                 >
                   Apply for Studio
                   <ArrowRight className="w-4 h-4" />
