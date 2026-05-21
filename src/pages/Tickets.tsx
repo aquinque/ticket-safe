@@ -18,6 +18,9 @@ import {
   Flame,
   Lock,
   Repeat2,
+  MousePointerClick,
+  CreditCard,
+  QrCode,
 } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -424,6 +427,100 @@ const Tickets = () => {
                 ))}
               </div>
             )}
+          </div>
+        </section>
+
+        {/* ===================== HOW IT WORKS (direct purchase) ===================== */}
+        <section className="py-12 md:py-20 border-t border-border bg-muted/20">
+          <div className="container mx-auto px-4 max-w-5xl">
+            <div className="text-center mb-8 md:mb-12">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-[10px] md:text-xs font-bold uppercase tracking-[0.18em] text-primary mb-3">
+                <Ticket className="w-3 h-3" />
+                Buying a ticket
+              </div>
+              <h2 className="text-2xl md:text-4xl font-black text-foreground mb-2 md:mb-3 leading-tight">
+                How it works
+              </h2>
+              <p className="text-sm md:text-base text-muted-foreground max-w-xl mx-auto">
+                Direct from the organizer. No middlemen, no waiting — your ticket lands in your inbox the moment you pay.
+              </p>
+            </div>
+
+            {/* Steps */}
+            <ol className="grid grid-cols-1 md:grid-cols-4 gap-4 md:gap-5">
+              {[
+                {
+                  step: "01",
+                  icon: MousePointerClick,
+                  title: "Pick your event",
+                  body: "Browse ESCP events across the 5 campuses and open the one you want.",
+                },
+                {
+                  step: "02",
+                  icon: Ticket,
+                  title: "Choose your tier",
+                  body: "Regular, VIP, table — pick a tier and the number of tickets.",
+                },
+                {
+                  step: "03",
+                  icon: CreditCard,
+                  title: "Pay securely",
+                  body: "Card payment via Stripe. The organizer is paid directly.",
+                },
+                {
+                  step: "04",
+                  icon: QrCode,
+                  title: "Ticket on the spot",
+                  body: "Your QR ticket is emailed to you right away. Scan it at the door.",
+                },
+              ].map(({ step, icon: Icon, title, body }) => (
+                <li
+                  key={step}
+                  className="relative rounded-2xl bg-card border border-border p-5 md:p-6 hover:border-primary/30 hover:shadow-soft transition-all"
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <div
+                      className="w-11 h-11 md:w-12 md:h-12 rounded-xl flex items-center justify-center text-white"
+                      style={{ background: "var(--gradient-hero)" }}
+                    >
+                      <Icon className="w-5 h-5 md:w-6 md:h-6" />
+                    </div>
+                    <span className="text-[10px] md:text-xs font-black tracking-[0.18em] text-muted-foreground">
+                      {step}
+                    </span>
+                  </div>
+                  <h3 className="text-base md:text-lg font-bold text-foreground leading-tight mb-1.5">
+                    {title}
+                  </h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed">{body}</p>
+                </li>
+              ))}
+            </ol>
+
+            {/* Sold out fallback hint */}
+            <div className="mt-6 md:mt-8 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 rounded-2xl border border-border bg-card px-5 py-4">
+              <div
+                className="w-10 h-10 rounded-lg flex items-center justify-center text-white shrink-0"
+                style={{ background: "linear-gradient(135deg, hsl(220 100% 30%), hsl(210 100% 45%))" }}
+              >
+                <Repeat2 className="w-5 h-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-bold text-sm md:text-base text-foreground leading-tight">
+                  Event sold out?
+                </div>
+                <div className="text-xs md:text-sm text-muted-foreground">
+                  Check the resale marketplace — students often re-list at face value.
+                </div>
+              </div>
+              <Link
+                to="/resale"
+                className="inline-flex items-center justify-center gap-1.5 px-4 min-h-[40px] rounded-lg font-bold text-sm bg-primary text-primary-foreground hover:bg-primary-hover transition-colors"
+              >
+                Go to resale
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
           </div>
         </section>
 
