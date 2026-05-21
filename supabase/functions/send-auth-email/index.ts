@@ -75,17 +75,18 @@ interface AuthHookPayload {
   };
 }
 
-/** Build the canonical verify URL that activates the link click. */
+/** Build the canonical verify URL that activates the link click.
+ *  The verify endpoint lives on the Supabase project URL (api), NOT on
+ *  email_data.site_url (which is the app URL where the user lands after). */
 function buildVerifyUrl(payload: AuthHookPayload): string {
-  const { token_hash, email_action_type, redirect_to, site_url } =
-    payload.email_data;
-  const base = (site_url || "").replace(/\/+$/, "");
+  const { token_hash, email_action_type, redirect_to } = payload.email_data;
+  const supabaseUrl = (Deno.env.get("SUPABASE_URL") ?? "").replace(/\/+$/, "");
   const params = new URLSearchParams({
     token: token_hash,
     type: email_action_type,
     redirect_to,
   });
-  return `${base}/auth/v1/verify?${params.toString()}`;
+  return `${supabaseUrl}/auth/v1/verify?${params.toString()}`;
 }
 
 interface EmailContent {
