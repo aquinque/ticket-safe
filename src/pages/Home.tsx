@@ -33,14 +33,8 @@ const Home = () => {
           </Link>
           <nav className="flex items-center gap-1 md:gap-3 text-sm">
             <Link
-              to="/how-it-works"
-              className="hidden sm:inline-flex px-3 py-2 rounded-lg font-semibold text-foreground/80 hover:text-primary transition-colors"
-            >
-              How It Works
-            </Link>
-            <Link
               to="/about"
-              className="hidden md:inline-flex px-3 py-2 rounded-lg font-semibold text-foreground/80 hover:text-primary transition-colors"
+              className="hidden sm:inline-flex px-3 py-2 rounded-lg font-semibold text-foreground/80 hover:text-primary transition-colors"
             >
               About
             </Link>
