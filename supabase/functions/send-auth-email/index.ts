@@ -75,18 +75,34 @@ interface AuthHookPayload {
   };
 }
 
-/** Build the canonical verify URL that activates the link click.
- *  The verify endpoint lives on the Supabase project URL (api), NOT on
- *  email_data.site_url (which is the app URL where the user lands after). */
+/** Build a link that goes directly to the app and lets it call verifyOtp.
+ *  This bypasses the Supabase /verify redirect (which is PKCE-dependent and
+ *  fails when the email is opened in a different browser than the one that
+ *  originated the request).
+ *
+ *  Format:  {SITE_URL}/auth/confirm?token_hash=...&type=...&next=/...
+ */
 function buildVerifyUrl(payload: AuthHookPayload): string {
   const { token_hash, email_action_type, redirect_to } = payload.email_data;
-  const supabaseUrl = (Deno.env.get("SUPABASE_URL") ?? "").replace(/\/+$/, "");
+  const siteUrl = (Deno.env.get("SITE_URL") ?? "https://ticket-safe.eu").replace(
+    /\/+$/,
+    "",
+  );
+
+  let next = "/profile";
+  try {
+    const url = new URL(redirect_to);
+    next = url.pathname + url.search + url.hash || "/profile";
+  } catch {
+    if (redirect_to?.startsWith("/")) next = redirect_to;
+  }
+
   const params = new URLSearchParams({
-    token: token_hash,
+    token_hash,
     type: email_action_type,
-    redirect_to,
+    next,
   });
-  return `${supabaseUrl}/auth/v1/verify?${params.toString()}`;
+  return `${siteUrl}/auth/confirm?${params.toString()}`;
 }
 
 interface EmailContent {

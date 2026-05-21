@@ -32,8 +32,28 @@ const ChatBubble = () => {
     setOpen(false);
   }, [location.pathname]);
 
-  // Don't show bubble if not logged in or already on messages/chat pages
+  // The chat bubble is part of the resale marketplace experience only.
+  // It is hidden on direct-purchase pages (/tickets), organizer/marketing
+  // pages, and on the messages page itself (where it would duplicate the UI).
+  const RESALE_PATH_PREFIXES = [
+    "/resale",
+    "/marketplace",
+    "/events",
+    "/event/",
+    "/buy-ticket/",
+    "/sell",
+    "/checkout",
+    "/settings/purchases",
+    "/settings/listings",
+    "/how-it-works", // resale how-it-works (the /tickets one is at /how-it-works/tickets and is excluded below)
+    "/chat",
+  ];
+  const isResalePath =
+    RESALE_PATH_PREFIXES.some((p) => location.pathname === p || location.pathname.startsWith(p + "/") || location.pathname === p) &&
+    !location.pathname.startsWith("/how-it-works/tickets");
+
   if (!user) return null;
+  if (!isResalePath) return null;
   if (location.pathname.startsWith("/messages")) return null;
 
   return (

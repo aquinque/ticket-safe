@@ -29,11 +29,10 @@ const ResetPassword = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    let resolved = false;
+    let cancelled = false;
 
     const resolve = (valid: boolean) => {
-      if (resolved) return;
-      resolved = true;
+      if (cancelled) return;
       setIsValidToken(valid);
       if (!valid) {
         toast.error("This reset link has expired or is invalid. Please request a new one.");
@@ -41,36 +40,24 @@ const ResetPassword = () => {
       }
     };
 
-    // ── PKCE flow: Supabase sends ?code=xxxx in the redirect URL ─────────────
-    // The GitHub Pages 404.html preserves query params, so the code is intact
-    // after the SPA redirect restores the path in index.html.
-    const params = new URLSearchParams(window.location.search);
-    const code = params.get("code");
+    // The token has already been verified by /auth/confirm (which calls
+    // supabase.auth.verifyOtp). By the time we land here, the session is
+    // either established (valid) or not (invalid / expired link).
+    supabase.auth.getSession().then(({ data }) => {
+      resolve(!!data.session);
+    });
 
-    if (code) {
-      supabase.auth.exchangeCodeForSession(code).then(({ error }) => {
-        if (error) {
-          console.error("[reset-password] exchangeCodeForSession:", error.message);
-          resolve(false);
-        } else {
-          resolve(true);
-        }
-      });
-    }
-
-    // ── Implicit / magic-link fallback: PASSWORD_RECOVERY auth event ─────────
+    // Legacy fallback: if some old-format link sends us here directly
+    // with the PASSWORD_RECOVERY auth event, accept that too.
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "PASSWORD_RECOVERY") {
+      if (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") {
         resolve(true);
       }
     });
 
-    // ── Timeout: if no valid path resolves within 5 s, reject ────────────────
-    const timeout = setTimeout(() => resolve(false), 5000);
-
     return () => {
+      cancelled = true;
       subscription.unsubscribe();
-      clearTimeout(timeout);
     };
   }, [navigate]);
 

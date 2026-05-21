@@ -26,6 +26,7 @@ import PersonalInformation from "./pages/settings/PersonalInformation";
 import PurchaseHistory from "./pages/settings/PurchaseHistory";
 import MyListings from "./pages/settings/MyListings";
 import Auth from "./pages/Auth";
+import AuthConfirm from "./pages/AuthConfirm";
 import ResetPassword from "./pages/ResetPassword";
 import Contact from "./pages/Contact";
 import Privacy from "./pages/Privacy";
@@ -78,6 +79,7 @@ const App = () => (
       <Route path="/settings/purchases" element={<PurchaseHistory />} />
       <Route path="/settings/listings" element={<MyListings />} />
       <Route path="/auth" element={<Auth />} />
+      <Route path="/auth/confirm" element={<AuthConfirm />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/contact" element={<Contact />} />
       <Route path="/privacy" element={<Privacy />} />
