@@ -175,19 +175,25 @@ const OrganizerApply = () => {
           style={{ background: "radial-gradient(circle, hsl(221 100% 56%), transparent 70%)" }}
         />
 
-        <div className="container mx-auto px-4 py-12 md:py-16 max-w-3xl relative">
-          <div className="text-center mb-10">
-            <div className="text-xs uppercase tracking-[0.2em] font-bold text-primary mb-3">
+        <div className="container mx-auto px-4 py-8 md:py-16 max-w-3xl relative">
+          <div className="text-center mb-7 md:mb-10">
+            <div className="text-[10px] md:text-xs uppercase tracking-[0.2em] font-bold text-primary mb-2 md:mb-3">
               Studio beta
             </div>
-            <h1 className="text-3xl md:text-4xl font-black text-foreground mb-3">
+            <h1 className="text-[26px] sm:text-3xl md:text-4xl font-black text-foreground mb-2 md:mb-3 leading-tight">
               Join TicketSafe Studio
             </h1>
-            <p className="text-muted-foreground">5 minutes. We get back to you within 24h.</p>
+            <p className="text-sm md:text-base text-muted-foreground">
+              5 minutes. We get back to you within 24h.
+            </p>
+            {/* Compact step counter for mobile */}
+            <p className="md:hidden text-xs font-semibold text-primary mt-3">
+              Step {step} of {steps.length} · {steps.find((s) => s.id === step)?.label}
+            </p>
           </div>
 
           {/* Step indicator */}
-          <div className="mb-10">
+          <div className="mb-7 md:mb-10">
             <div className="flex items-center justify-between mb-4">
               {steps.map((s, i) => {
                 const Icon = s.icon;
@@ -196,7 +202,7 @@ const OrganizerApply = () => {
                 return (
                   <div key={s.id} className="flex flex-col items-center flex-1 relative">
                     <div
-                      className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold transition-all duration-300 z-10 ${
+                      className={`w-9 h-9 md:w-10 md:h-10 rounded-xl flex items-center justify-center font-bold transition-all duration-300 z-10 ${
                         done
                           ? "text-white"
                           : active
@@ -205,14 +211,14 @@ const OrganizerApply = () => {
                       }`}
                       style={done || active ? { background: "var(--gradient-hero)" } : {}}
                     >
-                      {done ? <Check className="w-5 h-5" /> : <Icon className="w-5 h-5" />}
+                      {done ? <Check className="w-4 h-4 md:w-5 md:h-5" /> : <Icon className="w-4 h-4 md:w-5 md:h-5" />}
                     </div>
                     <span className={`text-xs mt-2 font-semibold hidden md:block ${active ? "text-foreground" : "text-muted-foreground"}`}>
                       {s.label}
                     </span>
                     {i < steps.length - 1 && (
                       <div
-                        className={`absolute top-5 left-1/2 w-full h-px ${done ? "bg-primary" : "bg-border"}`}
+                        className={`absolute top-[18px] md:top-5 left-1/2 w-full h-px ${done ? "bg-primary" : "bg-border"}`}
                       />
                     )}
                   </div>
@@ -222,7 +228,7 @@ const OrganizerApply = () => {
           </div>
 
           {/* Form card */}
-          <div className="bg-card border border-border rounded-3xl p-6 md:p-10 shadow-soft animate-fade-in" key={step}>
+          <div className="bg-card border border-border rounded-2xl md:rounded-3xl p-5 md:p-10 shadow-soft animate-fade-in" key={step}>
             {step === 1 && (
               <div className="space-y-6">
                 <div>
@@ -446,12 +452,12 @@ const OrganizerApply = () => {
             )}
 
             {/* Nav buttons */}
-            <div className="flex items-center justify-between mt-10 gap-3">
+            <div className="flex items-center justify-between mt-8 md:mt-10 gap-3">
               <button
                 type="button"
                 onClick={handleBack}
                 disabled={step === 1}
-                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl font-semibold text-foreground border border-border hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
+                className="inline-flex items-center justify-center gap-2 px-4 sm:px-5 min-h-[48px] rounded-xl font-semibold text-foreground border border-border hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed text-sm md:text-base"
               >
                 <ArrowLeft className="w-4 h-4" /> Back
               </button>
@@ -460,7 +466,7 @@ const OrganizerApply = () => {
                 <button
                   type="button"
                   onClick={handleNext}
-                  className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-white hover:scale-[1.02] transition-transform"
+                  className="inline-flex items-center justify-center gap-2 px-5 sm:px-6 min-h-[48px] rounded-xl font-bold text-white hover:scale-[1.02] transition-transform text-sm md:text-base"
                   style={{ background: "var(--gradient-hero)" }}
                 >
                   Continue <ArrowRight className="w-4 h-4" />
@@ -470,11 +476,11 @@ const OrganizerApply = () => {
                   type="button"
                   onClick={handleSubmit}
                   disabled={submitting}
-                  className="inline-flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-white hover:scale-[1.02] transition-transform disabled:opacity-60 disabled:cursor-wait"
+                  className="inline-flex items-center justify-center gap-2 px-5 sm:px-6 min-h-[48px] rounded-xl font-bold text-white hover:scale-[1.02] transition-transform disabled:opacity-60 disabled:cursor-wait text-sm md:text-base"
                   style={{ background: "var(--gradient-hero)" }}
                 >
                   {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />}
-                  {submitting ? "Sending…" : "Send my application"}
+                  {submitting ? "Sending…" : "Send"}
                 </button>
               )}
             </div>
@@ -495,10 +501,14 @@ const OrganizerApply = () => {
           background: hsl(var(--background));
           border: 1px solid hsl(var(--border));
           color: hsl(var(--foreground));
-          padding: 0.7rem 0.95rem;
+          padding: 0.75rem 0.95rem;
+          min-height: 48px;
           border-radius: 0.65rem;
-          font-size: 0.95rem;
+          font-size: 16px; /* >=16px prevents iOS Safari auto-zoom on focus */
           transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        @media (min-width: 768px) {
+          .ts-input { font-size: 0.95rem; }
         }
         .ts-input:focus {
           outline: none;
