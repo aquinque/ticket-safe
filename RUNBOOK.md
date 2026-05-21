@@ -97,6 +97,37 @@ Right now this is manual. Steps:
 1. Check Supabase → Realtime → is it green?
 2. Check the `messages` table — are recent rows being inserted?
 3. Check the `conversations` RLS — common cause: a policy change blocking inserts.
+4. Email notifications run through the `notify-new-message` edge function — check its logs and `RESEND_API_KEY`.
+
+---
+
+## 6b. "Password-reset / signup confirmation emails point to localhost"
+
+All Supabase auth emails are sent by the **`send-auth-email`** edge function
+(Auth → Send Email Hook). Built-in Supabase auth templates are no longer used.
+
+**One-time setup (Supabase Dashboard):**
+
+1. **Authentication → URL Configuration**
+   - Site URL: `https://ticket-safe.eu`
+   - Redirect URLs: add `https://ticket-safe.eu/**` (also `http://localhost:5173/**` for dev)
+2. **Authentication → Hooks → Send Email hook → Enable**
+   - URL: `https://lgmnatfvdzzjzyxlenry.supabase.co/functions/v1/send-auth-email`
+   - Copy the generated signing secret (starts with `v1,whsec_...`)
+3. **Edge Functions → Secrets** — set:
+   - `SEND_EMAIL_HOOK_SECRET` = the secret from step 2
+   - `RESEND_API_KEY` = your Resend key (already set if message emails work)
+   - `SITE_URL` = `https://ticket-safe.eu`
+4. **Deploy the function:**
+   ```sh
+   supabase functions deploy send-auth-email
+   ```
+5. Trigger a password reset to a real inbox to confirm the branded email arrives.
+
+**If emails still don't arrive:**
+- Edge Function logs → `send-auth-email` for signature / Resend errors.
+- Resend dashboard → Logs → check the destination and bounce status.
+- Resend domain `ticket-safe.eu` must be verified (DKIM/SPF/DMARC green).
 
 ---
 

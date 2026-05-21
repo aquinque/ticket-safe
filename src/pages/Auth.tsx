@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { Loader2, Mail, Lock, User, CheckCircle2, XCircle, Eye, EyeOff } from "lucide-react";
 import { z } from "zod";
 import { useAuth } from "@/hooks/useAuth";
+import { authRedirect } from "@/lib/siteUrl";
 
 const passwordSchema = z.string()
   .min(12, 'Password must be at least 12 characters')
@@ -73,7 +74,7 @@ const Auth = () => {
       const { error } = await supabase.auth.resend({
         type: 'signup',
         email: pendingConfirmEmail,
-        options: { emailRedirectTo: `${window.location.origin}/profile` },
+        options: { emailRedirectTo: authRedirect("/profile") },
       });
       if (error) throw error;
       toast.success("Confirmation email resent. Check your inbox.");
@@ -96,7 +97,7 @@ const Auth = () => {
       }
 
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+        redirectTo: authRedirect("/reset-password"),
       });
 
       if (error) throw error;
@@ -246,7 +247,7 @@ const Auth = () => {
           email: email.trim(),
           password,
           options: {
-            emailRedirectTo: `${window.location.origin}/profile`,
+            emailRedirectTo: authRedirect("/profile"),
             data: {
               full_name: fullName.trim(),
               university: detectedUniversity.trim(),

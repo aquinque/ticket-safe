@@ -11,3 +11,8 @@ verify_jwt = false
 
 [functions.stripe-create-checkout]
 verify_jwt = false
+
+# Send Email Hook — called by Supabase Auth itself with Standard Webhooks
+# signature. JWT verification must be disabled because the hook is unauthenticated.
+[functions.send-auth-email]
+verify_jwt = false
