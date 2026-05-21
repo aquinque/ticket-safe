@@ -497,6 +497,17 @@ const Tickets = () => {
               ))}
             </ol>
 
+            {/* Full walkthrough link */}
+            <div className="mt-6 md:mt-8 text-center">
+              <Link
+                to="/how-it-works/tickets"
+                className="inline-flex items-center gap-1.5 text-sm font-bold text-primary hover:gap-2 transition-all"
+              >
+                See the full walkthrough
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+
             {/* Sold out fallback hint */}
             <div className="mt-6 md:mt-8 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 rounded-2xl border border-border bg-card px-5 py-4">
               <div

@@ -1,171 +1,101 @@
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { SEOHead } from "@/components/SEOHead";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { Link } from "react-router-dom";
 import {
-  Search,
-  ShoppingCart,
-  ShieldCheck,
-  Ticket,
-  Upload,
-  CreditCard,
-  CheckCircle2,
   ArrowRight,
-  Users,
+  Search,
+  HandCoins,
   Lock,
-  Star,
-  HelpCircle,
-  GraduationCap,
-  Banknote,
   QrCode,
+  Upload,
   Bell,
+  Send,
+  Banknote,
+  ShieldCheck,
+  Repeat2,
+  Ticket,
+  GraduationCap,
 } from "lucide-react";
 
 const buyerSteps = [
   {
     step: "01",
-    icon: GraduationCap,
-    title: "Create Your Account",
-    description:
-      "Sign up with your university email address. We verify you're a real student instantly — no ID required.",
-    detail: "Only verified students can access the platform, keeping the community safe.",
-    color: "bg-primary/10",
-    iconColor: "text-primary",
+    icon: Search,
+    title: "Find a ticket",
+    body: "Browse the marketplace, filter by event and price. Every listing comes from a verified ESCP student.",
   },
   {
     step: "02",
-    icon: Search,
-    title: "Browse Available Tickets",
-    description:
-      "Explore tickets for ESCP events — galas, ski trips, parties, conferences and more. Filter by price, date, or category.",
-    detail: "Every listing is posted by a verified student. No scammers, no bots.",
-    color: "bg-blue-500/10",
-    iconColor: "text-blue-500",
+    icon: HandCoins,
+    title: "Buy or make an offer",
+    body: "Pay at the listed price, or open a chat with the seller to negotiate before checkout.",
   },
   {
     step: "03",
-    icon: ShieldCheck,
-    title: "Buy or Make an Offer",
-    description:
-      "Click 'Buy' to purchase at the listed price, or use 'Make an Offer' to chat with the seller and agree on a price. Payment is held in escrow — the seller only gets paid after you confirm receipt.",
-    detail: "100% money-back guarantee if the ticket is invalid or the event is cancelled.",
-    color: "bg-green-500/10",
-    iconColor: "text-green-500",
+    icon: Lock,
+    title: "Payment held in escrow",
+    body: "Your money is locked by Stripe until the QR ticket reaches you. No upfront risk.",
   },
   {
     step: "04",
     icon: QrCode,
-    title: "Get Your Ticket Instantly",
-    description:
-      "Your ticket is delivered automatically the moment your payment clears. The QR code is verified and ready to scan at the door — no chasing the seller.",
-    detail: "Every ticket is authenticated by Ticket Safe before it's released to you.",
-    color: "bg-purple-500/10",
-    iconColor: "text-purple-500",
-  },
-  {
-    step: "05",
-    icon: Star,
-    title: "Attend & Enjoy",
-    description:
-      "Show your verified QR code at the event entrance and enjoy the experience stress-free.",
-    detail: "Rate your experience to help the community.",
-    color: "bg-amber-500/10",
-    iconColor: "text-amber-500",
+    title: "Get the QR automatically",
+    body: "Once the seller releases the ticket through the platform, the QR lands in your inbox — verified, ready to scan.",
   },
 ];
 
 const sellerSteps = [
   {
     step: "01",
-    icon: GraduationCap,
-    title: "Create Your Account",
-    description:
-      "Sign up with your university email. Your student status is verified instantly.",
-    detail: "One account for both buying and selling.",
-    color: "bg-primary/10",
-    iconColor: "text-primary",
+    icon: Upload,
+    title: "List in two minutes",
+    body: "Pick the event, set your price, upload your QR. The listing goes live as soon as we authenticate it.",
   },
   {
     step: "02",
-    icon: Upload,
-    title: "List Your Ticket",
-    description:
-      "Select your event, set a fair price, upload your ticket photo or QR code. Our system verifies authenticity automatically.",
-    detail: "Listings go live in under 2 minutes.",
-    color: "bg-blue-500/10",
-    iconColor: "text-blue-500",
+    icon: Bell,
+    title: "Get an instant buyer",
+    body: "Get notified when someone buys, or when a buyer messages you to negotiate. You decide whether to accept.",
   },
   {
     step: "03",
-    icon: Bell,
-    title: "Get Notified of Interest",
-    description:
-      "We notify you instantly when someone buys your ticket at your listed price — or when a buyer sends you a message to discuss.",
-    detail: "Buyers can use 'Make an Offer' to negotiate. You decide whether to accept.",
-    color: "bg-green-500/10",
-    iconColor: "text-green-500",
+    icon: Send,
+    title: "Automatic transfer",
+    body: "Once payment clears, Ticket Safe releases the QR to the buyer automatically. You do nothing.",
   },
   {
     step: "04",
-    icon: QrCode,
-    title: "Automatic Transfer",
-    description:
-      "Once the buyer's payment clears, Ticket Safe releases the QR code to them automatically. You don't send anything yourself — the platform handles delivery.",
-    detail: "No more chasing buyers on WhatsApp or sending screenshots.",
-    color: "bg-purple-500/10",
-    iconColor: "text-purple-500",
-  },
-  {
-    step: "05",
     icon: Banknote,
-    title: "Get Paid Automatically",
-    description:
-      "Your payout is sent directly to your bank account via Stripe Connect — typically the next business day after the payment clears.",
-    detail: "You keep 95% of your listing price. Both sides pay a small 5% fee.",
-    color: "bg-amber-500/10",
-    iconColor: "text-amber-500",
+    title: "Get paid to your bank",
+    body: "Payout via Stripe Connect — typically the next business day after the sale. No invoices, no chasing.",
   },
 ];
 
 const faqs = [
   {
-    question: "How does TicketSafe verify students?",
-    answer:
-      "We verify using your university email address. When you sign up, we check that your email belongs to a recognised academic institution. Only verified students can buy or sell on the platform.",
+    q: "How are students verified?",
+    a: "Sign-up requires a university email. Only verified ESCP students can list or buy on the resale marketplace.",
   },
   {
-    question: "What if the ticket turns out to be fake?",
-    answer:
-      "You're fully protected. Every ticket is verified by our system before it goes live. If a ticket is somehow invalid, you receive a 100% refund — including the platform fee — within 5–10 business days.",
+    q: "What if the QR turns out to be invalid?",
+    a: "Every QR is checked before it is released to the buyer. If a ticket fails at the door because of a seller-side issue, you get a full refund — price plus platform fee.",
   },
   {
-    question: "How long until the seller gets paid?",
-    answer:
-      "Once the buyer's payment clears, your payout is sent to your bank account via Stripe Connect on a rolling daily schedule — typically the next business day. No manual confirmation needed.",
+    q: "How long until the seller is paid?",
+    a: "Stripe Connect uses a rolling daily payout schedule — usually the next business day after the sale clears.",
   },
   {
-    question: "Can I cancel my listing after posting it?",
-    answer:
-      "Yes — you can remove your listing at any time before a buyer completes a purchase. Once a purchase is made, cancellation may result in a penalty to protect the buyer.",
+    q: "Can I cancel my listing?",
+    a: "Yes, as long as no one has bought it yet. Once a sale is in progress, cancelling may incur a small penalty to protect the buyer.",
   },
   {
-    question: "Can I negotiate the price with the seller?",
-    answer:
-      "Yes — use the 'Make an Offer' button on any listing to open a private chat with the seller. You can propose a price, and the seller can accept, reject, or counter. Once both sides agree, checkout uses your negotiated price. The listed price stays unchanged for other buyers.",
+    q: "What is the 5% fee?",
+    a: "Buyers pay 5% on top of the ticket price, sellers have 5% deducted. The fee covers payment processing, ticket authentication and buyer protection.",
   },
   {
-    question: "What is the 5% platform fee?",
-    answer:
-      "Both sides pay a small 5% fee. Buyers pay 5% on top of the ticket price (or negotiated price). Sellers have 5% deducted from the sale price as a platform commission. The fees cover secure payment processing, ticket verification, and buyer protection.",
-  },
-  {
-    question: "What happens if the event is cancelled?",
-    answer:
-      "If the event is officially cancelled by the organiser, all buyers receive a full refund automatically — ticket price plus the platform fee.",
+    q: "What if the event is cancelled?",
+    a: "If the organizer cancels, every buyer gets a full automatic refund — ticket price and platform fee.",
   },
 ];
 
@@ -173,328 +103,319 @@ const HowItWorks = () => {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <SEOHead
-        titleKey="How It Works - TicketSafe"
-        descriptionKey="Learn how TicketSafe works for buyers and sellers. Secure, verified student ticket marketplace with escrow payments and 100% buyer protection."
+        title="How resale works — Ticket Safe"
+        description="How the Ticket Safe resale marketplace works for buyers and sellers — escrow payments, automatic QR delivery, payouts via Stripe."
       />
       <Header />
 
       <main className="flex-1">
-        {/* Hero Section */}
-        <section className="relative overflow-hidden bg-gradient-to-b from-background to-muted/20 py-16 md:py-24">
-          <div className="absolute inset-0 bg-gradient-hero opacity-5" />
-          <div className="relative container mx-auto px-4 text-center">
-            <Badge variant="outline" className="mb-6 px-4 py-1.5 text-sm font-medium">
-              Simple & Secure
-            </Badge>
-            <h1 className="text-4xl md:text-6xl font-bold mb-6">
-              <span className="bg-gradient-hero bg-clip-text text-transparent">
-                How TicketSafe
-              </span>
-              <br />
-              <span className="text-foreground">Works</span>
+        {/* ============== HERO ============== */}
+        <section
+          className="relative overflow-hidden text-white"
+          style={{ background: "var(--gradient-hero)" }}
+        >
+          <div
+            className="pointer-events-none absolute -top-32 -left-32 w-[36rem] h-[36rem] rounded-full opacity-40 blur-3xl"
+            style={{ background: "radial-gradient(circle, hsl(210 100% 65%), transparent 70%)" }}
+          />
+          <div
+            className="pointer-events-none absolute top-20 -right-32 w-[28rem] h-[28rem] rounded-full opacity-30 blur-3xl"
+            style={{ background: "radial-gradient(circle, hsl(240 100% 67%), transparent 70%)" }}
+          />
+
+          <div className="container mx-auto px-4 py-12 md:py-20 relative max-w-5xl">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 backdrop-blur border border-white/20 text-[10px] md:text-xs font-bold uppercase tracking-[0.2em] mb-4">
+              <Repeat2 className="w-3 h-3" />
+              Resale marketplace
+            </div>
+            <h1 className="text-3xl md:text-5xl lg:text-6xl font-black tracking-tight leading-[1.05] mb-4 md:mb-5 max-w-3xl">
+              How resale works.
             </h1>
-            <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
-              Buy and sell student event tickets safely in 5 simple steps.
-              Every transaction is protected with escrow payments and full buyer guarantee.
+            <p className="text-sm md:text-lg text-white/80 max-w-2xl leading-relaxed">
+              Buy a ticket from another student, or list yours — bank-to-bank, escrow-protected, fully automatic.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button variant="hero" size="lg" asChild className="h-12 px-8 font-semibold">
-                <Link to="/marketplace">
-                  <Search className="w-5 h-5" />
-                  Browse Tickets
-                  <ArrowRight className="w-5 h-5" />
-                </Link>
-              </Button>
-              <Button variant="marketplace" size="lg" asChild className="h-12 px-8 font-semibold">
-                <Link to="/sell">
-                  <Ticket className="w-5 h-5" />
-                  Sell a Ticket
-                </Link>
-              </Button>
-            </div>
           </div>
         </section>
 
-        {/* Trust Bar */}
-        <section className="border-y border-border bg-muted/30 py-6">
-          <div className="container mx-auto px-4">
-            <div className="flex flex-wrap items-center justify-center gap-6 md:gap-12 text-sm text-muted-foreground">
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="w-5 h-5 text-green-500" />
-                <span className="font-medium">100% Buyer Guarantee</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Lock className="w-5 h-5 text-primary" />
-                <span className="font-medium">Escrow Payments</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Users className="w-5 h-5 text-blue-500" />
-                <span className="font-medium">Verified Students Only</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="w-5 h-5 text-amber-500" />
-                <span className="font-medium">Authenticated Tickets</span>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Buyer Steps */}
-        <section className="py-16 md:py-24">
+        {/* ============== BUYER FLOW ============== */}
+        <section className="py-12 md:py-20">
           <div className="container mx-auto px-4 max-w-5xl">
-            <div className="text-center mb-12">
-              <Badge className="mb-4 bg-primary/10 text-primary border-primary/20 hover:bg-primary/10">
-                <ShoppingCart className="w-3.5 h-3.5 mr-1" />
-                For Buyers
-              </Badge>
-              <h2 className="text-3xl md:text-4xl font-bold mb-4">
-                Buy a Ticket in 5 Steps
+            <div className="text-center mb-8 md:mb-12">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-[10px] md:text-xs font-bold uppercase tracking-[0.18em] text-primary mb-3">
+                <Search className="w-3 h-3" />
+                Buying a resale ticket
+              </div>
+              <h2 className="text-2xl md:text-4xl font-black mb-2 md:mb-3">
+                Buy a ticket in 4 steps
               </h2>
-              <p className="text-muted-foreground text-lg max-w-xl mx-auto">
-                From browsing to attending — the whole process takes minutes and your money is always protected.
+              <p className="text-sm md:text-base text-muted-foreground max-w-xl mx-auto">
+                Your money stays locked until the QR ticket reaches you. No risk, no surprises.
               </p>
             </div>
 
-            <div className="relative">
-              {/* Vertical line connector */}
-              <div className="absolute left-8 top-10 bottom-10 w-0.5 bg-border hidden md:block" />
-
-              <div className="space-y-6">
-                {buyerSteps.map((step, index) => {
-                  const Icon = step.icon;
-                  return (
-                    <div key={index} className="flex gap-6 items-start group">
-                      {/* Step Number + Icon */}
-                      <div className="flex-shrink-0 relative z-10">
-                        <div className={`w-16 h-16 rounded-2xl ${step.color} flex items-center justify-center border border-border group-hover:scale-105 transition-transform`}>
-                          <Icon className={`w-7 h-7 ${step.iconColor}`} />
-                        </div>
-                        <span className="absolute -top-2 -right-2 w-6 h-6 bg-primary text-primary-foreground text-xs font-bold rounded-full flex items-center justify-center">
-                          {index + 1}
-                        </span>
-                      </div>
-
-                      {/* Content */}
-                      <Card className="flex-1 group-hover:shadow-md transition-shadow">
-                        <CardContent className="pt-5 pb-5">
-                          <h3 className="text-lg font-semibold mb-2">{step.title}</h3>
-                          <p className="text-muted-foreground mb-3">{step.description}</p>
-                          <div className="flex items-start gap-2 text-sm text-green-600 dark:text-green-400">
-                            <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                            <span>{step.detail}</span>
-                          </div>
-                        </CardContent>
-                      </Card>
+            <ol className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
+              {buyerSteps.map(({ step, icon: Icon, title, body }) => (
+                <li
+                  key={step}
+                  className="relative rounded-2xl bg-card border border-border p-5 md:p-7 hover:border-primary/30 hover:shadow-soft transition-all"
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <div
+                      className="w-12 h-12 md:w-14 md:h-14 rounded-xl flex items-center justify-center text-white"
+                      style={{ background: "var(--gradient-hero)" }}
+                    >
+                      <Icon className="w-6 h-6 md:w-7 md:h-7" />
                     </div>
-                  );
-                })}
-              </div>
-            </div>
+                    <span className="text-xs md:text-sm font-black tracking-[0.18em] text-muted-foreground">
+                      {step}
+                    </span>
+                  </div>
+                  <h3 className="text-lg md:text-xl font-bold text-foreground leading-tight mb-2">
+                    {title}
+                  </h3>
+                  <p className="text-sm md:text-base text-muted-foreground leading-relaxed">
+                    {body}
+                  </p>
+                </li>
+              ))}
+            </ol>
 
-            <div className="text-center mt-10">
-              <Button variant="hero" size="lg" asChild className="h-12 px-8 font-semibold">
-                <Link to="/marketplace">
-                  Start Browsing Tickets
-                  <ArrowRight className="w-5 h-5" />
-                </Link>
-              </Button>
+            <div className="text-center mt-8 md:mt-10">
+              <Link
+                to="/resale"
+                className="inline-flex items-center justify-center gap-2 px-6 min-h-[48px] rounded-xl font-bold bg-primary text-primary-foreground hover:bg-primary-hover transition-all"
+              >
+                Browse resale listings
+                <ArrowRight className="w-4 h-4" />
+              </Link>
             </div>
           </div>
         </section>
 
-        <Separator />
-
-        {/* Seller Steps */}
-        <section className="py-16 md:py-24 bg-muted/20">
+        {/* ============== SELLER FLOW ============== */}
+        <section className="py-12 md:py-20 bg-muted/30 border-y border-border">
           <div className="container mx-auto px-4 max-w-5xl">
-            <div className="text-center mb-12">
-              <Badge className="mb-4 bg-secondary/10 text-secondary border-secondary/20 hover:bg-secondary/10">
-                <CreditCard className="w-3.5 h-3.5 mr-1" />
-                For Sellers
-              </Badge>
-              <h2 className="text-3xl md:text-4xl font-bold mb-4">
-                Sell a Ticket in 5 Steps
+            <div className="text-center mb-8 md:mb-12">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-[10px] md:text-xs font-bold uppercase tracking-[0.18em] text-primary mb-3">
+                <Upload className="w-3 h-3" />
+                Selling your ticket
+              </div>
+              <h2 className="text-2xl md:text-4xl font-black mb-2 md:mb-3">
+                Sell a ticket in 4 steps
               </h2>
-              <p className="text-muted-foreground text-lg max-w-xl mx-auto">
-                List your ticket in under 2 minutes and get paid directly — with zero risk of non-payment.
+              <p className="text-sm md:text-base text-muted-foreground max-w-xl mx-auto">
+                List in two minutes. The platform handles delivery and payout — you just wait.
               </p>
             </div>
 
-            <div className="relative">
-              <div className="absolute left-8 top-10 bottom-10 w-0.5 bg-border hidden md:block" />
-
-              <div className="space-y-6">
-                {sellerSteps.map((step, index) => {
-                  const Icon = step.icon;
-                  return (
-                    <div key={index} className="flex gap-6 items-start group">
-                      <div className="flex-shrink-0 relative z-10">
-                        <div className={`w-16 h-16 rounded-2xl ${step.color} flex items-center justify-center border border-border group-hover:scale-105 transition-transform`}>
-                          <Icon className={`w-7 h-7 ${step.iconColor}`} />
-                        </div>
-                        <span className="absolute -top-2 -right-2 w-6 h-6 bg-secondary text-secondary-foreground text-xs font-bold rounded-full flex items-center justify-center">
-                          {index + 1}
-                        </span>
-                      </div>
-
-                      <Card className="flex-1 group-hover:shadow-md transition-shadow">
-                        <CardContent className="pt-5 pb-5">
-                          <h3 className="text-lg font-semibold mb-2">{step.title}</h3>
-                          <p className="text-muted-foreground mb-3">{step.description}</p>
-                          <div className="flex items-start gap-2 text-sm text-green-600 dark:text-green-400">
-                            <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                            <span>{step.detail}</span>
-                          </div>
-                        </CardContent>
-                      </Card>
+            <ol className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5">
+              {sellerSteps.map(({ step, icon: Icon, title, body }) => (
+                <li
+                  key={step}
+                  className="relative rounded-2xl bg-card border border-border p-5 md:p-7 hover:border-primary/30 hover:shadow-soft transition-all"
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <div
+                      className="w-12 h-12 md:w-14 md:h-14 rounded-xl flex items-center justify-center text-white"
+                      style={{ background: "linear-gradient(135deg, hsl(220 100% 30%), hsl(210 100% 45%))" }}
+                    >
+                      <Icon className="w-6 h-6 md:w-7 md:h-7" />
                     </div>
-                  );
-                })}
-              </div>
-            </div>
+                    <span className="text-xs md:text-sm font-black tracking-[0.18em] text-muted-foreground">
+                      {step}
+                    </span>
+                  </div>
+                  <h3 className="text-lg md:text-xl font-bold text-foreground leading-tight mb-2">
+                    {title}
+                  </h3>
+                  <p className="text-sm md:text-base text-muted-foreground leading-relaxed">
+                    {body}
+                  </p>
+                </li>
+              ))}
+            </ol>
 
-            <div className="text-center mt-10">
-              <Button variant="marketplace" size="lg" asChild className="h-12 px-8 font-semibold">
-                <Link to="/sell">
-                  List Your Ticket Now
-                  <ArrowRight className="w-5 h-5" />
-                </Link>
-              </Button>
+            <div className="text-center mt-8 md:mt-10">
+              <Link
+                to="/sell"
+                className="inline-flex items-center justify-center gap-2 px-6 min-h-[48px] rounded-xl font-bold bg-primary text-primary-foreground hover:bg-primary-hover transition-all"
+              >
+                List a ticket
+                <ArrowRight className="w-4 h-4" />
+              </Link>
             </div>
           </div>
         </section>
 
-        <Separator />
-
-        {/* Price Breakdown */}
-        <section className="py-16 md:py-24">
-          <div className="container mx-auto px-4 max-w-3xl text-center">
-            <Badge variant="outline" className="mb-6 px-4 py-1.5 text-sm">
-              Transparent Pricing
-            </Badge>
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              Simple, Fair Fees
-            </h2>
-            <p className="text-muted-foreground text-lg mb-12">
-              No hidden costs. No surprises. Just one small fee for a safe transaction.
-            </p>
-
-            <Card className="overflow-hidden">
-              <CardContent className="p-0">
-                {/* Example */}
-                <div className="p-6 bg-muted/30">
-                  <p className="text-sm text-muted-foreground mb-4 font-medium">EXAMPLE: €50 ticket</p>
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-muted-foreground">Ticket price (set by seller)</span>
-                      <span className="font-semibold">€50.00</span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-muted-foreground">Buyer platform fee (+5%)</span>
-                      <span className="font-semibold text-primary">+€2.50</span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-muted-foreground">Seller commission (−5%)</span>
-                      <span className="font-semibold text-destructive">−€2.50</span>
-                    </div>
-                    <Separator />
-                    <div className="flex justify-between items-center">
-                      <span className="font-bold">Buyer pays</span>
-                      <span className="font-bold text-lg">€52.50</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="font-bold text-green-600">Seller receives</span>
-                      <span className="font-bold text-lg text-green-600">€47.50</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Key Points */}
-                <div className="grid md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-border">
-                  <div className="p-6 text-center">
-                    <p className="text-3xl font-bold text-primary mb-1">5%</p>
-                    <p className="text-sm text-muted-foreground">Platform fee (paid by buyer)</p>
-                  </div>
-                  <div className="p-6 text-center">
-                    <p className="text-3xl font-bold text-green-600 mb-1">5%</p>
-                    <p className="text-sm text-muted-foreground">Seller commission</p>
-                  </div>
-                  <div className="p-6 text-center">
-                    <p className="text-3xl font-bold text-blue-500 mb-1">24h</p>
-                    <p className="text-sm text-muted-foreground">Seller payout time</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </section>
-
-        <Separator />
-
-        {/* FAQ */}
-        <section className="py-16 md:py-24 bg-muted/20">
+        {/* ============== FEES ============== */}
+        <section className="py-12 md:py-20">
           <div className="container mx-auto px-4 max-w-3xl">
-            <div className="text-center mb-12">
-              <Badge variant="outline" className="mb-4 px-4 py-1.5 text-sm">
-                <HelpCircle className="w-3.5 h-3.5 mr-1" />
-                FAQ
-              </Badge>
-              <h2 className="text-3xl md:text-4xl font-bold mb-4">
-                Common Questions
+            <div className="text-center mb-8 md:mb-10">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-[10px] md:text-xs font-bold uppercase tracking-[0.18em] text-primary mb-3">
+                <Banknote className="w-3 h-3" />
+                Fees
+              </div>
+              <h2 className="text-2xl md:text-4xl font-black mb-2 md:mb-3">
+                Simple, fair pricing
               </h2>
-              <p className="text-muted-foreground text-lg">
-                Everything you need to know before your first transaction.
+              <p className="text-sm md:text-base text-muted-foreground">
+                Both sides pay 5%. Nothing else, no hidden costs.
               </p>
             </div>
 
-            <div className="space-y-4">
-              {faqs.map((faq, index) => (
-                <Card key={index} className="hover:shadow-md transition-shadow">
-                  <CardContent className="pt-5 pb-5">
-                    <h3 className="font-semibold text-base mb-2 flex items-start gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                      {faq.question}
-                    </h3>
-                    <p className="text-muted-foreground text-sm leading-relaxed pl-6">
-                      {faq.answer}
-                    </p>
-                  </CardContent>
-                </Card>
+            <div className="rounded-2xl border border-border bg-card overflow-hidden">
+              <div className="px-5 md:px-7 py-5 bg-muted/40 border-b border-border">
+                <div className="text-[10px] md:text-xs uppercase tracking-[0.18em] font-bold text-muted-foreground mb-3">
+                  Example · €50 ticket
+                </div>
+                <div className="space-y-2.5 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Ticket price (set by seller)</span>
+                    <span className="font-semibold">€50.00</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Buyer fee (+5%)</span>
+                    <span className="font-semibold text-primary">+€2.50</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Seller commission (−5%)</span>
+                    <span className="font-semibold text-destructive">−€2.50</span>
+                  </div>
+                </div>
+                <div className="mt-4 pt-4 border-t border-border space-y-2 text-sm">
+                  <div className="flex justify-between font-bold">
+                    <span>Buyer pays</span>
+                    <span className="text-base">€52.50</span>
+                  </div>
+                  <div className="flex justify-between font-bold text-primary">
+                    <span>Seller receives</span>
+                    <span className="text-base">€47.50</span>
+                  </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 divide-x divide-border">
+                <div className="p-4 md:p-5 text-center">
+                  <div className="text-xl md:text-2xl font-black text-primary mb-0.5">5%</div>
+                  <div className="text-[10px] md:text-xs text-muted-foreground leading-tight">
+                    Buyer fee
+                  </div>
+                </div>
+                <div className="p-4 md:p-5 text-center">
+                  <div className="text-xl md:text-2xl font-black text-primary mb-0.5">5%</div>
+                  <div className="text-[10px] md:text-xs text-muted-foreground leading-tight">
+                    Seller commission
+                  </div>
+                </div>
+                <div className="p-4 md:p-5 text-center">
+                  <div className="text-xl md:text-2xl font-black text-primary mb-0.5">~24h</div>
+                  <div className="text-[10px] md:text-xs text-muted-foreground leading-tight">
+                    Seller payout
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ============== FAQ ============== */}
+        <section className="py-12 md:py-20 bg-muted/20 border-t border-border">
+          <div className="container mx-auto px-4 max-w-3xl">
+            <div className="text-center mb-8 md:mb-12">
+              <h2 className="text-2xl md:text-4xl font-black mb-2 md:mb-3">
+                Frequently asked
+              </h2>
+              <p className="text-sm md:text-base text-muted-foreground">
+                Quick answers about the resale marketplace.
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              {faqs.map(({ q, a }) => (
+                <details
+                  key={q}
+                  className="group rounded-xl border border-border bg-card overflow-hidden"
+                >
+                  <summary className="cursor-pointer list-none px-5 py-4 flex items-center justify-between gap-3 font-bold text-sm md:text-base text-foreground hover:bg-muted/50 transition-colors">
+                    <span>{q}</span>
+                    <span className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-black flex-shrink-0 group-open:rotate-45 transition-transform">
+                      +
+                    </span>
+                  </summary>
+                  <div className="px-5 pb-4 -mt-1 text-sm text-muted-foreground leading-relaxed">
+                    {a}
+                  </div>
+                </details>
               ))}
             </div>
+          </div>
+        </section>
 
-            <div className="text-center mt-10">
-              <p className="text-muted-foreground mb-4">Still have questions?</p>
-              <Button variant="outline" asChild>
-                <Link to="/contact">
-                  Contact Us
-                  <ArrowRight className="w-4 h-4 ml-2" />
-                </Link>
-              </Button>
+        {/* ============== BRIDGE TO DIRECT TICKETS ============== */}
+        <section className="py-12 md:py-20">
+          <div className="container mx-auto px-4 max-w-3xl">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 rounded-2xl border border-border bg-card px-5 py-4">
+              <div
+                className="w-10 h-10 rounded-lg flex items-center justify-center text-white shrink-0"
+                style={{ background: "var(--gradient-hero)" }}
+              >
+                <Ticket className="w-5 h-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-bold text-sm md:text-base text-foreground leading-tight">
+                  Looking to buy directly from the organizer?
+                </div>
+                <div className="text-xs md:text-sm text-muted-foreground">
+                  See how direct event ticket purchases work.
+                </div>
+              </div>
+              <Link
+                to="/how-it-works/tickets"
+                className="inline-flex items-center justify-center gap-1.5 px-4 min-h-[40px] rounded-lg font-bold text-sm bg-primary text-primary-foreground hover:bg-primary-hover transition-colors"
+              >
+                Buying tickets
+                <ArrowRight className="w-4 h-4" />
+              </Link>
             </div>
           </div>
         </section>
 
-        {/* Final CTA */}
-        <section className="py-16 md:py-24">
-          <div className="container mx-auto px-4 max-w-3xl text-center">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              Ready to Get Started?
-            </h2>
-            <p className="text-muted-foreground text-lg mb-10">
-              Join hundreds of ESCP students already buying and selling safely on TicketSafe.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button variant="hero" size="lg" asChild className="h-12 px-8 font-semibold">
-                <Link to="/auth?mode=signup">
-                  <GraduationCap className="w-5 h-5" />
-                  Create Free Account
-                  <ArrowRight className="w-5 h-5" />
-                </Link>
-              </Button>
-              <Button variant="outline" size="lg" asChild className="h-12 px-8">
-                <Link to="/marketplace">Browse Tickets First</Link>
-              </Button>
+        {/* ============== FINAL CTA ============== */}
+        <section className="pb-16 md:pb-24">
+          <div className="container mx-auto px-4 max-w-5xl">
+            <div
+              className="relative rounded-2xl md:rounded-3xl p-6 md:p-12 overflow-hidden text-white"
+              style={{ background: "var(--gradient-hero)" }}
+            >
+              <div
+                className="pointer-events-none absolute -top-20 -right-20 w-72 h-72 rounded-full opacity-40 blur-3xl"
+                style={{ background: "radial-gradient(circle, hsl(210 100% 65%), transparent 70%)" }}
+              />
+              <div className="relative flex flex-col md:flex-row md:items-center gap-5 md:gap-8">
+                <div className="flex-1">
+                  <h3 className="text-xl md:text-3xl font-black mb-2 md:mb-3 leading-tight">
+                    Ready to buy or sell safely?
+                  </h3>
+                  <p className="text-white/85 text-sm md:text-base max-w-lg leading-relaxed">
+                    Join hundreds of ESCP students already using the resale marketplace.
+                  </p>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2.5">
+                  <Link
+                    to="/auth?mode=signup"
+                    className="inline-flex items-center justify-center gap-2 px-6 min-h-[48px] rounded-xl font-bold bg-white text-primary hover:bg-white/95 transition-all"
+                  >
+                    <GraduationCap className="w-4 h-4" />
+                    Create free account
+                  </Link>
+                  <Link
+                    to="/resale"
+                    className="inline-flex items-center justify-center gap-2 px-6 min-h-[48px] rounded-xl font-bold border border-white/30 text-white hover:bg-white/10 transition-all"
+                  >
+                    Browse first
+                    <ArrowRight className="w-4 h-4" />
+                  </Link>
+                </div>
+              </div>
             </div>
           </div>
         </section>

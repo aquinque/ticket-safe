@@ -33,6 +33,7 @@ import TermsConditions from "./pages/TermsConditions";
 import CookiePolicy from "./pages/CookiePolicy";
 import RefundPolicy from "./pages/RefundPolicy";
 import HowItWorks from "./pages/HowItWorks";
+import HowItWorksTickets from "./pages/HowItWorksTickets";
 import OrganizerScan from "./pages/OrganizerScan";
 import ReviewTickets from "./pages/admin/ReviewTickets";
 import StripeReturn from "./pages/StripeReturn";
@@ -84,6 +85,7 @@ const App = () => (
       <Route path="/cookie-policy" element={<CookiePolicy />} />
       <Route path="/refund-policy" element={<RefundPolicy />} />
       <Route path="/how-it-works" element={<HowItWorks />} />
+      <Route path="/how-it-works/tickets" element={<HowItWorksTickets />} />
       <Route path="/organizer/scan" element={<OrganizerScan />} />
       <Route path="/admin/review" element={<ReviewTickets />} />
       <Route path="/stripe-return" element={<StripeReturn />} />
