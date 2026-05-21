@@ -23,14 +23,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { SEOHead } from "@/components/SEOHead";
 
-type School = {
-  id: string;
-  name: string;
-  shortName: string;
-  city: string;
-  color: string;
-  available: boolean;
-};
+type Campus = "all" | "paris" | "madrid" | "turin" | "berlin" | "london";
 
 type Category = "all" | "gala" | "party" | "conference" | "sports";
 
@@ -41,6 +34,7 @@ type Event = {
   date: string;
   time: string;
   venue: string;
+  campus: Exclude<Campus, "all">;
   category: Exclude<Category, "all">;
   priceFrom: number;
   tiersCount: number;
@@ -50,97 +44,104 @@ type Event = {
   icon: typeof Music;
 };
 
-const schools: School[] = [
-  { id: "ebs", name: "EBS Paris", shortName: "EBS Paris", city: "Paris", color: "hsl(195 85% 35%)", available: true },
-  { id: "hec", name: "HEC Paris", shortName: "HEC", city: "Jouy-en-Josas", color: "hsl(0 80% 45%)", available: false },
-  { id: "sciencespo", name: "Sciences Po", shortName: "Sciences Po", city: "Paris", color: "hsl(280 80% 45%)", available: false },
-  { id: "sorbonne", name: "Sorbonne University", shortName: "Sorbonne", city: "Paris", color: "hsl(35 90% 50%)", available: false },
-  { id: "dauphine", name: "Paris-Dauphine", shortName: "Dauphine", city: "Paris", color: "hsl(180 70% 40%)", available: false },
+const campuses: { id: Campus; label: string; city: string }[] = [
+  { id: "all", label: "All campuses", city: "" },
+  { id: "paris", label: "Paris", city: "France" },
+  { id: "madrid", label: "Madrid", city: "Spain" },
+  { id: "turin", label: "Turin", city: "Italy" },
+  { id: "berlin", label: "Berlin", city: "Germany" },
+  { id: "london", label: "London", city: "United Kingdom" },
 ];
 
-const ebsEvents: Event[] = [
+const escpEvents: Event[] = [
   {
-    id: "ebs-winter-ball-2026",
-    title: "EBS Winter Ball 2026",
-    organizer: "BDE EBS Paris",
-    date: "2026-12-19",
+    id: "escp-paris-winter-gala-2026",
+    title: "ESCP Winter Gala 2026",
+    organizer: "BDE ESCP Paris",
+    date: "2026-12-12",
     time: "20:00",
     venue: "Pavillon d'Armenonville, Paris",
+    campus: "paris",
     category: "gala",
-    priceFrom: 70,
+    priceFrom: 65,
     tiersCount: 3,
-    capacity: 700,
-    sold: 528,
-    gradient: "linear-gradient(135deg, hsl(195 85% 35%), hsl(220 80% 50%))",
+    capacity: 800,
+    sold: 612,
+    gradient: "linear-gradient(135deg, hsl(220 100% 30%), hsl(210 100% 45%))",
     icon: GlassWater,
   },
   {
-    id: "ebs-welcome-week",
-    title: "Welcome Week Rooftop",
-    organizer: "EBS Events",
+    id: "escp-madrid-welcome-party",
+    title: "Madrid Welcome Party",
+    organizer: "ESCP Madrid Events",
     date: "2026-09-12",
     time: "22:00",
-    venue: "Wanderlust, Paris",
+    venue: "Sala Equis, Madrid",
+    campus: "madrid",
     category: "party",
     priceFrom: 16,
     tiersCount: 2,
-    capacity: 550,
-    sold: 498,
-    gradient: "linear-gradient(135deg, hsl(280 90% 55%), hsl(320 90% 60%))",
+    capacity: 500,
+    sold: 452,
+    gradient: "linear-gradient(135deg, hsl(14 90% 50%), hsl(35 100% 55%))",
     icon: Music,
   },
   {
-    id: "ebs-entrepreneurship-summit",
-    title: "EBS Entrepreneurship Summit",
-    organizer: "EBS Startup Society",
-    date: "2026-10-24",
+    id: "escp-berlin-startup-summit",
+    title: "ESCP Berlin Startup Summit",
+    organizer: "ESCP Berlin Entrepreneurs",
+    date: "2026-10-17",
     time: "09:00",
-    venue: "EBS Paris Campus",
+    venue: "Heizhaus, Berlin",
+    campus: "berlin",
     category: "conference",
     priceFrom: 15,
     tiersCount: 2,
     capacity: 350,
     sold: 142,
-    gradient: "linear-gradient(135deg, hsl(0 80% 50%), hsl(20 90% 55%))",
+    gradient: "linear-gradient(135deg, hsl(280 80% 45%), hsl(320 80% 55%))",
     icon: Mic2,
   },
   {
-    id: "ebs-sports-cup",
-    title: "EBS Sports Cup — Final",
-    organizer: "EBS Sports",
+    id: "escp-turin-sports-cup",
+    title: "ESCP Turin Sports Cup",
+    organizer: "ESCP Turin Sports",
     date: "2026-05-30",
-    time: "18:30",
-    venue: "Stade Jean Bouin, Paris",
+    time: "16:30",
+    venue: "Cit Turin Stadium",
+    campus: "turin",
     category: "sports",
     priceFrom: 9,
     tiersCount: 2,
-    capacity: 1000,
+    capacity: 900,
     sold: 312,
     gradient: "linear-gradient(135deg, hsl(140 70% 35%), hsl(180 70% 45%))",
     icon: Trophy,
   },
   {
-    id: "ebs-international-night",
-    title: "EBS International Night",
-    organizer: "EBS Alumni Network",
+    id: "escp-london-alumni-night",
+    title: "London Alumni Night",
+    organizer: "ESCP London Alumni",
     date: "2026-11-14",
     time: "19:30",
-    venue: "Pavillon Cambon Capucines",
+    venue: "The Ned, London",
+    campus: "london",
     category: "gala",
     priceFrom: 85,
     tiersCount: 3,
-    capacity: 300,
+    capacity: 280,
     sold: 96,
     gradient: "linear-gradient(135deg, hsl(220 60% 25%), hsl(240 70% 40%))",
     icon: GraduationCap,
   },
   {
-    id: "ebs-spring-festival",
-    title: "EBS Spring Festival",
-    organizer: "BDE EBS Paris",
+    id: "escp-paris-spring-festival",
+    title: "Spring Festival Paris",
+    organizer: "BDE ESCP Paris",
     date: "2026-04-18",
     time: "21:00",
     venue: "Faust, Paris",
+    campus: "paris",
     category: "party",
     priceFrom: 14,
     tiersCount: 2,
@@ -150,10 +151,6 @@ const ebsEvents: Event[] = [
     icon: Music,
   },
 ];
-
-const eventsBySchool: Record<string, Event[]> = {
-  ebs: ebsEvents,
-};
 
 const categories: { id: Category; label: string }[] = [
   { id: "all", label: "All events" },
@@ -176,15 +173,14 @@ const daysUntil = (iso: string): number => {
 };
 
 const Tickets = () => {
-  const [selectedSchool, setSelectedSchool] = useState<string>("ebs");
+  // Default to "all" so newcomers see everything until they pick a campus.
+  const [selectedCampus, setSelectedCampus] = useState<Campus>("all");
   const [category, setCategory] = useState<Category>("all");
   const [query, setQuery] = useState("");
 
-  const school = useMemo(() => schools.find((s) => s.id === selectedSchool)!, [selectedSchool]);
-  const allEvents = eventsBySchool[selectedSchool] ?? [];
-
   const filteredEvents = useMemo(() => {
-    return allEvents
+    return escpEvents
+      .filter((e) => (selectedCampus === "all" ? true : e.campus === selectedCampus))
       .filter((e) => (category === "all" ? true : e.category === category))
       .filter((e) =>
         query.trim().length === 0
@@ -192,13 +188,15 @@ const Tickets = () => {
           : (e.title + e.organizer + e.venue).toLowerCase().includes(query.toLowerCase()),
       )
       .sort((a, b) => +new Date(a.date) - +new Date(b.date));
-  }, [allEvents, category, query]);
+  }, [selectedCampus, category, query]);
+
+  const selectedCampusMeta = campuses.find((c) => c.id === selectedCampus)!;
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <SEOHead
-        title="EBS Paris events — TicketSafe"
-        description="Buy tickets to EBS Paris events, sold directly by verified student societies."
+        title="ESCP events — Ticket Safe"
+        description="Buy tickets to ESCP events across all campuses — Paris, Madrid, Turin, Berlin, London."
       />
       <Header minimal />
 
@@ -208,7 +206,6 @@ const Tickets = () => {
           className="relative overflow-hidden text-white"
           style={{ background: "var(--gradient-hero)" }}
         >
-          {/* Ambient orbs */}
           <div
             className="pointer-events-none absolute -top-32 -left-32 w-[36rem] h-[36rem] rounded-full opacity-40 blur-3xl"
             style={{ background: "radial-gradient(circle, hsl(210 100% 65%), transparent 70%)" }}
@@ -225,52 +222,64 @@ const Tickets = () => {
                 Beta — Direct from campus
               </div>
               <h1 className="text-4xl md:text-6xl font-black tracking-tight leading-[1.05] mb-5">
-                EBS Paris events,<br />
+                ESCP events,<br />
                 <span className="text-white/90">straight from the organizers.</span>
               </h1>
               <p className="text-base md:text-lg text-white/80 max-w-xl mb-8 leading-relaxed">
-                All EBS Paris events in one place. Tickets sold directly by your campus societies — galas, parties, sports, conferences.
+                All ESCP events in one place — tickets sold directly by your campus societies.
               </p>
 
-              {/* School picker */}
-              <div className="mb-5">
-                <div className="text-xs uppercase tracking-[0.2em] font-bold text-white/70 mb-3">
+              {/* School */}
+              <div className="mb-6">
+                <div className="text-[11px] uppercase tracking-[0.2em] font-bold text-white/70 mb-3">
                   Your school
                 </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl font-semibold text-sm bg-white text-primary shadow-lg cursor-default"
+                    aria-pressed="true"
+                  >
+                    <Check className="w-4 h-4" />
+                    ESCP Business School
+                  </button>
+                  <span className="text-xs text-white/70 italic">
+                    Other schools coming soon
+                  </span>
+                </div>
+              </div>
+
+              {/* Campus picker */}
+              <div className="mb-2">
+                <div className="text-[11px] uppercase tracking-[0.2em] font-bold text-white/70 mb-3">
+                  Campus
+                </div>
                 <div className="flex flex-wrap gap-2">
-                  {schools.map((s) => {
-                    const selected = s.id === selectedSchool;
+                  {campuses.map((c) => {
+                    const selected = c.id === selectedCampus;
                     return (
                       <button
-                        key={s.id}
+                        key={c.id}
                         type="button"
-                        onClick={() => s.available && setSelectedSchool(s.id)}
-                        disabled={!s.available}
-                        className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl font-semibold text-sm transition-all ${
+                        onClick={() => setSelectedCampus(c.id)}
+                        className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-semibold text-sm transition-all ${
                           selected
-                            ? "bg-white text-primary shadow-lg scale-[1.02]"
-                            : s.available
-                            ? "bg-white/10 backdrop-blur hover:bg-white/20 text-white border border-white/20"
-                            : "bg-white/5 text-white/40 cursor-not-allowed border border-white/10"
+                            ? "bg-white text-primary shadow-md scale-[1.02]"
+                            : "bg-white/10 backdrop-blur hover:bg-white/20 text-white border border-white/20"
                         }`}
                       >
-                        {selected && <Check className="w-4 h-4" />}
-                        {s.shortName}
-                        {!s.available && (
-                          <span className="text-[10px] uppercase tracking-wider opacity-80 font-bold ml-1">
-                            Soon
-                          </span>
-                        )}
+                        {selected && <Check className="w-3.5 h-3.5" />}
+                        {c.label}
                       </button>
                     );
                   })}
                 </div>
               </div>
 
-              {/* Big resale CTA — replaces the marketplace/sell-tickets header buttons */}
+              {/* Big resale CTA */}
               <Link
                 to="/resale"
-                className="group relative block w-full max-w-3xl rounded-2xl overflow-hidden bg-white text-foreground p-5 md:p-6 hover:scale-[1.01] hover:shadow-2xl transition-all duration-300"
+                className="group relative mt-7 block w-full max-w-3xl rounded-2xl overflow-hidden bg-white text-foreground p-5 md:p-6 hover:scale-[1.01] hover:shadow-2xl transition-all duration-300"
               >
                 <div
                   className="pointer-events-none absolute -top-16 -right-16 w-56 h-56 rounded-full opacity-30 blur-3xl"
@@ -291,7 +300,7 @@ const Tickets = () => {
                       Buy or resell a ticket
                     </div>
                     <div className="text-xs md:text-sm text-muted-foreground mt-0.5">
-                      Secondhand seats from any campus — every listing verified, payments held in escrow.
+                      Secondhand seats between students — payments held in escrow.
                     </div>
                   </div>
                   <div className="hidden sm:flex items-center gap-2 px-5 py-3 rounded-xl bg-primary text-primary-foreground font-bold text-sm shrink-0 group-hover:gap-3 transition-all">
@@ -312,13 +321,15 @@ const Tickets = () => {
               <div className="flex items-center gap-2 text-sm">
                 <div
                   className="w-7 h-7 rounded-lg flex items-center justify-center text-white font-black text-xs"
-                  style={{ background: school.color }}
+                  style={{ background: "var(--gradient-hero)" }}
                 >
-                  {school.shortName.slice(0, 2).toUpperCase()}
+                  ES
                 </div>
                 <div>
-                  <div className="font-bold text-foreground leading-none">{school.shortName}</div>
-                  <div className="text-xs text-muted-foreground">{school.city}</div>
+                  <div className="font-bold text-foreground leading-none">ESCP</div>
+                  <div className="text-xs text-muted-foreground">
+                    {selectedCampus === "all" ? "All campuses" : selectedCampusMeta.label}
+                  </div>
                 </div>
               </div>
 
@@ -372,33 +383,12 @@ const Tickets = () => {
           </div>
         </section>
 
-        {/* ===================== COMING SCHOOLS ===================== */}
-        <section className="py-12 bg-muted/30 border-y border-border">
-          <div className="container mx-auto px-4">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div>
-                <div className="inline-flex items-center gap-1.5 text-xs uppercase tracking-wider font-bold text-muted-foreground mb-1.5">
-                  <Lock className="w-3 h-3" />
-                  Rolling out soon
-                </div>
-                <h3 className="text-xl md:text-2xl font-bold text-foreground">
-                  More schools joining the beta
-                </h3>
-                <p className="text-sm text-muted-foreground mt-1">
-                  We're onboarding new campuses every month.
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {schools.filter((s) => !s.available).map((s) => (
-                  <span
-                    key={s.id}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-card border border-border text-xs font-semibold text-foreground/70"
-                  >
-                    <span className="w-2 h-2 rounded-full" style={{ background: s.color }} />
-                    {s.shortName}
-                  </span>
-                ))}
-              </div>
+        {/* ===================== COMING SOON ===================== */}
+        <section className="py-10 bg-muted/30 border-y border-border">
+          <div className="container mx-auto px-4 text-center">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-card border border-border text-xs font-semibold text-muted-foreground">
+              <Lock className="w-3 h-3" />
+              More schools coming soon
             </div>
           </div>
         </section>
@@ -423,7 +413,7 @@ const Tickets = () => {
                     Selling tickets for your event?
                   </h3>
                   <p className="text-white/85 text-sm md:text-base max-w-md leading-relaxed">
-                    Apply for TicketSafe Studio — branded event pages, VIP tiers, real-time dashboard. Built for student organizers.
+                    Apply for Ticket Safe Studio — branded event pages, VIP tiers, real-time dashboard. Built for student organizers.
                   </p>
                 </div>
                 <Link
@@ -470,6 +460,9 @@ const EventCard = ({ event }: { event: Event }) => {
         <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
           <span className="px-2.5 py-1 rounded-full bg-black/30 backdrop-blur text-white text-[10px] font-bold uppercase tracking-wider">
             {event.category}
+          </span>
+          <span className="px-2.5 py-1 rounded-full bg-white/20 backdrop-blur text-white text-[10px] font-bold uppercase tracking-wider">
+            {event.campus}
           </span>
           {soldOut ? (
             <span className="px-2.5 py-1 rounded-full bg-red-500 text-white text-[10px] font-bold uppercase tracking-wider">
