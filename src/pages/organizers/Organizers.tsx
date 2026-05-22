@@ -14,10 +14,13 @@ import {
   TrendingUp,
   Lock,
   X as XIcon,
+  LayoutDashboard,
+  Clock,
 } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { SEOHead } from "@/components/SEOHead";
+import { useOrganizer } from "@/hooks/useOrganizer";
 
 const features = [
   {
@@ -68,6 +71,19 @@ const compareRows = [
 ];
 
 const Organizers = () => {
+  const { organizer } = useOrganizer();
+
+  // Smart primary CTA: route based on organizer status.
+  const cta = (() => {
+    if (!organizer) {
+      return { to: "/organizers/apply", label: "Request access", icon: Rocket };
+    }
+    if (organizer.status === "approved") {
+      return { to: "/studio", label: "Open Studio", icon: LayoutDashboard };
+    }
+    return { to: "/studio", label: "Application status", icon: Clock };
+  })();
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <SEOHead
@@ -108,11 +124,11 @@ const Organizers = () => {
 
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3">
                 <Link
-                  to="/organizers/apply"
+                  to={cta.to}
                   className="inline-flex items-center justify-center gap-2 px-6 min-h-[52px] rounded-xl font-bold bg-white text-primary hover:bg-white/95 hover:scale-[1.02] transition-all shadow-lg text-sm md:text-base"
                 >
-                  <Rocket className="w-4 h-4" />
-                  Request access
+                  <cta.icon className="w-4 h-4" />
+                  {cta.label}
                   <ArrowRight className="w-4 h-4" />
                 </Link>
                 <a
@@ -312,11 +328,11 @@ const Organizers = () => {
                 </p>
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                   <Link
-                    to="/organizers/apply"
+                    to={cta.to}
                     className="inline-flex items-center justify-center gap-2 px-6 min-h-[52px] rounded-xl font-bold bg-white text-primary hover:bg-white/95 hover:scale-[1.02] transition-all shadow-lg text-sm md:text-base"
                   >
-                    <Rocket className="w-4 h-4" />
-                    Request access
+                    <cta.icon className="w-4 h-4" />
+                    {cta.label}
                     <ArrowRight className="w-4 h-4" />
                   </Link>
                   <span className="text-xs text-white/70 sm:max-w-xs">

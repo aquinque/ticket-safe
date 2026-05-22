@@ -17,7 +17,28 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { SEOHead } from "@/components/SEOHead";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+
+/** Convert a name to a URL-safe slug (a-z, 0-9, dashes). */
+const slugify = (input: string): string =>
+  input
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40);
+
+/** Map the UI orgType to the DB allowed values. */
+const orgTypeForDb = (uiType: string): string => {
+  switch (uiType) {
+    case "association": return "student-society";
+    case "company": return "other";
+    case "individual": return "other";
+    default: return "other";
+  }
+};
 
 type OrganizerType = "association" | "company" | "individual";
 
@@ -95,20 +116,55 @@ const OrganizerApply = () => {
   const handleBack = () => setStep((s) => Math.max(1, s - 1));
 
   const handleSubmit = async () => {
+    if (!user) {
+      toast.error("Please sign in before submitting your application.");
+      return;
+    }
     setSubmitting(true);
     try {
-      const payload = {
-        ...form,
-        submittedAt: new Date().toISOString(),
-        userId: user?.id ?? null,
-      };
-      const existing = JSON.parse(localStorage.getItem("organizer_applications") ?? "[]");
-      existing.push(payload);
-      localStorage.setItem("organizer_applications", JSON.stringify(existing));
-      await new Promise((r) => setTimeout(r, 700));
+      // Generate a unique slug derived from the org name. If a collision is
+      // detected we append a short suffix.
+      const baseSlug = slugify(form.orgName) || `org-${user.id.slice(0, 6)}`;
+      let candidateSlug = baseSlug;
+      let attempt = 0;
+      while (attempt < 5) {
+        const { data: clash } = await supabase
+          .from("organizer_profiles")
+          .select("id")
+          .eq("slug", candidateSlug)
+          .maybeSingle();
+        if (!clash) break;
+        attempt += 1;
+        candidateSlug = `${baseSlug}-${Math.random().toString(36).slice(2, 5)}`.slice(0, 40);
+      }
+
+      const { error } = await supabase.from("organizer_profiles").insert({
+        user_id: user.id,
+        name: form.orgName.trim(),
+        slug: candidateSlug,
+        org_type: orgTypeForDb(form.orgType),
+        contact_name: form.contactName.trim(),
+        contact_email: form.contactEmail.trim().toLowerCase(),
+        website: form.website.trim() || null,
+        about: form.about.trim() || null,
+        primary_color: form.brandColor || "#003399",
+        status: "pending",
+      });
+
+      if (error) {
+        if (error.code === "23505") {
+          toast.error("You already have an organizer application on file.");
+        } else {
+          console.error("[organizer-apply] insert failed:", error);
+          toast.error(error.message || "Could not submit your application. Please try again.");
+        }
+        return;
+      }
+
       setSubmitted(true);
       toast.success("Application sent!");
     } catch (e) {
+      console.error("[organizer-apply] unexpected:", e);
       toast.error("Something went wrong. Please try again.");
     } finally {
       setSubmitting(false);

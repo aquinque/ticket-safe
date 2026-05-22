@@ -106,6 +106,120 @@ serve(async (req) => {
       // ---------------------------------------------------------------------
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
+
+        // ── Studio primary-sale branch ────────────────────────────────────
+        if (session.metadata?.source === "studio_primary_sale") {
+          const orderId = session.metadata.order_id;
+          const tierId = session.metadata.tier_id;
+          const eventId = session.metadata.event_id;
+          const qty = parseInt(session.metadata.quantity ?? "1", 10) || 1;
+
+          console.log(
+            `[studio_primary_sale] checkout.session.completed session=${session.id} order=${orderId} tier=${tierId} qty=${qty}`,
+          );
+
+          if (session.payment_status === "paid" && orderId && tierId) {
+            const paymentIntentId =
+              typeof session.payment_intent === "string"
+                ? session.payment_intent
+                : (session.payment_intent as Stripe.PaymentIntent)?.id ?? null;
+
+            // 1. Mark order paid
+            await supabase
+              .from("event_orders")
+              .update({
+                status: "paid",
+                paid_at: new Date().toISOString(),
+                stripe_payment_intent_id: paymentIntentId,
+              })
+              .eq("id", orderId)
+              .eq("status", "pending");
+
+            // 2. Finalize tier inventory: reserved → sold
+            await supabase.rpc("finalize_tier_sale", { p_tier_id: tierId, p_qty: qty });
+
+            // 3. Issue per-seat event_tickets rows with random QR token
+            const ticketRows = Array.from({ length: qty }).map(() => ({
+              order_id: orderId,
+              event_id: eventId,
+              tier_id: tierId,
+              buyer_id: session.metadata!.buyer_id ?? session.customer_details?.email ?? null,
+              qr_token: crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, "").slice(0, 8),
+            }));
+            // We need a real buyer_id; fetch from event_orders if not in metadata
+            const { data: ord } = await supabase
+              .from("event_orders")
+              .select("buyer_id, buyer_email, event_id")
+              .eq("id", orderId)
+              .maybeSingle();
+            if (ord) {
+              const finalRows = ticketRows.map((r) => ({
+                ...r,
+                buyer_id: ord.buyer_id,
+                event_id: ord.event_id,
+              }));
+              const { error: tixErr } = await supabase.from("event_tickets").insert(finalRows);
+              if (tixErr) {
+                console.error("[studio_primary_sale] insert event_tickets failed:", tixErr);
+              }
+            }
+
+            // 4. Send confirmation email
+            const resendKey = Deno.env.get("RESEND_API_KEY");
+            if (resendKey && ord?.buyer_email) {
+              const { data: evRow } = await supabase
+                .from("events")
+                .select("title, date, location, slug")
+                .eq("id", ord.event_id)
+                .maybeSingle();
+              const evTitle = evRow?.title ?? "Your event";
+              const evDate = evRow?.date
+                ? new Date(evRow.date).toLocaleString("en-GB", {
+                    weekday: "long",
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })
+                : "—";
+              const total = (session.amount_total ?? 0) / 100;
+              await fetch("https://api.resend.com/emails", {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${resendKey}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  from: "Ticket Safe <noreply@ticket-safe.eu>",
+                  to: [ord.buyer_email],
+                  subject: `Your ticket for ${evTitle} is confirmed`,
+                  html: `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f1f5f9;font-family:-apple-system,sans-serif">
+<div style="max-width:560px;margin:32px auto;background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 6px 24px rgba(15,23,42,.08)">
+<div style="background:linear-gradient(135deg,#003399,#0066cc);padding:28px 32px;color:#fff">
+<div style="font-size:11px;text-transform:uppercase;letter-spacing:.18em;opacity:.8;font-weight:700">Ticket Safe · Order confirmed</div>
+<h1 style="margin:8px 0 0;font-size:24px;font-weight:800">${evTitle}</h1>
+</div>
+<div style="padding:28px 32px;font-size:15px;line-height:1.6;color:#1e293b">
+<p style="margin:0 0 16px">Your purchase is confirmed. ${qty} ticket${qty > 1 ? "s" : ""} will be ready at the door.</p>
+<table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:18px">
+<tr><td style="padding:8px 0;color:#64748b">Event</td><td style="padding:8px 0;color:#1e293b;font-weight:600">${evTitle}</td></tr>
+<tr><td style="padding:8px 0;color:#64748b">Date</td><td style="padding:8px 0">${evDate}</td></tr>
+<tr><td style="padding:8px 0;color:#64748b">Location</td><td style="padding:8px 0">${evRow?.location ?? "—"}</td></tr>
+<tr><td style="padding:8px 0;color:#64748b">Quantity</td><td style="padding:8px 0">${qty}</td></tr>
+<tr><td style="padding:8px 0;color:#64748b">Total paid</td><td style="padding:8px 0;color:#003399;font-weight:700">€${total.toFixed(2)}</td></tr>
+</table>
+<p style="margin:24px 0 8px;text-align:center"><a href="https://ticket-safe.eu/settings/purchases" style="display:inline-block;background:linear-gradient(135deg,#003399,#0066cc);color:#fff;padding:12px 24px;border-radius:10px;text-decoration:none;font-weight:700">View my tickets</a></p>
+<p style="margin:18px 0 0;font-size:12px;color:#64748b">Your QR ticket(s) will be in My Purchases on ticket-safe.eu and at the door. Need help? Reply to this email.</p>
+</div></div></body></html>`,
+                }),
+              });
+            }
+          }
+          break;
+        }
+
+        // ── Resale (existing) branch ──────────────────────────────────────
         const transactionId = session.metadata?.transaction_id;
         const listingId = session.metadata?.listing_id;
 
@@ -253,6 +367,26 @@ serve(async (req) => {
       // ---------------------------------------------------------------------
       case "checkout.session.expired": {
         const session = event.data.object as Stripe.Checkout.Session;
+
+        // Studio primary-sale branch
+        if (session.metadata?.source === "studio_primary_sale") {
+          const orderId = session.metadata.order_id;
+          const tierId = session.metadata.tier_id;
+          const qty = parseInt(session.metadata.quantity ?? "1", 10) || 1;
+          console.log(`[studio_primary_sale] expired order=${orderId} tier=${tierId} qty=${qty}`);
+          if (orderId) {
+            await supabase
+              .from("event_orders")
+              .update({ status: "expired", cancelled_at: new Date().toISOString() })
+              .eq("id", orderId)
+              .eq("status", "pending");
+          }
+          if (tierId) {
+            await supabase.rpc("release_tier_reservation", { p_tier_id: tierId, p_qty: qty });
+          }
+          break;
+        }
+
         const transactionId = session.metadata?.transaction_id;
         const listingId = session.metadata?.listing_id;
 
@@ -283,6 +417,25 @@ serve(async (req) => {
       // ---------------------------------------------------------------------
       case "payment_intent.payment_failed": {
         const pi = event.data.object as Stripe.PaymentIntent;
+
+        if (pi.metadata?.source === "studio_primary_sale") {
+          const orderId = pi.metadata.order_id;
+          const tierId = pi.metadata.tier_id;
+          const qty = parseInt(pi.metadata.quantity ?? "1", 10) || 1;
+          console.log(`[studio_primary_sale] payment_failed order=${orderId}`);
+          if (orderId) {
+            await supabase
+              .from("event_orders")
+              .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
+              .eq("id", orderId)
+              .eq("status", "pending");
+          }
+          if (tierId) {
+            await supabase.rpc("release_tier_reservation", { p_tier_id: tierId, p_qty: qty });
+          }
+          break;
+        }
+
         const transactionId = pi.metadata?.transaction_id;
         const listingId = pi.metadata?.listing_id;
 

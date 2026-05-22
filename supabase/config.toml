@@ -16,3 +16,10 @@ verify_jwt = false
 # signature. JWT verification must be disabled because the hook is unauthenticated.
 [functions.send-auth-email]
 verify_jwt = false
+
+# Studio primary-sale checkout — authenticated buyer creates a Stripe
+# Checkout Session with destination charges to the organizer's Connect account.
+# Internally uses service-role client + getUser(token), so gateway JWT
+# verification is redundant.
+[functions.studio-create-checkout]
+verify_jwt = false
