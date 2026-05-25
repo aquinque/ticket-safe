@@ -12,9 +12,14 @@ import {
   Users,
   TrendingUp,
   AlertCircle,
-  CheckCircle2,
   ExternalLink,
   Save,
+  Image as ImageIcon,
+  Palette,
+  Tag,
+  Type,
+  FileText,
+  Pencil,
 } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -308,6 +313,14 @@ const StudioEventEdit = () => {
             </div>
           </div>
 
+          {/* Editable event details (draft only) */}
+          <EventDetailsEditor
+            event={event}
+            onSaved={(patch) => setEvent({ ...event, ...patch })}
+            disabled={event.status !== "draft"}
+            userId={user?.id ?? ""}
+          />
+
           {/* Sales summary */}
           <div className="grid grid-cols-3 gap-3 md:gap-5 mb-8">
             <Stat icon={Users} label="Tickets sold" value={`${totalSold}/${totalCapacity}`} />
@@ -391,6 +404,331 @@ const StudioEventEdit = () => {
     </div>
   );
 };
+
+const slugify = (input: string): string =>
+  input
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60);
+
+/** Convert an ISO timestamp to a value compatible with <input type="datetime-local">. */
+const toDatetimeLocal = (iso: string | null | undefined): string => {
+  if (!iso) return "";
+  const d = new Date(iso);
+  // Pad each part to 2 digits in the user's local timezone (which is what
+  // datetime-local expects).
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
+const EventDetailsEditor = ({
+  event,
+  onSaved,
+  disabled,
+  userId,
+}: {
+  event: EventRow;
+  onSaved: (patch: Partial<EventRow>) => void;
+  disabled: boolean;
+  userId: string;
+}) => {
+  const [open, setOpen] = useState(!disabled);
+  const [title, setTitle] = useState(event.title);
+  const [description, setDescription] = useState(event.description ?? "");
+  const [date, setDate] = useState(toDatetimeLocal(event.date));
+  const [endsAt, setEndsAt] = useState(toDatetimeLocal(event.ends_at));
+  const [location, setLocation] = useState(event.location ?? "");
+  const [category, setCategory] = useState(event.category ?? "party");
+  const [primaryColor, setPrimaryColor] = useState(event.primary_color ?? "#003399");
+  const [slug, setSlug] = useState(event.slug ?? "");
+  const [bannerFile, setBannerFile] = useState<File | null>(null);
+  const [bannerPreview, setBannerPreview] = useState<string | null>(event.banner_url ?? null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Keep form synced if the parent re-renders with new event data
+  useEffect(() => {
+    setTitle(event.title);
+    setDescription(event.description ?? "");
+    setDate(toDatetimeLocal(event.date));
+    setEndsAt(toDatetimeLocal(event.ends_at));
+    setLocation(event.location ?? "");
+    setCategory(event.category ?? "party");
+    setPrimaryColor(event.primary_color ?? "#003399");
+    setSlug(event.slug ?? "");
+    setBannerPreview(event.banner_url ?? null);
+    setBannerFile(null);
+  }, [event]);
+
+  const onBannerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (f.size > 5 * 1024 * 1024) {
+      toast.error("Banner image must be under 5 MB.");
+      return;
+    }
+    setBannerFile(f);
+    setBannerPreview(URL.createObjectURL(f));
+  };
+
+  const validate = (): string | null => {
+    if (title.trim().length < 3) return "Title must be at least 3 characters.";
+    if (!date) return "Pick a start date and time.";
+    if (endsAt && new Date(endsAt) <= new Date(date)) return "End date must be after the start.";
+    if (slug.length < 3 || !/^[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?$/.test(slug))
+      return "Slug must be 3+ chars, lowercase letters, numbers, dashes.";
+    if (!/^#[0-9A-Fa-f]{6}$/.test(primaryColor)) return "Primary color must be a hex like #003399.";
+    return null;
+  };
+
+  const handleSave = async () => {
+    setError(null);
+    const v = validate();
+    if (v) {
+      setError(v);
+      return;
+    }
+    setSaving(true);
+    try {
+      // Upload a new banner if the user picked one
+      let bannerUrl = event.banner_url;
+      if (bannerFile && userId) {
+        const ext = bannerFile.name.split(".").pop()?.toLowerCase() ?? "jpg";
+        const path = `${userId}/banners/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const { error: upErr } = await supabase.storage
+          .from("organizer-assets")
+          .upload(path, bannerFile, { cacheControl: "3600", upsert: false });
+        if (upErr) throw new Error(`Banner upload failed: ${upErr.message}`);
+        const { data: pub } = supabase.storage.from("organizer-assets").getPublicUrl(path);
+        bannerUrl = pub.publicUrl;
+      }
+
+      // Check slug uniqueness if it changed
+      let finalSlug = slug;
+      if (finalSlug !== event.slug) {
+        const { data: clash } = await supabase
+          .from("events")
+          .select("id")
+          .eq("slug", finalSlug)
+          .neq("id", event.id)
+          .maybeSingle();
+        if (clash) {
+          setError("This public URL is already taken. Try another.");
+          return;
+        }
+      }
+
+      const patch: Partial<EventRow> = {
+        title: title.trim(),
+        description: description.trim() || null,
+        date: new Date(date).toISOString(),
+        ends_at: endsAt ? new Date(endsAt).toISOString() : null,
+        location: location.trim() || null,
+        category,
+        primary_color: primaryColor.toUpperCase(),
+        slug: finalSlug,
+        banner_url: bannerUrl,
+      };
+
+      const { error: updErr } = await supabase
+        .from("events")
+        .update(patch)
+        .eq("id", event.id);
+      if (updErr) throw updErr;
+
+      onSaved(patch);
+      setBannerFile(null);
+      toast.success("Event details saved");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Could not save.";
+      setError(msg);
+      toast.error(msg);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // If the event is published, don't surface the editor at all — most fields
+  // shouldn't move once tickets are on sale. Organizers can still edit tiers below.
+  if (disabled) return null;
+
+  return (
+    <section className="bg-card border border-border rounded-2xl mb-6 overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center justify-between gap-3 px-5 md:px-6 py-4 hover:bg-muted/40 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <Pencil className="w-5 h-5 text-primary" />
+          <h2 className="text-lg font-bold">Edit event details</h2>
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-700">
+            Draft
+          </span>
+        </div>
+        <span className="text-xs text-muted-foreground">{open ? "Hide" : "Show"}</span>
+      </button>
+
+      {open && (
+        <div className="px-5 md:px-6 pb-6 space-y-4 border-t border-border pt-5">
+          <Field label="Event title" icon={Type}>
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="ts-edit"
+              maxLength={120}
+            />
+          </Field>
+
+          <Field label="Short description" icon={FileText} hint="2-3 sentences shown above the buy button.">
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              className="ts-edit min-h-[100px]"
+              maxLength={1000}
+            />
+          </Field>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Field label="Start date & time" icon={Calendar}>
+              <input
+                type="datetime-local"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="ts-edit"
+              />
+            </Field>
+            <Field label="End date & time (optional)" icon={Calendar}>
+              <input
+                type="datetime-local"
+                value={endsAt}
+                onChange={(e) => setEndsAt(e.target.value)}
+                className="ts-edit"
+              />
+            </Field>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Field label="Location" icon={MapPin}>
+              <input
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                className="ts-edit"
+                placeholder="Pavillon d'Armenonville, Paris"
+                maxLength={200}
+              />
+            </Field>
+            <Field label="Category" icon={Tag}>
+              <select value={category} onChange={(e) => setCategory(e.target.value)} className="ts-edit">
+                <option value="party">Party</option>
+                <option value="gala">Gala</option>
+                <option value="conference">Conference</option>
+                <option value="sports">Sports</option>
+                <option value="other">Other</option>
+              </select>
+            </Field>
+          </div>
+
+          <Field label="Primary color" icon={Palette}>
+            <div className="flex items-center gap-3">
+              <input
+                type="color"
+                value={primaryColor}
+                onChange={(e) => setPrimaryColor(e.target.value)}
+                className="w-12 h-12 rounded-lg border border-border cursor-pointer"
+              />
+              <input
+                value={primaryColor}
+                onChange={(e) => setPrimaryColor(e.target.value.toUpperCase())}
+                className="ts-edit flex-1 font-mono uppercase"
+                maxLength={7}
+              />
+            </div>
+          </Field>
+
+          <Field label="Banner image" icon={ImageIcon} hint="16:9 recommended. Max 5 MB.">
+            {bannerPreview ? (
+              <div className="relative rounded-xl overflow-hidden">
+                <img src={bannerPreview} alt="Banner preview" className="w-full aspect-[16/9] object-cover" />
+                <label className="absolute top-2 right-2 inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-black/60 text-white text-xs font-bold cursor-pointer">
+                  <Pencil className="w-3 h-3" />
+                  Replace
+                  <input type="file" accept="image/*" onChange={onBannerChange} className="hidden" />
+                </label>
+              </div>
+            ) : (
+              <label className="flex flex-col items-center justify-center aspect-[16/9] rounded-xl border-2 border-dashed border-border bg-muted/30 cursor-pointer hover:border-primary/50">
+                <ImageIcon className="w-7 h-7 text-muted-foreground mb-1" />
+                <span className="text-sm font-semibold text-muted-foreground">Click to upload banner</span>
+                <input type="file" accept="image/*" onChange={onBannerChange} className="hidden" />
+              </label>
+            )}
+          </Field>
+
+          <Field
+            label="Public URL slug"
+            icon={Tag}
+            hint={`https://ticket-safe.eu/e/${slug || "your-slug"}`}
+          >
+            <input
+              value={slug}
+              onChange={(e) => setSlug(slugify(e.target.value))}
+              className="ts-edit font-mono"
+              maxLength={60}
+            />
+          </Field>
+
+          {error && (
+            <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-sm">
+              <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          <div className="flex items-center justify-end gap-2 pt-1">
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="inline-flex items-center justify-center gap-1.5 px-5 min-h-[44px] rounded-lg font-bold bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-60"
+            >
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              Save changes
+            </button>
+          </div>
+
+          <style>{`
+            .ts-edit { width: 100%; padding: 12px 14px; border: 1px solid hsl(var(--border)); border-radius: 12px; background: hsl(var(--background)); font-size: 16px; line-height: 1.4; color: hsl(var(--foreground)); transition: border-color .15s, box-shadow .15s; }
+            .ts-edit:focus { outline: none; border-color: hsl(var(--primary)); box-shadow: 0 0 0 3px hsl(var(--primary) / 0.15); }
+          `}</style>
+        </div>
+      )}
+    </section>
+  );
+};
+
+const Field = ({
+  label,
+  icon: Icon,
+  hint,
+  children,
+}: {
+  label: string;
+  icon?: typeof Calendar;
+  hint?: string;
+  children: React.ReactNode;
+}) => (
+  <div>
+    <label className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground mb-1.5">
+      {Icon ? <Icon className="w-3.5 h-3.5" /> : null}
+      {label}
+    </label>
+    {children}
+    {hint ? <p className="text-xs text-muted-foreground mt-1.5">{hint}</p> : null}
+  </div>
+);
 
 const Stat = ({ icon: Icon, label, value }: { icon: typeof Calendar; label: string; value: string }) => (
   <div className="bg-card border border-border rounded-xl px-4 py-4">
