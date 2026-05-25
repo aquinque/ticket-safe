@@ -35,12 +35,16 @@ const Auth = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
 
-  // Redirect if already logged in (only after auth is loaded)
+  // Redirect if already logged in. Honour a `next` query param so users who
+  // hit "Sign in" from a specific page bounce back there (open-redirect
+  // safe: must be a local path starting with `/` and not `//`).
   useEffect(() => {
     if (!authLoading && user) {
-      navigate("/profile", { replace: true });
+      const raw = searchParams.get("next");
+      const next = raw && raw.startsWith("/") && !raw.startsWith("//") ? raw : "/profile";
+      navigate(next, { replace: true });
     }
-  }, [user, authLoading, navigate]);
+  }, [user, authLoading, navigate, searchParams]);
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

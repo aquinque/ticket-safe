@@ -45,7 +45,7 @@ const Home = () => {
               Contact
             </Link>
             <Link
-              to="/auth"
+              to="/auth?next=/"
               className="inline-flex items-center justify-center min-h-[40px] px-4 rounded-lg font-semibold text-primary border border-primary/20 hover:bg-primary/5 transition-colors"
             >
               Sign in

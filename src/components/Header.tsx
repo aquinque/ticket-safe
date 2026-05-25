@@ -197,12 +197,15 @@ const Header = ({ minimal = false }: HeaderProps) => {
             ) : (
               <>
                 <Button variant="ghost" className="h-10 px-4 font-semibold" asChild>
-                  <Link to="/auth" className="text-foreground hover:text-primary">
+                  <Link
+                    to={`/auth?next=${encodeURIComponent(location.pathname + location.search)}`}
+                    className="text-foreground hover:text-primary"
+                  >
                     {t('nav.login')}
                   </Link>
                 </Button>
                 <Button variant="hero" className="shadow-glow hover:shadow-glow h-10 px-4" asChild>
-                  <Link to="/auth?mode=signup">
+                  <Link to={`/auth?mode=signup&next=${encodeURIComponent(location.pathname + location.search)}`}>
                     {t('nav.signUp')}
                   </Link>
                 </Button>
@@ -348,10 +351,14 @@ const Header = ({ minimal = false }: HeaderProps) => {
                 ) : (
                   <>
                     <Button variant="outline" className="h-11" asChild onClick={() => setIsMenuOpen(false)}>
-                      <Link to="/auth">{t('nav.login')}</Link>
+                      <Link to={`/auth?next=${encodeURIComponent(location.pathname + location.search)}`}>
+                        {t('nav.login')}
+                      </Link>
                     </Button>
                     <Button variant="hero" className="h-11" asChild onClick={() => setIsMenuOpen(false)}>
-                      <Link to="/auth?mode=signup">{t('nav.signUp')}</Link>
+                      <Link to={`/auth?mode=signup&next=${encodeURIComponent(location.pathname + location.search)}`}>
+                        {t('nav.signUp')}
+                      </Link>
                     </Button>
                   </>
                 )}
