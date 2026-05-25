@@ -111,7 +111,7 @@ serve(async (req) => {
   if (userErr || !user) return json({ error: "Unauthorized" }, 401);
 
   // Body
-  let body: { kind?: string; organizer_id?: string; reason?: string };
+  let body: { kind?: string; organizer_id?: string; reason?: string; event_id?: string };
   try {
     body = await req.json();
   } catch {
@@ -120,20 +120,27 @@ serve(async (req) => {
   const kind = body.kind;
   const orgId = body.organizer_id;
   if (!orgId || !/^[0-9a-f-]{36}$/i.test(orgId)) return json({ error: "Invalid organizer_id" }, 400);
-  if (kind !== "new_application" && kind !== "approved" && kind !== "rejected") {
+  if (
+    kind !== "new_application" &&
+    kind !== "approved" &&
+    kind !== "rejected" &&
+    kind !== "event_published"
+  ) {
     return json({ error: "Invalid kind" }, 400);
   }
 
-  // Fetch organizer
+  // Fetch organizer (including new application-meta columns)
   const { data: org, error: orgErr } = await supabase
     .from("organizer_profiles")
-    .select("id, user_id, name, slug, org_type, contact_name, contact_email, website, about, status, rejection_reason, created_at")
+    .select(
+      "id, user_id, name, slug, org_type, contact_name, contact_email, website, about, primary_color, first_event_name, first_event_date, expected_attendees, status, rejection_reason, created_at",
+    )
     .eq("id", orgId)
     .maybeSingle();
   if (orgErr || !org) return json({ error: "Organizer not found" }, 404);
 
   // Authorization per kind
-  if (kind === "new_application") {
+  if (kind === "new_application" || kind === "event_published") {
     if (org.user_id !== user.id) return json({ error: "Forbidden" }, 403);
   } else {
     // approved | rejected → must be admin
@@ -150,25 +157,86 @@ serve(async (req) => {
   try {
     if (kind === "new_application") {
       const subject = `New Studio application: ${org.name}`;
+      const fmtDate = (iso: string | null) =>
+        iso ? new Date(iso).toLocaleString("en-GB", { dateStyle: "long", timeStyle: "short" }) : "—";
       const html = shell(
         "Studio · New application",
         `New application from ${esc(org.name)}`,
         `
-          <p style="margin:0 0 14px">A new organizer just applied to Ticket Safe Studio. Review and approve in the admin queue.</p>
-          <table style="width:100%;border-collapse:collapse;font-size:14px;margin:18px 0">
-            <tr><td style="padding:6px 0;color:#64748b;width:40%">Organization</td><td style="padding:6px 0;font-weight:600">${esc(org.name)}</td></tr>
+          <p style="margin:0 0 14px">A new organizer just applied to Ticket Safe Studio. Every field they submitted is below — review and decide in the admin queue.</p>
+
+          <div style="margin:18px 0 8px;font-weight:700;font-size:13px;color:#475569;text-transform:uppercase;letter-spacing:0.08em">Organization</div>
+          <table style="width:100%;border-collapse:collapse;font-size:14px;margin:0 0 18px">
+            <tr><td style="padding:6px 0;color:#64748b;width:42%">Name</td><td style="padding:6px 0;font-weight:600">${esc(org.name)}</td></tr>
             <tr><td style="padding:6px 0;color:#64748b">Type</td><td style="padding:6px 0">${esc(org.org_type)}</td></tr>
-            <tr><td style="padding:6px 0;color:#64748b">Slug</td><td style="padding:6px 0"><code>${esc(org.slug)}</code></td></tr>
-            <tr><td style="padding:6px 0;color:#64748b">Contact</td><td style="padding:6px 0">${esc(org.contact_name)} — <a href="mailto:${esc(org.contact_email)}" style="color:#003399">${esc(org.contact_email)}</a></td></tr>
-            ${org.website ? `<tr><td style="padding:6px 0;color:#64748b">Website</td><td style="padding:6px 0"><a href="${esc(org.website)}" style="color:#003399">${esc(org.website)}</a></td></tr>` : ""}
+            <tr><td style="padding:6px 0;color:#64748b">Public slug</td><td style="padding:6px 0"><code>${esc(org.slug)}</code></td></tr>
+            <tr><td style="padding:6px 0;color:#64748b">Website</td><td style="padding:6px 0">${org.website ? `<a href="${esc(org.website)}" style="color:#003399">${esc(org.website)}</a>` : "—"}</td></tr>
+            <tr><td style="padding:6px 0;color:#64748b">Brand color</td><td style="padding:6px 0"><span style="display:inline-block;width:12px;height:12px;background:${esc(org.primary_color)};border-radius:3px;vertical-align:middle;margin-right:6px"></span><code>${esc(org.primary_color)}</code></td></tr>
           </table>
-          ${org.about ? `<p style="margin:16px 0 0;padding:14px 16px;background:#f5f7fb;border-radius:10px;color:#475569;font-size:13px;line-height:1.5">${esc(org.about)}</p>` : ""}
-          <p style="margin:24px 0 8px;text-align:center">${ctaButton("Open admin queue", `${SITE_URL}/admin/organizers`)}</p>
+
+          <div style="margin:18px 0 8px;font-weight:700;font-size:13px;color:#475569;text-transform:uppercase;letter-spacing:0.08em">Contact</div>
+          <table style="width:100%;border-collapse:collapse;font-size:14px;margin:0 0 18px">
+            <tr><td style="padding:6px 0;color:#64748b;width:42%">Name</td><td style="padding:6px 0;font-weight:600">${esc(org.contact_name)}</td></tr>
+            <tr><td style="padding:6px 0;color:#64748b">Email</td><td style="padding:6px 0"><a href="mailto:${esc(org.contact_email)}" style="color:#003399">${esc(org.contact_email)}</a></td></tr>
+          </table>
+
+          ${
+            org.first_event_name || org.first_event_date || org.expected_attendees
+              ? `<div style="margin:18px 0 8px;font-weight:700;font-size:13px;color:#475569;text-transform:uppercase;letter-spacing:0.08em">First planned event</div>
+                 <table style="width:100%;border-collapse:collapse;font-size:14px;margin:0 0 18px">
+                   <tr><td style="padding:6px 0;color:#64748b;width:42%">Event name</td><td style="padding:6px 0;font-weight:600">${esc(org.first_event_name ?? "—")}</td></tr>
+                   <tr><td style="padding:6px 0;color:#64748b">Date</td><td style="padding:6px 0">${esc(fmtDate(org.first_event_date))}</td></tr>
+                   <tr><td style="padding:6px 0;color:#64748b">Expected attendees</td><td style="padding:6px 0">${org.expected_attendees ? esc(String(org.expected_attendees)) : "—"}</td></tr>
+                 </table>`
+              : ""
+          }
+
+          ${org.about ? `<div style="margin:18px 0 8px;font-weight:700;font-size:13px;color:#475569;text-transform:uppercase;letter-spacing:0.08em">About / pitch</div><p style="margin:0 0 18px;padding:14px 16px;background:#f5f7fb;border-radius:10px;color:#475569;font-size:13px;line-height:1.55;white-space:pre-line">${esc(org.about)}</p>` : ""}
+
+          <p style="margin:8px 0 8px;font-size:12px;color:#64748b">Submitted ${esc(fmtDate(org.created_at))}</p>
+
+          <p style="margin:24px 0 8px;text-align:center">${ctaButton("Review in admin queue", `${SITE_URL}/admin/organizers`)}</p>
         `,
       );
       const r = await sendEmail(resendKey, ADMIN_EMAIL, subject, html, org.contact_email);
       if (!r.ok) console.error("[organizer-notify] admin send failed:", r.status, r.body);
       return json({ ok: r.ok, kind, to: ADMIN_EMAIL });
+    }
+
+    if (kind === "event_published") {
+      const eventId = body.event_id;
+      if (!eventId || !/^[0-9a-f-]{36}$/i.test(eventId)) return json({ error: "Invalid event_id" }, 400);
+      const { data: ev } = await supabase
+        .from("events")
+        .select("id, title, slug, date, location, organizer_id")
+        .eq("id", eventId)
+        .maybeSingle();
+      if (!ev || ev.organizer_id !== org.id) return json({ error: "Event not found" }, 404);
+
+      const subject = `${ev.title} is live on Ticket Safe`;
+      const eventDate = ev.date
+        ? new Date(ev.date).toLocaleString("en-GB", { dateStyle: "long", timeStyle: "short" })
+        : "—";
+      const publicUrl = ev.slug ? `${SITE_URL}/e/${ev.slug}` : `${SITE_URL}/studio`;
+      const html = shell(
+        "Studio · Event live",
+        "Your event is live",
+        `
+          <p style="margin:0 0 14px">Hi ${esc(org.contact_name.split(" ")[0])},</p>
+          <p style="margin:0 0 14px"><strong>${esc(ev.title)}</strong> is now live on Ticket Safe. Share your branded page with your community to start selling.</p>
+          <table style="width:100%;border-collapse:collapse;font-size:14px;margin:18px 0">
+            <tr><td style="padding:6px 0;color:#64748b;width:42%">Event</td><td style="padding:6px 0;font-weight:600">${esc(ev.title)}</td></tr>
+            <tr><td style="padding:6px 0;color:#64748b">Date</td><td style="padding:6px 0">${esc(eventDate)}</td></tr>
+            ${ev.location ? `<tr><td style="padding:6px 0;color:#64748b">Location</td><td style="padding:6px 0">${esc(ev.location)}</td></tr>` : ""}
+            <tr><td style="padding:6px 0;color:#64748b">Public page</td><td style="padding:6px 0"><a href="${esc(publicUrl)}" style="color:#003399;word-break:break-all">${esc(publicUrl)}</a></td></tr>
+          </table>
+          <p style="margin:24px 0 8px;text-align:center">${ctaButton("Share my event", publicUrl)}</p>
+          <p style="margin:18px 0 0;font-size:13px;color:#64748b">Sales appear in your dashboard in real time. Need help promoting? Just reply to this email.</p>
+        `,
+      );
+      const r = await sendEmail(resendKey, org.contact_email, subject, html);
+      if (!r.ok) console.error("[organizer-notify] publish send failed:", r.status, r.body);
+      return json({ ok: r.ok, kind, to: org.contact_email });
     }
 
     if (kind === "approved") {

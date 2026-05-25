@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Calendar,
@@ -93,14 +93,14 @@ const StudioDashboard = () => {
     }
   };
 
-  useEffect(() => {
-    if (!organizer) {
-      setLoadingEvents(false);
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      setLoadingEvents(true);
+  const loadEvents = useCallback(
+    async (showSpinner = false) => {
+      if (!organizer) {
+        setLoadingEvents(false);
+        return;
+      }
+      if (showSpinner) setLoadingEvents(true);
+
       const { data: evRows } = await supabase
         .from("events")
         .select("id, title, date, location, status, slug, banner_url, primary_color")
@@ -114,17 +114,19 @@ const StudioDashboard = () => {
           .from("event_tiers")
           .select("event_id, sold_qty, total_qty, price_cents")
           .in("event_id", ids);
-        tierAgg = (tiers ?? []).reduce((acc, t: { event_id: string; sold_qty: number; total_qty: number; price_cents: number }) => {
-          const cur = acc[t.event_id] ?? { sold: 0, total: 0, revenue: 0 };
-          cur.sold += t.sold_qty;
-          cur.total += t.total_qty;
-          cur.revenue += t.sold_qty * t.price_cents;
-          acc[t.event_id] = cur;
-          return acc;
-        }, {} as Record<string, { sold: number; total: number; revenue: number }>);
+        tierAgg = (tiers ?? []).reduce(
+          (acc, t: { event_id: string; sold_qty: number; total_qty: number; price_cents: number }) => {
+            const cur = acc[t.event_id] ?? { sold: 0, total: 0, revenue: 0 };
+            cur.sold += t.sold_qty;
+            cur.total += t.total_qty;
+            cur.revenue += t.sold_qty * t.price_cents;
+            acc[t.event_id] = cur;
+            return acc;
+          },
+          {} as Record<string, { sold: number; total: number; revenue: number }>,
+        );
       }
 
-      if (cancelled) return;
       setEvents(
         (evRows ?? []).map((e) => ({
           ...(e as Omit<StudioEvent, "sold_count" | "total_capacity" | "revenue_cents">),
@@ -134,11 +136,49 @@ const StudioDashboard = () => {
         })),
       );
       setLoadingEvents(false);
-    })();
+    },
+    [organizer],
+  );
+
+  // Initial load (with spinner)
+  useEffect(() => {
+    loadEvents(true);
+  }, [loadEvents]);
+
+  // Realtime: re-fetch dashboard data on any change to this organizer's
+  // events, their tier inventory, or any order tied to them. Cheap because
+  // we only re-aggregate on push, not on a poll.
+  useEffect(() => {
+    if (!organizer) return;
+    const channel = supabase
+      .channel(`studio-dashboard-${organizer.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "events", filter: `organizer_id=eq.${organizer.id}` },
+        () => loadEvents(false),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "event_orders", filter: `organizer_id=eq.${organizer.id}` },
+        () => loadEvents(false),
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "event_tiers" },
+        // event_tiers does not carry organizer_id directly. Filter on the
+        // client side by checking the payload's event_id against our known
+        // event ids before re-fetching.
+        (payload: { new: { event_id?: string } }) => {
+          const evId = payload.new?.event_id;
+          if (!evId) return;
+          if (events.some((e) => e.id === evId)) loadEvents(false);
+        },
+      )
+      .subscribe();
     return () => {
-      cancelled = true;
+      supabase.removeChannel(channel);
     };
-  }, [organizer]);
+  }, [organizer, loadEvents, events]);
 
   if (authLoading || orgLoading) {
     return (

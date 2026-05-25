@@ -159,6 +159,14 @@ const StudioEventEdit = () => {
       return;
     }
     await updateEventField({ status: "published", published_at: new Date().toISOString() });
+    // Notify the organizer by email that their event is live (best-effort).
+    if (organizer) {
+      supabase.functions
+        .invoke("organizer-notify", {
+          body: { kind: "event_published", organizer_id: organizer.id, event_id: event.id },
+        })
+        .catch((err) => console.warn("[studio-event-edit] publish notify failed:", err));
+    }
   };
 
   const unpublish = () => updateEventField({ status: "draft" });

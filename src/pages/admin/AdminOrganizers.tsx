@@ -8,6 +8,13 @@ import {
   ExternalLink,
   Building2,
   AlertCircle,
+  Calendar,
+  Users,
+  Palette,
+  Tag,
+  Globe,
+  User,
+  Clock,
 } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -27,6 +34,9 @@ interface OrgApp {
   website: string | null;
   about: string | null;
   primary_color: string;
+  first_event_name: string | null;
+  first_event_date: string | null;
+  expected_attendees: number | null;
   status: "pending" | "approved" | "rejected" | "suspended";
   rejection_reason: string | null;
   created_at: string;
@@ -178,76 +188,15 @@ const AdminOrganizers = () => {
               <p className="text-sm text-muted-foreground">No applications in this state.</p>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-4">
               {apps.map((a) => (
-                <div key={a.id} className="bg-card border border-border rounded-2xl p-5">
-                  <div className="flex flex-col md:flex-row md:items-start gap-4">
-                    <div
-                      className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-black shrink-0"
-                      style={{ background: a.primary_color || "#003399" }}
-                    >
-                      {a.name[0]?.toUpperCase() ?? "?"}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap mb-1">
-                        <h3 className="font-bold text-lg">{a.name}</h3>
-                        <StatusPill status={a.status} />
-                      </div>
-                      <div className="text-xs text-muted-foreground mb-2">
-                        Slug: <code className="font-mono">{a.slug}</code> · Type: {a.org_type}
-                      </div>
-                      <div className="text-sm space-y-1">
-                        <div className="flex items-center gap-1.5 text-foreground/90">
-                          <Mail className="w-3.5 h-3.5 text-muted-foreground" />
-                          {a.contact_name} — <a href={`mailto:${a.contact_email}`} className="text-primary hover:underline">{a.contact_email}</a>
-                        </div>
-                        {a.website && (
-                          <div className="flex items-center gap-1.5 text-foreground/80">
-                            <ExternalLink className="w-3.5 h-3.5 text-muted-foreground" />
-                            <a href={a.website} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate">
-                              {a.website}
-                            </a>
-                          </div>
-                        )}
-                      </div>
-                      {a.about && (
-                        <p className="text-sm text-muted-foreground mt-3 line-clamp-3">{a.about}</p>
-                      )}
-                      {a.rejection_reason && (
-                        <p className="text-xs text-destructive mt-2">
-                          Rejected: {a.rejection_reason}
-                        </p>
-                      )}
-                      <p className="text-[11px] text-muted-foreground mt-2">
-                        Submitted {new Date(a.created_at).toLocaleString("en-GB")}
-                      </p>
-                    </div>
-                    {a.status === "pending" && (
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => approve(a.id)}
-                          disabled={acting === a.id}
-                          className="inline-flex items-center gap-1.5 px-4 min-h-[40px] rounded-lg font-bold text-sm bg-green-600 text-white hover:bg-green-700 disabled:opacity-60"
-                        >
-                          {acting === a.id ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          ) : (
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                          )}
-                          Approve
-                        </button>
-                        <button
-                          onClick={() => reject(a.id)}
-                          disabled={acting === a.id}
-                          className="inline-flex items-center gap-1.5 px-4 min-h-[40px] rounded-lg font-bold text-sm border border-destructive text-destructive hover:bg-destructive/10 disabled:opacity-60"
-                        >
-                          <XCircle className="w-3.5 h-3.5" />
-                          Reject
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
+                <ApplicationCard
+                  key={a.id}
+                  app={a}
+                  acting={acting === a.id}
+                  onApprove={() => approve(a.id)}
+                  onReject={() => reject(a.id)}
+                />
               ))}
             </div>
           )}
@@ -259,15 +208,178 @@ const AdminOrganizers = () => {
   );
 };
 
+const ApplicationCard = ({
+  app,
+  acting,
+  onApprove,
+  onReject,
+}: {
+  app: OrgApp;
+  acting: boolean;
+  onApprove: () => void;
+  onReject: () => void;
+}) => {
+  const fmt = (iso: string | null) =>
+    iso ? new Date(iso).toLocaleString("en-GB", { dateStyle: "long", timeStyle: "short" }) : "—";
+
+  const orgTypeLabel = (t: string) => {
+    switch (t) {
+      case "bde": return "BDE / Student union";
+      case "sports": return "Sports club";
+      case "alumni": return "Alumni association";
+      case "conference": return "Conference / Academic";
+      case "student-society": return "Student society";
+      default: return "Other";
+    }
+  };
+
+  return (
+    <article className="bg-card border border-border rounded-2xl overflow-hidden">
+      {/* Header strip in organizer brand color */}
+      <div
+        className="px-5 py-4 flex items-center justify-between gap-3 text-white"
+        style={{ background: `linear-gradient(135deg, ${app.primary_color || "#003399"}, hsl(210 100% 45%))` }}
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-11 h-11 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center font-black text-lg shrink-0">
+            {app.name[0]?.toUpperCase() ?? "?"}
+          </div>
+          <div className="min-w-0">
+            <div className="font-bold text-base md:text-lg leading-tight truncate">{app.name}</div>
+            <div className="text-[11px] uppercase tracking-[0.16em] font-bold opacity-80 mt-0.5">
+              {orgTypeLabel(app.org_type)}
+            </div>
+          </div>
+        </div>
+        <StatusPill status={app.status} />
+      </div>
+
+      {/* Body */}
+      <div className="p-5 md:p-6">
+        {/* Two-column key info grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 mb-5">
+          <FieldRow icon={User} label="Contact name" value={app.contact_name} />
+          <FieldRow
+            icon={Mail}
+            label="Contact email"
+            value={
+              <a href={`mailto:${app.contact_email}`} className="text-primary hover:underline break-all">
+                {app.contact_email}
+              </a>
+            }
+          />
+          <FieldRow icon={Tag} label="Public slug" value={<code className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">{app.slug}</code>} />
+          <FieldRow
+            icon={Globe}
+            label="Website"
+            value={
+              app.website ? (
+                <a href={app.website} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline break-all">
+                  {app.website}
+                </a>
+              ) : (
+                <span className="text-muted-foreground">—</span>
+              )
+            }
+          />
+          <FieldRow icon={Palette} label="Brand color" value={
+            <span className="inline-flex items-center gap-2">
+              <span
+                className="w-4 h-4 rounded border border-border"
+                style={{ background: app.primary_color }}
+              />
+              <code className="font-mono text-xs">{app.primary_color}</code>
+            </span>
+          } />
+          <FieldRow icon={Clock} label="Submitted" value={fmt(app.created_at)} />
+        </div>
+
+        {/* First event block — only if any info was provided */}
+        {(app.first_event_name || app.first_event_date || app.expected_attendees) && (
+          <div className="rounded-xl bg-muted/40 border border-border px-4 py-4 mb-5">
+            <div className="text-[10px] uppercase tracking-[0.18em] font-bold text-muted-foreground mb-3">
+              First planned event
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <FieldRow icon={Calendar} label="Event name" value={app.first_event_name || "—"} compact />
+              <FieldRow icon={Calendar} label="Date" value={app.first_event_date ? fmt(app.first_event_date) : "—"} compact />
+              <FieldRow icon={Users} label="Expected attendees" value={app.expected_attendees ? app.expected_attendees.toLocaleString("en-GB") : "—"} compact />
+            </div>
+          </div>
+        )}
+
+        {/* About / pitch */}
+        {app.about && (
+          <div className="mb-5">
+            <div className="text-[10px] uppercase tracking-[0.18em] font-bold text-muted-foreground mb-2">
+              About / pitch
+            </div>
+            <p className="text-sm text-foreground/90 whitespace-pre-line leading-relaxed">{app.about}</p>
+          </div>
+        )}
+
+        {/* Rejection reason — shown only on rejected status */}
+        {app.status === "rejected" && app.rejection_reason && (
+          <div className="rounded-xl bg-destructive/10 border border-destructive/30 px-4 py-3 mb-4 text-sm text-destructive">
+            <strong>Rejection reason:</strong> {app.rejection_reason}
+          </div>
+        )}
+
+        {/* Actions */}
+        {app.status === "pending" && (
+          <div className="flex flex-col sm:flex-row gap-2 pt-2 border-t border-border">
+            <button
+              onClick={onApprove}
+              disabled={acting}
+              className="flex-1 inline-flex items-center justify-center gap-1.5 px-4 min-h-[44px] rounded-lg font-bold text-sm bg-green-600 text-white hover:bg-green-700 disabled:opacity-60"
+            >
+              {acting ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+              Approve application
+            </button>
+            <button
+              onClick={onReject}
+              disabled={acting}
+              className="inline-flex items-center justify-center gap-1.5 px-4 min-h-[44px] rounded-lg font-bold text-sm border border-destructive text-destructive hover:bg-destructive/10 disabled:opacity-60"
+            >
+              <XCircle className="w-4 h-4" />
+              Reject
+            </button>
+          </div>
+        )}
+      </div>
+    </article>
+  );
+};
+
+const FieldRow = ({
+  icon: Icon,
+  label,
+  value,
+  compact,
+}: {
+  icon: typeof Mail;
+  label: string;
+  value: React.ReactNode;
+  compact?: boolean;
+}) => (
+  <div className={compact ? "" : ""}>
+    <div className="text-[10px] uppercase tracking-[0.16em] font-bold text-muted-foreground mb-1 inline-flex items-center gap-1">
+      <Icon className="w-3 h-3" />
+      {label}
+    </div>
+    <div className="text-sm text-foreground/90 break-words">{value}</div>
+  </div>
+);
+
 const StatusPill = ({ status }: { status: string }) => {
   const map: Record<string, string> = {
-    pending: "bg-amber-100 text-amber-700",
-    approved: "bg-green-100 text-green-700",
-    rejected: "bg-red-100 text-red-700",
-    suspended: "bg-muted text-muted-foreground",
+    pending: "bg-amber-200/30 text-amber-50 border-amber-200/40",
+    approved: "bg-green-200/30 text-green-50 border-green-200/40",
+    rejected: "bg-red-200/30 text-red-50 border-red-200/40",
+    suspended: "bg-white/15 text-white/80 border-white/30",
   };
   return (
-    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${map[status] ?? "bg-muted text-muted-foreground"}`}>
+    <span className={`shrink-0 inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border backdrop-blur ${map[status] ?? "bg-white/15 text-white/80 border-white/30"}`}>
       {status}
     </span>
   );

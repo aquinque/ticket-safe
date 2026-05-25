@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Menu, X, User, LogOut, Settings, MessageSquare } from "lucide-react";
+import { Menu, X, User, LogOut, Settings, MessageSquare, Sparkles } from "lucide-react";
 import Logo from "@/components/Logo";
 import { useAuth } from "@/hooks/useAuth";
 import { useI18n } from "@/contexts/I18nContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useUnreadMessages } from "@/hooks/useUnreadMessages";
+import { useOrganizer } from "@/hooks/useOrganizer";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,6 +31,8 @@ const Header = ({ minimal = false }: HeaderProps) => {
   const { t } = useI18n();
   const navigate = useNavigate();
   const { unreadCount, markAllRead } = useUnreadMessages();
+  const { organizer } = useOrganizer();
+  const isStudioOrganizer = !!user && organizer?.status === "approved";
 
   useEffect(() => {
     if (location.pathname.startsWith("/messages")) markAllRead();
@@ -150,6 +153,18 @@ const Header = ({ minimal = false }: HeaderProps) => {
 
           {/* Desktop CTA */}
           <div className="hidden md:flex items-center gap-3">
+            {isStudioOrganizer && (
+              <Link
+                to="/studio"
+                className={`inline-flex items-center gap-2 px-4 h-10 rounded-lg font-bold text-sm text-white shadow-md hover:shadow-lg transition-all whitespace-nowrap ${
+                  location.pathname.startsWith("/studio") ? "ring-2 ring-offset-2 ring-primary/30" : ""
+                }`}
+                style={{ background: "linear-gradient(135deg, #003399, #0066cc)" }}
+              >
+                <Sparkles className="w-4 h-4" />
+                Ticket Safe Studio
+              </Link>
+            )}
             {user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -210,6 +225,20 @@ const Header = ({ minimal = false }: HeaderProps) => {
         {isMenuOpen && (
           <div className="md:hidden border-t border-border bg-background/95 backdrop-blur-md">
             <nav className="flex flex-col gap-2.5 p-4">
+              {isStudioOrganizer && (
+                <div className="mb-2 pb-3 border-b border-border">
+                  <Link
+                    to="/studio"
+                    onClick={() => setIsMenuOpen(false)}
+                    className="flex items-center justify-center gap-2 w-full h-12 rounded-lg font-bold text-base text-white shadow-md"
+                    style={{ background: "linear-gradient(135deg, #003399, #0066cc)" }}
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    Ticket Safe Studio
+                  </Link>
+                </div>
+              )}
+
               {/* PRIMARY CTAs - Marketplace & Sell Ticket */}
               {!minimal && (
                 <div className="flex flex-col gap-2.5 mb-2 pb-3 border-b border-border">

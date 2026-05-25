@@ -138,6 +138,16 @@ const OrganizerApply = () => {
         candidateSlug = `${baseSlug}-${Math.random().toString(36).slice(2, 5)}`.slice(0, 40);
       }
 
+      // Coerce attendee count to a positive integer or null.
+      const attendees = (() => {
+        const n = parseInt(form.expectedAttendees, 10);
+        if (!Number.isFinite(n) || n <= 0) return null;
+        return Math.min(100000, n);
+      })();
+      const firstEventDateISO = form.firstEventDate
+        ? new Date(form.firstEventDate).toISOString()
+        : null;
+
       const { data: inserted, error } = await supabase
         .from("organizer_profiles")
         .insert({
@@ -150,6 +160,9 @@ const OrganizerApply = () => {
           website: form.website.trim() || null,
           about: form.about.trim() || null,
           primary_color: form.brandColor || "#003399",
+          first_event_name: form.firstEventName.trim() || null,
+          first_event_date: firstEventDateISO,
+          expected_attendees: attendees,
           status: "pending",
         })
         .select("id")
