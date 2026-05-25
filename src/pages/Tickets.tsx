@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import {
   Search,
@@ -21,10 +21,14 @@ import {
   MousePointerClick,
   CreditCard,
   QrCode,
+  Loader2,
+  PartyPopper,
 } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { SEOHead } from "@/components/SEOHead";
+import { supabase } from "@/integrations/supabase/client";
+import { detectCampus } from "@/lib/campus";
 
 type Campus = "all" | "paris" | "madrid" | "turin" | "berlin" | "london";
 
@@ -32,6 +36,7 @@ type Category = "all" | "gala" | "party" | "conference" | "sports";
 
 type Event = {
   id: string;
+  slug: string;
   title: string;
   organizer: string;
   date: string;
@@ -45,6 +50,23 @@ type Event = {
   sold: number;
   gradient: string;
   icon: typeof Music;
+  bannerUrl: string | null;
+};
+
+const ICON_BY_CATEGORY: Record<string, typeof Music> = {
+  party: Music,
+  gala: GlassWater,
+  conference: Mic2,
+  sports: Trophy,
+  other: Sparkles,
+};
+
+const GRADIENT_BY_CAMPUS: Record<string, string> = {
+  paris: "linear-gradient(135deg, hsl(220 100% 30%), hsl(210 100% 45%))",
+  madrid: "linear-gradient(135deg, hsl(14 90% 50%), hsl(35 100% 55%))",
+  turin: "linear-gradient(135deg, hsl(140 70% 35%), hsl(180 70% 45%))",
+  berlin: "linear-gradient(135deg, hsl(280 80% 45%), hsl(320 80% 55%))",
+  london: "linear-gradient(135deg, hsl(220 60% 25%), hsl(240 70% 40%))",
 };
 
 const campuses: { id: Campus; label: string; city: string }[] = [
@@ -56,104 +78,106 @@ const campuses: { id: Campus; label: string; city: string }[] = [
   { id: "london", label: "London", city: "United Kingdom" },
 ];
 
-const escpEvents: Event[] = [
-  {
-    id: "escp-paris-winter-gala-2026",
-    title: "ESCP Winter Gala 2026",
-    organizer: "BDE ESCP Paris",
-    date: "2026-12-12",
-    time: "20:00",
-    venue: "Pavillon d'Armenonville, Paris",
-    campus: "paris",
-    category: "gala",
-    priceFrom: 65,
-    tiersCount: 3,
-    capacity: 800,
-    sold: 612,
-    gradient: "linear-gradient(135deg, hsl(220 100% 30%), hsl(210 100% 45%))",
-    icon: GlassWater,
-  },
-  {
-    id: "escp-madrid-welcome-party",
-    title: "Madrid Welcome Party",
-    organizer: "ESCP Madrid Events",
-    date: "2026-09-12",
-    time: "22:00",
-    venue: "Sala Equis, Madrid",
-    campus: "madrid",
-    category: "party",
-    priceFrom: 16,
-    tiersCount: 2,
-    capacity: 500,
-    sold: 452,
-    gradient: "linear-gradient(135deg, hsl(14 90% 50%), hsl(35 100% 55%))",
-    icon: Music,
-  },
-  {
-    id: "escp-berlin-startup-summit",
-    title: "ESCP Berlin Startup Summit",
-    organizer: "ESCP Berlin Entrepreneurs",
-    date: "2026-10-17",
-    time: "09:00",
-    venue: "Heizhaus, Berlin",
-    campus: "berlin",
-    category: "conference",
-    priceFrom: 15,
-    tiersCount: 2,
-    capacity: 350,
-    sold: 142,
-    gradient: "linear-gradient(135deg, hsl(280 80% 45%), hsl(320 80% 55%))",
-    icon: Mic2,
-  },
-  {
-    id: "escp-turin-sports-cup",
-    title: "ESCP Turin Sports Cup",
-    organizer: "ESCP Turin Sports",
-    date: "2026-05-30",
-    time: "16:30",
-    venue: "Cit Turin Stadium",
-    campus: "turin",
-    category: "sports",
-    priceFrom: 9,
-    tiersCount: 2,
-    capacity: 900,
-    sold: 312,
-    gradient: "linear-gradient(135deg, hsl(140 70% 35%), hsl(180 70% 45%))",
-    icon: Trophy,
-  },
-  {
-    id: "escp-london-alumni-night",
-    title: "London Alumni Night",
-    organizer: "ESCP London Alumni",
-    date: "2026-11-14",
-    time: "19:30",
-    venue: "The Ned, London",
-    campus: "london",
-    category: "gala",
-    priceFrom: 85,
-    tiersCount: 3,
-    capacity: 280,
-    sold: 96,
-    gradient: "linear-gradient(135deg, hsl(220 60% 25%), hsl(240 70% 40%))",
-    icon: GraduationCap,
-  },
-  {
-    id: "escp-paris-spring-festival",
-    title: "Spring Festival Paris",
-    organizer: "BDE ESCP Paris",
-    date: "2026-04-18",
-    time: "21:00",
-    venue: "Faust, Paris",
-    campus: "paris",
-    category: "party",
-    priceFrom: 14,
-    tiersCount: 2,
-    capacity: 650,
-    sold: 198,
-    gradient: "linear-gradient(135deg, hsl(180 80% 45%), hsl(210 80% 55%))",
-    icon: Music,
-  },
-];
+/**
+ * Hydrate a flat list of published events with their tier aggregates
+ * (price floor, total capacity, total sold, tier count). Campus is read
+ * from events.campus first; if the row is missing one, we derive it on
+ * the fly from the organizer's identity so older rows still classify.
+ */
+async function fetchPublishedEvents(): Promise<Event[]> {
+  const { data: evRows, error } = await supabase
+    .from("events")
+    .select(
+      `id, title, slug, date, location, campus, category, primary_color, banner_url, status,
+       organizer:organizer_profiles!events_organizer_id_fkey(id, name, slug, primary_color, contact_email, about)`,
+    )
+    .eq("status", "published")
+    .not("organizer_id", "is", null)
+    .order("date", { ascending: true });
+
+  if (error) {
+    console.error("[tickets] fetch events:", error);
+    return [];
+  }
+
+  const rows = (evRows ?? []) as Array<{
+    id: string;
+    title: string;
+    slug: string | null;
+    date: string;
+    location: string | null;
+    campus: string | null;
+    category: string | null;
+    primary_color: string | null;
+    banner_url: string | null;
+    organizer: { id: string; name: string; slug: string; primary_color: string; contact_email: string; about: string | null } | { id: string; name: string; slug: string; primary_color: string; contact_email: string; about: string | null }[] | null;
+  }>;
+
+  const ids = rows.map((e) => e.id);
+  let tierAgg: Record<string, { sold: number; total: number; minPriceCents: number; count: number }> = {};
+  if (ids.length) {
+    const { data: tiers } = await supabase
+      .from("event_tiers")
+      .select("event_id, sold_qty, total_qty, price_cents")
+      .in("event_id", ids)
+      .eq("is_active", true);
+    tierAgg = (tiers ?? []).reduce(
+      (acc, t: { event_id: string; sold_qty: number; total_qty: number; price_cents: number }) => {
+        const cur = acc[t.event_id] ?? { sold: 0, total: 0, minPriceCents: Infinity, count: 0 };
+        cur.sold += t.sold_qty;
+        cur.total += t.total_qty;
+        cur.minPriceCents = Math.min(cur.minPriceCents, t.price_cents);
+        cur.count += 1;
+        acc[t.event_id] = cur;
+        return acc;
+      },
+      {} as Record<string, { sold: number; total: number; minPriceCents: number; count: number }>,
+    );
+  }
+
+  return rows
+    .filter((e) => e.slug)
+    .map((e) => {
+      const org = Array.isArray(e.organizer) ? e.organizer[0] : e.organizer;
+      const derivedCampus =
+        (e.campus as Campus | null) ??
+        detectCampus({
+          slug: org?.slug,
+          name: org?.name,
+          contact_email: org?.contact_email,
+          about: org?.about,
+          location: e.location,
+        }) ??
+        "paris";
+      const cat = (e.category ?? "other") as string;
+      const allowedCats = ["gala", "party", "conference", "sports"] as const;
+      const normCategory = (allowedCats as readonly string[]).includes(cat)
+        ? (cat as Exclude<Category, "all">)
+        : ("party" as Exclude<Category, "all">);
+      const agg = tierAgg[e.id];
+      return {
+        id: e.id,
+        slug: e.slug!,
+        title: e.title,
+        organizer: org?.name ?? "Organizer",
+        date: e.date,
+        time: new Date(e.date).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
+        venue: e.location ?? "",
+        campus: derivedCampus as Exclude<Campus, "all">,
+        category: normCategory,
+        priceFrom: agg && agg.minPriceCents !== Infinity ? Math.ceil(agg.minPriceCents / 100) : 0,
+        tiersCount: agg?.count ?? 0,
+        capacity: agg?.total ?? 0,
+        sold: agg?.sold ?? 0,
+        gradient:
+          e.primary_color
+            ? `linear-gradient(135deg, ${e.primary_color}, hsl(210 100% 45%))`
+            : GRADIENT_BY_CAMPUS[derivedCampus] ?? GRADIENT_BY_CAMPUS.paris,
+        icon: ICON_BY_CATEGORY[normCategory] ?? Sparkles,
+        bannerUrl: e.banner_url,
+      } satisfies Event;
+    });
+}
 
 const categories: { id: Category; label: string }[] = [
   { id: "all", label: "All events" },
@@ -180,18 +204,51 @@ const Tickets = () => {
   const [selectedCampus, setSelectedCampus] = useState<Campus>("all");
   const [category, setCategory] = useState<Category>("all");
   const [query, setQuery] = useState("");
+  const [allEvents, setAllEvents] = useState<Event[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const reload = useCallback(async () => {
+    setLoading(true);
+    const rows = await fetchPublishedEvents();
+    setAllEvents(rows);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    reload();
+  }, [reload]);
+
+  // Realtime: refresh when an event is published, unpublished, edited, or
+  // when tier inventory changes (sold-out toggles, etc.).
+  useEffect(() => {
+    const ch = supabase
+      .channel("tickets-public")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "events" },
+        () => reload(),
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "event_tiers" },
+        () => reload(),
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(ch);
+    };
+  }, [reload]);
 
   const filteredEvents = useMemo(() => {
-    return escpEvents
+    return allEvents
       .filter((e) => (selectedCampus === "all" ? true : e.campus === selectedCampus))
       .filter((e) => (category === "all" ? true : e.category === category))
       .filter((e) =>
         query.trim().length === 0
           ? true
           : (e.title + e.organizer + e.venue).toLowerCase().includes(query.toLowerCase()),
-      )
-      .sort((a, b) => +new Date(a.date) - +new Date(b.date));
-  }, [selectedCampus, category, query]);
+      );
+  }, [allEvents, selectedCampus, category, query]);
 
   const selectedCampusMeta = campuses.find((c) => c.id === selectedCampus)!;
 
@@ -418,8 +475,18 @@ const Tickets = () => {
         {/* ===================== EVENTS GRID ===================== */}
         <section className="py-8 md:py-14">
           <div className="container mx-auto px-4">
-            {filteredEvents.length === 0 ? (
-              <EmptyState query={query} category={category} />
+            {loading ? (
+              <div className="flex flex-col items-center justify-center py-20 gap-3">
+                <Loader2 className="w-7 h-7 animate-spin text-primary" />
+                <p className="text-sm text-muted-foreground">Loading events…</p>
+              </div>
+            ) : filteredEvents.length === 0 ? (
+              <EmptyState
+                query={query}
+                category={category}
+                hasAnyEvent={allEvents.length > 0}
+                campus={selectedCampus}
+              />
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
                 {filteredEvents.map((e) => (
@@ -588,25 +655,31 @@ const Tickets = () => {
 
 const EventCard = ({ event }: { event: Event }) => {
   const Icon = event.icon;
-  const soldPct = Math.round((event.sold / event.capacity) * 100);
-  const left = event.capacity - event.sold;
+  const hasCapacity = event.capacity > 0;
+  const soldPct = hasCapacity ? Math.round((event.sold / event.capacity) * 100) : 0;
+  const left = Math.max(0, event.capacity - event.sold);
   const days = daysUntil(event.date);
-  const isSellingFast = soldPct >= 70 && soldPct < 100;
-  const soldOut = soldPct >= 100;
+  const isSellingFast = hasCapacity && soldPct >= 70 && soldPct < 100;
+  const soldOut = hasCapacity && soldPct >= 100;
 
   return (
     <Link
-      to={`/tickets/${event.id}`}
+      to={`/e/${event.slug}`}
       className="group flex flex-col rounded-2xl overflow-hidden bg-card border border-border hover:border-primary/30 hover:shadow-hover hover:-translate-y-1 transition-all duration-300"
     >
       {/* Visual banner */}
       <div className="relative aspect-[16/9] overflow-hidden" style={{ background: event.gradient }}>
+        {event.bannerUrl && (
+          <img src={event.bannerUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
+        )}
         <div
           className="pointer-events-none absolute -top-12 -right-12 w-48 h-48 rounded-full opacity-50 blur-2xl bg-white/30"
         />
-        <div className="absolute inset-0 flex items-center justify-center">
-          <Icon className="w-16 h-16 text-white/80 group-hover:scale-110 transition-transform duration-500" strokeWidth={1.5} />
-        </div>
+        {!event.bannerUrl && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Icon className="w-16 h-16 text-white/80 group-hover:scale-110 transition-transform duration-500" strokeWidth={1.5} />
+          </div>
+        )}
 
         {/* Badges */}
         <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
@@ -660,7 +733,7 @@ const EventCard = ({ event }: { event: Event }) => {
         </div>
 
         {/* Progress bar */}
-        {!soldOut && (
+        {hasCapacity && !soldOut && (
           <div className="mb-4">
             <div className="h-1.5 rounded-full bg-muted overflow-hidden">
               <div
@@ -703,19 +776,42 @@ const EventCard = ({ event }: { event: Event }) => {
   );
 };
 
-const EmptyState = ({ query, category }: { query: string; category: Category }) => (
-  <div className="text-center py-20">
+const EmptyState = ({
+  query,
+  category,
+  hasAnyEvent,
+  campus,
+}: {
+  query: string;
+  category: Category;
+  hasAnyEvent: boolean;
+  campus: Campus;
+}) => (
+  <div className="text-center py-20 max-w-md mx-auto">
     <div className="inline-flex w-16 h-16 rounded-2xl bg-muted items-center justify-center mb-4">
-      <Search className="w-7 h-7 text-muted-foreground" />
+      <PartyPopper className="w-7 h-7 text-muted-foreground" />
     </div>
-    <h3 className="text-xl font-bold text-foreground mb-2">No events found</h3>
-    <p className="text-sm text-muted-foreground">
-      {query
-        ? <>No match for "<span className="font-semibold text-foreground">{query}</span>".</>
-        : category !== "all"
-        ? `No events in this category right now.`
-        : `No events on this campus yet — check back soon.`}
+    <h3 className="text-xl font-bold text-foreground mb-2">
+      {hasAnyEvent ? "No events match your filters" : "No events yet — be the first to organize one"}
+    </h3>
+    <p className="text-sm text-muted-foreground mb-5">
+      {hasAnyEvent
+        ? query
+          ? <>No match for "<span className="font-semibold text-foreground">{query}</span>". Try a different campus or category.</>
+          : category !== "all"
+          ? "No events in this category yet. Try another."
+          : `Nothing on ${campus === "all" ? "any campus" : campus} right now — check back soon.`
+        : "ESCP organizers can create branded events with ticket tiers, secure QR delivery, and live sales — all in Ticket Safe Studio."}
     </p>
+    {!hasAnyEvent && (
+      <Link
+        to="/organizers"
+        className="inline-flex items-center gap-2 px-5 min-h-[44px] rounded-lg font-bold text-sm bg-primary text-primary-foreground hover:bg-primary-hover transition-colors"
+      >
+        Apply for Studio
+        <ArrowRight className="w-4 h-4" />
+      </Link>
+    )}
   </div>
 );
 

@@ -22,6 +22,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useOrganizer } from "@/hooks/useOrganizer";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { detectCampus } from "@/lib/campus";
 
 const slugify = (input: string): string =>
   input
@@ -165,6 +166,17 @@ const StudioEventNew = () => {
       }
 
       // 3) Insert event (status = draft until tiers exist + organizer publishes).
+      // Auto-classify into a campus rubric based on the organizer's identity
+      // (slug + name + contact email) and the event location. e.g.
+      // "ebs-madrid" / "ESCP Madrid Events" → campus = "madrid".
+      const autoCampus = detectCampus({
+        slug: organizer.slug,
+        name: organizer.name,
+        contact_email: organizer.contact_email,
+        about: organizer.about,
+        location: location || null,
+      });
+
       const { data: ev, error: evErr } = await supabase
         .from("events")
         .insert({
@@ -174,6 +186,8 @@ const StudioEventNew = () => {
           ends_at: endsAt ? new Date(endsAt).toISOString() : null,
           location: location.trim() || null,
           category: category || "other",
+          campus: autoCampus,
+          university: "ESCP Business School",
           base_price: Number(tiers[0]?.priceEuros) || 0,
           organizer_id: organizer.id,
           slug: finalSlug,
