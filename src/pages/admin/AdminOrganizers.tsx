@@ -80,11 +80,16 @@ const AdminOrganizers = () => {
       .update({ status: "approved", approved_at: new Date().toISOString(), approved_by: user!.id })
       .eq("id", id);
     setActing(null);
-    if (error) toast.error(error.message);
-    else {
-      toast.success("Organizer approved");
-      load();
+    if (error) {
+      toast.error(error.message);
+      return;
     }
+    toast.success("Organizer approved");
+    // Notify the organizer by email (best-effort)
+    supabase.functions
+      .invoke("organizer-notify", { body: { kind: "approved", organizer_id: id } })
+      .catch((err) => console.warn("[admin-organizers] notify failed:", err));
+    load();
   };
 
   const reject = async (id: string) => {
@@ -96,11 +101,15 @@ const AdminOrganizers = () => {
       .update({ status: "rejected", rejection_reason: reason })
       .eq("id", id);
     setActing(null);
-    if (error) toast.error(error.message);
-    else {
-      toast.success("Application rejected");
-      load();
+    if (error) {
+      toast.error(error.message);
+      return;
     }
+    toast.success("Application rejected");
+    supabase.functions
+      .invoke("organizer-notify", { body: { kind: "rejected", organizer_id: id, reason } })
+      .catch((err) => console.warn("[admin-organizers] notify failed:", err));
+    load();
   };
 
   if (authLoading || isAdmin === null) {

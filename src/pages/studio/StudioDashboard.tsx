@@ -13,7 +13,13 @@ import {
   Clock,
   Sparkles,
   ExternalLink,
+  Banknote,
+  QrCode,
+  Settings,
+  Repeat2,
+  ShieldCheck,
 } from "lucide-react";
+import { toast } from "sonner";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { SEOHead } from "@/components/SEOHead";
@@ -35,16 +41,57 @@ interface StudioEvent {
   revenue_cents: number;
 }
 
+interface StripeStatus {
+  charges_enabled: boolean;
+  payouts_enabled: boolean;
+  onboarding_status: string | null;
+}
+
 const StudioDashboard = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const { organizer, loading: orgLoading } = useOrganizer();
   const [events, setEvents] = useState<StudioEvent[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(true);
+  const [stripe, setStripe] = useState<StripeStatus | null>(null);
+  const [onboardingStripe, setOnboardingStripe] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) navigate("/auth");
   }, [user, authLoading, navigate]);
+
+  // Stripe Connect status — fetched once when organizer is loaded
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("stripe_accounts")
+        .select("charges_enabled, payouts_enabled, onboarding_status")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (!cancelled) setStripe((data as StripeStatus) ?? null);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user, organizer]);
+
+  const startStripeOnboarding = async () => {
+    setOnboardingStripe(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("stripe-onboard-seller", { body: {} });
+      if (error || !data?.url) {
+        toast.error(error?.message ?? "Could not start Stripe onboarding.");
+        return;
+      }
+      window.location.href = data.url as string;
+    } catch (e) {
+      toast.error("Could not start Stripe onboarding.");
+    } finally {
+      setOnboardingStripe(false);
+    }
+  };
 
   useEffect(() => {
     if (!organizer) {
@@ -236,6 +283,74 @@ const StudioDashboard = () => {
           </div>
         </section>
 
+        {/* ===== Stripe onboarding banner ===== */}
+        {stripe && !stripe.charges_enabled && (
+          <section className="container mx-auto px-4 pt-6 md:pt-8 max-w-5xl">
+            <div className="flex flex-col md:flex-row md:items-center gap-4 rounded-2xl border border-amber-300 bg-amber-50 px-5 py-4">
+              <div className="w-11 h-11 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
+                <Banknote className="w-5 h-5 text-amber-700" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-bold text-sm md:text-base text-amber-900">
+                  Connect your bank to start selling
+                </div>
+                <div className="text-xs md:text-sm text-amber-800">
+                  You need to finish Stripe Connect onboarding before you can publish events and accept payments. Takes about 2 minutes.
+                </div>
+              </div>
+              <button
+                onClick={startStripeOnboarding}
+                disabled={onboardingStripe}
+                className="inline-flex items-center justify-center gap-1.5 px-4 min-h-[40px] rounded-lg font-bold text-sm bg-amber-700 text-white hover:bg-amber-800 disabled:opacity-60 shrink-0"
+              >
+                {onboardingStripe ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
+                Set up payouts
+              </button>
+            </div>
+          </section>
+        )}
+
+        {/* ===== Everything in one place panel ===== */}
+        <section className="container mx-auto px-4 pt-6 md:pt-8 max-w-5xl">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-base md:text-lg font-bold">Everything in one place</h2>
+            <span className="text-xs text-muted-foreground">Quick actions</span>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <QuickAction
+              icon={Plus}
+              label="New event"
+              hint="Create a branded event"
+              to="/studio/events/new"
+              accent={organizer.primary_color}
+            />
+            <QuickAction
+              icon={QrCode}
+              label="Door scan"
+              hint="Validate tickets at entry"
+              to="/organizer/scan"
+              accent={organizer.primary_color}
+            />
+            <QuickAction
+              icon={Banknote}
+              label="Payouts"
+              hint={stripe?.charges_enabled ? "Stripe Connect — ready" : "Finish onboarding"}
+              onClick={stripe?.charges_enabled ? undefined : startStripeOnboarding}
+              to={stripe?.charges_enabled ? "https://dashboard.stripe.com" : undefined}
+              external={!!stripe?.charges_enabled}
+              accent={organizer.primary_color}
+              status={stripe?.charges_enabled ? "ready" : "pending"}
+            />
+            <QuickAction
+              icon={Repeat2}
+              label="Resale"
+              hint="Built-in for your buyers"
+              to="/resale"
+              accent={organizer.primary_color}
+            />
+          </div>
+        </section>
+
         {/* ===== Events list ===== */}
         <section className="container mx-auto px-4 py-8 md:py-10 max-w-5xl">
           <div className="flex items-center justify-between mb-5">
@@ -261,6 +376,79 @@ const StudioDashboard = () => {
       <Footer />
     </div>
   );
+};
+
+const QuickAction = ({
+  icon: Icon,
+  label,
+  hint,
+  to,
+  onClick,
+  external,
+  accent,
+  status,
+}: {
+  icon: typeof Calendar;
+  label: string;
+  hint: string;
+  to?: string;
+  onClick?: () => void;
+  external?: boolean;
+  accent?: string;
+  status?: "ready" | "pending";
+}) => {
+  const content = (
+    <div className="flex flex-col h-full bg-card border border-border rounded-2xl p-4 hover:border-primary/30 hover:shadow-soft transition-all group">
+      <div className="flex items-center justify-between mb-3">
+        <div
+          className="w-10 h-10 rounded-xl flex items-center justify-center text-white"
+          style={{ background: accent || "var(--gradient-hero)" }}
+        >
+          <Icon className="w-5 h-5" />
+        </div>
+        {status === "ready" && (
+          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded-full">
+            <CheckCircle2 className="w-3 h-3" />
+            Ready
+          </span>
+        )}
+        {status === "pending" && (
+          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
+            <AlertCircle className="w-3 h-3" />
+            Action
+          </span>
+        )}
+      </div>
+      <div className="font-bold text-sm text-foreground leading-tight">{label}</div>
+      <div className="text-xs text-muted-foreground mt-0.5">{hint}</div>
+      <div className="mt-auto pt-3 inline-flex items-center text-[11px] font-bold text-primary group-hover:gap-1.5 gap-1 transition-all">
+        Open
+        <ArrowRight className="w-3 h-3" />
+      </div>
+    </div>
+  );
+  if (onClick) {
+    return (
+      <button onClick={onClick} className="text-left h-full">
+        {content}
+      </button>
+    );
+  }
+  if (to && external) {
+    return (
+      <a href={to} target="_blank" rel="noopener noreferrer" className="h-full">
+        {content}
+      </a>
+    );
+  }
+  if (to) {
+    return (
+      <Link to={to} className="h-full">
+        {content}
+      </Link>
+    );
+  }
+  return content;
 };
 
 const StatCard = ({ icon: Icon, label, value }: { icon: typeof Calendar; label: string; value: string }) => (

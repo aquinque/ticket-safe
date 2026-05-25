@@ -138,18 +138,22 @@ const OrganizerApply = () => {
         candidateSlug = `${baseSlug}-${Math.random().toString(36).slice(2, 5)}`.slice(0, 40);
       }
 
-      const { error } = await supabase.from("organizer_profiles").insert({
-        user_id: user.id,
-        name: form.orgName.trim(),
-        slug: candidateSlug,
-        org_type: orgTypeForDb(form.orgType),
-        contact_name: form.contactName.trim(),
-        contact_email: form.contactEmail.trim().toLowerCase(),
-        website: form.website.trim() || null,
-        about: form.about.trim() || null,
-        primary_color: form.brandColor || "#003399",
-        status: "pending",
-      });
+      const { data: inserted, error } = await supabase
+        .from("organizer_profiles")
+        .insert({
+          user_id: user.id,
+          name: form.orgName.trim(),
+          slug: candidateSlug,
+          org_type: orgTypeForDb(form.orgType),
+          contact_name: form.contactName.trim(),
+          contact_email: form.contactEmail.trim().toLowerCase(),
+          website: form.website.trim() || null,
+          about: form.about.trim() || null,
+          primary_color: form.brandColor || "#003399",
+          status: "pending",
+        })
+        .select("id")
+        .single();
 
       if (error) {
         if (error.code === "23505") {
@@ -159,6 +163,15 @@ const OrganizerApply = () => {
           toast.error(error.message || "Could not submit your application. Please try again.");
         }
         return;
+      }
+
+      // Notify admin team (best-effort; do not block UX on email)
+      if (inserted?.id) {
+        supabase.functions
+          .invoke("organizer-notify", {
+            body: { kind: "new_application", organizer_id: inserted.id },
+          })
+          .catch((err) => console.warn("[organizer-apply] notify failed:", err));
       }
 
       setSubmitted(true);

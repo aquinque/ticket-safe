@@ -23,3 +23,8 @@ verify_jwt = false
 # verification is redundant.
 [functions.studio-create-checkout]
 verify_jwt = false
+
+# Organizer notification emails. Authenticated; auth-handled inside the
+# function (owner for new_application, admin for approve/reject).
+[functions.organizer-notify]
+verify_jwt = false
