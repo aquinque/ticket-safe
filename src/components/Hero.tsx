@@ -1,8 +1,32 @@
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Search, Shield, Users } from "lucide-react";
+import { ArrowRight, Search, ShieldCheck, GraduationCap, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useI18n } from "@/contexts/I18nContext";
 import heroImage from "@/assets/hero-bg.jpg";
+
+const trustPoints = [
+  {
+    icon: Sparkles,
+    title: "Everything in one place",
+    desc: "Every campus event, every listing, in a single feed. No more chasing tickets through stories, WhatsApp groups, or DMs.",
+    tint: "bg-primary/10",
+    iconColor: "text-primary",
+  },
+  {
+    icon: ShieldCheck,
+    title: "Bank-grade, escrow-protected",
+    desc: "Stripe handles every euro. Your money stays locked in escrow until the QR ticket reaches your inbox.",
+    tint: "bg-secondary/10",
+    iconColor: "text-secondary",
+  },
+  {
+    icon: GraduationCap,
+    title: "ESCP students only",
+    desc: "Every account is verified at sign-up with a university email. No scalpers, no bots — just your campus.",
+    tint: "bg-accent/10",
+    iconColor: "text-accent",
+  },
+];
 
 const Hero = () => {
   const { t } = useI18n();
@@ -52,53 +76,39 @@ const Hero = () => {
             </Button>
           </div>
 
-          {/* Trust Indicators - Simplified on mobile */}
-          <div className="hidden md:grid md:grid-cols-3 gap-8 lg:gap-12 max-w-4xl mx-auto">
-            <div className="flex flex-col items-center gap-4 p-6 rounded-xl bg-card/50 hover:bg-card transition-colors">
-              <div className="w-14 h-14 bg-primary/10 rounded-xl flex items-center justify-center">
-                <Users className="w-7 h-7 text-primary" />
+          {/* Trust Indicators - 3 punchy points */}
+          <div className="hidden md:grid md:grid-cols-3 gap-6 lg:gap-8 max-w-5xl mx-auto">
+            {trustPoints.map(({ icon: Icon, title, desc, tint, iconColor }) => (
+              <div
+                key={title}
+                className="flex flex-col items-center gap-3 p-6 rounded-2xl bg-card/60 border border-border hover:border-primary/30 hover:shadow-soft transition-all"
+              >
+                <div className={`w-14 h-14 ${tint} rounded-2xl flex items-center justify-center`}>
+                  <Icon className={`w-7 h-7 ${iconColor}`} />
+                </div>
+                <h3 className="font-bold text-lg text-foreground text-center leading-tight">
+                  {title}
+                </h3>
+                <p className="text-sm text-muted-foreground text-center leading-relaxed">{desc}</p>
               </div>
-              <h3 className="font-semibold text-lg text-foreground">{t('hero.verifiedStudentsTitle')}</h3>
-              <p className="text-sm text-muted-foreground text-center leading-relaxed">
-                {t('hero.verifiedStudentsDesc')}
-              </p>
-            </div>
-
-            <div className="flex flex-col items-center gap-4 p-6 rounded-xl bg-card/50 hover:bg-card transition-colors">
-              <div className="w-14 h-14 bg-secondary/10 rounded-xl flex items-center justify-center">
-                <Shield className="w-7 h-7 text-secondary" />
-              </div>
-              <h3 className="font-semibold text-lg text-foreground">{t('hero.securePaymentsTitle')}</h3>
-              <p className="text-sm text-muted-foreground text-center leading-relaxed">
-                {t('hero.securePaymentsDesc')}
-              </p>
-            </div>
-
-            <div className="flex flex-col items-center gap-4 p-6 rounded-xl bg-card/50 hover:bg-card transition-colors">
-              <div className="w-14 h-14 bg-accent/10 rounded-xl flex items-center justify-center">
-                <Search className="w-7 h-7 text-accent" />
-              </div>
-              <h3 className="font-semibold text-lg text-foreground">{t('hero.fastMatchingTitle')}</h3>
-              <p className="text-sm text-muted-foreground text-center leading-relaxed">
-                {t('hero.fastMatchingDesc')}
-              </p>
-            </div>
+            ))}
           </div>
 
-          {/* Mobile: Simple trust badges */}
-          <div className="md:hidden flex items-center justify-center gap-6 text-xs text-muted-foreground">
-            <div className="flex items-center gap-1.5">
-              <Shield className="w-4 h-4" />
-              <span>Secure</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Users className="w-4 h-4" />
-              <span>Verified</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Search className="w-4 h-4" />
-              <span>Fast</span>
-            </div>
+          {/* Mobile: 3 punchy badges */}
+          <div className="md:hidden grid grid-cols-3 gap-2 max-w-md mx-auto">
+            {trustPoints.map(({ icon: Icon, title, tint, iconColor }) => (
+              <div
+                key={title}
+                className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-card/60 border border-border"
+              >
+                <div className={`w-9 h-9 ${tint} rounded-lg flex items-center justify-center`}>
+                  <Icon className={`w-4 h-4 ${iconColor}`} />
+                </div>
+                <span className="text-[11px] font-bold text-foreground text-center leading-tight">
+                  {title}
+                </span>
+              </div>
+            ))}
           </div>
         </div>
       </div>
