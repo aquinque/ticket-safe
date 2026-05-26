@@ -30,6 +30,7 @@ interface PublicEvent {
   primary_color: string;
   banner_url: string | null;
   logo_url: string | null;
+  organizer_user_id?: string | null;
   organizer: {
     id: string;
     name: string;
@@ -65,6 +66,7 @@ const EventPublic = () => {
   const [selectedTier, setSelectedTier] = useState<string | null>(null);
   const [qty, setQty] = useState(1);
   const [buying, setBuying] = useState(false);
+  const [paymentsReady, setPaymentsReady] = useState<boolean>(true);
 
   const load = useCallback(async () => {
     if (!slug) return;
@@ -74,7 +76,7 @@ const EventPublic = () => {
       .from("events")
       .select(
         `id, title, description, date, ends_at, location, category, slug, status, primary_color, banner_url, logo_url, organizer_id,
-         organizer:organizer_profiles!events_organizer_id_fkey(id, name, slug, logo_url, primary_color, website)`,
+         organizer:organizer_profiles!events_organizer_id_fkey(id, user_id, name, slug, logo_url, primary_color, website)`,
       )
       .eq("slug", slug)
       .eq("status", "published")
@@ -86,12 +88,29 @@ const EventPublic = () => {
       return;
     }
 
+    const orgRaw = (ev as { organizer: unknown }).organizer;
+    const organizer = Array.isArray(orgRaw)
+      ? (orgRaw[0] as PublicEvent["organizer"] & { user_id?: string })
+      : (orgRaw as (PublicEvent["organizer"] & { user_id?: string }) | null);
+
     setEvent({
       ...(ev as Omit<PublicEvent, "organizer">),
-      organizer: Array.isArray((ev as { organizer: unknown }).organizer)
-        ? ((ev as { organizer: PublicEvent["organizer"][] }).organizer[0] ?? null)
-        : ((ev as { organizer: PublicEvent["organizer"] }).organizer ?? null),
+      organizer,
     } as PublicEvent);
+
+    // Look up the organizer's Stripe Connect readiness so we can disable
+    // the Buy button cleanly if the organizer hasn't been activated yet.
+    const orgUserId = (organizer as { user_id?: string } | null)?.user_id;
+    if (orgUserId) {
+      const { data: sa } = await supabase
+        .from("stripe_accounts")
+        .select("charges_enabled")
+        .eq("user_id", orgUserId)
+        .maybeSingle();
+      setPaymentsReady(!!sa?.charges_enabled);
+    } else {
+      setPaymentsReady(false);
+    }
 
     const { data: tr } = await supabase
       .from("tier_inventory")
@@ -273,6 +292,24 @@ const EventPublic = () => {
 
       <main className="flex-1 -mt-6 md:-mt-10 relative z-10">
         <div className="container mx-auto px-4 max-w-4xl">
+          {/* Payments unavailable banner (organizer Stripe not active yet) */}
+          {!paymentsReady && (
+            <section className="bg-amber-50 border border-amber-200 rounded-2xl p-4 md:p-5 mb-5 flex items-start gap-3">
+              <div className="w-9 h-9 rounded-lg bg-amber-100 flex items-center justify-center shrink-0">
+                <ShieldCheck className="w-4 h-4 text-amber-700" />
+              </div>
+              <div className="flex-1">
+                <div className="font-bold text-sm md:text-base text-amber-900">
+                  Payments are temporarily unavailable
+                </div>
+                <div className="text-xs md:text-sm text-amber-800 mt-0.5">
+                  The organizer is still finishing their secure payments setup.
+                  Tickets will open for purchase as soon as their account is approved by Stripe.
+                </div>
+              </div>
+            </section>
+          )}
+
           {/* Description */}
           {event.description && (
             <section className="bg-card border border-border rounded-2xl p-5 md:p-7 mb-5">
@@ -298,17 +335,18 @@ const EventPublic = () => {
                 {tiers.map((t) => {
                   const isSelected = selectedTier === t.tier_id;
                   const soldOut = t.available_qty <= 0;
+                  const locked = soldOut || !paymentsReady;
                   return (
                     <button
                       key={t.tier_id}
                       onClick={() => {
-                        if (soldOut) return;
+                        if (locked) return;
                         setSelectedTier(t.tier_id);
                         setQty(1);
                       }}
-                      disabled={soldOut}
+                      disabled={locked}
                       className={`w-full text-left p-4 md:p-5 rounded-xl border-2 transition-all flex items-center justify-between gap-3 ${
-                        soldOut
+                        locked
                           ? "opacity-50 cursor-not-allowed border-border bg-muted/30"
                           : isSelected
                           ? "border-primary bg-primary/5"
@@ -328,7 +366,11 @@ const EventPublic = () => {
                           </div>
                         )}
                         <div className="text-[11px] font-semibold text-muted-foreground mt-2">
-                          {soldOut ? "Sold out" : `${t.available_qty} left`}
+                          {soldOut
+                            ? "Sold out"
+                            : !paymentsReady
+                            ? "Sales paused"
+                            : `${t.available_qty} left`}
                         </div>
                       </div>
                       <div className="text-right shrink-0">

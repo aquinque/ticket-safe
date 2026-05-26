@@ -153,15 +153,23 @@ const StudioEventEdit = () => {
       toast.error("Add at least one ticket tier before publishing.");
       return;
     }
-    // Check organizer has Stripe Connect ready
+    // Check organizer has Stripe Connect ready. If not, allow publishing
+    // anyway with explicit confirmation — the event will be visible to
+    // visitors but the public Buy button stays disabled until Stripe
+    // flips charges_enabled to true via the account.updated webhook.
     const { data: stripe } = await supabase
       .from("stripe_accounts")
-      .select("charges_enabled, payouts_enabled")
+      .select("charges_enabled, payouts_enabled, onboarding_status")
       .eq("user_id", user!.id)
       .maybeSingle();
     if (!stripe?.charges_enabled) {
-      toast.error("You need to complete Stripe onboarding before publishing. Visit Settings.");
-      return;
+      const confirmed = window.confirm(
+        "Your Stripe account is not yet fully approved (status: " +
+          (stripe?.onboarding_status ?? "not started") +
+          ").\n\nYou can publish the event for preview, but buyers will see a " +
+          "'payments unavailable' notice until Stripe activates your account.\n\nPublish anyway?",
+      );
+      if (!confirmed) return;
     }
     await updateEventField({ status: "published", published_at: new Date().toISOString() });
     // Notify the organizer by email that their event is live (best-effort).
