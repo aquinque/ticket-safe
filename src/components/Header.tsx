@@ -15,6 +15,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface HeaderProps {
   /** When true, hides the Marketplace dropdown and Sell Tickets CTA. Used on pages
@@ -26,9 +36,10 @@ const Header = ({ minimal = false }: HeaderProps) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [userName, setUserName] = useState<string>("");
   const [isScrolled, setIsScrolled] = useState(false);
+  const [signOutOpen, setSignOutOpen] = useState(false);
   const location = useLocation();
   const { user, signOut } = useAuth();
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const navigate = useNavigate();
   const { unreadCount, markAllRead } = useUnreadMessages();
   const { organizer } = useOrganizer();
@@ -188,7 +199,7 @@ const Header = ({ minimal = false }: HeaderProps) => {
                     {t('nav.settings')}
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleSignOut}>
+                  <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setSignOutOpen(true); }}>
                     <LogOut className="h-4 w-4 mr-2" />
                     {t('nav.signOut')}
                   </DropdownMenuItem>
@@ -340,8 +351,8 @@ const Header = ({ minimal = false }: HeaderProps) => {
                       variant="outline"
                       className="h-11"
                       onClick={() => {
-                        handleSignOut();
                         setIsMenuOpen(false);
+                        setSignOutOpen(true);
                       }}
                     >
                       <LogOut className="w-4 h-4 mr-2" />
@@ -367,6 +378,25 @@ const Header = ({ minimal = false }: HeaderProps) => {
           </div>
         )}
       </div>
+
+      <AlertDialog open={signOutOpen} onOpenChange={setSignOutOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t('nav.signOut')}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {language === 'fr'
+                ? "Vous devrez vous reconnecter pour acheter, vendre ou voir vos messages."
+                : "You'll need to sign in again to buy, sell, or see your messages."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
+            <AlertDialogAction onClick={handleSignOut}>
+              {t('nav.signOut')}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </header>
   );
 };

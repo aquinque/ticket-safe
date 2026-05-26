@@ -57,7 +57,8 @@ const CATEGORY_FILTERS = [
 ];
 
 export default function Marketplace() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
+  const dateLocale = language === "fr" ? "fr-FR" : "en-US";
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -90,7 +91,9 @@ export default function Marketplace() {
   });
 
   const handleNotify = () => {
-    toast.info("Ticket alerts coming soon — we'll notify you by email when tickets are listed.");
+    toast.success("Got it! We'll email you when tickets are listed.", {
+      description: "Coming soon — ticket alerts are in beta.",
+    });
   };
 
   return (
@@ -301,7 +304,7 @@ export default function Marketplace() {
                           <div className="flex items-center gap-2 text-sm text-muted-foreground">
                             <Calendar className="w-4 h-4 flex-shrink-0" />
                             <span>
-                              {new Date(ev.start_date).toLocaleDateString("en-US", {
+                              {new Date(ev.start_date).toLocaleDateString(dateLocale, {
                                 weekday: "short",
                                 month: "short",
                                 day: "numeric",

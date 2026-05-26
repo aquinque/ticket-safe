@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { SEOHead } from "@/components/SEOHead";
 import { getEventImage } from "@/lib/eventImages";
 import { useAuth } from "@/hooks/useAuth";
+import { useI18n } from "@/contexts/I18nContext";
 import { getOrCreateConversation } from "@/hooks/useChat";
 import { toast } from "sonner";
 import { calcBreakdown } from "@/lib/fees";
@@ -39,6 +40,8 @@ const EventTicketsMarketplace = () => {
   const { eventId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { language } = useI18n();
+  const dateLocale = language === "fr" ? "fr-FR" : "en-US";
 
   const [event, setEvent] = useState<EventInfo | null>(null);
   const [listings, setListings] = useState<Listing[]>([]);
@@ -180,7 +183,7 @@ const EventTicketsMarketplace = () => {
                   <div className="flex items-center gap-2">
                     <Calendar className="w-4 h-4" />
                     <span className="text-sm">
-                      {new Date(event.date).toLocaleDateString('en-US', {
+                      {new Date(event.date).toLocaleDateString(dateLocale, {
                         month: 'long',
                         day: 'numeric',
                         year: 'numeric'
@@ -228,7 +231,7 @@ const EventTicketsMarketplace = () => {
                   <ShoppingCart className="w-4 h-4 mr-2" />
                   List your ticket
                 </Button>
-                <Button variant="outline" onClick={() => toast.info("Ticket alerts coming soon — we'll notify you when a ticket is listed for this event.")} aria-label="Get notified when a ticket is listed">
+                <Button variant="outline" onClick={() => toast.success("Got it! We'll email you when a ticket is listed for this event.", { description: "Coming soon — ticket alerts are in beta." })} aria-label="Get notified when a ticket is listed">
                   Notify me
                 </Button>
               </div>
@@ -306,7 +309,7 @@ const EventTicketsMarketplace = () => {
                       {/* Posted Time */}
                       <div>
                         <p className="text-xs text-muted-foreground">
-                          Listed {new Date(listing.created_at).toLocaleDateString('en-US', {
+                          Listed {new Date(listing.created_at).toLocaleDateString(dateLocale, {
                             month: 'short',
                             day: 'numeric',
                             hour: '2-digit',

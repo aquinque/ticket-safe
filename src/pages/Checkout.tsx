@@ -6,6 +6,7 @@ import { BackButton } from "@/components/BackButton";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   CreditCard,
   Calendar,
@@ -15,6 +16,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useI18n } from "@/contexts/I18nContext";
 import { SEOHead } from "@/components/SEOHead";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
@@ -42,6 +44,7 @@ interface ListingData {
 const Checkout = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
+  const { language } = useI18n();
   const [searchParams] = useSearchParams();
   const listingId = searchParams.get("listing_id");
   const agreedPriceParam = searchParams.get("agreed_price");
@@ -96,8 +99,34 @@ const Checkout = () => {
       <div className="min-h-screen bg-background flex flex-col">
         <SEOHead titleKey="common.appName" descriptionKey="common.appName" />
         <Header />
-        <main className="flex-1 py-12 flex items-center justify-center">
-          <Loader2 className="h-10 w-10 animate-spin text-primary" />
+        <main className="flex-1 py-12">
+          <div className="container mx-auto px-4 max-w-2xl">
+            <Skeleton className="h-9 w-24 mb-6" />
+            <Card>
+              <CardContent className="pt-6 space-y-6">
+                {/* Event banner skeleton */}
+                <div className="flex gap-4 items-start">
+                  <Skeleton className="w-24 h-24 rounded-lg flex-shrink-0" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-6 w-3/4" />
+                    <Skeleton className="h-4 w-1/2" />
+                    <Skeleton className="h-4 w-2/3" />
+                  </div>
+                </div>
+                <Separator />
+                {/* Pricing breakdown skeleton */}
+                <div className="space-y-3">
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-3/4" />
+                  <Separator />
+                  <Skeleton className="h-8 w-1/2 ml-auto" />
+                </div>
+                {/* CTA skeleton */}
+                <Skeleton className="h-12 w-full" />
+              </CardContent>
+            </Card>
+          </div>
         </main>
         <Footer />
       </div>
@@ -136,11 +165,10 @@ const Checkout = () => {
   const platformFee = Math.round(subtotal * PLATFORM_FEE_PERCENT) / 100;
   const total = subtotal + platformFee;
 
-  const formattedDate = new Date(event.date).toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
+  const formattedDate = new Date(event.date).toLocaleDateString(
+    language === "fr" ? "fr-FR" : "en-US",
+    { month: "long", day: "numeric", year: "numeric" }
+  );
 
   const isDev = import.meta.env.DEV;
 

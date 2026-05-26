@@ -55,7 +55,9 @@ const EventsCatalog = () => {
   };
 
   const handleNotifyMe = () => {
-    toast.info("Ticket alerts coming soon — we'll notify you by email when tickets are listed for this category.");
+    toast.success("Got it! We'll email you when tickets are listed for this category.", {
+      description: "Coming soon — ticket alerts are in beta.",
+    });
   };
 
   const handleBuyTickets = (eventId: string, hasTickets: boolean) => {

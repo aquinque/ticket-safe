@@ -234,8 +234,8 @@ const Profile = () => {
             <Card className="bg-gradient-card">
               <CardContent className="p-8">
                 <div className="flex flex-col md:flex-row items-center gap-6">
-                  <Avatar className="w-24 h-24">
-                    <AvatarImage src="/placeholder-avatar.jpg" />
+                  <Avatar className="w-24 h-24" aria-label={`${userData.name}'s profile picture`}>
+                    <AvatarImage src="/placeholder-avatar.jpg" alt="" />
                     <AvatarFallback className="text-2xl bg-primary text-primary-foreground">
                       {userData.name.split(' ').map(n => n[0]).join('')}
                     </AvatarFallback>

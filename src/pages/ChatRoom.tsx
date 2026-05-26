@@ -281,6 +281,7 @@ const ChatRoom = () => {
                       step="0.01"
                       min="0.01"
                       placeholder="Your price..."
+                      aria-label="Offer price in euros"
                       value={offerInput}
                       onChange={(e) => setOfferInput(e.target.value)}
                       className="pl-9"
@@ -299,6 +300,7 @@ const ChatRoom = () => {
                 <div className="flex gap-2">
                   <Input
                     placeholder="Type a message..."
+                    aria-label="Type a message"
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleSend()}

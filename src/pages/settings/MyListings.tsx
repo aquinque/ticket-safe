@@ -4,6 +4,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { BackButton } from "@/components/BackButton";
 import { useAuth } from "@/hooks/useAuth";
+import { useI18n } from "@/contexts/I18nContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -100,6 +101,8 @@ const MyListings = () => {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { language } = useI18n();
+  const dateLocale = language === "fr" ? "fr-FR" : "en-US";
 
   const [listings, setListings] = useState<RawListing[]>([]);
   const [loading, setLoading] = useState(true);
@@ -445,14 +448,14 @@ const MyListings = () => {
           <div className="space-y-3">
             {displayed.map((listing) => {
               const eventDate = listing.event?.date
-                ? new Date(listing.event.date).toLocaleDateString("en-US", {
+                ? new Date(listing.event.date).toLocaleDateString(dateLocale, {
                     weekday: "short",
                     month: "short",
                     day: "numeric",
                     year: "numeric",
                   })
                 : "—";
-              const listedDate = new Date(listing.created_at).toLocaleDateString("en-US", {
+              const listedDate = new Date(listing.created_at).toLocaleDateString(dateLocale, {
                 month: "short",
                 day: "numeric",
                 year: "numeric",

@@ -57,6 +57,7 @@ import { Event } from "@/integrations/supabase/types/events";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
+import { useI18n } from "@/contexts/I18nContext";
 import { SEOHead } from "@/components/SEOHead";
 import { decodeQRFromFile, extractTextFromFile, isQRTextValid } from "@/lib/qrValidator";
 import { calcBreakdown } from "@/lib/fees";
@@ -92,6 +93,8 @@ const notesSchema = z
 const Sell = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
+  const { language } = useI18n();
+  const dateLocale = language === "fr" ? "fr-FR" : "en-US";
   const { refetchListings } = useTicketListings();
 
   // Event autocomplete
@@ -681,7 +684,7 @@ const Sell = () => {
                             {selectedEvent.campus && ` · ${selectedEvent.campus}`}
                           </p>
                           <p className="text-sm">
-                            {new Date(selectedEvent.date).toLocaleDateString("en-US", {
+                            {new Date(selectedEvent.date).toLocaleDateString(dateLocale, {
                               weekday: "long",
                               year: "numeric",
                               month: "long",
