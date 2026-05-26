@@ -110,6 +110,22 @@ const Profile = () => {
           console.error("Error fetching sales:", saleError);
         }
 
+        // Primary tickets (Studio + Beta free claims) live in event_orders.
+        // Fetch them too so they show up alongside resale purchases.
+        const { data: orderData, error: orderError } = await supabase
+          .from("event_orders")
+          .select(
+            `id, quantity, unit_price_cents, status, paid_at, created_at,
+             event:events(title, date)`
+          )
+          .eq("buyer_id", user.id)
+          .eq("status", "paid")
+          .order("paid_at", { ascending: false });
+
+        if (orderError) {
+          console.error("Error fetching event orders:", orderError);
+        }
+
         if (mounted) {
           setUserData({
             name:
@@ -118,18 +134,28 @@ const Profile = () => {
             campus: profile.university || "",
           });
 
-          setPurchases(
-            (purchaseData ?? []).map((p) => ({
-              id: p.id,
-              eventTitle: p.ticket?.event?.title || "Unknown Event",
-              date: p.ticket?.event?.date || p.created_at,
-              price: p.amount,
-              quantity: p.quantity ?? 1,
-              status:
-                p.status === "completed" ? "confirmed" : p.status,
-              fileUrl: p.ticket?.file_url ?? null,
-            }))
-          );
+          const resalePurchases = (purchaseData ?? []).map((p) => ({
+            id: p.id,
+            eventTitle: p.ticket?.event?.title || "Unknown Event",
+            date: p.ticket?.event?.date || p.created_at,
+            price: p.amount,
+            quantity: p.quantity ?? 1,
+            status:
+              p.status === "completed" ? "confirmed" : p.status,
+            fileUrl: p.ticket?.file_url ?? null,
+          }));
+
+          const primaryPurchases = (orderData ?? []).map((o) => ({
+            id: `order-${o.id}`,
+            eventTitle: o.event?.title || "Unknown Event",
+            date: o.event?.date || o.paid_at || o.created_at,
+            price: (o.unit_price_cents ?? 0) * (o.quantity ?? 1) / 100,
+            quantity: o.quantity ?? 1,
+            status: "confirmed" as const,
+            fileUrl: null,
+          }));
+
+          setPurchases([...primaryPurchases, ...resalePurchases]);
 
           setSales(
             (saleData ?? []).map((s) => ({
@@ -252,7 +278,7 @@ const Profile = () => {
                           {p.eventTitle}
                         </h3>
                         <p className="text-sm text-muted-foreground mt-0.5">
-                          {formatDate(p.date)} · {p.price}€
+                          {formatDate(p.date)} · {p.price > 0 ? `${p.price}€` : "Free (Beta)"}
                         </p>
                       </div>
                       {p.fileUrl ? (
