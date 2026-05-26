@@ -185,39 +185,6 @@ const EventPublic = () => {
     }
   };
 
-  // Beta flow: tier with price_cents === 0 → claim a free seat, skip Stripe.
-  const handleClaim = async () => {
-    if (!selectedTier) return;
-    if (!user) {
-      navigate(`/auth?mode=signup&next=/e/${slug}`);
-      return;
-    }
-    setBuying(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("claim-free-ticket", {
-        body: { tier_id: selectedTier },
-      });
-      if (error || !(data as { ok?: boolean })?.ok) {
-        const msg =
-          (data as { error?: string })?.error ??
-          error?.message ??
-          "Could not claim your free ticket.";
-        toast.error(msg);
-        return;
-      }
-      toast.success("Beta ticket claimed — check your email!", {
-        description: "It's also in your profile under My Tickets.",
-      });
-      // Send them to their profile to see the ticket
-      navigate("/profile");
-    } catch (e) {
-      console.error("[event-public] claim exception:", e);
-      toast.error("Could not claim your free ticket.");
-    } finally {
-      setBuying(false);
-    }
-  };
-
   if (loading || authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -245,7 +212,6 @@ const EventPublic = () => {
 
   const primary = event.primary_color || event.organizer?.primary_color || "#003399";
   const selected = tiers.find((t) => t.tier_id === selectedTier) ?? null;
-  const isFree = !!selected && selected.price_cents === 0;
   const totalCents = selected ? selected.price_cents * qty : 0;
   const feeCents = Math.round(totalCents * 0.05);
   const grandCents = totalCents + feeCents;
@@ -369,9 +335,7 @@ const EventPublic = () => {
                 {tiers.map((t) => {
                   const isSelected = selectedTier === t.tier_id;
                   const soldOut = t.available_qty <= 0;
-                  const tierIsFree = t.price_cents === 0;
-                  // Free tiers don't need Stripe Connect; only sold-out blocks them.
-                  const locked = soldOut || (!tierIsFree && !paymentsReady);
+                  const locked = soldOut || !paymentsReady;
                   return (
                     <button
                       key={t.tier_id}
@@ -404,14 +368,14 @@ const EventPublic = () => {
                         <div className="text-[11px] font-semibold text-muted-foreground mt-2">
                           {soldOut
                             ? "Sold out"
-                            : !tierIsFree && !paymentsReady
+                            : !paymentsReady
                             ? "Sales paused"
                             : `${t.available_qty} left`}
                         </div>
                       </div>
                       <div className="text-right shrink-0">
                         <div className="text-xl md:text-2xl font-black" style={{ color: primary }}>
-                          {tierIsFree ? "Free" : `€${(t.price_cents / 100).toFixed(2)}`}
+                          €{(t.price_cents / 100).toFixed(2)}
                         </div>
                       </div>
                     </button>
@@ -422,69 +386,50 @@ const EventPublic = () => {
 
             {selected && (
               <div className="mt-5 pt-5 border-t border-border">
-                {/* Free beta tier: no qty picker, no fee breakdown — one seat per user. */}
-                {!isFree && (
-                  <>
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-sm font-bold">Quantity</span>
-                      <div className="inline-flex items-center gap-2">
-                        <button
-                          onClick={() => setQty((n) => Math.max(1, n - 1))}
-                          className="w-9 h-9 rounded-lg border border-border flex items-center justify-center hover:bg-muted"
-                        >
-                          <Minus className="w-3.5 h-3.5" />
-                        </button>
-                        <span className="w-10 text-center font-bold">{qty}</span>
-                        <button
-                          onClick={() => setQty((n) => Math.min(10, Math.min(selected.available_qty, n + 1)))}
-                          className="w-9 h-9 rounded-lg border border-border flex items-center justify-center hover:bg-muted"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="space-y-1 text-sm mb-4">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">
-                          {selected.name} × {qty}
-                        </span>
-                        <span>€{(totalCents / 100).toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Platform fee (5%)</span>
-                        <span>€{(feeCents / 100).toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between font-bold pt-2 border-t border-border">
-                        <span>Total</span>
-                        <span>€{(grandCents / 100).toFixed(2)}</span>
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                {isFree && (
-                  <div className="mb-4 p-3 bg-primary/5 border border-primary/20 rounded-lg text-sm">
-                    <div className="font-semibold mb-0.5">Free beta seat</div>
-                    <div className="text-muted-foreground text-xs">
-                      One seat per person. You'll get a confirmation email with your name and a QR token.
-                    </div>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-sm font-bold">Quantity</span>
+                  <div className="inline-flex items-center gap-2">
+                    <button
+                      onClick={() => setQty((n) => Math.max(1, n - 1))}
+                      className="w-9 h-9 rounded-lg border border-border flex items-center justify-center hover:bg-muted"
+                    >
+                      <Minus className="w-3.5 h-3.5" />
+                    </button>
+                    <span className="w-10 text-center font-bold">{qty}</span>
+                    <button
+                      onClick={() => setQty((n) => Math.min(10, Math.min(selected.available_qty, n + 1)))}
+                      className="w-9 h-9 rounded-lg border border-border flex items-center justify-center hover:bg-muted"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
                   </div>
-                )}
+                </div>
+
+                <div className="space-y-1 text-sm mb-4">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">
+                      {selected.name} × {qty}
+                    </span>
+                    <span>€{(totalCents / 100).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Platform fee (5%)</span>
+                    <span>€{(feeCents / 100).toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between font-bold pt-2 border-t border-border">
+                    <span>Total</span>
+                    <span>€{(grandCents / 100).toFixed(2)}</span>
+                  </div>
+                </div>
 
                 <button
-                  onClick={isFree ? handleClaim : handleBuy}
+                  onClick={handleBuy}
                   disabled={buying}
                   className="w-full inline-flex items-center justify-center gap-2 min-h-[52px] px-6 rounded-xl font-bold text-white disabled:opacity-60"
                   style={{ background: primary }}
                 >
                   {buying ? (
                     <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : isFree ? (
-                    <>
-                      Claim my free seat
-                      <ArrowRight className="w-4 h-4" />
-                    </>
                   ) : (
                     <>
                       Buy {qty} ticket{qty > 1 ? "s" : ""}
