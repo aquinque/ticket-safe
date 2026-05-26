@@ -322,7 +322,22 @@
     "loadingProfile": "Chargement de votre profil...",
     "purchasesCompleted": "Achats réalisés",
     "salesCompleted": "Ventes réalisées",
-    "saved": "Économisés"
+    "saved": "Économisés",
+    "hello": "Bonjour {name}",
+    "myTickets": "Mes billets",
+    "mySales": "Mes ventes",
+    "viewTicket": "Voir mon billet",
+    "ticketByEmail": "Envoyé par email",
+    "noUpcomingTickets": "Aucun billet à venir",
+    "browseEvents": "Parcourir les événements",
+    "noSalesYet": "Aucun billet en vente",
+    "sellATicket": "Vendre un billet",
+    "viewAll": "Voir tout",
+    "manageListings": "Gérer mes ventes",
+    "historyToggle": "Billets passés ({count})",
+    "soldFor": "Vendu {price}€",
+    "listedAt": "Mis en vente à {price}€",
+    "awaitingBuyer": "En attente d'acheteur"
   },
   "privacy": {
     "title": "Confidentialité et données",

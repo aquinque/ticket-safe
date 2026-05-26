@@ -322,7 +322,22 @@
     "loadingProfile": "Loading your profile...",
     "purchasesCompleted": "Purchases completed",
     "salesCompleted": "Sales completed",
-    "saved": "Saved"
+    "saved": "Saved",
+    "hello": "Hi {name}",
+    "myTickets": "My tickets",
+    "mySales": "My sales",
+    "viewTicket": "View my ticket",
+    "ticketByEmail": "Sent by email",
+    "noUpcomingTickets": "No upcoming tickets",
+    "browseEvents": "Browse events",
+    "noSalesYet": "No tickets listed yet",
+    "sellATicket": "Sell a ticket",
+    "viewAll": "View all",
+    "manageListings": "Manage all my listings",
+    "historyToggle": "Past tickets ({count})",
+    "soldFor": "Sold for {price}€",
+    "listedAt": "Listed at {price}€",
+    "awaitingBuyer": "Waiting for a buyer"
   },
   "privacy": {
     "title": "Privacy & Data",
