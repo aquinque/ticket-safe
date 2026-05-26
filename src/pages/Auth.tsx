@@ -169,11 +169,23 @@ const Auth = () => {
         }
 
         if (data.user && data.session) {
+          // DEFENSE: block sign-in if email isn't confirmed yet. This catches
+          // cases where Supabase's "Confirm email" toggle was off when the
+          // account was created, or any edge case where a session exists
+          // for an unverified account.
+          if (!data.user.email_confirmed_at) {
+            await supabase.auth.signOut();
+            toast.error("Please confirm your email first — check your inbox for the verification link.");
+            setPendingConfirmEmail(email.trim());
+            setLoading(false);
+            return;
+          }
+
           // Reset failed login attempts on success
           await supabase.rpc('reset_failed_login', {
             user_email: email.trim()
           });
-          
+
           toast.success("Welcome back!");
           // Navigation handled by the useEffect watching user state
         }
@@ -272,12 +284,29 @@ const Auth = () => {
           return;
         }
 
-        if (data.user && data.session) {
-          toast.success("Account created successfully!");
-          // Navigation handled by the useEffect watching user state
-        } else if (data.user && !data.session) {
-          // Email confirmation required — show resend UI
+        // After signup, always require email confirmation before letting the user in.
+        // Three cases:
+        //  (a) Supabase "Confirm email" is ON → no session returned, email_confirmed_at null
+        //      → show "Check your inbox" UI (Supabase already sent the email)
+        //  (b) Supabase "Confirm email" is ON but user already existed unconfirmed
+        //      → same as (a)
+        //  (c) Supabase "Confirm email" is OFF (misconfigured) → session returned + auto-confirmed
+        //      → we still force them out so they can re-sign-in. We try to trigger a resend
+        //         to mimic the intended flow.
+        if (data.user && !data.user.email_confirmed_at) {
+          // Cases (a) + (b): no session, just show check-inbox UI
+          if (data.session) {
+            // Shouldn't happen in this branch, but defense in depth
+            await supabase.auth.signOut();
+          }
           setPendingConfirmEmail(email.trim());
+          toast.success("Account created — check your email to confirm.");
+        } else if (data.user && data.session) {
+          // Case (c): Supabase auto-confirmed (settings misconfigured).
+          // Force sign out and tell the user.
+          await supabase.auth.signOut();
+          setPendingConfirmEmail(email.trim());
+          toast.success("Account created — please confirm your email before signing in.");
         }
       }
     } catch (error) {
@@ -308,11 +337,17 @@ const Auth = () => {
         <CardContent>
           {pendingConfirmEmail ? (
             <div className="space-y-4 text-center">
+              <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                <Mail className="w-6 h-6 text-primary" />
+              </div>
               <div className="space-y-2">
-                <p className="text-sm font-medium">Check your inbox</p>
+                <p className="text-base font-semibold">Check your inbox</p>
                 <p className="text-sm text-muted-foreground">
-                  A confirmation link was sent to <strong>{pendingConfirmEmail}</strong>.
-                  Click it, then come back to log in.
+                  We sent a verification link to <strong>{pendingConfirmEmail}</strong>.
+                  Click it to activate your account, then come back to sign in.
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Don't see it? Check your spam folder, or resend below.
                 </p>
               </div>
               <Button onClick={handleResendConfirmation} variant="outline" className="w-full" disabled={loading}>
