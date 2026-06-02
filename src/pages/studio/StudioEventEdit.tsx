@@ -20,6 +20,7 @@ import {
   Type,
   FileText,
   Pencil,
+  QrCode,
 } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -349,6 +350,16 @@ const StudioEventEdit = () => {
                     Public page
                     <ExternalLink className="w-3.5 h-3.5" />
                   </a>
+                )}
+                {event.status === "published" && (
+                  <Link
+                    to={`/organizer/scan?event_id=${event.id}`}
+                    className="inline-flex items-center gap-1.5 px-4 min-h-[40px] rounded-lg font-bold text-sm bg-white/15 backdrop-blur border border-white/30 text-white hover:bg-white/25"
+                    title="Open the door scanner with this event pre-selected"
+                  >
+                    <QrCode className="w-3.5 h-3.5" />
+                    Scan tickets
+                  </Link>
                 )}
                 {event.status !== "cancelled" && (
                   <button

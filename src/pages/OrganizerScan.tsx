@@ -10,7 +10,7 @@
  */
 
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -137,10 +137,12 @@ const STUDIO_TOKEN_RE = /^[a-f0-9]{32,128}$/;
 
 const OrganizerScan = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const eventIdFromUrl = searchParams.get("event_id");
   const { user, loading: authLoading } = useAuth();
 
   const [events, setEvents] = useState<Event[]>([]);
-  const [selectedEventId, setSelectedEventId] = useState<string>("");
+  const [selectedEventId, setSelectedEventId] = useState<string>(eventIdFromUrl ?? "");
   const [inputMode, setInputMode] = useState<InputMode>("camera");
   const [manualToken, setManualToken] = useState("");
   const [isValidating, setIsValidating] = useState(false);
@@ -206,9 +208,17 @@ const OrganizerScan = () => {
       const deduped = merged.filter((e) => (seen.has(e.id) ? false : (seen.add(e.id), true)));
 
       setEvents(deduped);
-      if (deduped.length > 0) setSelectedEventId(deduped[0].id);
+      // Respect the event_id from the URL if it's a valid choice;
+      // otherwise default to the soonest upcoming event.
+      const urlMatch = eventIdFromUrl && deduped.find((e) => e.id === eventIdFromUrl);
+      if (urlMatch) {
+        setSelectedEventId(urlMatch.id);
+      } else if (deduped.length > 0 && !selectedEventId) {
+        setSelectedEventId(deduped[0].id);
+      }
     })();
-  }, [user]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, eventIdFromUrl]);
 
   // ---------------------------------------------------------------------------
   // Validation
@@ -453,13 +463,36 @@ const OrganizerScan = () => {
         <div className="container mx-auto px-4 max-w-5xl">
 
           {/* Title */}
-          <div className="mb-8 flex items-center gap-3">
+          <div className="mb-6 flex items-center gap-3">
             <Shield className="w-7 h-7 text-primary" />
             <div>
               <h1 className="text-2xl font-bold">Ticket Verification</h1>
               <p className="text-sm text-muted-foreground">Validate tickets at event entry</p>
             </div>
           </div>
+
+          {/* Locked banner when the page was opened via a deep link from a specific event */}
+          {eventIdFromUrl && events.find((e) => e.id === eventIdFromUrl) && (
+            <div className="mb-6 rounded-2xl bg-primary/5 border border-primary/30 px-5 py-4 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-primary text-primary-foreground flex items-center justify-center shrink-0">
+                <Shield className="w-5 h-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-[10px] uppercase tracking-[0.18em] font-bold text-primary">
+                  Scanning at the door
+                </div>
+                <div className="font-bold text-base truncate">
+                  {events.find((e) => e.id === eventIdFromUrl)?.title}
+                </div>
+              </div>
+              <button
+                onClick={() => navigate("/studio")}
+                className="text-xs font-bold text-primary hover:underline shrink-0"
+              >
+                Back to Studio
+              </button>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
