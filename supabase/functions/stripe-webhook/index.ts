@@ -36,12 +36,19 @@ import Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
 serve(async (req) => {
   // ---- env ----------------------------------------------------------------
   const stripeSecretKey = Deno.env.get("STRIPE_SECRET_KEY");
-  const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET");
+  // Two webhook secrets are supported because Stripe Dashboard forces you
+  // to create one endpoint for "Events on your account" and a separate
+  // endpoint for "Events on Connected accounts". Each endpoint has its
+  // own signing secret. We accept either: try the account secret first,
+  // fall back to the Connect secret. The function is bound to the same
+  // URL for both endpoints, so Stripe routes events to us seamlessly.
+  const webhookSecretAccount = Deno.env.get("STRIPE_WEBHOOK_SECRET");
+  const webhookSecretConnect = Deno.env.get("STRIPE_WEBHOOK_SECRET_CONNECT");
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-  if (!stripeSecretKey || !webhookSecret || !supabaseUrl || !supabaseServiceKey) {
-    console.error("[stripe-webhook] Missing environment variables");
+  if (!stripeSecretKey || (!webhookSecretAccount && !webhookSecretConnect) || !supabaseUrl || !supabaseServiceKey) {
+    console.error("[stripe-webhook] Missing environment variables (need at least one of STRIPE_WEBHOOK_SECRET / STRIPE_WEBHOOK_SECRET_CONNECT)");
     return new Response("Server misconfiguration", { status: 500 });
   }
 
@@ -58,18 +65,29 @@ serve(async (req) => {
     httpClient: Stripe.createFetchHttpClient(),
   });
 
-  let event: Stripe.Event;
-  try {
-    event = await stripe.webhooks.constructEventAsync(
-      body,
-      signature,
-      webhookSecret,
-      undefined,
-      // Use Web Crypto API (Deno doesn't have Node's crypto module)
-      Stripe.createSubtleCryptoProvider()
-    );
-  } catch (err) {
-    console.error("[stripe-webhook] Signature verification failed:", err);
+  // Try each configured secret in order. The first one that verifies wins.
+  // Stripe payloads are signed with exactly one secret per endpoint, so this
+  // never validates two ways — it just lets us accept either endpoint's payload.
+  const candidateSecrets = [webhookSecretAccount, webhookSecretConnect].filter(Boolean) as string[];
+  let event: Stripe.Event | null = null;
+  let lastErr: unknown = null;
+  for (const secret of candidateSecrets) {
+    try {
+      event = await stripe.webhooks.constructEventAsync(
+        body,
+        signature,
+        secret,
+        undefined,
+        // Use Web Crypto API (Deno doesn't have Node's crypto module)
+        Stripe.createSubtleCryptoProvider()
+      );
+      break;
+    } catch (err) {
+      lastErr = err;
+    }
+  }
+  if (!event) {
+    console.error("[stripe-webhook] Signature verification failed against all configured secrets:", lastErr);
     return new Response("Invalid webhook signature", { status: 400 });
   }
 
