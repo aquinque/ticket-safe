@@ -51,10 +51,12 @@ interface Event {
 type ScanResultCode =
   | "VALID"
   | "INVALID"
+  | "FORGED"
   | "WRONG_EVENT"
   | "NOT_PURCHASED"
   | "ALREADY_USED"
   | "REVOKED"
+  | "FORBIDDEN"
   | "EXPIRED"
   | "EVENT_NOT_STARTED"
   | "EVENT_ENDED"
@@ -85,11 +87,40 @@ interface ScanResult {
     scan_count?: number;
     owner_initials?: string;
     seat_info?: string | null;
+    // Studio fields:
+    actual_event_title?: string;
+    actual_event_date?: string;
+    expected_event_title?: string;
+    scanned_at?: string;
   };
   risk_level?: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
   fraud_signals?: string[];
   scanned_at: string;
 }
+
+/**
+ * Visual semantics for every result code. A scanner at the door is making
+ * a snap decision — make rejections impossible to misread.
+ */
+const RESULT_SEMANTICS: Record<ScanResultCode, {
+  emphasis: "ok" | "warn" | "danger" | "danger-loud";
+  label: string;
+  guidance: string;
+}> = {
+  VALID:             { emphasis: "ok",          label: "Entry granted",      guidance: "Welcome — let them in." },
+  ALREADY_USED:      { emphasis: "danger",      label: "Already scanned",     guidance: "This ticket was used. Deny entry." },
+  WRONG_EVENT:       { emphasis: "warn",        label: "Wrong event",         guidance: "Different event — they may be at the wrong door." },
+  REVOKED:           { emphasis: "danger",      label: "Refunded / cancelled",guidance: "Buyer was refunded. Deny entry." },
+  FORGED:            { emphasis: "danger-loud", label: "Fake or unknown",     guidance: "This QR is NOT a Ticket Safe ticket. Refuse." },
+  INVALID:           { emphasis: "danger",      label: "Invalid",             guidance: "Could not verify. Refuse." },
+  NOT_PURCHASED:     { emphasis: "danger",      label: "Not purchased",       guidance: "No purchase on record. Refuse." },
+  EXPIRED:           { emphasis: "danger",      label: "Expired",             guidance: "Token has expired." },
+  EVENT_NOT_STARTED: { emphasis: "warn",        label: "Too early",           guidance: "Doors are not open yet." },
+  EVENT_ENDED:       { emphasis: "warn",        label: "Event ended",         guidance: "Event already finished." },
+  FORBIDDEN:         { emphasis: "danger",      label: "Not your event",      guidance: "You can't scan tickets for this event." },
+  SUSPECT_FRAUD:     { emphasis: "danger-loud", label: "Suspected fraud",     guidance: "Stop the scan, call security." },
+  RATE_LIMITED:      { emphasis: "warn",        label: "Too many scans",      guidance: "Wait a second and retry." },
+};
 
 type InputMode = "camera" | "manual";
 
@@ -307,7 +338,12 @@ const OrganizerScan = () => {
       setScanResult(result);
       setScanHistory((prev) => [result, ...prev].slice(0, 20));
 
-      playBeep(result.valid);
+      // Loud alert sound for forged / suspect fraud so it's audible above a crowd.
+      if (result.result === "FORGED" || result.result === "SUSPECT_FRAUD") {
+        playAlarm();
+      } else {
+        playBeep(result.valid);
+      }
       if (result.valid) toast.success(result.message);
       else toast.error(result.message);
 
@@ -362,6 +398,26 @@ const OrganizerScan = () => {
   // ---------------------------------------------------------------------------
   // Audio feedback
   // ---------------------------------------------------------------------------
+
+  // Three short low pulses — loud enough to flag a forged QR across a crowd.
+  const playAlarm = () => {
+    const AC = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AC) return;
+    const ctx = new AC();
+    [0, 0.25, 0.5].forEach((delay) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = 240;
+      osc.type = "square";
+      const t = ctx.currentTime + delay;
+      gain.gain.setValueAtTime(0.5, t);
+      gain.gain.exponentialRampToValueAtTime(0.01, t + 0.18);
+      osc.start(t);
+      osc.stop(t + 0.18);
+    });
+  };
 
   const playBeep = (success: boolean) => {
     const AC = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
@@ -559,24 +615,94 @@ const OrganizerScan = () => {
               )}
 
               {/* Scan result */}
-              {scanResult && (
-                <Card className={`border-2 ${scanResult.valid ? "border-green-500 bg-green-50 dark:bg-green-950/30" : "border-red-400 bg-red-50 dark:bg-red-950/30"}`}>
+              {scanResult && (() => {
+                const sem = RESULT_SEMANTICS[scanResult.result] ?? RESULT_SEMANTICS.INVALID;
+                const cardBorder =
+                  sem.emphasis === "ok" ? "border-green-500 bg-green-50 dark:bg-green-950/30" :
+                  sem.emphasis === "warn" ? "border-amber-500 bg-amber-50 dark:bg-amber-950/30" :
+                  sem.emphasis === "danger" ? "border-red-500 bg-red-50 dark:bg-red-950/30" :
+                  /* danger-loud */ "border-red-700 bg-red-100 dark:bg-red-950/50 ring-4 ring-red-200 dark:ring-red-900/40";
+                const titleColor =
+                  sem.emphasis === "ok" ? "text-green-700 dark:text-green-300" :
+                  sem.emphasis === "warn" ? "text-amber-800 dark:text-amber-200" :
+                  "text-red-700 dark:text-red-300";
+                const Icon =
+                  sem.emphasis === "ok" ? CheckCircle2 :
+                  sem.emphasis === "warn" ? AlertTriangle :
+                  XCircle;
+                const iconColor =
+                  sem.emphasis === "ok" ? "text-green-500" :
+                  sem.emphasis === "warn" ? "text-amber-500" :
+                  sem.emphasis === "danger-loud" ? "text-red-700 animate-pulse" :
+                  "text-red-500";
+                return (
+                <Card className={`border-2 ${cardBorder}`}>
                   <CardContent className="pt-6 space-y-4">
                     {/* Status header */}
                     <div className="flex flex-col items-center text-center gap-3">
-                      {scanResult.valid
-                        ? <CheckCircle2 className="w-14 h-14 text-green-500" />
-                        : scanResult.result === "WRONG_EVENT" || scanResult.result === "EVENT_NOT_STARTED"
-                          ? <AlertTriangle className="w-14 h-14 text-orange-500" />
-                          : <XCircle className="w-14 h-14 text-red-500" />
-                      }
+                      <Icon className={`w-14 h-14 ${iconColor}`} />
                       <div>
-                        <p className={`text-2xl font-bold ${scanResult.valid ? "text-green-700 dark:text-green-300" : "text-red-700 dark:text-red-300"}`}>
-                          {scanResult.valid ? "Entry Granted" : "Entry Denied"}
+                        <p className={`text-2xl font-black uppercase tracking-wide ${titleColor}`}>
+                          {sem.label}
                         </p>
-                        <p className="text-sm text-muted-foreground mt-1">{scanResult.message}</p>
+                        <p className="text-sm text-foreground/80 mt-2 max-w-sm">
+                          {scanResult.message}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-2 italic">
+                          {sem.guidance}
+                        </p>
                       </div>
                     </div>
+
+                    {/* Studio-specific call-outs */}
+                    {scanResult.result === "WRONG_EVENT" && scanResult.ticket_info?.actual_event_title && (
+                      <div className="rounded-lg border-2 border-amber-300 bg-white dark:bg-amber-950/20 px-4 py-3 text-sm">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400 mb-2">
+                          This QR belongs to a different event
+                        </p>
+                        <div className="space-y-1">
+                          <div className="flex justify-between gap-3">
+                            <span className="text-muted-foreground">Ticket is for</span>
+                            <span className="font-semibold text-right">{scanResult.ticket_info.actual_event_title}</span>
+                          </div>
+                          {scanResult.ticket_info.actual_event_date && (
+                            <div className="flex justify-between gap-3">
+                              <span className="text-muted-foreground">On</span>
+                              <span className="text-right">{new Date(scanResult.ticket_info.actual_event_date).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}</span>
+                            </div>
+                          )}
+                          {scanResult.ticket_info.expected_event_title && (
+                            <div className="flex justify-between gap-3">
+                              <span className="text-muted-foreground">You selected</span>
+                              <span className="text-right">{scanResult.ticket_info.expected_event_title}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {scanResult.result === "ALREADY_USED" && scanResult.ticket_info?.scanned_at && (
+                      <div className="rounded-lg border-2 border-red-300 bg-white dark:bg-red-950/20 px-4 py-3 text-sm">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-red-700 dark:text-red-400 mb-1">
+                          Previously scanned
+                        </p>
+                        <p>
+                          {new Date(scanResult.ticket_info.scanned_at).toLocaleString("en-GB", { dateStyle: "long", timeStyle: "medium" })}
+                        </p>
+                      </div>
+                    )}
+
+                    {scanResult.result === "FORGED" && (
+                      <div className="rounded-lg border-2 border-red-500 bg-red-50 dark:bg-red-950/40 px-4 py-3 text-sm">
+                        <p className="text-xs font-bold uppercase tracking-wide text-red-700 dark:text-red-300 mb-1">
+                          This QR does not match any ticket on Ticket Safe
+                        </p>
+                        <p className="text-xs text-red-900 dark:text-red-200">
+                          It may be a screenshot from another platform, a fake, or a recycled link.
+                          Do not let this person in based on this QR.
+                        </p>
+                      </div>
+                    )}
 
                     {/* Buyer identity — shown only on valid scan */}
                     {scanResult.valid && scanResult.buyer_info && (
@@ -658,7 +784,8 @@ const OrganizerScan = () => {
                     </div>
                   </CardContent>
                 </Card>
-              )}
+                );
+              })()}
             </div>
 
             {/* ── Right: Stats + History ── */}

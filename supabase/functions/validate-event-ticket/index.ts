@@ -66,13 +66,14 @@ serve(async (req) => {
       return json({ result: "INVALID", message: "event_id format invalid." });
     }
 
-    // Resolve ticket + its event + its organizer in one round-trip
+    // Resolve ticket + its event + its organizer + its order in one round-trip
     const { data: ticket, error: tErr } = await supabase
       .from("event_tickets")
       .select(
-        `id, event_id, tier_id, buyer_id, qr_token, scanned_at, scanned_by, created_at,
-         event:events!inner(title, organizer_id),
-         tier:event_tiers(name)`,
+        `id, event_id, tier_id, buyer_id, order_id, qr_token, scanned_at, scanned_by, created_at,
+         event:events!inner(title, date, status, organizer_id),
+         tier:event_tiers(name),
+         order:event_orders(status)`,
       )
       .eq("qr_token", qrToken)
       .maybeSingle();
@@ -82,22 +83,29 @@ serve(async (req) => {
       return json({ error: "Lookup failed." }, 500);
     }
     if (!ticket) {
-      // Best-effort audit of the failed scan
+      // FORGED / FAKE QR: token doesn't exist in our DB at all.
+      // Audit the attempt so we can spot patterns of forged scans.
       await supabase.rpc("audit_record", {
-        p_action: "scan.invalid_token",
+        p_action: "scan.forged_or_unknown",
         p_target_kind: "event_ticket",
         p_target_id: null,
-        p_meta: { reason: "not_found" },
+        p_meta: { reason: "not_found", scanned_event_id: requestedEventId ?? null, token_prefix: qrToken.slice(0, 8) },
         p_actor_id: user.id,
       });
-      return json({ result: "INVALID", message: "Ticket not found." });
+      return json({
+        result: "FORGED",
+        message: "This QR is not a valid Ticket Safe ticket.",
+      });
     }
 
     const ev = Array.isArray((ticket as { event: unknown }).event)
-      ? (ticket as { event: { title: string; organizer_id: string }[] }).event[0]
-      : (ticket as { event: { title: string; organizer_id: string } }).event;
+      ? (ticket as { event: { title: string; date: string; status: string; organizer_id: string }[] }).event[0]
+      : (ticket as { event: { title: string; date: string; status: string; organizer_id: string } }).event;
+    const ord = Array.isArray((ticket as { order: unknown }).order)
+      ? (ticket as { order: { status: string }[] }).order[0]
+      : (ticket as { order: { status: string } | null }).order;
 
-    // Authorize: must be the event's organizer (via stripe_accounts.user_id) or admin
+    // Authorize: must be the event's organizer or a global admin
     const { data: org } = await supabase
       .from("organizer_profiles")
       .select("user_id")
@@ -114,19 +122,78 @@ serve(async (req) => {
     const isOwner = org?.user_id === user.id;
     const isAdmin = !!roleRow;
     if (!isOwner && !isAdmin) {
-      return json({ result: "INVALID", message: "Not allowed to scan this event." }, 403);
+      return json({
+        result: "FORBIDDEN",
+        message: "You are not allowed to scan tickets for this event.",
+      }, 403);
     }
 
-    // Event mismatch
+    // Look up the event the scanner *selected* in the UI, so we can show
+    // its title in the WRONG_EVENT response.
+    let expectedEventTitle: string | null = null;
     if (requestedEventId && requestedEventId !== ticket.event_id) {
+      const { data: expected } = await supabase
+        .from("events")
+        .select("title")
+        .eq("id", requestedEventId)
+        .maybeSingle();
+      expectedEventTitle = expected?.title ?? null;
+
       await supabase.rpc("audit_record", {
         p_action: "scan.wrong_event",
         p_target_kind: "event_ticket",
         p_target_id: ticket.id,
-        p_meta: { expected: requestedEventId, actual: ticket.event_id },
+        p_meta: {
+          expected_event_id: requestedEventId,
+          expected_event_title: expectedEventTitle,
+          actual_event_id: ticket.event_id,
+          actual_event_title: ev?.title,
+        },
         p_actor_id: user.id,
       });
-      return json({ result: "WRONG_EVENT", message: "This ticket is for a different event." });
+      return json({
+        result: "WRONG_EVENT",
+        message: `This ticket is for "${ev?.title ?? "another event"}", not "${expectedEventTitle ?? "the selected event"}".`,
+        ticket_info: {
+          actual_event_title: ev?.title,
+          actual_event_date: ev?.date,
+          expected_event_title: expectedEventTitle,
+        },
+      });
+    }
+
+    // Cancelled event: organizer cancelled and buyer was already refunded.
+    // The ticket is void even if it was never scanned.
+    if (ev?.status === "cancelled") {
+      await supabase.rpc("audit_record", {
+        p_action: "scan.event_cancelled",
+        p_target_kind: "event_ticket",
+        p_target_id: ticket.id,
+        p_meta: { event_id: ticket.event_id },
+        p_actor_id: user.id,
+      });
+      return json({
+        result: "REVOKED",
+        message: "This event was cancelled — buyer was refunded. Deny entry.",
+        ticket_info: { event_title: ev?.title },
+      });
+    }
+
+    // Refunded order: cancellation may not have touched events.status
+    // (e.g. partial refund) but this specific order was refunded.
+    if (ord?.status === "refunded") {
+      await supabase.rpc("audit_record", {
+        p_action: "scan.order_refunded",
+        p_target_kind: "event_ticket",
+        p_target_id: ticket.id,
+        p_meta: { order_id: ticket.order_id, event_id: ticket.event_id },
+        p_actor_id: user.id,
+      });
+      return json({
+        result: "REVOKED",
+        message: "This ticket was refunded. Deny entry.",
+        ticket_info: { event_title: ev?.title },
+      });
     }
 
     // Already used
@@ -140,7 +207,7 @@ serve(async (req) => {
       });
       return json({
         result: "ALREADY_USED",
-        message: `Ticket already scanned at ${new Date(ticket.scanned_at).toLocaleString("en-GB")}.`,
+        message: `Already scanned at ${new Date(ticket.scanned_at).toLocaleString("en-GB")}. Deny entry.`,
         ticket_info: { event_title: ev?.title, scanned_at: ticket.scanned_at },
       });
     }
