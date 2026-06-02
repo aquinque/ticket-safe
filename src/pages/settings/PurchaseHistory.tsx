@@ -16,14 +16,31 @@ import {
   Euro,
   CheckCircle2,
   Clock,
-  XCircle
+  XCircle,
+  QrCode,
+  ArrowRight,
+  Repeat2,
+  Sparkles,
 } from "lucide-react";
+import { Link } from "react-router-dom";
+
+type Purchase = {
+  id: string;
+  source: "resale" | "studio";
+  orderId: string;
+  eventTitle: string;
+  date: string;
+  price: number;
+  status: string;
+  campus: string;
+  quantity: number;
+};
 
 const PurchaseHistory = () => {
   const { t, language } = useI18n();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [purchases, setPurchases] = useState<Array<{ id: string; eventTitle: string; date: string; price: number; status: string; campus: string; quantity: number }>>([]);
+  const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -35,23 +52,55 @@ const PurchaseHistory = () => {
     const fetchPurchases = async () => {
       try {
         setLoading(true);
-        const { data: purchaseData, error: purchaseError } = await supabase
-          .from('transactions')
+
+        // Resale purchases (transactions table)
+        const resaleQuery = supabase
+          .from("transactions")
           .select(`*, ticket:tickets(event:events(title, university, date))`)
-          .eq('buyer_id', user.id)
-          .order('created_at', { ascending: false });
+          .eq("buyer_id", user.id)
+          .order("created_at", { ascending: false });
 
-        if (purchaseError) console.error('Error fetching purchases:', purchaseError);
+        // Studio primary-sale purchases (event_orders table)
+        const studioQuery = supabase
+          .from("event_orders")
+          .select(`
+            id, status, quantity, total_cents, created_at,
+            event:events(title, university, campus, date, slug)
+          `)
+          .eq("buyer_id", user.id)
+          .order("created_at", { ascending: false });
 
-        setPurchases(purchaseData?.map(p => ({
-          id: p.id,
+        const [resaleRes, studioRes] = await Promise.all([resaleQuery, studioQuery]);
+
+        if (resaleRes.error) console.error("[purchases] resale fetch error:", resaleRes.error);
+        if (studioRes.error) console.error("[purchases] studio fetch error:", studioRes.error);
+
+        const resale: Purchase[] = (resaleRes.data ?? []).map((p: { id: string; amount: number; quantity: number; status: string; created_at: string; ticket: { event: { title?: string; university?: string; date?: string } } | null }) => ({
+          id: `resale-${p.id}`,
+          source: "resale",
+          orderId: p.id,
           eventTitle: p.ticket?.event?.title || "Unknown Event",
           date: p.ticket?.event?.date || p.created_at,
           price: p.amount,
           quantity: p.quantity,
-          status: p.status === 'completed' ? 'confirmed' : p.status,
+          status: p.status === "completed" ? "confirmed" : p.status,
           campus: p.ticket?.event?.university || "Unknown",
-        })) || []);
+        }));
+
+        const studio: Purchase[] = (studioRes.data ?? []).map((o: { id: string; status: string; quantity: number; total_cents: number; created_at: string; event: { title?: string; university?: string; campus?: string; date?: string } | null }) => ({
+          id: `studio-${o.id}`,
+          source: "studio",
+          orderId: o.id,
+          eventTitle: o.event?.title || "Unknown Event",
+          date: o.event?.date || o.created_at,
+          price: o.total_cents / 100,
+          quantity: o.quantity,
+          status: o.status === "paid" ? "confirmed" : o.status,
+          campus: o.event?.campus || o.event?.university || "Unknown",
+        }));
+
+        const merged = [...resale, ...studio].sort((a, b) => +new Date(b.date) - +new Date(a.date));
+        setPurchases(merged);
       } catch (error) {
         console.error("Error fetching purchase history:", error);
       } finally {
@@ -171,7 +220,7 @@ const PurchaseHistory = () => {
                         </div>
                       </div>
 
-                      {/* Bottom row: meta + badge */}
+                      {/* Bottom row: meta + badge + source */}
                       <div className="mt-1.5 ml-6 flex flex-wrap items-center gap-x-3 gap-y-1">
                         <span className="flex items-center gap-1 text-xs text-muted-foreground">
                           <Calendar className="w-3 h-3" />
@@ -183,7 +232,40 @@ const PurchaseHistory = () => {
                         </span>
                         <span className="text-xs text-muted-foreground">× {purchase.quantity}</span>
                         {getStatusBadge(purchase.status)}
+                        <span
+                          className={`inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full ${
+                            purchase.source === "studio"
+                              ? "bg-primary/10 text-primary"
+                              : "bg-muted text-muted-foreground"
+                          }`}
+                        >
+                          {purchase.source === "studio" ? (
+                            <>
+                              <Sparkles className="w-2.5 h-2.5" />
+                              Studio
+                            </>
+                          ) : (
+                            <>
+                              <Repeat2 className="w-2.5 h-2.5" />
+                              Resale
+                            </>
+                          )}
+                        </span>
                       </div>
+
+                      {/* Studio order: link to QR tickets */}
+                      {purchase.source === "studio" && purchase.status === "confirmed" && (
+                        <div className="mt-2 ml-6">
+                          <Link
+                            to={`/my-tickets/${purchase.orderId}`}
+                            className="inline-flex items-center gap-1.5 text-xs font-bold text-primary hover:gap-2 transition-all"
+                          >
+                            <QrCode className="w-3.5 h-3.5" />
+                            View QR tickets
+                            <ArrowRight className="w-3 h-3" />
+                          </Link>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

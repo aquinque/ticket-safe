@@ -3,87 +3,104 @@ import { useI18n } from '@/contexts/I18nContext';
 import { useLocation } from 'react-router-dom';
 
 interface SEOHeadProps {
+  /** Direct title string (preferred). Falls back to titleKey via i18n. */
+  title?: string;
+  /** i18n key for the title. Used when `title` is not provided. */
   titleKey?: string;
+  /** Direct description string (preferred). */
+  description?: string;
+  /** i18n key for the description. */
   descriptionKey?: string;
+  /** Absolute or root-relative URL for the social preview image. */
+  image?: string | null;
+  /** Open Graph type. Defaults to "website"; pass "event" / "article" when relevant. */
+  type?: string;
+  /** Canonical URL override. Defaults to the current pathname. */
+  url?: string;
 }
 
-export const SEOHead = ({ titleKey, descriptionKey }: SEOHeadProps) => {
+/** Ensures an HTMLMetaElement exists for the given selector, creating it if missing. */
+function ensureMeta(selector: string, attrName: 'name' | 'property', attrValue: string): HTMLMetaElement {
+  let el = document.querySelector<HTMLMetaElement>(selector);
+  if (!el) {
+    el = document.createElement('meta');
+    el.setAttribute(attrName, attrValue);
+    document.head.appendChild(el);
+  }
+  return el;
+}
+
+function ensureLink(rel: string): HTMLLinkElement {
+  let el = document.querySelector<HTMLLinkElement>(`link[rel="${rel}"]`);
+  if (!el) {
+    el = document.createElement('link');
+    el.setAttribute('rel', rel);
+    document.head.appendChild(el);
+  }
+  return el;
+}
+
+export const SEOHead = ({
+  title,
+  titleKey,
+  description,
+  descriptionKey,
+  image,
+  type = 'website',
+  url,
+}: SEOHeadProps) => {
   const { t, language } = useI18n();
   const location = useLocation();
 
   useEffect(() => {
     const baseUrl = window.location.origin;
     const currentPath = location.pathname;
+    const canonical = url ?? `${baseUrl}${currentPath}`;
 
-    // Update title
-    const title = titleKey ? t(titleKey) : t('common.appName');
-    document.title = `${title} – ${t('common.appName')}`;
+    const appName = t('common.appName');
+    const finalTitle = title ?? (titleKey ? t(titleKey) : appName);
+    const finalDescription = description ?? (descriptionKey ? t(descriptionKey) : t('hero.subtitle'));
+    // Default branded share image — used when no event banner is provided.
+    const finalImage = image ?? `${baseUrl}/og-default.png`;
 
-    // Update meta description
-    const description = descriptionKey ? t(descriptionKey) : t('hero.subtitle');
-    let metaDescription = document.querySelector('meta[name="description"]');
-    if (!metaDescription) {
-      metaDescription = document.createElement('meta');
-      metaDescription.setAttribute('name', 'description');
-      document.head.appendChild(metaDescription);
-    }
-    metaDescription.setAttribute('content', description);
+    document.title = finalTitle.includes(appName) ? finalTitle : `${finalTitle} – ${appName}`;
 
-    // Update OG tags
-    let ogTitle = document.querySelector('meta[property="og:title"]');
-    if (!ogTitle) {
-      ogTitle = document.createElement('meta');
-      ogTitle.setAttribute('property', 'og:title');
-      document.head.appendChild(ogTitle);
-    }
-    ogTitle.setAttribute('content', title);
+    // Primary description.
+    ensureMeta('meta[name="description"]', 'name', 'description').setAttribute('content', finalDescription);
 
-    let ogDescription = document.querySelector('meta[property="og:description"]');
-    if (!ogDescription) {
-      ogDescription = document.createElement('meta');
-      ogDescription.setAttribute('property', 'og:description');
-      document.head.appendChild(ogDescription);
-    }
-    ogDescription.setAttribute('content', description);
+    // Open Graph.
+    ensureMeta('meta[property="og:title"]', 'property', 'og:title').setAttribute('content', finalTitle);
+    ensureMeta('meta[property="og:description"]', 'property', 'og:description').setAttribute('content', finalDescription);
+    ensureMeta('meta[property="og:type"]', 'property', 'og:type').setAttribute('content', type);
+    ensureMeta('meta[property="og:url"]', 'property', 'og:url').setAttribute('content', canonical);
+    ensureMeta('meta[property="og:image"]', 'property', 'og:image').setAttribute('content', finalImage);
+    ensureMeta('meta[property="og:image:alt"]', 'property', 'og:image:alt').setAttribute('content', finalTitle);
+    ensureMeta('meta[property="og:site_name"]', 'property', 'og:site_name').setAttribute('content', appName);
 
-    // Update Twitter tags
-    let twitterTitle = document.querySelector('meta[name="twitter:title"]');
-    if (!twitterTitle) {
-      twitterTitle = document.createElement('meta');
-      twitterTitle.setAttribute('name', 'twitter:title');
-      document.head.appendChild(twitterTitle);
-    }
-    twitterTitle.setAttribute('content', title);
+    // Twitter card.
+    ensureMeta('meta[name="twitter:card"]', 'name', 'twitter:card').setAttribute('content', 'summary_large_image');
+    ensureMeta('meta[name="twitter:title"]', 'name', 'twitter:title').setAttribute('content', finalTitle);
+    ensureMeta('meta[name="twitter:description"]', 'name', 'twitter:description').setAttribute('content', finalDescription);
+    ensureMeta('meta[name="twitter:image"]', 'name', 'twitter:image').setAttribute('content', finalImage);
 
-    let twitterDescription = document.querySelector('meta[name="twitter:description"]');
-    if (!twitterDescription) {
-      twitterDescription = document.createElement('meta');
-      twitterDescription.setAttribute('name', 'twitter:description');
-      document.head.appendChild(twitterDescription);
-    }
-    twitterDescription.setAttribute('content', description);
+    // Canonical link.
+    ensureLink('canonical').setAttribute('href', canonical);
 
-    // Remove existing hreflang tags
-    document.querySelectorAll('link[rel="alternate"][hreflang]').forEach(el => el.remove());
-
-    // Add hreflang tags
-    const languages = ['en', 'fr'];
-    languages.forEach(lang => {
+    // hreflang alternates.
+    document.querySelectorAll('link[rel="alternate"][hreflang]').forEach((el) => el.remove());
+    ['en', 'fr'].forEach((lang) => {
       const link = document.createElement('link');
       link.setAttribute('rel', 'alternate');
       link.setAttribute('hreflang', lang);
       link.setAttribute('href', `${baseUrl}${currentPath}?lang=${lang}`);
       document.head.appendChild(link);
     });
-
-    // Add x-default
     const xDefault = document.createElement('link');
     xDefault.setAttribute('rel', 'alternate');
     xDefault.setAttribute('hreflang', 'x-default');
     xDefault.setAttribute('href', `${baseUrl}${currentPath}`);
     document.head.appendChild(xDefault);
-
-  }, [t, language, location.pathname, titleKey, descriptionKey]);
+  }, [t, language, location.pathname, title, titleKey, description, descriptionKey, image, type, url]);
 
   return null;
 };

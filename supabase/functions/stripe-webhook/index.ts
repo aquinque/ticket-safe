@@ -164,12 +164,12 @@ serve(async (req) => {
               }
             }
 
-            // 4. Send confirmation email
+            // 4. Send confirmation email to buyer + sale notification to organizer
             const resendKey = Deno.env.get("RESEND_API_KEY");
             if (resendKey && ord?.buyer_email) {
               const { data: evRow } = await supabase
                 .from("events")
-                .select("title, date, location, slug")
+                .select("title, date, location, slug, organizer_id")
                 .eq("id", ord.event_id)
                 .maybeSingle();
               const evTitle = evRow?.title ?? "Your event";
@@ -184,6 +184,48 @@ serve(async (req) => {
                   })
                 : "—";
               const total = (session.amount_total ?? 0) / 100;
+
+              // ── Organizer sale notification (best-effort, parallel) ──
+              if (evRow?.organizer_id) {
+                supabase
+                  .from("organizer_profiles")
+                  .select("name, contact_email, contact_name")
+                  .eq("id", evRow.organizer_id)
+                  .maybeSingle()
+                  .then(async ({ data: org }) => {
+                    if (!org?.contact_email) return;
+                    const feeCents = Math.round((session.amount_total ?? 0) * 0.05);
+                    const payoutCents = (session.amount_total ?? 0) - feeCents;
+                    const orgFirstName = (org.contact_name ?? "").split(" ")[0] || "there";
+                    await fetch("https://api.resend.com/emails", {
+                      method: "POST",
+                      headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        from: "Ticket Safe <noreply@ticket-safe.eu>",
+                        to: [org.contact_email],
+                        subject: `New sale: ${qty} ticket${qty > 1 ? "s" : ""} for ${evTitle}`,
+                        html: `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f1f5f9;font-family:-apple-system,sans-serif;color:#1e293b">
+<div style="max-width:560px;margin:32px auto;background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 6px 24px rgba(15,23,42,.08)">
+<div style="background:linear-gradient(135deg,#003399,#0066cc);padding:28px 32px;color:#fff">
+<div style="font-size:11px;text-transform:uppercase;letter-spacing:.18em;opacity:.8;font-weight:700">Ticket Safe Studio · New sale</div>
+<h1 style="margin:8px 0 0;font-size:24px;font-weight:800">+€${(payoutCents / 100).toFixed(2)} for ${evTitle}</h1>
+</div>
+<div style="padding:28px 32px;font-size:15px;line-height:1.6">
+<p style="margin:0 0 14px">Hi ${orgFirstName},</p>
+<p style="margin:0 0 14px"><strong>${qty} ticket${qty > 1 ? "s" : ""}</strong> just sold for <strong>${evTitle}</strong>.</p>
+<table style="width:100%;border-collapse:collapse;font-size:14px;margin:18px 0">
+<tr><td style="padding:6px 0;color:#64748b;width:42%">Sale total</td><td style="padding:6px 0;font-weight:600">€${total.toFixed(2)}</td></tr>
+<tr><td style="padding:6px 0;color:#64748b">Platform fee (5%)</td><td style="padding:6px 0;color:#64748b">−€${(feeCents / 100).toFixed(2)}</td></tr>
+<tr><td style="padding:6px 0;color:#64748b">Your payout</td><td style="padding:6px 0;color:#003399;font-weight:700">€${(payoutCents / 100).toFixed(2)}</td></tr>
+</table>
+<p style="margin:24px 0 8px;text-align:center"><a href="https://ticket-safe.eu/studio/events/${evRow.id ?? ord.event_id}" style="display:inline-block;background:linear-gradient(135deg,#003399,#0066cc);color:#fff;padding:12px 24px;border-radius:10px;text-decoration:none;font-weight:700">Open in Studio</a></p>
+<p style="margin:18px 0 0;font-size:12px;color:#64748b">Payouts go directly to your bank via Stripe Connect.</p>
+</div></div></body></html>`,
+                      }),
+                    }).catch((err) => console.warn("[studio_primary_sale] organizer email failed:", err));
+                  });
+              }
+
               await fetch("https://api.resend.com/emails", {
                 method: "POST",
                 headers: {

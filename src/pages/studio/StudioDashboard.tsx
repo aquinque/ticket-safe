@@ -93,6 +93,19 @@ const StudioDashboard = () => {
     }
   };
 
+  const openStripeDashboard = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke("stripe-express-dashboard", { body: {} });
+      if (error || !data?.url) {
+        toast.error(error?.message ?? "Could not open the payouts dashboard.");
+        return;
+      }
+      window.open(data.url as string, "_blank", "noopener,noreferrer");
+    } catch (e) {
+      toast.error("Could not open the payouts dashboard.");
+    }
+  };
+
   const loadEvents = useCallback(
     async (showSpinner = false) => {
       if (!organizer) {
@@ -302,7 +315,16 @@ const StudioDashboard = () => {
                   <div className="text-xs uppercase tracking-[0.18em] font-bold text-white/80">
                     Studio dashboard
                   </div>
-                  <h1 className="text-2xl md:text-3xl font-black leading-tight">{organizer.name}</h1>
+                  <h1 className="text-2xl md:text-3xl font-black leading-tight inline-flex items-center gap-2">
+                    {organizer.name}
+                    <Link
+                      to="/studio/profile"
+                      title="Edit organizer profile"
+                      className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-white/15 backdrop-blur hover:bg-white/25 transition-colors"
+                    >
+                      <Settings className="w-3.5 h-3.5" />
+                    </Link>
+                  </h1>
                 </div>
               </div>
               <Link
@@ -375,9 +397,7 @@ const StudioDashboard = () => {
               icon={Banknote}
               label="Payouts"
               hint={stripe?.charges_enabled ? "Stripe Connect — ready" : "Finish onboarding"}
-              onClick={stripe?.charges_enabled ? undefined : startStripeOnboarding}
-              to={stripe?.charges_enabled ? "https://dashboard.stripe.com" : undefined}
-              external={!!stripe?.charges_enabled}
+              onClick={stripe?.charges_enabled ? openStripeDashboard : startStripeOnboarding}
               accent={organizer.primary_color}
               status={stripe?.charges_enabled ? "ready" : "pending"}
             />

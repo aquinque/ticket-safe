@@ -50,7 +50,9 @@ import OrganizerApply from "./pages/organizers/OrganizerApply";
 import StudioDashboard from "./pages/studio/StudioDashboard";
 import StudioEventNew from "./pages/studio/StudioEventNew";
 import StudioEventEdit from "./pages/studio/StudioEventEdit";
+import StudioProfile from "./pages/studio/StudioProfile";
 import EventPublic from "./pages/EventPublic";
+import MyTickets from "./pages/MyTickets";
 import AdminOrganizers from "./pages/admin/AdminOrganizers";
 import ChatBubble from "./components/ChatBubble";
 
@@ -105,9 +107,11 @@ const App = () => (
       <Route path="/organizers" element={<Organizers />} />
       <Route path="/organizers/apply" element={<OrganizerApply />} />
       <Route path="/studio" element={<StudioDashboard />} />
+      <Route path="/studio/profile" element={<StudioProfile />} />
       <Route path="/studio/events/new" element={<StudioEventNew />} />
       <Route path="/studio/events/:id" element={<StudioEventEdit />} />
       <Route path="/e/:slug" element={<EventPublic />} />
+      <Route path="/my-tickets/:orderId" element={<MyTickets />} />
       <Route path="/admin/organizers" element={<AdminOrganizers />} />
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
       <Route path="*" element={<NotFound />} />

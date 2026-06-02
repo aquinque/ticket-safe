@@ -184,6 +184,39 @@ const StudioEventEdit = () => {
 
   const unpublish = () => updateEventField({ status: "draft" });
 
+  const cancelEvent = async () => {
+    if (!event) return;
+    const paidCount = orders.filter((o) => o.status === "paid").length;
+    const warning = paidCount > 0
+      ? `This event has ${paidCount} paid order${paidCount > 1 ? "s" : ""}. Cancelling will issue full refunds (including the 5% platform fee) to every buyer. This cannot be undone.`
+      : "Cancel this event? Buyers will not see it anymore.";
+    if (!window.confirm(warning)) return;
+    const reason = window.prompt("Reason for cancellation (shown to buyers in the refund email):") || "";
+
+    setSaving(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("cancel-event", {
+        body: { event_id: event.id, reason },
+      });
+      if (error || !data?.ok) {
+        toast.error((data as { error?: string })?.error ?? error?.message ?? "Could not cancel.");
+        return;
+      }
+      const c = (data as { refunded_count?: number; refunded_total_cents?: number; failures?: unknown[] }).refunded_count ?? 0;
+      const failedCount = ((data as { failures?: unknown[] }).failures ?? []).length;
+      toast.success(
+        failedCount > 0
+          ? `Event cancelled. ${c} refund${c !== 1 ? "s" : ""} issued, ${failedCount} need manual review.`
+          : `Event cancelled. ${c} buyer${c !== 1 ? "s" : ""} refunded.`,
+      );
+      load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Unexpected error.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const addTier = async () => {
     if (!event) return;
     const { error } = await supabase.from("event_tiers").insert({
@@ -316,6 +349,17 @@ const StudioEventEdit = () => {
                     Public page
                     <ExternalLink className="w-3.5 h-3.5" />
                   </a>
+                )}
+                {event.status !== "cancelled" && (
+                  <button
+                    onClick={cancelEvent}
+                    disabled={saving}
+                    className="inline-flex items-center gap-1.5 px-4 min-h-[40px] rounded-lg font-bold text-sm bg-red-500/20 backdrop-blur border border-red-200/40 text-white hover:bg-red-500/30"
+                    title="Cancel event and refund all buyers"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Cancel event
+                  </button>
                 )}
               </div>
             </div>

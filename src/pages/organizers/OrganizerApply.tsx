@@ -89,8 +89,25 @@ const OrganizerApply = () => {
     ...initialState,
     contactEmail: user?.email ?? "",
   });
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+
+  const onLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (f.size > 2 * 1024 * 1024) {
+      toast.error("Logo must be under 2 MB.");
+      return;
+    }
+    if (!/^image\//.test(f.type)) {
+      toast.error("Please pick an image file.");
+      return;
+    }
+    setLogoFile(f);
+    setLogoPreview(URL.createObjectURL(f));
+  };
 
   const update = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
@@ -138,6 +155,23 @@ const OrganizerApply = () => {
         candidateSlug = `${baseSlug}-${Math.random().toString(36).slice(2, 5)}`.slice(0, 40);
       }
 
+      // Upload the logo (if provided) to organizer-assets bucket.
+      let logoUrl: string | null = null;
+      if (logoFile) {
+        const ext = logoFile.name.split(".").pop()?.toLowerCase() ?? "png";
+        const path = `${user.id}/logo/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const { error: upErr } = await supabase.storage
+          .from("organizer-assets")
+          .upload(path, logoFile, { cacheControl: "3600", upsert: false });
+        if (upErr) {
+          console.error("[organizer-apply] logo upload failed:", upErr);
+          toast.error("Could not upload the logo. Your application will be submitted without it.");
+        } else {
+          const { data: pub } = supabase.storage.from("organizer-assets").getPublicUrl(path);
+          logoUrl = pub.publicUrl;
+        }
+      }
+
       // Coerce attendee count to a positive integer or null.
       const attendees = (() => {
         const n = parseInt(form.expectedAttendees, 10);
@@ -160,6 +194,7 @@ const OrganizerApply = () => {
           website: form.website.trim() || null,
           about: form.about.trim() || null,
           primary_color: form.brandColor || "#003399",
+          logo_url: logoUrl,
           first_event_name: form.firstEventName.trim() || null,
           first_event_date: firstEventDateISO,
           expected_attendees: attendees,
@@ -453,6 +488,41 @@ const OrganizerApply = () => {
                   <h2 className="text-2xl font-bold text-foreground mb-1.5">Your visual identity</h2>
                   <p className="text-sm text-muted-foreground">You can fine-tune this in the dashboard. Just a quick preview here.</p>
                 </div>
+                <Field label="Logo (optional, square works best)">
+                  {logoPreview ? (
+                    <div className="flex items-center gap-4">
+                      <img
+                        src={logoPreview}
+                        alt="Logo preview"
+                        className="w-20 h-20 rounded-2xl object-cover border border-border bg-card"
+                      />
+                      <div className="flex-1">
+                        <p className="text-sm text-foreground/80 mb-2 font-semibold">Looking good.</p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setLogoFile(null);
+                            setLogoPreview(null);
+                          }}
+                          className="text-xs font-bold text-destructive hover:underline"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <label className="flex items-center gap-4 cursor-pointer">
+                      <div className="w-20 h-20 rounded-2xl border-2 border-dashed border-border bg-muted/30 flex items-center justify-center text-muted-foreground">
+                        <span className="text-xs font-semibold">Upload</span>
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm text-foreground/80 mb-1 font-semibold">Click to choose an image</p>
+                        <p className="text-xs text-muted-foreground">PNG / JPG / SVG · Max 2 MB</p>
+                      </div>
+                      <input type="file" accept="image/*" onChange={onLogoChange} className="hidden" />
+                    </label>
+                  )}
+                </Field>
                 <Field label="Primary color">
                   <div className="flex items-center gap-4">
                     <input

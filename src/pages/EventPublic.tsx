@@ -224,6 +224,9 @@ const EventPublic = () => {
       <SEOHead
         title={`${event.title} — ${event.organizer?.name ?? "Ticket Safe"}`}
         description={event.description ?? `Tickets for ${event.title}`}
+        image={event.banner_url ?? event.organizer?.logo_url ?? null}
+        type="event"
+        url={`https://ticket-safe.eu/e/${event.slug}`}
       />
 
       {/* ===== Branded hero ===== */}

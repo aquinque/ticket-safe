@@ -28,3 +28,21 @@ verify_jwt = false
 # function (owner for new_application, admin for approve/reject).
 [functions.organizer-notify]
 verify_jwt = false
+
+# Stripe Express dashboard login link. Authenticated; internal auth via getUser.
+[functions.stripe-express-dashboard]
+verify_jwt = false
+
+# Event ticket QR generator. Authenticated; serves the QR SVG only to the
+# ticket's buyer (verified inside the function).
+[functions.event-ticket-qr]
+verify_jwt = false
+
+# Studio door scan validator. Authenticated; checks the scanner is the
+# event's organizer or an admin before flipping scanned_at.
+[functions.validate-event-ticket]
+verify_jwt = false
+
+# Cancel event + refund all paid orders (organizer-only, Stripe refunds).
+[functions.cancel-event]
+verify_jwt = false
