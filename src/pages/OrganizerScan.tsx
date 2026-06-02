@@ -1,8 +1,9 @@
 /**
  * OrganizerScan — ticket validation page for event organizers.
  *
- * Supports two ticket types automatically:
+ * Supports three ticket types automatically:
  *  - Platform JWT tickets  → validated via validate-scan (secure_tickets table)
+ *  - Studio primary tickets → validated via validate-event-ticket (event_tickets table, hex qr_token)
  *  - Marketplace tickets   → validated via check-ticket-entry (tickets table, qr_hash)
  *
  * Input methods: camera QR scan, image upload, or manual paste.
@@ -95,6 +96,10 @@ type InputMode = "camera" | "manual";
 // JWT pattern: three base64url segments separated by dots
 const JWT_RE = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/;
 
+// Studio primary-sale tokens: 40-character lowercase hex (generated server-side
+// in stripe-webhook as `crypto.randomUUID().replace(/-/g, "") + …slice(0,8)`).
+const STUDIO_TOKEN_RE = /^[a-f0-9]{32,128}$/;
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -127,19 +132,51 @@ const OrganizerScan = () => {
     if (!authLoading && !user) navigate("/auth");
   }, [user, authLoading, navigate]);
 
-  // Load upcoming active events
+  // Load upcoming events the user can scan tickets for:
+  //  - Studio events they organize (events.organizer_id → organizer_profiles.user_id)
+  //  - Plus any active resale-catalog event so the resale flow keeps working.
   useEffect(() => {
     if (!user) return;
-    supabase
-      .from("events")
-      .select("id, title, date, location")
-      .eq("is_active", true)
-      .gte("date", new Date().toISOString())
-      .order("date", { ascending: true })
-      .then(({ data }) => {
-        setEvents(data ?? []);
-        if (data && data.length > 0) setSelectedEventId(data[0].id);
-      });
+    (async () => {
+      const cutoffISO = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
+
+      // Studio events owned by the current user (their organizer profile)
+      const { data: studioOrg } = await supabase
+        .from("organizer_profiles")
+        .select("id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      const studioPromise = studioOrg?.id
+        ? supabase
+            .from("events")
+            .select("id, title, date, location")
+            .eq("organizer_id", studioOrg.id)
+            .in("status", ["published", "sold_out"])
+            .gte("date", cutoffISO)
+            .order("date", { ascending: true })
+        : Promise.resolve({ data: [] as Event[] });
+
+      // Catalog / resale events (legacy path)
+      const catalogPromise = supabase
+        .from("events")
+        .select("id, title, date, location")
+        .eq("is_active", true)
+        .gte("date", cutoffISO)
+        .order("date", { ascending: true });
+
+      const [studioRes, catalogRes] = await Promise.all([studioPromise, catalogPromise]);
+      const merged: Event[] = [
+        ...((studioRes.data as Event[]) ?? []),
+        ...((catalogRes.data as Event[]) ?? []),
+      ];
+      // Dedup by id, preserve first occurrence (Studio wins for organizers)
+      const seen = new Set<string>();
+      const deduped = merged.filter((e) => (seen.has(e.id) ? false : (seen.add(e.id), true)));
+
+      setEvents(deduped);
+      if (deduped.length > 0) setSelectedEventId(deduped[0].id);
+    })();
   }, [user]);
 
   // ---------------------------------------------------------------------------
@@ -163,11 +200,44 @@ const OrganizerScan = () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Not authenticated");
 
-      const isJWT = JWT_RE.test(qrText.trim());
+      const cleaned = qrText.trim();
+      const isJWT = JWT_RE.test(cleaned);
+      const isStudio = !isJWT && STUDIO_TOKEN_RE.test(cleaned);
 
       let result: ScanResult;
 
-      if (isJWT) {
+      if (isStudio) {
+        // ── Studio primary-sale QR → validate-event-ticket ──────────────────
+        const res = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/validate-event-ticket`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${session.access_token}`,
+              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            },
+            body: JSON.stringify({
+              qr_token: cleaned,
+              event_id: selectedEventId,
+            }),
+          }
+        );
+        const data = await res.json();
+        const code = (data.result ?? "INVALID") as ScanResultCode;
+        result = {
+          valid: code === "VALID",
+          result: code,
+          message: data.message ?? "Unknown error",
+          ticket_info: data.ticket_info
+            ? {
+                event_title: data.ticket_info.event_title,
+                ticket_number: data.ticket_info.tier_name,
+              }
+            : undefined,
+          scanned_at: new Date().toISOString(),
+        };
+      } else if (isJWT) {
         // ── Platform JWT → validate-scan ────────────────────────────────────
         let location: { latitude?: number; longitude?: number } | undefined;
         if (navigator.geolocation) {
@@ -655,9 +725,9 @@ const OrganizerScan = () => {
                   <CardTitle className="text-base">How it works</CardTitle>
                 </CardHeader>
                 <CardContent className="text-xs text-muted-foreground space-y-2">
-                  <p>Scans tickets bought via the Ticket Safe marketplace.</p>
-                  <p>Also validates platform-issued JWT tickets with cryptographic verification.</p>
-                  <p>Each scan is logged for audit.</p>
+                  <p>Scans Studio direct-sale tickets (event_tickets, hex QR token).</p>
+                  <p>Also scans resale marketplace tickets and platform-issued JWT tickets.</p>
+                  <p>Format is auto-detected; each scan is logged in the audit trail.</p>
                 </CardContent>
               </Card>
             </div>
