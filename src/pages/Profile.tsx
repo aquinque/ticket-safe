@@ -21,6 +21,10 @@ import {
   Sparkles,
   History as HistoryIcon,
   ShoppingBag,
+  Banknote,
+  Wallet,
+  TrendingUp,
+  TrendingDown,
 } from "lucide-react";
 
 interface Purchase {
@@ -39,6 +43,7 @@ interface Sale {
   date: string;
   salePrice: number;
   status: string;
+  soldAt: string | null;
 }
 
 const Profile = () => {
@@ -176,6 +181,9 @@ const Profile = () => {
               date: s.event?.date || s.created_at,
               salePrice: s.selling_price,
               status: s.status,
+              // updated_at is set when status flips to 'sold' — best proxy for when
+              // the sale actually happened, since tickets has no dedicated sold_at.
+              soldAt: s.status === "sold" ? s.updated_at ?? null : null,
             }))
           );
         }
@@ -236,64 +244,212 @@ const Profile = () => {
     .join("") || "?";
   const firstName = userData.name.split(" ")[0] || "";
 
+  // ─── Revolut-style analytics ────────────────────────────────────────────────
+  // Seller perspective: how much did the user earn this month vs last month.
+  // Earnings = sale price minus the 5% platform commission.
+  const SELLER_COMMISSION = 0.05;
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+
+  const allSoldSales = sales.filter((s) => s.status === "sold");
+  const soldThisMonth = allSoldSales.filter(
+    (s) => s.soldAt && new Date(s.soldAt) >= monthStart
+  );
+  const soldLastMonth = allSoldSales.filter(
+    (s) =>
+      s.soldAt &&
+      new Date(s.soldAt) >= lastMonthStart &&
+      new Date(s.soldAt) < monthStart
+  );
+
+  const earnedThisMonth = soldThisMonth.reduce(
+    (sum, s) => sum + s.salePrice * (1 - SELLER_COMMISSION),
+    0
+  );
+  const earnedLastMonth = soldLastMonth.reduce(
+    (sum, s) => sum + s.salePrice * (1 - SELLER_COMMISSION),
+    0
+  );
+  const earningsChange: number | null =
+    earnedLastMonth > 0
+      ? Math.round(((earnedThisMonth - earnedLastMonth) / earnedLastMonth) * 100)
+      : null;
+
+  const ticketsCountChange: number | null =
+    soldLastMonth.length > 0
+      ? Math.round(
+          ((soldThisMonth.length - soldLastMonth.length) / soldLastMonth.length) *
+            100
+        )
+      : null;
+
+  const lifetimeEarnings = allSoldSales.reduce(
+    (sum, s) => sum + s.salePrice * (1 - SELLER_COMMISSION),
+    0
+  );
+
+  // Only show the analytics row if the user has at least one completed sale.
+  const showAnalytics = allSoldSales.length > 0;
+
+  const formatEuros = (n: number) =>
+    new Intl.NumberFormat(dateLocale, {
+      style: "currency",
+      currency: "EUR",
+      maximumFractionDigits: n % 1 === 0 ? 0 : 2,
+    }).format(n);
+
+  const ChangePill = ({ value }: { value: number | null }) => {
+    if (value === null) return null;
+    const isUp = value >= 0;
+    const Icon = isUp ? TrendingUp : TrendingDown;
+    return (
+      <span
+        className={`inline-flex items-center gap-1 text-[11px] font-semibold ${
+          isUp ? "text-green-600" : "text-red-600"
+        }`}
+      >
+        <Icon className="w-3 h-3" />
+        {isUp ? "+" : ""}
+        {value}% {language === "fr" ? "vs mois dernier" : "vs last month"}
+      </span>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Header />
       <main className="flex-1 pb-16">
-        {/* Hero band — gradient background with subtle decorative overlay */}
+        {/* Hero band — compact identity, no overlap with content below */}
         <div className="relative overflow-hidden bg-gradient-hero text-white">
-          <div className="absolute inset-0 opacity-30" style={{
-            backgroundImage:
-              "radial-gradient(circle at 20% 20%, rgba(255,255,255,.18), transparent 35%), radial-gradient(circle at 80% 60%, rgba(255,255,255,.12), transparent 40%)",
-          }} />
-          <div className="relative container mx-auto px-4 max-w-3xl py-10 md:py-12">
-            <div className="mb-6">
+          <div
+            className="absolute inset-0 opacity-30"
+            style={{
+              backgroundImage:
+                "radial-gradient(circle at 20% 20%, rgba(255,255,255,.18), transparent 35%), radial-gradient(circle at 80% 60%, rgba(255,255,255,.12), transparent 40%)",
+            }}
+          />
+          <div className="relative container mx-auto px-4 max-w-3xl py-8 md:py-10">
+            <div className="mb-5">
               <BackButton />
             </div>
             <div className="flex items-center gap-4 md:gap-5">
-              {/* Initials avatar */}
               <div
-                className="w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-white/15 backdrop-blur ring-1 ring-white/30 flex items-center justify-center text-xl md:text-2xl font-black tracking-tight shadow-lg flex-shrink-0"
+                className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-white/15 backdrop-blur ring-1 ring-white/30 flex items-center justify-center text-lg md:text-xl font-bold tracking-tight shadow-lg flex-shrink-0"
                 aria-label={`${userData.name}'s initials`}
               >
                 {initials}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs md:text-sm font-semibold uppercase tracking-[0.18em] text-white/70">
+                <p className="text-[11px] md:text-xs font-semibold uppercase tracking-[0.18em] text-white/70">
                   {userData.campus || "TicketSafe"}
                 </p>
-                <h1 className="text-3xl md:text-4xl font-black mt-1 leading-tight">
+                <h1 className="text-2xl md:text-3xl font-bold mt-0.5 leading-tight">
                   {t("profile.hello", { name: firstName })}
                 </h1>
-                <p className="text-sm text-white/75 mt-1 truncate">
+                <p className="text-sm text-white/75 mt-0.5 truncate">
                   {userData.email}
                 </p>
               </div>
-            </div>
-
-            {/* Inline stat chips + Sell CTA */}
-            <div className="mt-6 flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 text-xs md:text-sm font-medium px-3 py-1.5 rounded-full bg-white/15 backdrop-blur border border-white/20">
-                <Ticket className="w-3.5 h-3.5" />
-                {upcomingPurchases.length} {upcomingPurchases.length === 1 ? "ticket" : "tickets"}
-              </span>
-              <span className="inline-flex items-center gap-1.5 text-xs md:text-sm font-medium px-3 py-1.5 rounded-full bg-white/15 backdrop-blur border border-white/20">
-                <Tag className="w-3.5 h-3.5" />
-                {visibleSales.length} {visibleSales.length === 1 ? "listing" : "listings"}
-              </span>
               <Button
                 size="sm"
                 onClick={() => navigate("/sell")}
-                className="ml-auto gap-1.5 bg-white text-primary hover:bg-white/90 font-semibold shadow"
+                className="hidden sm:inline-flex gap-1.5 bg-white text-primary hover:bg-white/90 font-semibold shadow flex-shrink-0"
               >
                 <Plus className="w-4 h-4" />
                 {t("profile.sellATicket")}
               </Button>
             </div>
+
+            {/* Mobile-only Sell CTA (full width below the name block) */}
+            <Button
+              size="sm"
+              onClick={() => navigate("/sell")}
+              className="sm:hidden mt-5 w-full gap-1.5 bg-white text-primary hover:bg-white/90 font-semibold shadow"
+            >
+              <Plus className="w-4 h-4" />
+              {t("profile.sellATicket")}
+            </Button>
           </div>
         </div>
 
-        <div className="container mx-auto px-4 max-w-3xl -mt-6">
+        <div className="container mx-auto px-4 max-w-3xl mt-8">
+          {/* ANALYTICS — only shown when the user has at least one completed sale */}
+          {showAnalytics && (
+            <section className="mb-10 animate-in fade-in slide-in-from-bottom-2 duration-500">
+              <h2 className="sr-only">Your sales at a glance</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {/* Card 1 — Earned this month */}
+                <Card className="border-border hover:shadow-md transition-shadow">
+                  <CardContent className="p-5">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
+                        <Banknote className="w-5 h-5 text-primary" />
+                      </div>
+                    </div>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      {language === "fr" ? "Gagné ce mois" : "Earned this month"}
+                    </p>
+                    <p className="text-2xl md:text-3xl font-bold mt-1 leading-tight tabular-nums">
+                      {formatEuros(earnedThisMonth)}
+                    </p>
+                    <div className="mt-1.5 min-h-[16px]">
+                      <ChangePill value={earningsChange} />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Card 2 — Tickets sold this month */}
+                <Card className="border-border hover:shadow-md transition-shadow">
+                  <CardContent className="p-5">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="w-9 h-9 rounded-xl bg-secondary/10 flex items-center justify-center">
+                        <Ticket className="w-5 h-5 text-secondary" />
+                      </div>
+                    </div>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      {language === "fr" ? "Billets vendus" : "Tickets sold"}
+                    </p>
+                    <p className="text-2xl md:text-3xl font-bold mt-1 leading-tight tabular-nums">
+                      {soldThisMonth.length}
+                    </p>
+                    <div className="mt-1.5 min-h-[16px]">
+                      <ChangePill value={ticketsCountChange} />
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Card 3 — All-time earnings */}
+                <Card className="border-border hover:shadow-md transition-shadow">
+                  <CardContent className="p-5">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="w-9 h-9 rounded-xl bg-accent/10 flex items-center justify-center">
+                        <Wallet className="w-5 h-5 text-accent" />
+                      </div>
+                    </div>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                      {language === "fr" ? "Total cumulé" : "All-time earnings"}
+                    </p>
+                    <p className="text-2xl md:text-3xl font-bold mt-1 leading-tight tabular-nums">
+                      {formatEuros(lifetimeEarnings)}
+                    </p>
+                    <div className="mt-1.5 min-h-[16px]">
+                      <p className="text-[11px] text-muted-foreground">
+                        {allSoldSales.length}{" "}
+                        {language === "fr"
+                          ? allSoldSales.length === 1
+                            ? "vente"
+                            : "ventes"
+                          : allSoldSales.length === 1
+                          ? "sale"
+                          : "sales"}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </section>
+          )}
+
           {/* MES BILLETS */}
           <section className="mb-10 animate-in fade-in slide-in-from-bottom-2 duration-500">
             <div className="flex items-center justify-between mb-4 px-1">
@@ -307,7 +463,7 @@ const Profile = () => {
               </div>
               {upcomingPurchases.length > 0 && (
                 <span className="text-xs font-semibold text-primary bg-primary/10 px-2.5 py-1 rounded-full">
-                  {upcomingPurchases.length} {upcomingPurchases.length === 1 ? "upcoming" : "upcoming"}
+                  {upcomingPurchases.length} {language === "fr" ? "à venir" : "upcoming"}
                 </span>
               )}
             </div>
