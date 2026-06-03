@@ -70,7 +70,8 @@ serve(async (req) => {
     const { data: ticket, error: tErr } = await supabase
       .from("event_tickets")
       .select(
-        `id, event_id, tier_id, buyer_id, order_id, qr_token, scanned_at, scanned_by, created_at,
+        `id, event_id, tier_id, buyer_id, order_id, qr_token, scanned_at, scanned_by, status,
+         holder_first_name, holder_last_name, holder_email, created_at,
          event:events!inner(title, date, status, organizer_id),
          tier:event_tiers(name),
          order:event_orders(status)`,
@@ -212,12 +213,15 @@ serve(async (req) => {
       });
     }
 
-    // Atomic accept: only flip scanned_at if it's still NULL
+    // Atomic accept: only flip if it's still 'valid' AND scanned_at is NULL.
+    // The double guard prevents races where two scanners hit the same QR
+    // milliseconds apart — exactly one wins.
     const now = new Date().toISOString();
     const { data: updated, error: updErr } = await supabase
       .from("event_tickets")
-      .update({ scanned_at: now, scanned_by: user.id })
+      .update({ scanned_at: now, scanned_by: user.id, status: "scanned" })
       .eq("id", ticket.id)
+      .eq("status", "valid")
       .is("scanned_at", null)
       .select("id, scanned_at")
       .maybeSingle();
@@ -244,12 +248,15 @@ serve(async (req) => {
       p_actor_id: user.id,
     });
 
+    const holderName = [ticket.holder_first_name, ticket.holder_last_name].filter(Boolean).join(" ");
     return json({
       result: "VALID",
-      message: "Welcome! Ticket validated.",
+      message: holderName ? `Welcome, ${holderName}!` : "Welcome! Ticket validated.",
       ticket_info: {
         event_title: ev?.title,
         tier_name: Array.isArray(ticket.tier) ? ticket.tier[0]?.name : (ticket as { tier?: { name?: string } }).tier?.name,
+        holder_name: holderName || null,
+        holder_email: ticket.holder_email ?? null,
         scanned_at: now,
       },
     });

@@ -92,6 +92,9 @@ interface ScanResult {
     actual_event_date?: string;
     expected_event_title?: string;
     scanned_at?: string;
+    holder_name?: string | null;
+    holder_email?: string | null;
+    tier_name?: string;
   };
   risk_level?: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
   fraud_signals?: string[];
@@ -273,7 +276,13 @@ const OrganizerScan = () => {
           ticket_info: data.ticket_info
             ? {
                 event_title: data.ticket_info.event_title,
-                ticket_number: data.ticket_info.tier_name,
+                tier_name: data.ticket_info.tier_name,
+                actual_event_title: data.ticket_info.actual_event_title,
+                actual_event_date: data.ticket_info.actual_event_date,
+                expected_event_title: data.ticket_info.expected_event_title,
+                scanned_at: data.ticket_info.scanned_at,
+                holder_name: data.ticket_info.holder_name,
+                holder_email: data.ticket_info.holder_email,
               }
             : undefined,
           scanned_at: new Date().toISOString(),
@@ -686,6 +695,31 @@ const OrganizerScan = () => {
                         </p>
                       </div>
                     </div>
+
+                    {/* Studio VALID — show the holder so the door agent can check ID */}
+                    {scanResult.result === "VALID" && scanResult.ticket_info?.holder_name && (
+                      <div className="rounded-lg border-2 border-green-400 bg-white dark:bg-green-950/30 px-4 py-3 text-sm">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-green-700 dark:text-green-400 mb-2">
+                          Check ID against this name
+                        </p>
+                        <div className="text-xl font-black leading-tight mb-0.5">
+                          {scanResult.ticket_info.holder_name}
+                        </div>
+                        {scanResult.ticket_info.tier_name && (
+                          <div className="text-xs text-muted-foreground">
+                            Tier: {scanResult.ticket_info.tier_name}
+                          </div>
+                        )}
+                        {scanResult.ticket_info.holder_email && (
+                          <div className="text-xs text-muted-foreground break-all">
+                            {scanResult.ticket_info.holder_email}
+                          </div>
+                        )}
+                        <p className="text-[11px] text-muted-foreground mt-2 italic">
+                          The bouncer should verify the attendee's photo ID matches this name before letting them in.
+                        </p>
+                      </div>
+                    )}
 
                     {/* Studio-specific call-outs */}
                     {scanResult.result === "WRONG_EVENT" && scanResult.ticket_info?.actual_event_title && (

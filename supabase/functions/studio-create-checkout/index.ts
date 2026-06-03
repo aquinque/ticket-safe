@@ -75,7 +75,12 @@ serve(async (req) => {
     if (userErr || !user) return json({ error: "Unauthorized" }, 401);
 
     // ── Body ──────────────────────────────────────────────────────────────
-    let body: { tier_id?: string; quantity?: number };
+    interface AttendeeIn {
+      first_name?: string;
+      last_name?: string;
+      email?: string;
+    }
+    let body: { tier_id?: string; quantity?: number; attendees?: AttendeeIn[] };
     try {
       body = await req.json();
     } catch {
@@ -90,12 +95,36 @@ serve(async (req) => {
       return json({ error: "Invalid quantity" }, 400);
     }
 
+    // Validate nominative attendees (1 per ticket). The frontend collects them
+    // before opening checkout — we trim and bound them defensively here.
+    const attendees: { first_name: string; last_name: string; email: string }[] = [];
+    if (Array.isArray(body.attendees) && body.attendees.length > 0) {
+      if (body.attendees.length !== quantity) {
+        return json({ error: "Attendee list must match the ticket quantity." }, 400);
+      }
+      for (const a of body.attendees) {
+        const first = (a?.first_name ?? "").trim();
+        const last = (a?.last_name ?? "").trim();
+        const email = (a?.email ?? "").trim().toLowerCase();
+        if (first.length < 1 || first.length > 100) {
+          return json({ error: "Each attendee needs a first name." }, 400);
+        }
+        if (last.length < 1 || last.length > 100) {
+          return json({ error: "Each attendee needs a last name." }, 400);
+        }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) {
+          return json({ error: "Each attendee needs a valid email." }, 400);
+        }
+        attendees.push({ first_name: first, last_name: last, email });
+      }
+    }
+
     // ── Fetch tier + event + organizer + Stripe Connect account ──────────
     const { data: tier, error: tierErr } = await supabase
       .from("event_tiers")
       .select(
         `id, event_id, name, price_cents, currency, total_qty, sold_qty, reserved_qty, is_active,
-         event:events!inner(id, title, slug, status, organizer_id,
+         event:events!inner(id, title, slug, status, organizer_id, max_tickets_per_buyer,
            organizer:organizer_profiles!events_organizer_id_fkey(id, user_id, name, status))`,
       )
       .eq("id", tierId)
@@ -125,6 +154,32 @@ serve(async (req) => {
       .maybeSingle();
     if (!stripeAcct?.stripe_account_id || !stripeAcct.charges_enabled) {
       return json({ error: "Organizer is not ready to accept payments." }, 400);
+    }
+
+    // ── Per-buyer limit enforcement ──────────────────────────────────────
+    // If the organizer set events.max_tickets_per_buyer, count the buyer's
+    // already-committed quantity (paid + pending) for this event and reject
+    // anything that would push them over the cap.
+    const maxPerBuyer = (ev as { max_tickets_per_buyer?: number | null }).max_tickets_per_buyer;
+    if (Number.isInteger(maxPerBuyer) && maxPerBuyer && maxPerBuyer > 0) {
+      const { data: alreadyOwned } = await supabase.rpc("buyer_ticket_count_for_event", {
+        p_event_id: ev.id,
+        p_buyer_id: user.id,
+      });
+      const already = typeof alreadyOwned === "number" ? alreadyOwned : 0;
+      if (already + quantity > maxPerBuyer) {
+        const remaining = Math.max(0, maxPerBuyer - already);
+        return json(
+          {
+            error:
+              remaining > 0
+                ? `Limit reached: you can only buy ${remaining} more ticket${remaining > 1 ? "s" : ""} for this event (max ${maxPerBuyer} per person).`
+                : `You already have ${already} ticket${already > 1 ? "s" : ""} for this event — the per-buyer limit is ${maxPerBuyer}.`,
+            code: "PER_BUYER_LIMIT",
+          },
+          409,
+        );
+      }
     }
 
     // ── Reserve seats atomically ─────────────────────────────────────────
@@ -162,6 +217,7 @@ serve(async (req) => {
         currency: tier.currency ?? "EUR",
         status: "pending",
         buyer_email: user.email ?? "",
+        attendees: attendees.length > 0 ? attendees : null,
       })
       .select("id")
       .single();

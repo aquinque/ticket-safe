@@ -156,27 +156,37 @@ serve(async (req) => {
             // 2. Finalize tier inventory: reserved → sold
             await supabase.rpc("finalize_tier_sale", { p_tier_id: tierId, p_qty: qty });
 
-            // 3. Issue per-seat event_tickets rows with random QR token
-            const ticketRows = Array.from({ length: qty }).map(() => ({
-              order_id: orderId,
-              event_id: eventId,
-              tier_id: tierId,
-              buyer_id: session.metadata!.buyer_id ?? session.customer_details?.email ?? null,
-              qr_token: crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, "").slice(0, 8),
-            }));
-            // We need a real buyer_id; fetch from event_orders if not in metadata
+            // 3. Issue per-seat event_tickets rows with random QR token.
+            // Pull attendees from the order (collected at checkout creation):
+            // one entry per seat → maps to holder_first_name / _last_name / _email.
             const { data: ord } = await supabase
               .from("event_orders")
-              .select("buyer_id, buyer_email, event_id")
+              .select("buyer_id, buyer_email, event_id, attendees")
               .eq("id", orderId)
               .maybeSingle();
             if (ord) {
-              const finalRows = ticketRows.map((r) => ({
-                ...r,
-                buyer_id: ord.buyer_id,
-                event_id: ord.event_id,
-              }));
-              const { error: tixErr } = await supabase.from("event_tickets").insert(finalRows);
+              const attendees = Array.isArray((ord as { attendees?: unknown }).attendees)
+                ? (ord as { attendees: { first_name?: string; last_name?: string; email?: string }[] }).attendees
+                : [];
+              const ticketRows = Array.from({ length: qty }).map((_, i) => {
+                const att = attendees[i] ?? null;
+                return {
+                  order_id: orderId,
+                  event_id: ord.event_id,
+                  tier_id: tierId,
+                  buyer_id: ord.buyer_id,
+                  qr_token:
+                    crypto.randomUUID().replace(/-/g, "") +
+                    crypto.randomUUID().replace(/-/g, "").slice(0, 8),
+                  // Nominative: copy attendee details onto each ticket.
+                  // Fallback to the buyer's own email when attendees were not collected.
+                  holder_first_name: att?.first_name ?? null,
+                  holder_last_name: att?.last_name ?? null,
+                  holder_email: att?.email ?? ord.buyer_email ?? null,
+                  status: "valid" as const,
+                };
+              });
+              const { error: tixErr } = await supabase.from("event_tickets").insert(ticketRows);
               if (tixErr) {
                 console.error("[studio_primary_sale] insert event_tickets failed:", tixErr);
               }

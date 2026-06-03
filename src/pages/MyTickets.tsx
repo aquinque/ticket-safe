@@ -38,6 +38,10 @@ interface TicketRow {
   id: string;
   qr_token: string;
   scanned_at: string | null;
+  status: "valid" | "scanned" | "cancelled" | "refunded";
+  holder_first_name: string | null;
+  holder_last_name: string | null;
+  holder_email: string | null;
 }
 
 const MyTickets = () => {
@@ -85,7 +89,7 @@ const MyTickets = () => {
 
       const { data: tix } = await supabase
         .from("event_tickets")
-        .select("id, qr_token, scanned_at")
+        .select("id, qr_token, scanned_at, status, holder_first_name, holder_last_name, holder_email")
         .eq("order_id", orderId)
         .order("created_at", { ascending: true });
 
@@ -242,16 +246,37 @@ const MyTickets = () => {
                       Ticket {i + 1} of {tickets.length}
                       {order.tier ? ` · ${order.tier.name}` : ""}
                     </div>
+                    {(t.holder_first_name || t.holder_last_name) && (
+                      <div className="text-base md:text-lg font-black mb-0.5">
+                        {[t.holder_first_name, t.holder_last_name].filter(Boolean).join(" ")}
+                      </div>
+                    )}
+                    {t.holder_email && (
+                      <div className="text-xs text-muted-foreground mb-2 break-all">
+                        {t.holder_email}
+                      </div>
+                    )}
                     <div className="text-base md:text-lg font-bold mb-2">
                       Show this at the door
                     </div>
                     <div className="text-xs text-muted-foreground inline-flex items-center gap-1.5 mb-3 justify-center md:justify-start">
                       <ShieldCheck className="w-3.5 h-3.5 text-green-600" />
-                      Single-use · validated on scan
+                      Nominative · single-use · checked at the door
                     </div>
-                    {t.scanned_at && (
+                    {/* Status badge */}
+                    {t.status === "scanned" && t.scanned_at && (
                       <div className="text-xs font-bold text-amber-700 bg-amber-100 inline-flex items-center gap-1 px-2 py-1 rounded-full">
                         Used on {new Date(t.scanned_at).toLocaleString("en-GB")}
+                      </div>
+                    )}
+                    {t.status === "refunded" && (
+                      <div className="text-xs font-bold text-red-700 bg-red-100 inline-flex items-center gap-1 px-2 py-1 rounded-full">
+                        Refunded — no longer valid
+                      </div>
+                    )}
+                    {t.status === "cancelled" && (
+                      <div className="text-xs font-bold text-red-700 bg-red-100 inline-flex items-center gap-1 px-2 py-1 rounded-full">
+                        Cancelled
                       </div>
                     )}
                     {qrUrls[t.id] && (

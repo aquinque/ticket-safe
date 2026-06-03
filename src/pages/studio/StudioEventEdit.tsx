@@ -44,6 +44,7 @@ interface EventRow {
   banner_url: string | null;
   organizer_id: string;
   published_at: string | null;
+  max_tickets_per_buyer: number | null;
 }
 
 interface TierRow {
@@ -424,6 +425,9 @@ const StudioEventEdit = () => {
             )}
           </section>
 
+          {/* Per-buyer limit — editable at any status (only affects new purchases) */}
+          <PerBuyerLimitControl event={event} onSaved={(patch) => setEvent({ ...event, ...patch })} />
+
           {/* Recent orders */}
           <section className="bg-card border border-border rounded-2xl p-5 md:p-6">
             <h2 className="text-lg font-bold mb-4">Recent orders</h2>
@@ -465,6 +469,86 @@ const StudioEventEdit = () => {
 
       <Footer />
     </div>
+  );
+};
+
+const PerBuyerLimitControl = ({
+  event,
+  onSaved,
+}: {
+  event: EventRow;
+  onSaved: (patch: Partial<EventRow>) => void;
+}) => {
+  const [enabled, setEnabled] = useState<boolean>(event.max_tickets_per_buyer != null);
+  const [value, setValue] = useState<string>(String(event.max_tickets_per_buyer ?? 2));
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setEnabled(event.max_tickets_per_buyer != null);
+    setValue(String(event.max_tickets_per_buyer ?? 2));
+  }, [event.max_tickets_per_buyer]);
+
+  const dirty =
+    enabled !== (event.max_tickets_per_buyer != null) ||
+    (enabled && parseInt(value, 10) !== event.max_tickets_per_buyer);
+
+  const handleSave = async () => {
+    setSaving(true);
+    const n = parseInt(value, 10);
+    const next = enabled && Number.isFinite(n) && n >= 1 && n <= 50 ? n : null;
+    const { error } = await supabase
+      .from("events")
+      .update({ max_tickets_per_buyer: next })
+      .eq("id", event.id);
+    setSaving(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    onSaved({ max_tickets_per_buyer: next });
+    toast.success(next ? `Limit set to ${next} per buyer` : "Limit removed");
+  };
+
+  return (
+    <section className="bg-card border border-border rounded-2xl p-5 md:p-6 mb-6">
+      <div className="flex items-start gap-3 mb-3">
+        <Users className="w-5 h-5 text-primary mt-0.5" />
+        <div className="flex-1">
+          <h2 className="text-lg font-bold leading-tight">Tickets per buyer</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Cap how many tickets a single buyer can purchase across all tiers of this event. Useful for galas / sold-out events.
+            Changes only affect future purchases.
+          </p>
+        </div>
+      </div>
+      <label className="flex items-center gap-2 text-sm mb-3 cursor-pointer">
+        <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
+        Enforce a maximum
+      </label>
+      {enabled && (
+        <div className="flex items-center gap-3 mb-3">
+          <input
+            type="number"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            className="w-24 px-3 py-2 rounded-lg border border-border bg-background text-sm"
+            min="1"
+            max="50"
+          />
+          <span className="text-sm text-muted-foreground">max tickets per person</span>
+        </div>
+      )}
+      {dirty && (
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="inline-flex items-center gap-1.5 px-4 min-h-[36px] rounded-lg text-sm font-bold bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-60"
+        >
+          {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+          Save
+        </button>
+      )}
+    </section>
   );
 };
 

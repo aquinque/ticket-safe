@@ -59,6 +59,8 @@ const StudioEventNew = () => {
   const [location, setLocation] = useState("");
   const [category, setCategory] = useState("party");
   const [primaryColor, setPrimaryColor] = useState("#003399");
+  const [limitEnabled, setLimitEnabled] = useState(false);
+  const [maxPerBuyer, setMaxPerBuyer] = useState("2");
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [bannerPreview, setBannerPreview] = useState<string | null>(null);
   const [slug, setSlug] = useState("");
@@ -177,6 +179,10 @@ const StudioEventNew = () => {
         location: location || null,
       });
 
+      const limitN = parseInt(maxPerBuyer, 10);
+      const limitValue =
+        limitEnabled && Number.isFinite(limitN) && limitN >= 1 && limitN <= 50 ? limitN : null;
+
       const { data: ev, error: evErr } = await supabase
         .from("events")
         .insert({
@@ -197,6 +203,7 @@ const StudioEventNew = () => {
           status: "draft",
           sold_via_studio: true,
           is_active: true,
+          max_tickets_per_buyer: limitValue,
         })
         .select("id, slug")
         .single();
@@ -448,6 +455,41 @@ const StudioEventNew = () => {
               <Plus className="w-4 h-4" />
               Add another tier
             </button>
+
+            {/* Per-buyer ticket limit (great for high-demand events) */}
+            <div className="mt-5 pt-5 border-t border-border">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={limitEnabled}
+                  onChange={(e) => setLimitEnabled(e.target.checked)}
+                  className="mt-0.5 w-4 h-4"
+                />
+                <div className="flex-1">
+                  <div className="font-bold text-sm text-foreground">
+                    Cap tickets per buyer
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    Useful for galas / sold-out events to prevent one person from grabbing the entire allocation.
+                  </div>
+                </div>
+              </label>
+              {limitEnabled && (
+                <div className="mt-3 flex items-center gap-3">
+                  <input
+                    type="number"
+                    value={maxPerBuyer}
+                    onChange={(e) => setMaxPerBuyer(e.target.value)}
+                    className="ts-input w-24"
+                    min="1"
+                    max="50"
+                  />
+                  <span className="text-sm text-muted-foreground">
+                    max tickets per person across all tiers of this event
+                  </span>
+                </div>
+              )}
+            </div>
           </Section>
 
           {error && (

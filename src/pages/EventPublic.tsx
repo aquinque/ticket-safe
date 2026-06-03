@@ -67,6 +67,33 @@ const EventPublic = () => {
   const [qty, setQty] = useState(1);
   const [buying, setBuying] = useState(false);
   const [paymentsReady, setPaymentsReady] = useState<boolean>(true);
+  const [maxPerBuyer, setMaxPerBuyer] = useState<number | null>(null);
+  const [attendees, setAttendees] = useState<{ first_name: string; last_name: string; email: string }[]>([]);
+
+  // Keep the attendees array sized to the current quantity. When quantity grows,
+  // we add empty slots; when it shrinks, we trim. The first slot auto-fills from
+  // the signed-in user once on first render.
+  useEffect(() => {
+    setAttendees((prev) => {
+      const next = prev.slice(0, qty);
+      while (next.length < qty) next.push({ first_name: "", last_name: "", email: "" });
+      if (user && next[0] && !next[0].email) {
+        const meta = (user.user_metadata as { full_name?: string } | undefined) ?? {};
+        const fullName = (meta.full_name ?? "").trim();
+        const parts = fullName.split(/\s+/);
+        next[0] = {
+          first_name: parts[0] ?? "",
+          last_name: parts.slice(1).join(" "),
+          email: user.email ?? "",
+        };
+      }
+      return next;
+    });
+  }, [qty, user]);
+
+  const updateAttendee = (i: number, patch: Partial<{ first_name: string; last_name: string; email: string }>) => {
+    setAttendees((prev) => prev.map((a, idx) => (idx === i ? { ...a, ...patch } : a)));
+  };
 
   const load = useCallback(async () => {
     if (!slug) return;
@@ -75,7 +102,7 @@ const EventPublic = () => {
     const { data: ev } = await supabase
       .from("events")
       .select(
-        `id, title, description, date, ends_at, location, category, slug, status, primary_color, banner_url, logo_url, organizer_id,
+        `id, title, description, date, ends_at, location, category, slug, status, primary_color, banner_url, logo_url, organizer_id, max_tickets_per_buyer,
          organizer:organizer_profiles!events_organizer_id_fkey(id, user_id, name, slug, logo_url, primary_color, website)`,
       )
       .eq("slug", slug)
@@ -97,6 +124,9 @@ const EventPublic = () => {
       ...(ev as Omit<PublicEvent, "organizer">),
       organizer,
     } as PublicEvent);
+
+    const evCast = ev as { max_tickets_per_buyer?: number | null };
+    setMaxPerBuyer(evCast.max_tickets_per_buyer ?? null);
 
     // Look up the organizer's Stripe Connect readiness so we can disable
     // the Buy button cleanly if the organizer hasn't been activated yet.
@@ -162,10 +192,19 @@ const EventPublic = () => {
       navigate(`/auth?mode=signup&next=/e/${slug}`);
       return;
     }
+    // Validate the nominative form before opening Stripe — the server will
+    // re-validate (defense in depth) but a clear inline error is friendlier.
+    for (let i = 0; i < attendees.length; i++) {
+      const a = attendees[i];
+      if (!a.first_name.trim() || !a.last_name.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(a.email)) {
+        toast.error(`Fill in the holder's first name, last name and email for ticket ${i + 1}.`);
+        return;
+      }
+    }
     setBuying(true);
     try {
       const { data, error } = await supabase.functions.invoke("studio-create-checkout", {
-        body: { tier_id: selectedTier, quantity: qty },
+        body: { tier_id: selectedTier, quantity: qty, attendees },
       });
       if (error || !data?.url) {
         console.error("[event-public] checkout error:", error, data);
@@ -400,12 +439,64 @@ const EventPublic = () => {
                     </button>
                     <span className="w-10 text-center font-bold">{qty}</span>
                     <button
-                      onClick={() => setQty((n) => Math.min(10, Math.min(selected.available_qty, n + 1)))}
-                      className="w-9 h-9 rounded-lg border border-border flex items-center justify-center hover:bg-muted"
+                      onClick={() =>
+                        setQty((n) => {
+                          const hardCap = Math.min(10, selected.available_qty);
+                          const finalCap = maxPerBuyer ? Math.min(hardCap, maxPerBuyer) : hardCap;
+                          return Math.min(finalCap, n + 1);
+                        })
+                      }
+                      className="w-9 h-9 rounded-lg border border-border flex items-center justify-center hover:bg-muted disabled:opacity-40"
+                      disabled={maxPerBuyer != null && qty >= maxPerBuyer}
                     >
                       <Plus className="w-3.5 h-3.5" />
                     </button>
                   </div>
+                </div>
+
+                {/* Per-buyer limit notice */}
+                {maxPerBuyer != null && (
+                  <div className="text-[11px] text-muted-foreground mb-3 -mt-1">
+                    Limit of {maxPerBuyer} ticket{maxPerBuyer > 1 ? "s" : ""} per person.
+                  </div>
+                )}
+
+                {/* Nominative attendees — one block per ticket */}
+                <div className="space-y-3 mb-4 pt-2">
+                  <div className="text-xs font-bold text-foreground/80">
+                    {qty > 1 ? `Attendee details · ${qty} tickets` : "Attendee details"}
+                  </div>
+                  {attendees.map((a, i) => (
+                    <div key={i} className="rounded-xl border border-border p-3 bg-muted/30">
+                      <div className="text-[10px] uppercase tracking-[0.16em] font-bold text-muted-foreground mb-2">
+                        Ticket {i + 1}{i === 0 ? " · you" : ""}
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 mb-2">
+                        <input
+                          value={a.first_name}
+                          onChange={(e) => updateAttendee(i, { first_name: e.target.value })}
+                          placeholder="First name"
+                          className="ts-attendee"
+                          maxLength={100}
+                        />
+                        <input
+                          value={a.last_name}
+                          onChange={(e) => updateAttendee(i, { last_name: e.target.value })}
+                          placeholder="Last name"
+                          className="ts-attendee"
+                          maxLength={100}
+                        />
+                      </div>
+                      <input
+                        type="email"
+                        value={a.email}
+                        onChange={(e) => updateAttendee(i, { email: e.target.value })}
+                        placeholder="Email (where the QR will be sent)"
+                        className="ts-attendee w-full"
+                        maxLength={254}
+                      />
+                    </div>
+                  ))}
                 </div>
 
                 <div className="space-y-1 text-sm mb-4">
@@ -505,6 +596,24 @@ const EventPublic = () => {
           </div>
         </div>
       </main>
+
+      <style>{`
+        .ts-attendee {
+          padding: 9px 12px;
+          border: 1px solid hsl(var(--border));
+          border-radius: 10px;
+          background: hsl(var(--background));
+          font-size: 14px;
+          line-height: 1.4;
+          color: hsl(var(--foreground));
+          transition: border-color .15s, box-shadow .15s;
+        }
+        .ts-attendee:focus {
+          outline: none;
+          border-color: hsl(var(--primary));
+          box-shadow: 0 0 0 3px hsl(var(--primary) / 0.15);
+        }
+      `}</style>
     </div>
   );
 };
