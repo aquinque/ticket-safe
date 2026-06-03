@@ -37,9 +37,9 @@ const Logo = ({ height = 32, variant = "default", iconOnly = false }: LogoProps)
         aria-hidden="true"
       >
         <defs>
-          <linearGradient id="ts-bg-grad" x1="0" y1="0" x2="0" y2="1" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#3D4FE8" />
-            <stop offset="100%" stopColor="#4D5DEB" />
+          <linearGradient id="ts-bg-grad" x1="0" y1="0" x2="100" y2="100" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stopColor="#4153E0" />
+            <stop offset="100%" stopColor="#2A3BB5" />
           </linearGradient>
         </defs>
 
