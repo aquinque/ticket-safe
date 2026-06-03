@@ -29,7 +29,7 @@ const Settings = () => {
     {
       id: "personal",
       title: "Personal Information",
-      description: "Manage your name, email, and account details",
+      description: "View your identity, change your password",
       icon: User,
       path: "/settings/personal",
       color: "text-purple-600 bg-purple-50 dark:bg-purple-950/30"

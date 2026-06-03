@@ -191,9 +191,6 @@ const Header = ({ minimal = false }: HeaderProps) => {
                   <DropdownMenuItem onClick={() => navigate("/settings/purchases")}>
                     My Purchases
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate("/settings/listings")}>
-                    My Listings
-                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate("/settings")}>
                     <Settings className="h-4 w-4 mr-2" />
                     {t('nav.settings')}

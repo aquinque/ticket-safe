@@ -1,5 +1,4 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { BackButton } from "@/components/BackButton";
@@ -17,90 +16,68 @@ import {
   Mail,
   Lock,
   Save,
-  AlertCircle
+  AlertCircle,
+  ShieldCheck,
 } from "lucide-react";
 
 const PersonalInformation = () => {
   const { t } = useI18n();
-  const navigate = useNavigate();
   const { user } = useAuth();
-  const [profileName, setProfileName] = useState("");
-  const [profileEmail, setProfileEmail] = useState("");
+  // Name + email are read-only by design (anti-fraud). We display whatever
+  // Supabase has on file and only let the user change their password here.
+  // To change name or email, users must contact support — the manual review
+  // step is the friction that prevents account-takeover impersonation.
+  const profileName = user?.user_metadata?.full_name || "";
+  const profileEmail = user?.email || "";
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (user) {
-      setProfileName(user.user_metadata?.full_name || '');
-      setProfileEmail(user.email || '');
+  const handleSavePassword = async () => {
+    if (!newPassword) {
+      toast({
+        title: "Nothing to save",
+        description: "Enter a new password to update it.",
+        variant: "destructive",
+      });
+      return;
     }
-  }, [user]);
 
-  const handleSaveProfile = async () => {
-    // Validate password if provided
-    if (newPassword) {
-      if (newPassword.length < 12) {
-        toast({
-          title: "Password too short",
-          description: "Password must be at least 12 characters long",
-          variant: "destructive",
-        });
-        return;
-      }
+    if (newPassword.length < 12) {
+      toast({
+        title: "Password too short",
+        description: "Password must be at least 12 characters long",
+        variant: "destructive",
+      });
+      return;
+    }
 
-      if (newPassword !== confirmPassword) {
-        toast({
-          title: "Password mismatch",
-          description: "New password and confirmation do not match",
-          variant: "destructive",
-        });
-        return;
-      }
+    if (newPassword !== confirmPassword) {
+      toast({
+        title: "Password mismatch",
+        description: "New password and confirmation do not match",
+        variant: "destructive",
+      });
+      return;
     }
 
     try {
       setLoading(true);
-
-      // Update name if changed
-      if (profileName !== user?.user_metadata?.full_name) {
-        const { error: metaError } = await supabase.auth.updateUser({
-          data: { full_name: profileName }
-        });
-        if (metaError) throw metaError;
-      }
-
-      // Update email if changed
-      if (profileEmail !== user?.email) {
-        const { error: emailError } = await supabase.auth.updateUser({
-          email: profileEmail
-        });
-        if (emailError) throw emailError;
-      }
-
-      // Update password if provided
-      if (newPassword) {
-        const { error: passwordError } = await supabase.auth.updateUser({
-          password: newPassword
-        });
-        if (passwordError) throw passwordError;
-        setNewPassword('');
-        setConfirmPassword('');
-
-        toast({
-          title: "Password updated",
-          description: "Your password has been changed successfully",
-        });
-      }
-
+      const { error: passwordError } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+      if (passwordError) throw passwordError;
+      setNewPassword("");
+      setConfirmPassword("");
       toast({
-        title: t('toast.profileUpdated'),
-        description: t('toast.profileUpdateSuccess'),
+        title: "Password updated",
+        description: "Your password has been changed successfully",
       });
     } catch (error) {
       toast({
-        title: t('toast.error'),
-        description: error instanceof Error ? error.message : t('toast.profileUpdateFailed'),
+        title: t("toast.error"),
+        description:
+          error instanceof Error ? error.message : t("toast.profileUpdateFailed"),
         variant: "destructive",
       });
     } finally {
@@ -133,7 +110,7 @@ const PersonalInformation = () => {
 
           {/* Settings Cards */}
           <div className="space-y-6">
-            {/* Profile Information */}
+            {/* Profile Information — read-only for anti-fraud */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -141,34 +118,49 @@ const PersonalInformation = () => {
                   Profile Information
                 </CardTitle>
                 <CardDescription>
-                  Update your personal details
+                  Your verified identity on Ticket Safe
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Full Name</Label>
-                  <Input
-                    id="name"
-                    value={profileName}
-                    onChange={(e) => setProfileName(e.target.value)}
-                    placeholder="Enter your full name"
-                  />
+                  <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                    Full Name
+                  </Label>
+                  <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/40 border border-border">
+                    <User className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                    <span className="text-sm font-medium truncate">
+                      {profileName || "—"}
+                    </span>
+                  </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email Address</Label>
-                  <div className="flex gap-2">
-                    <Mail className="w-5 h-5 text-muted-foreground mt-2" />
-                    <Input
-                      id="email"
-                      type="email"
-                      value={profileEmail}
-                      onChange={(e) => setProfileEmail(e.target.value)}
-                      placeholder="your.email@escp.eu"
-                    />
+                  <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                    Email Address
+                  </Label>
+                  <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/40 border border-border">
+                    <Mail className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                    <span className="text-sm font-medium truncate">
+                      {profileEmail || "—"}
+                    </span>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Changing your email will require verification
+                </div>
+
+                <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/5 border border-primary/15">
+                  <ShieldCheck className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    <span className="font-semibold text-foreground">
+                      Locked for your security.
+                    </span>{" "}
+                    Your name and email are used to verify ticket buyers and
+                    sellers. To change them, contact{" "}
+                    <a
+                      href="mailto:support@ticket-safe.eu"
+                      className="text-primary font-medium hover:underline"
+                    >
+                      support@ticket-safe.eu
+                    </a>
+                    .
                   </p>
                 </div>
               </CardContent>
@@ -232,15 +224,15 @@ const PersonalInformation = () => {
               </CardContent>
             </Card>
 
-            {/* Save Button */}
+            {/* Save Button — password only */}
             <div className="flex gap-3">
               <Button
-                onClick={handleSaveProfile}
+                onClick={handleSavePassword}
                 className="w-full"
-                disabled={loading}
+                disabled={loading || !newPassword}
               >
                 <Save className="w-4 h-4 mr-2" />
-                {loading ? 'Saving...' : 'Save Changes'}
+                {loading ? "Saving..." : "Update Password"}
               </Button>
             </div>
           </div>
