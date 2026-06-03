@@ -9,7 +9,19 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/contexts/I18nContext";
-import { Plus, ChevronDown, ChevronUp, ExternalLink, Settings } from "lucide-react";
+import {
+  Plus,
+  ChevronDown,
+  ChevronUp,
+  ExternalLink,
+  Settings,
+  Ticket,
+  Tag,
+  Calendar as CalendarIcon,
+  Sparkles,
+  History as HistoryIcon,
+  ShoppingBag,
+} from "lucide-react";
 
 interface Purchase {
   id: string;
@@ -216,54 +228,106 @@ const Profile = () => {
       month: "long",
     });
 
+  const initials = (userData.name || "")
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((n) => n[0]?.toUpperCase())
+    .join("") || "?";
+  const firstName = userData.name.split(" ")[0] || "";
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Header />
-      <main className="py-10 flex-1">
-        <div className="container mx-auto px-4 max-w-3xl">
-          {/* Top bar: back + sell CTA */}
-          <div className="mb-8 flex items-center justify-between">
-            <BackButton />
-            <Button
-              variant="hero"
-              size="sm"
-              onClick={() => navigate("/sell")}
-              className="gap-1.5"
-            >
-              <Plus className="w-4 h-4" />
-              {t("profile.sellATicket")}
-            </Button>
-          </div>
+      <main className="flex-1 pb-16">
+        {/* Hero band — gradient background with subtle decorative overlay */}
+        <div className="relative overflow-hidden bg-gradient-hero text-white">
+          <div className="absolute inset-0 opacity-30" style={{
+            backgroundImage:
+              "radial-gradient(circle at 20% 20%, rgba(255,255,255,.18), transparent 35%), radial-gradient(circle at 80% 60%, rgba(255,255,255,.12), transparent 40%)",
+          }} />
+          <div className="relative container mx-auto px-4 max-w-3xl py-10 md:py-12">
+            <div className="mb-6">
+              <BackButton />
+            </div>
+            <div className="flex items-center gap-4 md:gap-5">
+              {/* Initials avatar */}
+              <div
+                className="w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-white/15 backdrop-blur ring-1 ring-white/30 flex items-center justify-center text-xl md:text-2xl font-black tracking-tight shadow-lg flex-shrink-0"
+                aria-label={`${userData.name}'s initials`}
+              >
+                {initials}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs md:text-sm font-semibold uppercase tracking-[0.18em] text-white/70">
+                  {userData.campus || "TicketSafe"}
+                </p>
+                <h1 className="text-3xl md:text-4xl font-black mt-1 leading-tight">
+                  {t("profile.hello", { name: firstName })}
+                </h1>
+                <p className="text-sm text-white/75 mt-1 truncate">
+                  {userData.email}
+                </p>
+              </div>
+            </div>
 
-          {/* Compact header — name + minimal meta */}
-          <div className="mb-10">
-            <h1 className="text-3xl font-bold">
-              {t("profile.hello", {
-                name: userData.name.split(" ")[0] || "",
-              })}
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              {userData.campus ? `${userData.campus} · ` : ""}
-              {userData.email}
-            </p>
+            {/* Inline stat chips + Sell CTA */}
+            <div className="mt-6 flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 text-xs md:text-sm font-medium px-3 py-1.5 rounded-full bg-white/15 backdrop-blur border border-white/20">
+                <Ticket className="w-3.5 h-3.5" />
+                {upcomingPurchases.length} {upcomingPurchases.length === 1 ? "ticket" : "tickets"}
+              </span>
+              <span className="inline-flex items-center gap-1.5 text-xs md:text-sm font-medium px-3 py-1.5 rounded-full bg-white/15 backdrop-blur border border-white/20">
+                <Tag className="w-3.5 h-3.5" />
+                {visibleSales.length} {visibleSales.length === 1 ? "listing" : "listings"}
+              </span>
+              <Button
+                size="sm"
+                onClick={() => navigate("/sell")}
+                className="ml-auto gap-1.5 bg-white text-primary hover:bg-white/90 font-semibold shadow"
+              >
+                <Plus className="w-4 h-4" />
+                {t("profile.sellATicket")}
+              </Button>
+            </div>
           </div>
+        </div>
 
-          {/* MES BILLETS — upcoming tickets you bought */}
-          <section className="mb-12">
-            <h2 className="text-lg font-semibold mb-4">
-              {t("profile.myTickets")}
-            </h2>
+        <div className="container mx-auto px-4 max-w-3xl -mt-6">
+          {/* MES BILLETS */}
+          <section className="mb-10 animate-in fade-in slide-in-from-bottom-2 duration-500">
+            <div className="flex items-center justify-between mb-4 px-1">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <Ticket className="w-5 h-5 text-primary" />
+                </div>
+                <h2 className="text-lg md:text-xl font-bold">
+                  {t("profile.myTickets")}
+                </h2>
+              </div>
+              {upcomingPurchases.length > 0 && (
+                <span className="text-xs font-semibold text-primary bg-primary/10 px-2.5 py-1 rounded-full">
+                  {upcomingPurchases.length} {upcomingPurchases.length === 1 ? "upcoming" : "upcoming"}
+                </span>
+              )}
+            </div>
+
             {upcomingPurchases.length === 0 ? (
-              <Card>
-                <CardContent className="p-8 text-center">
-                  <p className="text-sm text-muted-foreground mb-4">
+              <Card className="border-dashed bg-gradient-card">
+                <CardContent className="p-10 text-center">
+                  <div className="mx-auto w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
+                    <Sparkles className="w-5 h-5 text-primary" />
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-5">
                     {t("profile.noUpcomingTickets")}
                   </p>
                   <Button
-                    variant="outline"
+                    variant="hero"
                     size="sm"
                     onClick={() => navigate("/marketplace")}
+                    className="gap-1.5"
                   >
+                    <ShoppingBag className="w-4 h-4" />
                     {t("profile.browseEvents")}
                   </Button>
                 </CardContent>
@@ -271,22 +335,36 @@ const Profile = () => {
             ) : (
               <div className="space-y-3">
                 {upcomingPurchases.map((p) => (
-                  <Card key={p.id}>
-                    <CardContent className="p-4 flex items-center justify-between gap-4">
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold truncate">
-                          {p.eventTitle}
-                        </h3>
-                        <p className="text-sm text-muted-foreground mt-0.5">
-                          {formatDate(p.date)} · {p.price > 0 ? `${p.price}€` : "Free (Beta)"}
-                        </p>
+                  <Card
+                    key={p.id}
+                    className="group relative overflow-hidden hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 border-border"
+                  >
+                    {/* Brand accent bar */}
+                    <span className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-hero" aria-hidden="true" />
+                    <CardContent className="p-4 pl-5 flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className="hidden sm:flex w-10 h-10 rounded-lg bg-primary/10 items-center justify-center flex-shrink-0">
+                          <CalendarIcon className="w-4 h-4 text-primary" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold truncate group-hover:text-primary transition-colors">
+                            {p.eventTitle}
+                          </h3>
+                          <p className="text-sm text-muted-foreground mt-0.5">
+                            <span className="font-medium text-foreground/80">{formatDate(p.date)}</span>
+                            <span className="mx-1.5">·</span>
+                            <span className="font-bold text-primary">
+                              {p.price > 0 ? `${p.price}€` : "Free"}
+                            </span>
+                          </p>
+                        </div>
                       </div>
                       {p.fileUrl ? (
                         <Button
                           variant="outline"
                           size="sm"
                           asChild
-                          className="flex-shrink-0"
+                          className="flex-shrink-0 group-hover:border-primary group-hover:text-primary"
                         >
                           <a
                             href={p.fileUrl}
@@ -299,7 +377,7 @@ const Profile = () => {
                           </a>
                         </Button>
                       ) : (
-                        <span className="text-xs text-muted-foreground flex-shrink-0">
+                        <span className="text-xs text-muted-foreground flex-shrink-0 italic">
                           {t("profile.ticketByEmail")}
                         </span>
                       )}
@@ -310,74 +388,107 @@ const Profile = () => {
             )}
           </section>
 
-          {/* MES VENTES — listings you're selling */}
-          <section className="mb-12">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold">
-                {t("profile.mySales")}
-              </h2>
+          {/* MES VENTES */}
+          <section className="mb-10 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-100">
+            <div className="flex items-center justify-between mb-4 px-1">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-secondary/10 flex items-center justify-center">
+                  <Tag className="w-5 h-5 text-secondary" />
+                </div>
+                <h2 className="text-lg md:text-xl font-bold">
+                  {t("profile.mySales")}
+                </h2>
+              </div>
               {sales.length > 0 && (
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => navigate("/settings/listings")}
-                  className="gap-1.5 text-xs"
+                  className="gap-1.5 text-xs h-8"
                 >
                   <Settings className="w-3.5 h-3.5" />
                   {t("profile.manageListings")}
                 </Button>
               )}
             </div>
+
             {visibleSales.length === 0 ? (
-              <Card>
-                <CardContent className="p-8 text-center">
-                  <p className="text-sm text-muted-foreground mb-4">
+              <Card className="border-dashed bg-gradient-card">
+                <CardContent className="p-10 text-center">
+                  <div className="mx-auto w-12 h-12 rounded-2xl bg-secondary/10 flex items-center justify-center mb-4">
+                    <Tag className="w-5 h-5 text-secondary" />
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-5">
                     {t("profile.noSalesYet")}
                   </p>
                   <Button
-                    variant="outline"
+                    variant="hero"
                     size="sm"
                     onClick={() => navigate("/sell")}
+                    className="gap-1.5"
                   >
+                    <Plus className="w-4 h-4" />
                     {t("profile.sellATicket")}
                   </Button>
                 </CardContent>
               </Card>
             ) : (
               <div className="space-y-3">
-                {visibleSales.slice(0, 5).map((s) => (
-                  <Card key={s.id}>
-                    <CardContent className="p-4 flex items-center justify-between gap-4">
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold truncate">
-                          {s.eventTitle}
-                        </h3>
-                        <p className="text-sm text-muted-foreground mt-0.5">
-                          {s.status === "sold"
-                            ? t("profile.soldFor", { price: s.salePrice })
-                            : t("profile.listedAt", { price: s.salePrice })}
-                        </p>
-                      </div>
-                      {s.status === "sold" ? (
-                        <Badge
-                          variant="secondary"
-                          className="bg-green-500/10 text-green-700 hover:bg-green-500/10 border-green-200 flex-shrink-0"
-                        >
-                          {t("profile.sold")}
-                        </Badge>
-                      ) : (
-                        <Badge
-                          variant="outline"
-                          className="text-muted-foreground flex-shrink-0"
-                        >
-                          {t("profile.awaitingBuyer")}
-                        </Badge>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
+                {visibleSales.slice(0, 5).map((s) => {
+                  const isSold = s.status === "sold";
+                  return (
+                    <Card
+                      key={s.id}
+                      className="group relative overflow-hidden hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 border-border"
+                    >
+                      <span
+                        className={`absolute left-0 top-0 bottom-0 w-1 ${
+                          isSold ? "bg-green-500" : "bg-amber-400"
+                        }`}
+                        aria-hidden="true"
+                      />
+                      <CardContent className="p-4 pl-5 flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <div
+                            className={`hidden sm:flex w-10 h-10 rounded-lg items-center justify-center flex-shrink-0 ${
+                              isSold ? "bg-green-500/10" : "bg-amber-400/10"
+                            }`}
+                          >
+                            <Tag
+                              className={`w-4 h-4 ${
+                                isSold ? "text-green-600" : "text-amber-600"
+                              }`}
+                            />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-semibold truncate">
+                              {s.eventTitle}
+                            </h3>
+                            <p className="text-sm text-muted-foreground mt-0.5">
+                              {isSold
+                                ? t("profile.soldFor", { price: s.salePrice })
+                                : t("profile.listedAt", { price: s.salePrice })}
+                            </p>
+                          </div>
+                        </div>
+                        {isSold ? (
+                          <Badge className="bg-green-500/15 text-green-700 hover:bg-green-500/15 border-green-300 flex-shrink-0 font-semibold">
+                            {t("profile.sold")}
+                          </Badge>
+                        ) : (
+                          <Badge
+                            variant="outline"
+                            className="text-amber-700 border-amber-300 bg-amber-50 flex-shrink-0 font-semibold"
+                          >
+                            {t("profile.awaitingBuyer")}
+                          </Badge>
+                        )}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
                 {visibleSales.length > 5 && (
-                  <div className="text-center pt-2">
+                  <div className="text-center pt-1">
                     <Button
                       variant="link"
                       size="sm"
@@ -391,32 +502,35 @@ const Profile = () => {
             )}
           </section>
 
-          {/* HISTORIQUE — past tickets, collapsed by default */}
+          {/* HISTORIQUE */}
           {pastPurchases.length > 0 && (
-            <section>
+            <section className="animate-in fade-in slide-in-from-bottom-2 duration-500 delay-200">
               <button
                 onClick={() => setHistoryOpen(!historyOpen)}
-                className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-sm py-1"
+                className="w-full flex items-center justify-between gap-2 px-4 py-3 rounded-xl bg-muted/40 hover:bg-muted/70 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 aria-expanded={historyOpen}
               >
+                <span className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                  <HistoryIcon className="w-4 h-4" />
+                  {t("profile.historyToggle", { count: pastPurchases.length })}
+                </span>
                 {historyOpen ? (
-                  <ChevronUp className="w-4 h-4" />
+                  <ChevronUp className="w-4 h-4 text-muted-foreground" />
                 ) : (
-                  <ChevronDown className="w-4 h-4" />
+                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
                 )}
-                {t("profile.historyToggle", { count: pastPurchases.length })}
               </button>
               {historyOpen && (
-                <div className="mt-4 space-y-1.5">
+                <div className="mt-3 space-y-1 animate-in fade-in slide-in-from-top-1 duration-200">
                   {pastPurchases.map((p) => (
                     <div
                       key={p.id}
-                      className="flex items-center justify-between py-2 px-3 text-sm rounded-md hover:bg-muted/30"
+                      className="flex items-center justify-between py-2 px-4 text-sm rounded-lg hover:bg-muted/40 transition-colors"
                     >
                       <span className="text-muted-foreground truncate flex-1">
                         {p.eventTitle}
                       </span>
-                      <span className="text-xs text-muted-foreground whitespace-nowrap ml-3">
+                      <span className="text-xs text-muted-foreground/80 whitespace-nowrap ml-3 font-mono">
                         {new Date(p.date).toLocaleDateString(dateLocale, {
                           day: "numeric",
                           month: "short",
