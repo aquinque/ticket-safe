@@ -38,8 +38,8 @@ const Logo = ({ height = 32, variant = "default", iconOnly = false }: LogoProps)
       >
         <defs>
           <linearGradient id="ts-bg-grad" x1="0" y1="0" x2="100" y2="100" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#4153E0" />
-            <stop offset="100%" stopColor="#2A3BB5" />
+            <stop offset="0%" stopColor="#3a5fe6" />
+            <stop offset="100%" stopColor="#2440b6" />
           </linearGradient>
         </defs>
 
@@ -53,8 +53,7 @@ const Logo = ({ height = 32, variant = "default", iconOnly = false }: LogoProps)
           fontFamily="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, system-ui, sans-serif"
           fontSize="64"
           fontWeight="900"
-          fill="white"
-          fillOpacity="0.4"
+          fill="#aec6ff"
           textAnchor="middle"
           letterSpacing="-0.04em"
         >
@@ -84,12 +83,12 @@ const Logo = ({ height = 32, variant = "default", iconOnly = false }: LogoProps)
             fontSize,
             letterSpacing: "-0.02em",
             lineHeight: 1,
-            color: isLight ? "white" : "hsl(220 100% 30%)",
+            color: isLight ? "white" : "#2440b6",
             fontFamily: "inherit",
           }}
         >
           Ticket
-          <span style={{ color: isLight ? "hsl(210 100% 70%)" : "hsl(210 100% 45%)" }}>Safe</span>
+          <span style={{ color: isLight ? "#aec6ff" : "#3a5fe6" }}>Safe</span>
         </span>
       )}
     </span>
