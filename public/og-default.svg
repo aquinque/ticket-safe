@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="1200" y2="630" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#3D4FE8"/>
+      <stop offset="100%" stop-color="#1E2EBD"/>
+    </linearGradient>
+    <linearGradient id="iconGrad" x1="0" y1="0" x2="0" y2="1" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#3D4FE8"/>
+      <stop offset="100%" stop-color="#4D5DEB"/>
+    </linearGradient>
+    <filter id="soft" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur stdDeviation="40"/>
+    </filter>
+  </defs>
+
+  <!-- Brand background -->
+  <rect width="1200" height="630" fill="url(#bgGrad)"/>
+
+  <!-- Soft ambient glow -->
+  <circle cx="950" cy="120" r="220" fill="#7488FF" fill-opacity="0.35" filter="url(#soft)"/>
+  <circle cx="180" cy="540" r="180" fill="#1E2EBD" fill-opacity="0.6" filter="url(#soft)"/>
+
+  <!-- Centered TS card -->
+  <g transform="translate(465 175)">
+    <rect width="280" height="280" rx="62" fill="url(#iconGrad)"/>
+    <text x="172" y="216" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, system-ui, sans-serif" font-size="180" font-weight="900" fill="white" fill-opacity="0.4" text-anchor="middle" letter-spacing="-0.04em">S</text>
+    <text x="108" y="216" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, system-ui, sans-serif" font-size="180" font-weight="900" fill="white" text-anchor="middle" letter-spacing="-0.04em">T</text>
+  </g>
+
+  <!-- Wordmark -->
+  <text x="600" y="510" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, system-ui, sans-serif" font-size="64" font-weight="900" fill="white" text-anchor="middle" letter-spacing="-0.02em">
+    Ticket<tspan fill="#BFD0FF">Safe</tspan>
+  </text>
+
+  <!-- Tagline -->
+  <text x="600" y="565" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, system-ui, sans-serif" font-size="24" font-weight="600" fill="white" fill-opacity="0.7" text-anchor="middle" letter-spacing="0.06em">
+    THE TICKET PLATFORM BUILT FOR STUDENT EVENTS
+  </text>
+</svg>

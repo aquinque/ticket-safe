@@ -39,7 +39,7 @@ export class ErrorBoundary extends Component<Props, State> {
           }}
         >
           <img
-            src="/ticket-safe-logo.png"
+            src="/favicon.svg"
             alt="Ticket Safe"
             style={{ width: 64, height: 64, marginBottom: "1.5rem" }}
           />

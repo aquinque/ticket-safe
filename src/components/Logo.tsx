@@ -1,16 +1,22 @@
 /**
- * TicketSafe inline SVG logo.
- * Matches the site's ESCP blue gradient exactly — no image request, crisp at any size.
+ * Ticket Safe inline SVG logo.
+ *
+ * Icon: square with rounded corners, blue gradient background, big white "T"
+ * with a translucent lighter-blue "S" peeking behind. Crisp at any size, zero
+ * extra HTTP request. The same vector is exported as /public/favicon.svg so
+ * tabs and bookmarks share the same artwork.
  */
 
 interface LogoProps {
-  /** Height in pixels (icon scales proportionally). Defaults to 32. */
+  /** Height in pixels (the icon and wordmark scale together). Defaults to 32. */
   height?: number;
   /** Wordmark color variant. "light" makes the text white for dark backgrounds. */
   variant?: "default" | "light";
+  /** When true, render only the square icon (no "TicketSafe" wordmark). */
+  iconOnly?: boolean;
 }
 
-const Logo = ({ height = 32, variant = "default" }: LogoProps) => {
+const Logo = ({ height = 32, variant = "default", iconOnly = false }: LogoProps) => {
   const iconSize = height;
   const fontSize = Math.round(height * 0.52);
   const gap = Math.round(height * 0.28);
@@ -19,65 +25,73 @@ const Logo = ({ height = 32, variant = "default" }: LogoProps) => {
   return (
     <span
       style={{ display: "inline-flex", alignItems: "center", gap }}
-      aria-label="TicketSafe"
+      aria-label="Ticket Safe"
     >
-      {/* Icon */}
+      {/* TS icon */}
       <svg
         width={iconSize}
         height={iconSize}
-        viewBox="0 0 36 36"
+        viewBox="0 0 100 100"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
         aria-hidden="true"
       >
         <defs>
-          <linearGradient
-            id="ts-logo-grad"
-            x1="0"
-            y1="0"
-            x2="36"
-            y2="36"
-            gradientUnits="userSpaceOnUse"
-          >
-            <stop stopColor="#003CB3" />
-            <stop offset="1" stopColor="#0080E5" />
+          <linearGradient id="ts-bg-grad" x1="0" y1="0" x2="0" y2="1" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stopColor="#3D4FE8" />
+            <stop offset="100%" stopColor="#4D5DEB" />
           </linearGradient>
         </defs>
 
-        {/* Rounded background */}
-        <rect width="36" height="36" rx="9" fill="url(#ts-logo-grad)" />
+        {/* Rounded square background */}
+        <rect width="100" height="100" rx="22" fill="url(#ts-bg-grad)" />
 
-        {/* Ticket shape with perforated midline */}
-        <path
-          d="M7 14a1 1 0 0 1 1-1h8.25v10H8a1 1 0 0 1-1-1v-1.6a2.4 2.4 0 0 0 0-4.8V14Z"
+        {/* "S" behind, translucent white — sits to the right, peeks out from under the T */}
+        <text
+          x="62"
+          y="76"
+          fontFamily="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, system-ui, sans-serif"
+          fontSize="64"
+          fontWeight="900"
           fill="white"
-          fillOpacity="0.95"
-        />
-        <path
-          d="M29 14v1.6a2.4 2.4 0 0 0 0 4.8V22a1 1 0 0 1-1 1h-8.25V13H28a1 1 0 0 1 1 1Z"
+          fillOpacity="0.4"
+          textAnchor="middle"
+          letterSpacing="-0.04em"
+        >
+          S
+        </text>
+
+        {/* "T" in front, solid white */}
+        <text
+          x="38"
+          y="76"
+          fontFamily="-apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, system-ui, sans-serif"
+          fontSize="64"
+          fontWeight="900"
           fill="white"
-          fillOpacity="0.75"
-        />
-        {/* Perforation dots */}
-        {[14.5, 16.5, 18.5, 20.5, 22.5].map((y) => (
-          <circle key={y} cx="18" cy={y} r="0.75" fill="url(#ts-logo-grad)" />
-        ))}
+          textAnchor="middle"
+          letterSpacing="-0.04em"
+        >
+          T
+        </text>
       </svg>
 
       {/* Wordmark */}
-      <span
-        style={{
-          fontWeight: 700,
-          fontSize,
-          letterSpacing: "-0.02em",
-          lineHeight: 1,
-          color: isLight ? "white" : "hsl(220 100% 30%)",
-          fontFamily: "inherit",
-        }}
-      >
-        Ticket
-        <span style={{ color: isLight ? "hsl(210 100% 70%)" : "hsl(210 100% 45%)" }}>Safe</span>
-      </span>
+      {!iconOnly && (
+        <span
+          style={{
+            fontWeight: 700,
+            fontSize,
+            letterSpacing: "-0.02em",
+            lineHeight: 1,
+            color: isLight ? "white" : "hsl(220 100% 30%)",
+            fontFamily: "inherit",
+          }}
+        >
+          Ticket
+          <span style={{ color: isLight ? "hsl(210 100% 70%)" : "hsl(210 100% 45%)" }}>Safe</span>
+        </span>
+      )}
     </span>
   );
 };

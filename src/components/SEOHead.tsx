@@ -61,7 +61,7 @@ export const SEOHead = ({
     const finalTitle = title ?? (titleKey ? t(titleKey) : appName);
     const finalDescription = description ?? (descriptionKey ? t(descriptionKey) : t('hero.subtitle'));
     // Default branded share image — used when no event banner is provided.
-    const finalImage = image ?? `${baseUrl}/og-default.png`;
+    const finalImage = image ?? `${baseUrl}/og-default.svg`;
 
     document.title = finalTitle.includes(appName) ? finalTitle : `${finalTitle} – ${appName}`;
 
