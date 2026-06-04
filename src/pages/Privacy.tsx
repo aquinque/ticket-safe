@@ -351,16 +351,65 @@ export default function Privacy() {
                   <h3 className="font-semibold text-foreground text-lg">4.1 Who We Share Data With</h3>
                   <ul className="list-disc pl-6 space-y-2">
                     <li><strong>Other Users:</strong> Profile info and listings are visible to verified students</li>
-                    <li><strong>Payment Processors:</strong> Revolut/Stripe receive necessary payment data</li>
-                    <li><strong>Service Providers:</strong> Supabase (database), analytics tools (if consented)</li>
+                    <li><strong>Payment Processors:</strong> Stripe receives the data needed to process your payment</li>
+                    <li><strong>Sub-processors:</strong> see the full list in §4.2 below — each one is bound by a written Data Processing Agreement (DPA) under GDPR Article 28</li>
                     <li><strong>Legal Authorities:</strong> When required by law or to protect rights</li>
                   </ul>
 
-                  <h3 className="font-semibold text-foreground text-lg mt-4">4.2 What We Never Share</h3>
+                  <h3 className="font-semibold text-foreground text-lg mt-4">4.2 Sub-processors (GDPR Art. 28 disclosure)</h3>
+                  <p className="text-sm">
+                    We use the following third-party processors to operate the platform. We have signed a Data Processing Agreement (DPA) with each of them and only transfer the minimum data needed for the listed purpose. Updates to this list will be reflected here before any new processor goes live.
+                  </p>
+                  <div className="overflow-x-auto mt-3">
+                    <table className="w-full text-sm border-collapse">
+                      <thead>
+                        <tr className="border-b border-border text-foreground text-left">
+                          <th className="py-2 pr-3 font-semibold">Processor</th>
+                          <th className="py-2 pr-3 font-semibold">Location</th>
+                          <th className="py-2 pr-3 font-semibold">Purpose</th>
+                          <th className="py-2 font-semibold">Data shared</th>
+                        </tr>
+                      </thead>
+                      <tbody className="align-top">
+                        <tr className="border-b border-border/50">
+                          <td className="py-3 pr-3 font-medium text-foreground">Stripe Payments Europe Ltd.</td>
+                          <td className="py-3 pr-3">Ireland (EU)</td>
+                          <td className="py-3 pr-3">Card payments, escrow, payouts to sellers/organisers (Stripe Connect)</td>
+                          <td className="py-3">Email, name, transaction amount, payment intent metadata. Card details go straight to Stripe — we never see or store them.</td>
+                        </tr>
+                        <tr className="border-b border-border/50">
+                          <td className="py-3 pr-3 font-medium text-foreground">Supabase Inc.</td>
+                          <td className="py-3 pr-3">USA — EU region (Frankfurt) for our data</td>
+                          <td className="py-3 pr-3">Authentication, Postgres database, file storage, edge functions</td>
+                          <td className="py-3">All account, listing, transaction, and chat data. Hosted in the EU region with Standard Contractual Clauses for any US fallback access.</td>
+                        </tr>
+                        <tr className="border-b border-border/50">
+                          <td className="py-3 pr-3 font-medium text-foreground">Resend Inc.</td>
+                          <td className="py-3 pr-3">USA</td>
+                          <td className="py-3 pr-3">Transactional emails (signup confirmation, purchase receipt, password reset, etc.)</td>
+                          <td className="py-3">Recipient email, full name, and email body for the specific message being sent. Not used for marketing.</td>
+                        </tr>
+                        <tr className="border-b border-border/50">
+                          <td className="py-3 pr-3 font-medium text-foreground">Sentry (Functional Software Inc.)</td>
+                          <td className="py-3 pr-3">USA</td>
+                          <td className="py-3 pr-3">Error and performance monitoring</td>
+                          <td className="py-3">Technical error context (stack traces, browser, anonymous user id). No payment data, no message content. Only triggered when something breaks.</td>
+                        </tr>
+                        <tr className="border-b border-border/50">
+                          <td className="py-3 pr-3 font-medium text-foreground">Vercel Inc.</td>
+                          <td className="py-3 pr-3">USA / EU edge network</td>
+                          <td className="py-3 pr-3">Frontend hosting and CDN</td>
+                          <td className="py-3">Standard HTTP request metadata (IP, user agent) for caching and DDoS protection. No application data is stored.</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <h3 className="font-semibold text-foreground text-lg mt-4">4.3 What We Never Share</h3>
                   <ul className="list-disc pl-6 space-y-2">
                     <li>We NEVER sell your personal data to advertisers or marketers</li>
                     <li>We NEVER share your data with universities without consent</li>
-                    <li>We NEVER provide contact information to third parties</li>
+                    <li>We NEVER provide contact information to third parties outside the sub-processors listed above</li>
                   </ul>
                 </div>
               </section>

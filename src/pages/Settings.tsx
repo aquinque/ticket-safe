@@ -10,7 +10,8 @@ import {
   Monitor,
   User,
   ShoppingBag,
-  ChevronRight
+  ChevronRight,
+  ShieldCheck,
 } from "lucide-react";
 
 const Settings = () => {
@@ -41,6 +42,14 @@ const Settings = () => {
       icon: ShoppingBag,
       path: "/settings/purchases",
       color: "text-green-600 bg-green-50 dark:bg-green-950/30"
+    },
+    {
+      id: "privacy",
+      title: "My Data & Privacy",
+      description: "Download, anonymize, or permanently delete your account",
+      icon: ShieldCheck,
+      path: "/settings/privacy",
+      color: "text-amber-600 bg-amber-50 dark:bg-amber-950/30"
     }
   ];
 
