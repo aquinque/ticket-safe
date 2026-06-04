@@ -618,51 +618,82 @@ const EventPublic = () => {
                 </div>
               )}
 
-              {/* Confident totals strip — just one number that matters */}
+              {/* ===== Totals card — Xceed-style transparent breakdown =====
+                  The buyer should never feel like they got an unexpected
+                  charge at the end. Each line is itemised, the service fee
+                  is shown in EUR (not just "5%"), the total is the visual
+                  hero, and a tiny "Why a fee?" line explains where the
+                  money goes — built for trust, not for hiding numbers. */}
               <div className="mt-6 rounded-2xl bg-card border border-border p-5 md:p-6 shadow-sm">
-                <div className="flex items-end justify-between mb-5">
-                  <div>
-                    <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
-                      Total
-                    </div>
-                    <div className="text-3xl md:text-4xl font-semibold tabular-nums tracking-tight leading-none mt-1" style={{ color: primary }}>
-                      €{(grandCents / 100).toFixed(2)}
-                    </div>
-                    <div className="text-[11px] text-muted-foreground mt-1.5">
-                      Includes 5% platform fee
-                    </div>
+                <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-4">
+                  Order summary
+                </div>
+
+                {/* Itemised breakdown — base price line + service fee line */}
+                <div className="space-y-2.5 mb-4 pb-4 border-b border-border">
+                  <div className="flex items-baseline justify-between text-sm">
+                    <span className="text-foreground">
+                      <span className="font-medium">{selected.name}</span>
+                      <span className="text-muted-foreground"> × {qty}</span>
+                    </span>
+                    <span className="tabular-nums font-medium text-foreground">
+                      €{(totalCents / 100).toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="flex items-baseline justify-between text-sm">
+                    <span className="text-muted-foreground">
+                      Service fee <span className="text-muted-foreground/70">(5%)</span>
+                    </span>
+                    <span className="tabular-nums font-medium text-foreground">
+                      €{(feeCents / 100).toFixed(2)}
+                    </span>
                   </div>
                 </div>
 
-              {/* CTA — flat, mature, no gradient swirls */}
-              <button
-                onClick={handleBuy}
-                disabled={buying}
-                className="group w-full inline-flex items-center justify-center gap-2 min-h-[52px] px-6 rounded-lg font-semibold text-white text-base disabled:opacity-60 transition-all hover:shadow-md active:scale-[0.99]"
-                style={{
-                  background: primary,
-                  boxShadow: buying ? "none" : `0 4px 14px ${primary}30`,
-                }}
-              >
-                {buying ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Opening secure checkout
-                  </>
-                ) : (
-                  <>
-                    Continue to payment
-                    <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
-                  </>
-                )}
-              </button>
+                {/* Total — kept as the visual hero */}
+                <div className="flex items-baseline justify-between mb-5">
+                  <span className="text-base md:text-lg font-semibold tracking-tight text-foreground">
+                    Total
+                  </span>
+                  <span className="text-3xl md:text-4xl font-semibold tabular-nums tracking-tight leading-none" style={{ color: primary }}>
+                    €{(grandCents / 100).toFixed(2)}
+                  </span>
+                </div>
 
-              {/* Trust signal — single line, understated */}
-              <p className="text-[11px] text-muted-foreground mt-4 text-center inline-flex items-center justify-center gap-1.5 w-full">
-                <ShieldCheck className="w-3 h-3" />
-                Secured by Stripe. Refundable if the event is cancelled.
-              </p>
-              </div> {/* close totals strip card */}
+                {/* CTA — flat brand, no gradient */}
+                <button
+                  onClick={handleBuy}
+                  disabled={buying}
+                  className="group w-full inline-flex items-center justify-center gap-2 min-h-[52px] px-6 rounded-lg font-semibold text-white text-base disabled:opacity-60 transition-all hover:shadow-md active:scale-[0.99]"
+                  style={{
+                    background: primary,
+                    boxShadow: buying ? "none" : `0 4px 14px ${primary}30`,
+                  }}
+                >
+                  {buying ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Opening secure checkout
+                    </>
+                  ) : (
+                    <>
+                      Continue to payment
+                      <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+                    </>
+                  )}
+                </button>
+
+                {/* Trust + fee explainer */}
+                <div className="mt-4 space-y-2">
+                  <p className="text-[11px] text-muted-foreground text-center inline-flex items-center justify-center gap-1.5 w-full">
+                    <ShieldCheck className="w-3 h-3" />
+                    Secured by Stripe. Refundable if the event is cancelled.
+                  </p>
+                  <p className="text-[10px] text-muted-foreground/70 text-center leading-relaxed px-2">
+                    The service fee covers secure payment processing, QR delivery, and platform operations.
+                  </p>
+                </div>
+              </div>
             </section>
           )}
 
