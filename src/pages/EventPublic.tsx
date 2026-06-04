@@ -11,6 +11,10 @@ import {
   ArrowRight,
   ShieldCheck,
   Building2,
+  Check,
+  Sparkles,
+  Mail,
+  Flame,
 } from "lucide-react";
 import { SEOHead } from "@/components/SEOHead";
 import { useAuth } from "@/hooks/useAuth";
@@ -271,53 +275,60 @@ const EventPublic = () => {
           <img
             src={event.banner_url}
             alt=""
-            className="absolute inset-0 w-full h-full object-cover opacity-30"
+            className="absolute inset-0 w-full h-full object-cover opacity-25"
           />
         )}
-        <div className="relative container mx-auto px-4 py-10 md:py-16 max-w-4xl">
+        {/* Subtle radial glow for depth */}
+        <div
+          className="absolute inset-0 opacity-40 pointer-events-none"
+          style={{
+            backgroundImage:
+              "radial-gradient(circle at 25% 20%, rgba(255,255,255,.20), transparent 40%), radial-gradient(circle at 80% 75%, rgba(255,255,255,.10), transparent 45%)",
+          }}
+        />
+        <div className="relative container mx-auto px-4 pt-10 pb-12 md:pt-14 md:pb-16 max-w-4xl">
           <Link to="/" className="inline-flex items-center gap-2 mb-6">
-            <div className="text-xs font-bold uppercase tracking-[0.2em] text-white/80">
+            <div className="text-[10px] md:text-xs font-bold uppercase tracking-[0.2em] text-white/75">
               Powered by Ticket Safe
             </div>
           </Link>
 
           {event.organizer && (
-            <div className="flex items-center gap-3 mb-5">
+            <div className="inline-flex items-center gap-2.5 mb-5 px-3 py-1.5 rounded-full bg-white/15 backdrop-blur ring-1 ring-white/25">
               {event.organizer.logo_url ? (
                 <img
                   src={event.organizer.logo_url}
                   alt={event.organizer.name}
-                  className="w-10 h-10 rounded-lg bg-white/10 object-cover"
+                  className="w-6 h-6 rounded-full bg-white/10 object-cover"
                 />
               ) : (
-                <div className="w-10 h-10 rounded-lg bg-white/15 backdrop-blur flex items-center justify-center font-black">
+                <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-[11px] font-black">
                   {event.organizer.name[0]?.toUpperCase()}
                 </div>
               )}
-              <div className="text-sm">
-                <div className="text-[10px] uppercase tracking-[0.18em] font-bold text-white/70">Organized by</div>
-                <div className="font-bold">{event.organizer.name}</div>
+              <div className="text-xs font-semibold leading-none">
+                {event.organizer.name}
               </div>
             </div>
           )}
 
-          <h1 className="text-3xl md:text-5xl lg:text-6xl font-black tracking-tight leading-[1.05] mb-4">
+          <h1 className="text-3xl md:text-5xl lg:text-6xl font-black tracking-tight leading-[1.05] mb-5">
             {event.title}
           </h1>
 
-          <div className="flex items-center gap-4 flex-wrap text-sm md:text-base text-white/90 mb-2">
-            <span className="inline-flex items-center gap-1.5">
+          <div className="flex items-center gap-2 flex-wrap text-sm md:text-base text-white/95">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur ring-1 ring-white/15">
               <Calendar className="w-4 h-4" />
               {new Date(event.date).toLocaleString("en-GB", { dateStyle: "long", timeStyle: "short" })}
             </span>
             {event.location && (
-              <span className="inline-flex items-center gap-1.5">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur ring-1 ring-white/15">
                 <MapPin className="w-4 h-4" />
                 {event.location}
               </span>
             )}
             {event.ends_at && (
-              <span className="inline-flex items-center gap-1.5 opacity-80">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur ring-1 ring-white/15 opacity-90">
                 <Clock className="w-3.5 h-3.5" />
                 Ends {new Date(event.ends_at).toLocaleString("en-GB", { timeStyle: "short" })}
               </span>
@@ -326,34 +337,37 @@ const EventPublic = () => {
         </div>
       </section>
 
-      <main className="flex-1 -mt-6 md:-mt-10 relative z-10">
+      {/* pb-32 leaves room for the mobile sticky checkout bar so nothing is hidden behind it */}
+      <main className="flex-1 -mt-6 md:-mt-10 relative z-10 pb-32 lg:pb-0">
         <div className="container mx-auto px-4 max-w-4xl">
-          {/* Description */}
-          {event.description && (
-            <section className="bg-card border border-border rounded-2xl p-5 md:p-7 mb-5">
-              <p className="text-sm md:text-base text-foreground/90 leading-relaxed whitespace-pre-line">
-                {event.description}
-              </p>
-            </section>
-          )}
-
-          {/* Tier selector */}
-          <section className="bg-card border border-border rounded-2xl p-5 md:p-7 mb-5">
-            <div className="flex items-center gap-2 mb-4">
-              <Ticket className="w-5 h-5 text-primary" />
-              <h2 className="text-lg md:text-xl font-bold">Choose your ticket</h2>
+          {/* ===== Ticket picker — the hero of this page ===== */}
+          <section className="bg-card border border-border rounded-2xl p-5 md:p-7 mb-5 shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-500">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: `${primary}15` }}>
+                  <Ticket className="w-5 h-5" style={{ color: primary }} />
+                </div>
+                <h2 className="text-lg md:text-xl font-bold">Pick your ticket</h2>
+              </div>
+              {tiers.length > 0 && (
+                <span className="text-[11px] font-semibold text-muted-foreground">
+                  {tiers.length} option{tiers.length > 1 ? "s" : ""}
+                </span>
+              )}
             </div>
 
             {tiers.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
+              <div className="text-center py-8 text-sm text-muted-foreground">
+                <Sparkles className="w-6 h-6 text-muted-foreground/40 mx-auto mb-2" />
                 Tickets will be on sale soon. Come back shortly.
-              </p>
+              </div>
             ) : (
               <div className="space-y-3">
                 {tiers.map((t) => {
                   const isSelected = selectedTier === t.tier_id;
                   const soldOut = t.available_qty <= 0;
                   const locked = soldOut;
+                  const lowStock = !soldOut && t.available_qty <= 5;
                   return (
                     <button
                       key={t.tier_id}
@@ -363,32 +377,57 @@ const EventPublic = () => {
                         setQty(1);
                       }}
                       disabled={locked}
-                      className={`w-full text-left p-4 md:p-5 rounded-xl border-2 transition-all flex items-center justify-between gap-3 ${
+                      className={`group relative w-full text-left p-4 md:p-5 rounded-xl border-2 transition-all flex items-center justify-between gap-3 ${
                         locked
                           ? "opacity-50 cursor-not-allowed border-border bg-muted/30"
                           : isSelected
-                          ? "border-primary bg-primary/5"
-                          : "border-border hover:border-primary/40"
+                          ? "shadow-md scale-[1.01]"
+                          : "border-border hover:border-primary/50 hover:shadow-sm"
                       }`}
                       style={
-                        isSelected
-                          ? ({ borderColor: primary, background: `${primary}10` } as React.CSSProperties)
+                        isSelected && !locked
+                          ? ({
+                              borderColor: primary,
+                              background: `${primary}0d`,
+                              boxShadow: `0 0 0 4px ${primary}1a`,
+                            } as React.CSSProperties)
                           : undefined
                       }
                     >
+                      {/* Selected check chip */}
+                      {isSelected && !locked && (
+                        <div
+                          className="absolute -top-2 -right-2 w-6 h-6 rounded-full flex items-center justify-center text-white shadow-md"
+                          style={{ background: primary }}
+                        >
+                          <Check className="w-3.5 h-3.5" strokeWidth={3} />
+                        </div>
+                      )}
                       <div className="min-w-0">
-                        <div className="font-bold text-base md:text-lg leading-tight">{t.name}</div>
+                        <div className="font-bold text-base md:text-lg leading-tight flex items-center gap-2">
+                          {t.name}
+                          {lowStock && !locked && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                              <Flame className="w-2.5 h-2.5" />
+                              Going fast
+                            </span>
+                          )}
+                        </div>
                         {t.description && (
-                          <div className="text-xs md:text-sm text-muted-foreground mt-1">
+                          <div className="text-xs md:text-sm text-muted-foreground mt-1 line-clamp-2">
                             {t.description}
                           </div>
                         )}
-                        <div className="text-[11px] font-semibold text-muted-foreground mt-2">
-                          {soldOut ? "Sold out" : `${t.available_qty} left`}
+                        <div className={`text-[11px] font-semibold mt-2 ${lowStock ? "text-amber-700" : "text-muted-foreground"}`}>
+                          {soldOut
+                            ? "Sold out"
+                            : lowStock
+                            ? `Only ${t.available_qty} left!`
+                            : `${t.available_qty} left`}
                         </div>
                       </div>
                       <div className="text-right shrink-0">
-                        <div className="text-xl md:text-2xl font-black" style={{ color: primary }}>
+                        <div className="text-2xl md:text-3xl font-black tracking-tight" style={{ color: locked ? "currentColor" : primary }}>
                           €{(t.price_cents / 100).toFixed(2)}
                         </div>
                       </div>
@@ -397,127 +436,192 @@ const EventPublic = () => {
                 })}
               </div>
             )}
+          </section>
 
-            {selected && (
-              <div className="mt-5 pt-5 border-t border-border">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-sm font-bold">Quantity</span>
-                  <div className="inline-flex items-center gap-2">
-                    <button
-                      onClick={() => setQty((n) => Math.max(1, n - 1))}
-                      className="w-9 h-9 rounded-lg border border-border flex items-center justify-center hover:bg-muted"
-                    >
-                      <Minus className="w-3.5 h-3.5" />
-                    </button>
-                    <span className="w-10 text-center font-bold">{qty}</span>
-                    <button
-                      onClick={() =>
-                        setQty((n) => {
-                          const hardCap = Math.min(10, selected.available_qty);
-                          const finalCap = maxPerBuyer ? Math.min(hardCap, maxPerBuyer) : hardCap;
-                          return Math.min(finalCap, n + 1);
-                        })
-                      }
-                      className="w-9 h-9 rounded-lg border border-border flex items-center justify-center hover:bg-muted disabled:opacity-40"
-                      disabled={maxPerBuyer != null && qty >= maxPerBuyer}
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
+          {/* ===== Checkout panel — appears when a tier is selected ===== */}
+          {selected && (
+            <section className="bg-card border-2 rounded-2xl p-5 md:p-7 mb-5 shadow-md animate-in fade-in slide-in-from-bottom-3 duration-300"
+              style={{ borderColor: `${primary}33` }}
+            >
+              <div className="flex items-center gap-2 mb-5">
+                <h2 className="text-lg md:text-xl font-bold">Your order</h2>
+              </div>
+
+              {/* Quantity row */}
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <div className="text-sm font-bold">Quantity</div>
+                  {maxPerBuyer != null && (
+                    <div className="text-[11px] text-muted-foreground mt-0.5">
+                      Max {maxPerBuyer} per person
+                    </div>
+                  )}
                 </div>
+                <div className="inline-flex items-center gap-3">
+                  <button
+                    onClick={() => setQty((n) => Math.max(1, n - 1))}
+                    className="w-10 h-10 rounded-xl border border-border flex items-center justify-center hover:bg-muted hover:border-primary/40 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    disabled={qty <= 1}
+                  >
+                    <Minus className="w-4 h-4" />
+                  </button>
+                  <span className="w-10 text-center text-lg font-black tabular-nums">{qty}</span>
+                  <button
+                    onClick={() =>
+                      setQty((n) => {
+                        const hardCap = Math.min(10, selected.available_qty);
+                        const finalCap = maxPerBuyer ? Math.min(hardCap, maxPerBuyer) : hardCap;
+                        return Math.min(finalCap, n + 1);
+                      })
+                    }
+                    className="w-10 h-10 rounded-xl border border-border flex items-center justify-center hover:bg-muted hover:border-primary/40 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    disabled={
+                      qty >= Math.min(10, selected.available_qty) ||
+                      (maxPerBuyer != null && qty >= maxPerBuyer)
+                    }
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
 
-                {/* Per-buyer limit notice */}
-                {maxPerBuyer != null && (
-                  <div className="text-[11px] text-muted-foreground mb-3 -mt-1">
-                    Limit of {maxPerBuyer} ticket{maxPerBuyer > 1 ? "s" : ""} per person.
+              {/* Attendees */}
+              <div className="space-y-2.5 mb-5 pt-4 border-t border-border">
+                <div className="flex items-center justify-between">
+                  <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    {qty > 1 ? `Attendee details · ${qty}` : "Your details"}
                   </div>
-                )}
-
-                {/* Nominative attendees — one block per ticket */}
-                <div className="space-y-3 mb-4 pt-2">
-                  <div className="text-xs font-bold text-foreground/80">
-                    {qty > 1 ? `Attendee details · ${qty} tickets` : "Attendee details"}
-                  </div>
-                  {attendees.map((a, i) => (
-                    <div key={i} className="rounded-xl border border-border p-3 bg-muted/30">
-                      <div className="text-[10px] uppercase tracking-[0.16em] font-bold text-muted-foreground mb-2">
-                        Ticket {i + 1}{i === 0 ? " · you" : ""}
-                      </div>
-                      <div className="grid grid-cols-2 gap-2 mb-2">
-                        <input
-                          value={a.first_name}
-                          onChange={(e) => updateAttendee(i, { first_name: e.target.value })}
-                          placeholder="First name"
-                          className="ts-attendee"
-                          maxLength={100}
-                        />
-                        <input
-                          value={a.last_name}
-                          onChange={(e) => updateAttendee(i, { last_name: e.target.value })}
-                          placeholder="Last name"
-                          className="ts-attendee"
-                          maxLength={100}
-                        />
-                      </div>
+                  <span className="text-[10px] text-muted-foreground inline-flex items-center gap-1">
+                    <Mail className="w-3 h-3" />
+                    QR sent here
+                  </span>
+                </div>
+                {attendees.map((a, i) => (
+                  <div
+                    key={i}
+                    className="rounded-xl border border-border p-3 bg-muted/30 hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-2 mb-2.5">
+                      <span
+                        className="inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-black text-white"
+                        style={{ background: primary }}
+                      >
+                        {i + 1}
+                      </span>
+                      <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-foreground/70">
+                        Ticket {i + 1}
+                      </span>
+                      {i === 0 && (
+                        <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">
+                          You
+                        </span>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 mb-2">
                       <input
-                        type="email"
-                        value={a.email}
-                        onChange={(e) => updateAttendee(i, { email: e.target.value })}
-                        placeholder="Email (where the QR will be sent)"
-                        className="ts-attendee w-full"
-                        maxLength={254}
+                        value={a.first_name}
+                        onChange={(e) => updateAttendee(i, { first_name: e.target.value })}
+                        placeholder="First name"
+                        className="ts-attendee"
+                        maxLength={100}
+                      />
+                      <input
+                        value={a.last_name}
+                        onChange={(e) => updateAttendee(i, { last_name: e.target.value })}
+                        placeholder="Last name"
+                        className="ts-attendee"
+                        maxLength={100}
                       />
                     </div>
-                  ))}
-                </div>
-
-                <div className="space-y-1 text-sm mb-4">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">
-                      {selected.name} × {qty}
-                    </span>
-                    <span>€{(totalCents / 100).toFixed(2)}</span>
+                    <input
+                      type="email"
+                      value={a.email}
+                      onChange={(e) => updateAttendee(i, { email: e.target.value })}
+                      placeholder="Email"
+                      className="ts-attendee w-full"
+                      maxLength={254}
+                    />
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Platform fee (5%)</span>
-                    <span>€{(feeCents / 100).toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between font-bold pt-2 border-t border-border">
-                    <span>Total</span>
-                    <span>€{(grandCents / 100).toFixed(2)}</span>
-                  </div>
-                </div>
-
-                <button
-                  onClick={handleBuy}
-                  disabled={buying}
-                  className="w-full inline-flex items-center justify-center gap-2 min-h-[52px] px-6 rounded-xl font-bold text-white disabled:opacity-60"
-                  style={{ background: primary }}
-                >
-                  {buying ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : (
-                    <>
-                      Buy {qty} ticket{qty > 1 ? "s" : ""}
-                      <ArrowRight className="w-4 h-4" />
-                    </>
-                  )}
-                </button>
-
-                <p className="text-[11px] text-muted-foreground mt-3 text-center inline-flex items-center justify-center gap-1.5 w-full">
-                  <ShieldCheck className="w-3 h-3" />
-                  Secure payment by Stripe · QR ticket emailed instantly
-                </p>
+                ))}
               </div>
-            )}
-          </section>
+
+              {/* Price breakdown — total is the visual hero */}
+              <div className="rounded-xl bg-muted/40 p-4 mb-4">
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="text-muted-foreground">
+                    {selected.name} × {qty}
+                  </span>
+                  <span className="tabular-nums">€{(totalCents / 100).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-sm mb-3 pb-3 border-b border-border">
+                  <span className="text-muted-foreground">Platform fee (5%)</span>
+                  <span className="tabular-nums">€{(feeCents / 100).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between items-baseline">
+                  <span className="font-bold text-sm uppercase tracking-wider text-muted-foreground">Total</span>
+                  <span className="text-3xl md:text-4xl font-black tabular-nums" style={{ color: primary }}>
+                    €{(grandCents / 100).toFixed(2)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Trust signals row */}
+              <div className="grid grid-cols-3 gap-2 mb-4 text-center">
+                <div className="flex flex-col items-center gap-1 p-2">
+                  <ShieldCheck className="w-4 h-4 text-primary" />
+                  <span className="text-[10px] font-semibold leading-tight text-muted-foreground">Secure<br />by Stripe</span>
+                </div>
+                <div className="flex flex-col items-center gap-1 p-2">
+                  <Sparkles className="w-4 h-4 text-primary" />
+                  <span className="text-[10px] font-semibold leading-tight text-muted-foreground">Instant<br />QR delivery</span>
+                </div>
+                <div className="flex flex-col items-center gap-1 p-2">
+                  <Mail className="w-4 h-4 text-primary" />
+                  <span className="text-[10px] font-semibold leading-tight text-muted-foreground">Refund if<br />cancelled</span>
+                </div>
+              </div>
+
+              {/* Big CTA */}
+              <button
+                onClick={handleBuy}
+                disabled={buying}
+                className="group w-full inline-flex items-center justify-center gap-2 min-h-[56px] px-6 rounded-xl font-bold text-white text-base md:text-lg disabled:opacity-60 transition-all hover:shadow-lg hover:scale-[1.01] active:scale-[0.99]"
+                style={{
+                  background: `linear-gradient(135deg, ${primary}, hsl(210 100% 45%))`,
+                  boxShadow: `0 8px 24px ${primary}40`,
+                }}
+              >
+                {buying ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Opening secure checkout…
+                  </>
+                ) : (
+                  <>
+                    Get my ticket{qty > 1 ? "s" : ""} — €{(grandCents / 100).toFixed(2)}
+                    <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-0.5" />
+                  </>
+                )}
+              </button>
+            </section>
+          )}
+
+          {/* Description */}
+          {event.description && (
+            <section className="bg-card border border-border rounded-2xl p-5 md:p-7 mb-5 shadow-sm">
+              <h2 className="text-base md:text-lg font-bold mb-3">About this event</h2>
+              <p className="text-sm md:text-base text-foreground/85 leading-relaxed whitespace-pre-line">
+                {event.description}
+              </p>
+            </section>
+          )}
 
           {/* Organizer card */}
           {event.organizer && (
-            <section className="bg-card border border-border rounded-2xl p-5 md:p-7 mb-8">
+            <section className="bg-card border border-border rounded-2xl p-5 md:p-6 mb-8 shadow-sm">
               <div className="flex items-center gap-2 mb-3">
-                <Building2 className="w-5 h-5 text-primary" />
-                <h2 className="text-lg font-bold">About the organizer</h2>
+                <Building2 className="w-4 h-4 text-muted-foreground" />
+                <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Organized by</h2>
               </div>
               <div className="flex items-center gap-3">
                 {event.organizer.logo_url ? (
@@ -568,6 +672,40 @@ const EventPublic = () => {
           </div>
         </div>
       </main>
+
+      {/* ===== Sticky mobile checkout bar — always visible when tier selected ===== */}
+      {selected && (
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/95 backdrop-blur-md shadow-[0_-4px_24px_rgba(0,0,0,0.08)] px-4 py-3 animate-in slide-in-from-bottom-2 duration-300">
+          <div className="container mx-auto max-w-4xl flex items-center gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                {qty} × {selected.name}
+              </div>
+              <div className="text-xl font-black tabular-nums leading-tight" style={{ color: primary }}>
+                €{(grandCents / 100).toFixed(2)}
+              </div>
+            </div>
+            <button
+              onClick={handleBuy}
+              disabled={buying}
+              className="flex-shrink-0 inline-flex items-center justify-center gap-1.5 min-h-[48px] px-5 rounded-xl font-bold text-white disabled:opacity-60 transition-all"
+              style={{
+                background: `linear-gradient(135deg, ${primary}, hsl(210 100% 45%))`,
+                boxShadow: `0 4px 12px ${primary}40`,
+              }}
+            >
+              {buying ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <>
+                  Continue
+                  <ArrowRight className="w-4 h-4" />
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
 
       <style>{`
         .ts-attendee {
