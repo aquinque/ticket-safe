@@ -246,7 +246,14 @@ const EventPublic = () => {
     );
   }
 
-  const primary = event.primary_color || event.organizer?.primary_color || "#003399";
+  // Brand identity is non-negotiable: every event uses Ticket Safe blue,
+  // regardless of what colour the organizer set on their event/profile.
+  // Organizers can still bring their own banner + logo (photos), but colour
+  // discipline keeps the buyer experience consistent across the whole
+  // platform — and means a default "green" left over from testing never
+  // leaks into a buy flow.
+  const primary = "#003399";
+  const TS_GRADIENT = "linear-gradient(135deg, hsl(220 100% 30%), hsl(210 100% 45%))";
   const selected = tiers.find((t) => t.tier_id === selectedTier) ?? null;
   const totalCents = selected ? selected.price_cents * qty : 0;
   const feeCents = Math.round(totalCents * 0.05);
@@ -265,10 +272,10 @@ const EventPublic = () => {
         url={`https://ticket-safe.eu/e/${event.slug}`}
       />
 
-      {/* ===== Branded hero ===== */}
+      {/* ===== Branded hero — always Ticket Safe blue ===== */}
       <section
         className="relative text-white overflow-hidden"
-        style={{ background: `linear-gradient(135deg, ${primary}, hsl(210 100% 45%))` }}
+        style={{ background: TS_GRADIENT }}
       >
         {event.banner_url && (
           <img
@@ -453,10 +460,105 @@ const EventPublic = () => {
 
           {/* ===== Checkout panel — appears when a tier is selected =====
               Designed to feel like Stripe Checkout / Apple Pay — sober,
-              typography-driven, confident. No gradient swirls, no playful
-              chips, no emoji. Adult-grade. */}
+              typography-driven, confident. The innovation: a live ticket
+              preview at the top that builds in real time as the buyer
+              types, so they can SEE what they're getting before paying. */}
           {selected && (
             <section className="bg-card border border-border rounded-2xl p-6 md:p-8 mb-5 shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-300">
+              {/* ── LIVE TICKET PREVIEW ──
+                  Renders the actual ticket as a card: brand gradient header,
+                  perforated edges (the white circle notches simulate a
+                  physical tear strip), dashed cut line, and the holder name
+                  appearing in real time as the form is filled. Strong
+                  innovation signal without being childish. */}
+              <div
+                className="relative overflow-hidden rounded-2xl mb-6 text-white shadow-lg"
+                style={{ background: TS_GRADIENT }}
+              >
+                {/* Decorative perforation notches — mimic a real ticket */}
+                <div className="absolute top-1/2 -translate-y-1/2 -left-2.5 w-5 h-5 rounded-full bg-card" />
+                <div className="absolute top-1/2 -translate-y-1/2 -right-2.5 w-5 h-5 rounded-full bg-card" />
+                {/* Subtle radial highlight for depth */}
+                <div
+                  className="absolute inset-0 opacity-30 pointer-events-none"
+                  style={{
+                    backgroundImage:
+                      "radial-gradient(circle at 15% 15%, rgba(255,255,255,.35), transparent 45%), radial-gradient(circle at 85% 85%, rgba(255,255,255,.15), transparent 50%)",
+                  }}
+                />
+
+                {/* Top half — brand + event */}
+                <div className="relative p-5 md:p-6 pb-3">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/85">
+                      Ticket Safe
+                    </div>
+                    <div className="text-[10px] font-medium uppercase tracking-[0.18em] text-white/55">
+                      Preview
+                    </div>
+                  </div>
+                  <div className="text-lg md:text-xl font-bold leading-tight mb-1.5 line-clamp-2">
+                    {event.title}
+                  </div>
+                  <div className="text-xs text-white/85">
+                    {new Date(event.date).toLocaleString("en-GB", {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    })}
+                    {event.location && (
+                      <>
+                        <span className="mx-1.5 text-white/40">·</span>
+                        {event.location}
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Perforated tear line */}
+                <div className="relative h-3 mx-3 border-b border-dashed border-white/30" />
+
+                {/* Bottom half — holder + tier */}
+                <div className="relative p-5 md:p-6 pt-4">
+                  {qty === 1 ? (
+                    <div>
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-white/55 mb-1">
+                        Holder
+                      </div>
+                      <div className="text-base md:text-lg font-semibold leading-tight min-h-[1.5em]">
+                        {(attendees[0]?.first_name || attendees[0]?.last_name)
+                          ? `${attendees[0]?.first_name ?? ""} ${attendees[0]?.last_name ?? ""}`.trim()
+                          : <span className="text-white/40 font-normal italic">Your name appears here</span>}
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-white/55 mb-2">
+                        {qty} Holders
+                      </div>
+                      <div className="space-y-1">
+                        {attendees.map((a, i) => {
+                          const name = `${a.first_name ?? ""} ${a.last_name ?? ""}`.trim();
+                          return (
+                            <div key={i} className="text-sm font-medium leading-tight">
+                              <span className="text-white/45 mr-2 text-[10px] font-bold">#{i + 1}</span>
+                              {name || <span className="text-white/40 font-normal italic">Ticket {i + 1}</span>}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between mt-3.5 pt-3.5 border-t border-white/15">
+                    <div className="text-[11px] font-semibold tracking-wide text-white/80">
+                      {selected.name}
+                    </div>
+                    <div className="text-[11px] font-semibold tabular-nums text-white/80">
+                      €{(grandCents / 100).toFixed(2)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <div className="flex items-baseline justify-between mb-6 pb-5 border-b border-border">
                 <h2 className="text-xl md:text-2xl font-semibold tracking-tight">Checkout</h2>
                 <span className="text-xs font-medium text-muted-foreground">
@@ -627,7 +729,7 @@ const EventPublic = () => {
                 ) : (
                   <div
                     className="w-12 h-12 rounded-xl flex items-center justify-center font-black text-white"
-                    style={{ background: event.organizer.primary_color || primary }}
+                    style={{ background: primary }}
                   >
                     {event.organizer.name[0]?.toUpperCase()}
                   </div>
