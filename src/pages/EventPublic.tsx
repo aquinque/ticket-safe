@@ -9,6 +9,7 @@ import {
   Plus,
   Minus,
   ArrowRight,
+  ArrowLeft,
   ShieldCheck,
   Building2,
   Check,
@@ -287,11 +288,30 @@ const EventPublic = () => {
           }}
         />
         <div className="relative container mx-auto px-4 pt-10 pb-12 md:pt-14 md:pb-16 max-w-4xl">
-          <Link to="/" className="inline-flex items-center gap-2 mb-6">
-            <div className="text-[10px] md:text-xs font-bold uppercase tracking-[0.2em] text-white/75">
-              Powered by Ticket Safe
-            </div>
-          </Link>
+          {/* Top row: back arrow (left) + Powered-by chip (right). Lets buyers
+              who land here from a story / link feel they can step out instead
+              of being trapped in the page. Uses history.back when available,
+              falls back to /tickets so direct visitors still get somewhere
+              useful. */}
+          <div className="flex items-center justify-between mb-6">
+            <button
+              type="button"
+              onClick={() => {
+                if (window.history.length > 1) navigate(-1);
+                else navigate("/tickets");
+              }}
+              className="group inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/15 backdrop-blur ring-1 ring-white/25 hover:bg-white/25 transition-colors"
+              aria-label="Back"
+            >
+              <ArrowLeft className="w-4 h-4 text-white transition-transform group-hover:-translate-x-0.5" />
+              <span className="text-xs font-bold text-white">Back</span>
+            </button>
+            <Link to="/" className="hidden sm:block">
+              <span className="text-[10px] md:text-xs font-bold uppercase tracking-[0.2em] text-white/70 hover:text-white/90 transition-colors">
+                Powered by Ticket Safe
+              </span>
+            </Link>
+          </div>
 
           {event.organizer && (
             <div className="inline-flex items-center gap-2.5 mb-5 px-3 py-1.5 rounded-full bg-white/15 backdrop-blur ring-1 ring-white/25">

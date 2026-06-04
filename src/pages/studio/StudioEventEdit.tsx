@@ -24,6 +24,11 @@ import {
   BarChart3,
   CheckCircle2,
   Banknote,
+  Link2,
+  Copy,
+  Check,
+  Share2,
+  Sparkles,
 } from "lucide-react";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import Header from "@/components/Header";
@@ -97,6 +102,8 @@ const StudioEventEdit = () => {
   const [attendees, setAttendees] = useState<AttendeeRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  // Track the "copied!" feedback on the share-link button. Resets after 2s.
+  const [shareCopied, setShareCopied] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -433,6 +440,93 @@ const StudioEventEdit = () => {
             disabled={event.status !== "draft"}
             userId={user?.id ?? ""}
           />
+
+          {/* ===== Share link box — only when the event is published =====
+              Built so an organizer can drop the URL in an Instagram story,
+              WhatsApp group, or poster QR with one click. The URL itself is
+              copy-friendly (slug-based) so it looks clean in the wild. */}
+          {event.status === "published" && event.slug && (() => {
+            const shareUrl = `https://ticket-safe.eu/e/${event.slug}`;
+            return (
+              <section className="relative overflow-hidden bg-card border-2 rounded-2xl p-5 md:p-6 mb-6 shadow-sm" style={{ borderColor: "hsl(220 100% 30% / 0.2)" }}>
+                {/* Soft brand gradient overlay for visual punch */}
+                <div
+                  className="absolute inset-0 opacity-[0.06] pointer-events-none"
+                  style={{ background: "linear-gradient(135deg, hsl(220 100% 30%), hsl(210 100% 45%))" }}
+                />
+                <div className="relative">
+                  <div className="flex items-start gap-3 mb-4">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-primary/10">
+                      <Share2 className="w-5 h-5 text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h2 className="text-base md:text-lg font-bold leading-tight">Share your event</h2>
+                      <p className="text-xs md:text-sm text-muted-foreground mt-0.5">
+                        Drop this link in your Instagram story, WhatsApp group, posters — anywhere your crowd hangs out.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* URL pill — monospace, big, selectable */}
+                  <div className="flex items-stretch gap-2">
+                    <div className="flex-1 min-w-0 inline-flex items-center gap-2 px-3 md:px-4 py-3 rounded-xl border border-border bg-muted/40 overflow-hidden">
+                      <Link2 className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                      <code className="text-xs md:text-sm font-mono text-foreground truncate select-all">
+                        {shareUrl}
+                      </code>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(shareUrl);
+                          setShareCopied(true);
+                          toast.success("Link copied — paste it anywhere!");
+                          setTimeout(() => setShareCopied(false), 2000);
+                        } catch {
+                          toast.error("Could not copy. Long-press the link to copy it manually.");
+                        }
+                      }}
+                      className="inline-flex items-center justify-center gap-1.5 px-3 md:px-4 rounded-xl font-bold text-white text-sm transition-all hover:shadow-md active:scale-[0.98] flex-shrink-0"
+                      style={{
+                        background: shareCopied
+                          ? "linear-gradient(135deg, hsl(142 76% 36%), hsl(142 71% 45%))"
+                          : "linear-gradient(135deg, hsl(220 100% 30%), hsl(210 100% 45%))",
+                      }}
+                    >
+                      {shareCopied ? (
+                        <>
+                          <Check className="w-4 h-4" />
+                          <span className="hidden sm:inline">Copied</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-4 h-4" />
+                          <span className="hidden sm:inline">Copy</span>
+                        </>
+                      )}
+                    </button>
+                    <a
+                      href={shareUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center gap-1.5 px-3 md:px-4 rounded-xl font-bold text-sm border-2 border-border bg-background hover:bg-muted hover:border-primary/40 transition-colors flex-shrink-0"
+                      aria-label="Open public page in a new tab"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      <span className="hidden md:inline">Open</span>
+                    </a>
+                  </div>
+
+                  {/* Suggestion / micro-copy */}
+                  <p className="text-[11px] text-muted-foreground mt-3 inline-flex items-center gap-1.5">
+                    <Sparkles className="w-3 h-3 text-primary" />
+                    Tip: pair it with a sticker like "Get your ticket 👇" — works great in Instagram stories.
+                  </p>
+                </div>
+              </section>
+            );
+          })()}
 
           {/* Highlights — 4 KPI cards at a glance */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-5">
