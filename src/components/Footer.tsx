@@ -262,6 +262,13 @@ const Footer = () => {
               >
                 Refund Policy
               </Link>
+              <span className="text-muted-foreground/50">•</span>
+              <Link
+                to="/mentions-legales"
+                className="text-muted-foreground hover:text-primary transition-all duration-300 hover:underline underline-offset-4"
+              >
+                Mentions légales
+              </Link>
             </div>
           </div>
         </div>

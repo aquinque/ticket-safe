@@ -34,6 +34,7 @@ import Privacy from "./pages/Privacy";
 import TermsConditions from "./pages/TermsConditions";
 import CookiePolicy from "./pages/CookiePolicy";
 import RefundPolicy from "./pages/RefundPolicy";
+import MentionsLegales from "./pages/MentionsLegales";
 import HowItWorks from "./pages/HowItWorks";
 import HowItWorksTickets from "./pages/HowItWorksTickets";
 import OrganizerScan from "./pages/OrganizerScan";
@@ -95,6 +96,8 @@ const App = () => (
       <Route path="/terms" element={<TermsConditions />} />
       <Route path="/cookie-policy" element={<CookiePolicy />} />
       <Route path="/refund-policy" element={<RefundPolicy />} />
+      <Route path="/mentions-legales" element={<MentionsLegales />} />
+      <Route path="/legal" element={<MentionsLegales />} />
       <Route path="/how-it-works" element={<HowItWorks />} />
       <Route path="/how-it-works/tickets" element={<HowItWorksTickets />} />
       <Route path="/organizer/scan" element={<OrganizerScan />} />
