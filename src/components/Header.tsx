@@ -143,6 +143,17 @@ const Header = ({ minimal = false }: HeaderProps) => {
                   How It Works
                 </Link>
               )}
+              {user && (
+                <Link
+                  to="/my-tickets"
+                  className={`inline-flex items-center gap-1.5 text-sm font-semibold transition-colors hover:text-primary ${
+                    isActive("/my-tickets") ? "text-primary" : "text-foreground"
+                  }`}
+                >
+                  <TicketIcon className="w-3.5 h-3.5" />
+                  My Tickets
+                </Link>
+              )}
               <Link
                 to="/about"
                 className={`text-sm font-semibold transition-colors hover:text-primary ${
