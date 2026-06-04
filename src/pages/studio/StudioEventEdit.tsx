@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import {
   Calendar,
@@ -21,7 +21,11 @@ import {
   FileText,
   Pencil,
   QrCode,
+  BarChart3,
+  CheckCircle2,
+  Banknote,
 } from "lucide-react";
+import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { SEOHead } from "@/components/SEOHead";
@@ -65,9 +69,20 @@ interface OrderRow {
   buyer_email: string;
   quantity: number;
   total_cents: number;
+  fee_cents: number;
   status: string;
   created_at: string;
   tier_id: string;
+}
+
+interface AttendeeRow {
+  id: string;
+  order_id: string;
+  holder_first_name: string | null;
+  holder_last_name: string | null;
+  holder_email: string | null;
+  status: string;
+  scanned_at: string | null;
 }
 
 const StudioEventEdit = () => {
@@ -79,25 +94,33 @@ const StudioEventEdit = () => {
   const [event, setEvent] = useState<EventRow | null>(null);
   const [tiers, setTiers] = useState<TierRow[]>([]);
   const [orders, setOrders] = useState<OrderRow[]>([]);
+  const [attendees, setAttendees] = useState<AttendeeRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) return;
     setLoading(true);
-    const [{ data: ev }, { data: tr }, { data: ord }] = await Promise.all([
+    const [{ data: ev }, { data: tr }, { data: ord }, { data: tix }] = await Promise.all([
       supabase.from("events").select("*").eq("id", id).maybeSingle(),
       supabase.from("event_tiers").select("*").eq("event_id", id).order("sort_order"),
       supabase
         .from("event_orders")
-        .select("id, buyer_email, quantity, total_cents, status, created_at, tier_id")
+        .select("id, buyer_email, quantity, total_cents, fee_cents, status, created_at, tier_id")
         .eq("event_id", id)
         .order("created_at", { ascending: false })
-        .limit(50),
+        .limit(500),
+      supabase
+        .from("event_tickets")
+        .select("id, order_id, holder_first_name, holder_last_name, holder_email, status, scanned_at")
+        .eq("event_id", id)
+        .order("created_at", { ascending: false })
+        .limit(2000),
     ]);
     setEvent((ev as EventRow) ?? null);
     setTiers((tr as TierRow[]) ?? []);
     setOrders((ord as OrderRow[]) ?? []);
+    setAttendees((tix as AttendeeRow[]) ?? []);
     setLoading(false);
   }, [id]);
 
@@ -155,24 +178,10 @@ const StudioEventEdit = () => {
       toast.error("Add at least one ticket tier before publishing.");
       return;
     }
-    // Check organizer has Stripe Connect ready. If not, allow publishing
-    // anyway with explicit confirmation — the event will be visible to
-    // visitors but the public Buy button stays disabled until Stripe
-    // flips charges_enabled to true via the account.updated webhook.
-    const { data: stripe } = await supabase
-      .from("stripe_accounts")
-      .select("charges_enabled, payouts_enabled, onboarding_status")
-      .eq("user_id", user!.id)
-      .maybeSingle();
-    if (!stripe?.charges_enabled) {
-      const confirmed = window.confirm(
-        "Your Stripe account is not yet fully approved (status: " +
-          (stripe?.onboarding_status ?? "not started") +
-          ").\n\nYou can publish the event for preview, but buyers will see a " +
-          "'payments unavailable' notice until Stripe activates your account.\n\nPublish anyway?",
-      );
-      if (!confirmed) return;
-    }
+    // Xceed-style payout flow: payments always work via the platform Stripe
+    // account, so publishing no longer gates on the organizer's Connect
+    // status. Payouts are handled later via a transfer triggered after the
+    // event ends (or when the organizer hits "Get paid" in the dashboard).
     await updateEventField({ status: "published", published_at: new Date().toISOString() });
     // Notify the organizer by email that their event is live (best-effort).
     if (organizer) {
@@ -280,6 +289,46 @@ const StudioEventEdit = () => {
   const totalCapacity = tiers.reduce((a, t) => a + t.total_qty, 0);
   const totalRevenueCents = tiers.reduce((a, t) => a + t.sold_qty * t.price_cents, 0);
 
+  // ── Analytics derivations ────────────────────────────────────────────────
+  const paidOrders = orders.filter((o) => o.status === "paid");
+  const salesSeries: { t: number; label: string; cumQty: number; cumRev: number }[] = (() => {
+    if (paidOrders.length === 0) return [];
+    const sorted = [...paidOrders].sort((a, b) => +new Date(a.created_at) - +new Date(b.created_at));
+    let cumQty = 0;
+    let cumRev = 0;
+    return sorted.map((o) => {
+      cumQty += o.quantity;
+      cumRev += (o.total_cents - (o.fee_cents ?? 0)) / 100;
+      const d = new Date(o.created_at);
+      return {
+        t: d.getTime(),
+        label:
+          d.toLocaleDateString("en-GB", { day: "numeric", month: "short" }) +
+          " " +
+          d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
+        cumQty,
+        cumRev: Math.round(cumRev * 100) / 100,
+      };
+    });
+  })();
+
+  const grossCents = paidOrders.reduce((a, o) => a + o.total_cents, 0);
+  const feeTotalCents = paidOrders.reduce((a, o) => a + (o.fee_cents ?? 0), 0);
+  const payoutCents = grossCents - feeTotalCents;
+  const scannedCount = attendees.filter((a) => a.scanned_at != null).length;
+  const eventDateMs = new Date(event.date).getTime();
+  const daysToGo = Math.max(0, Math.ceil((eventDateMs - Date.now()) / 86_400_000));
+  const eventInPast = eventDateMs < Date.now();
+  const pctSold = totalCapacity > 0 ? Math.min(100, Math.round((totalSold / totalCapacity) * 100)) : 0;
+
+  const attendeesByOrder = new Map<string, AttendeeRow[]>();
+  for (const a of attendees) {
+    if (!a.order_id) continue;
+    const arr = attendeesByOrder.get(a.order_id) ?? [];
+    arr.push(a);
+    attendeesByOrder.set(a.order_id, arr);
+  }
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <SEOHead title={`${event.title} · Studio`} description={`Manage ${event.title}.`} />
@@ -385,16 +434,126 @@ const StudioEventEdit = () => {
             userId={user?.id ?? ""}
           />
 
-          {/* Sales summary */}
-          <div className="grid grid-cols-3 gap-3 md:gap-5 mb-8">
-            <Stat icon={Users} label="Tickets sold" value={`${totalSold}/${totalCapacity}`} />
-            <Stat
-              icon={TrendingUp}
-              label="Revenue"
-              value={`€${(totalRevenueCents / 100).toFixed(0)}`}
+          {/* Highlights — 4 KPI cards at a glance */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-5">
+            <Highlight
+              icon={Banknote}
+              label="Revenue (paid)"
+              value={`€${(grossCents / 100).toFixed(0)}`}
+              sub={`€${(payoutCents / 100).toFixed(0)} payout · €${(feeTotalCents / 100).toFixed(0)} fee`}
+              accent="emerald"
             />
-            <Stat icon={Calendar} label="Tiers" value={String(tiers.length)} />
+            <Highlight
+              icon={Users}
+              label="Tickets sold"
+              value={`${totalSold}/${totalCapacity}`}
+              sub={`${pctSold}% of capacity`}
+              accent="blue"
+            />
+            <Highlight
+              icon={CheckCircle2}
+              label="Checked in"
+              value={`${scannedCount}`}
+              sub={totalSold > 0 ? `${Math.round((scannedCount / totalSold) * 100)}% of sold` : "0% of sold"}
+              accent="violet"
+            />
+            <Highlight
+              icon={Calendar}
+              label={eventInPast ? "Event passed" : daysToGo === 0 ? "Today" : `${daysToGo}d to go`}
+              value={new Date(event.date).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+              sub={new Date(event.date).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
+              accent="amber"
+            />
           </div>
+
+          {/* Sales over time chart */}
+          <section className="bg-card border border-border rounded-2xl p-5 md:p-6 mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <BarChart3 className="w-5 h-5 text-primary" />
+                <h2 className="text-lg font-bold">Sales over time</h2>
+              </div>
+              <span className="text-xs text-muted-foreground">
+                {salesSeries.length > 0 ? `${salesSeries.length} order${salesSeries.length > 1 ? "s" : ""}` : "Waiting for the first sale"}
+              </span>
+            </div>
+            {salesSeries.length === 0 ? (
+              <div className="h-40 flex items-center justify-center text-sm text-muted-foreground">
+                The chart fills in as orders come in.
+              </div>
+            ) : (
+              <div className="h-56">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={salesSeries} margin={{ top: 10, right: 8, left: -16, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="revGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={event.primary_color ?? "#3a5fe6"} stopOpacity={0.45} />
+                        <stop offset="100%" stopColor={event.primary_color ?? "#3a5fe6"} stopOpacity={0.02} />
+                      </linearGradient>
+                    </defs>
+                    <XAxis
+                      dataKey="label"
+                      tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <YAxis
+                      tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={(v) => `€${v}`}
+                      width={48}
+                    />
+                    <Tooltip
+                      contentStyle={{ borderRadius: 10, border: "1px solid hsl(var(--border))" }}
+                      labelStyle={{ fontSize: 11 }}
+                      formatter={(v: number, name: string) =>
+                        name === "cumRev" ? [`€${v}`, "Revenue"] : [v, "Tickets"]
+                      }
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="cumRev"
+                      stroke={event.primary_color ?? "#3a5fe6"}
+                      strokeWidth={2}
+                      fill="url(#revGradient)"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </section>
+
+          {/* Tier breakdown — quick visual of how each tier is selling */}
+          {tiers.length > 0 && (
+            <section className="bg-card border border-border rounded-2xl p-5 md:p-6 mb-6">
+              <h2 className="text-lg font-bold mb-4">Tier breakdown</h2>
+              <div className="space-y-3">
+                {tiers.map((t) => {
+                  const pct = t.total_qty > 0 ? Math.round((t.sold_qty / t.total_qty) * 100) : 0;
+                  return (
+                    <div key={t.id}>
+                      <div className="flex items-center justify-between text-sm mb-1">
+                        <span className="font-bold">{t.name}</span>
+                        <span className="text-muted-foreground">
+                          {t.sold_qty}/{t.total_qty} sold · €{(t.sold_qty * t.price_cents / 100).toFixed(0)}
+                        </span>
+                      </div>
+                      <div className="h-2 rounded-full bg-muted overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-[width] duration-500"
+                          style={{
+                            width: `${pct}%`,
+                            background: event.primary_color ?? "#3a5fe6",
+                          }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
 
           {/* Tiers manager */}
           <section className="bg-card border border-border rounded-2xl p-5 md:p-6 mb-6">
@@ -428,39 +587,61 @@ const StudioEventEdit = () => {
           {/* Per-buyer limit — editable at any status (only affects new purchases) */}
           <PerBuyerLimitControl event={event} onSaved={(patch) => setEvent({ ...event, ...patch })} />
 
-          {/* Recent orders */}
+          {/* Buyers — every order, with the named attendees that order issued */}
           <section className="bg-card border border-border rounded-2xl p-5 md:p-6">
-            <h2 className="text-lg font-bold mb-4">Recent orders</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold">Buyers</h2>
+              <span className="text-xs text-muted-foreground">
+                {orders.length} order{orders.length === 1 ? "" : "s"} · {attendees.length} ticket{attendees.length === 1 ? "" : "s"}
+              </span>
+            </div>
             {orders.length === 0 ? (
               <p className="text-sm text-muted-foreground">No orders yet. They will appear here in real time.</p>
             ) : (
-              <div className="overflow-x-auto -mx-2">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-left text-xs text-muted-foreground uppercase tracking-wider">
-                      <th className="px-2 py-2">Buyer</th>
-                      <th className="px-2 py-2">Qty</th>
-                      <th className="px-2 py-2">Total</th>
-                      <th className="px-2 py-2">Status</th>
-                      <th className="px-2 py-2">Date</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {orders.map((o) => (
-                      <tr key={o.id} className="border-t border-border">
-                        <td className="px-2 py-3">{o.buyer_email}</td>
-                        <td className="px-2 py-3">{o.quantity}</td>
-                        <td className="px-2 py-3 font-semibold">€{(o.total_cents / 100).toFixed(2)}</td>
-                        <td className="px-2 py-3">
+              <div className="space-y-3">
+                {orders.map((o) => {
+                  const tier = tiers.find((t) => t.id === o.tier_id);
+                  const att = attendeesByOrder.get(o.id) ?? [];
+                  return (
+                    <div key={o.id} className="border border-border rounded-xl p-4">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="font-semibold text-sm break-all">{o.buyer_email}</div>
+                          <div className="text-xs text-muted-foreground mt-0.5">
+                            {tier?.name ?? "—"} × {o.quantity} ·{" "}
+                            {new Date(o.created_at).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <div className="text-sm font-bold">€{(o.total_cents / 100).toFixed(2)}</div>
                           <StatusBadge status={o.status} />
-                        </td>
-                        <td className="px-2 py-3 text-xs text-muted-foreground">
-                          {new Date(o.created_at).toLocaleString("en-GB")}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                        </div>
+                      </div>
+                      {att.length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-1.5">
+                          {att.map((a) => (
+                            <span
+                              key={a.id}
+                              className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold ${
+                                a.scanned_at
+                                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                  : a.status === "cancelled" || a.status === "refunded"
+                                  ? "bg-red-50 text-red-700 border border-red-200"
+                                  : "bg-muted text-muted-foreground border border-border"
+                              }`}
+                              title={a.scanned_at ? `Scanned ${new Date(a.scanned_at).toLocaleString("en-GB")}` : a.status}
+                            >
+                              {a.scanned_at ? <CheckCircle2 className="w-3 h-3" /> : null}
+                              {[a.holder_first_name, a.holder_last_name].filter(Boolean).join(" ") ||
+                                a.holder_email ||
+                                "Unnamed ticket"}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </section>
@@ -886,6 +1067,40 @@ const Stat = ({ icon: Icon, label, value }: { icon: typeof Calendar; label: stri
     <div className="text-2xl font-black">{value}</div>
   </div>
 );
+
+const Highlight = ({
+  icon: Icon,
+  label,
+  value,
+  sub,
+  accent,
+}: {
+  icon: typeof Calendar;
+  label: string;
+  value: string;
+  sub: string;
+  accent: "emerald" | "blue" | "violet" | "amber";
+}) => {
+  const map = {
+    emerald: { ring: "border-emerald-200", iconBg: "bg-emerald-100 text-emerald-700" },
+    blue: { ring: "border-blue-200", iconBg: "bg-blue-100 text-blue-700" },
+    violet: { ring: "border-violet-200", iconBg: "bg-violet-100 text-violet-700" },
+    amber: { ring: "border-amber-200", iconBg: "bg-amber-100 text-amber-700" },
+  } as const;
+  const c = map[accent];
+  return (
+    <div className={`bg-card border ${c.ring} rounded-xl px-4 py-4`}>
+      <div className="flex items-center gap-2 mb-2">
+        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${c.iconBg}`}>
+          <Icon className="w-4 h-4" />
+        </div>
+        <span className="text-[11px] uppercase tracking-wider font-bold text-muted-foreground">{label}</span>
+      </div>
+      <div className="text-xl md:text-2xl font-black leading-tight">{value}</div>
+      <div className="text-[11px] text-muted-foreground mt-0.5 truncate">{sub}</div>
+    </div>
+  );
+};
 
 const StatusBadge = ({ status }: { status: string }) => {
   const map: Record<string, string> = {

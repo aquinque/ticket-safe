@@ -147,14 +147,19 @@ serve(async (req) => {
       return json({ error: "Tier price out of bounds." }, 400);
     }
 
+    // ── Xceed/Shotgun-style charge model ─────────────────────────────────
+    // We no longer require the organizer to have completed Stripe Connect
+    // onboarding before they can sell. All buyer payments land on the
+    // PLATFORM account; the funds are tallied per-event and paid out to the
+    // organizer's bank after the event (separate transfers triggered later).
+    //
+    // The connected account ID (if any) is only used to wire the eventual
+    // payout — it's NOT a gate to opening checkout.
     const { data: stripeAcct } = await supabase
       .from("stripe_accounts")
       .select("stripe_account_id, charges_enabled")
       .eq("user_id", org.user_id)
       .maybeSingle();
-    if (!stripeAcct?.stripe_account_id || !stripeAcct.charges_enabled) {
-      return json({ error: "Organizer is not ready to accept payments." }, 400);
-    }
 
     // ── Per-buyer limit enforcement ──────────────────────────────────────
     // If the organizer set events.max_tickets_per_buyer, count the buyer's
@@ -229,7 +234,10 @@ serve(async (req) => {
     }
     orderId = order.id;
 
-    // ── Create Stripe Checkout Session (Destination Charge) ──────────────
+    // ── Create Stripe Checkout Session (Direct Charge on platform) ───────
+    // No transfer_data / application_fee — the funds settle on the platform
+    // account and we'll transfer the organizer's share via a separate
+    // Stripe Transfer after the event (driven by a cron / payout job).
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       // Omitting payment_method_types lets Stripe auto-enable everything we
@@ -250,14 +258,15 @@ serve(async (req) => {
         },
       ],
       payment_intent_data: {
-        application_fee_amount: feeCents,
-        transfer_data: { destination: stripeAcct.stripe_account_id },
         metadata: {
           source: "studio_primary_sale",
           order_id: order.id,
           event_id: ev.id,
           tier_id: tierId,
+          organizer_id: org.id,
           quantity: String(quantity),
+          // payout_owed_cents = subtotal - platform fee (rounded)
+          payout_owed_cents: String(subtotal - feeCents),
         },
       },
       metadata: {
@@ -265,7 +274,9 @@ serve(async (req) => {
         order_id: order.id,
         event_id: ev.id,
         tier_id: tierId,
+        organizer_id: org.id,
         quantity: String(quantity),
+        payout_owed_cents: String(subtotal - feeCents),
       },
       customer_email: user.email ?? undefined,
       success_url: `${siteUrl}/checkout/success?order_id=${order.id}&session_id={CHECKOUT_SESSION_ID}`,

@@ -114,10 +114,14 @@ const StudioDashboard = () => {
       }
       if (showSpinner) setLoadingEvents(true);
 
+      // Hide cancelled events from the organizer's dashboard list — once an
+      // event is killed it should disappear from view. They're still in the DB
+      // for refunds and accounting, just not surfaced in the UI.
       const { data: evRows } = await supabase
         .from("events")
         .select("id, title, date, location, status, slug, banner_url, primary_color")
         .eq("organizer_id", organizer.id)
+        .neq("status", "cancelled")
         .order("date", { ascending: false });
 
       const ids = (evRows ?? []).map((e: { id: string }) => e.id);
@@ -345,28 +349,31 @@ const StudioDashboard = () => {
           </div>
         </section>
 
-        {/* ===== Stripe onboarding banner ===== */}
-        {stripe && !stripe.charges_enabled && (
+        {/* ===== Payouts setup banner (informational — not a sale blocker) =====
+            The organizer can publish + sell without Stripe Connect. The banner
+            only nudges them to set it up so we have a destination when payout
+            time comes (24h after each event ends). */}
+        {stripe && !stripe.charges_enabled && stats.revenue > 0 && (
           <section className="container mx-auto px-4 pt-6 md:pt-8 max-w-5xl">
-            <div className="flex flex-col md:flex-row md:items-center gap-4 rounded-2xl border border-amber-300 bg-amber-50 px-5 py-4">
-              <div className="w-11 h-11 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
-                <Banknote className="w-5 h-5 text-amber-700" />
+            <div className="flex flex-col md:flex-row md:items-center gap-4 rounded-2xl border border-emerald-300 bg-emerald-50 px-5 py-4">
+              <div className="w-11 h-11 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0">
+                <Banknote className="w-5 h-5 text-emerald-700" />
               </div>
               <div className="flex-1 min-w-0">
-                <div className="font-bold text-sm md:text-base text-amber-900">
-                  Connect your bank to start selling
+                <div className="font-bold text-sm md:text-base text-emerald-900">
+                  €{(stats.revenue / 100).toFixed(2)} pending payout
                 </div>
-                <div className="text-xs md:text-sm text-amber-800">
-                  You need to finish Stripe Connect onboarding before you can publish events and accept payments. Takes about 2 minutes.
+                <div className="text-xs md:text-sm text-emerald-800">
+                  Connect your bank with Stripe to receive your earnings. Funds are released 24h after each event ends. Takes about 2 minutes.
                 </div>
               </div>
               <button
                 onClick={startStripeOnboarding}
                 disabled={onboardingStripe}
-                className="inline-flex items-center justify-center gap-1.5 px-4 min-h-[40px] rounded-lg font-bold text-sm bg-amber-700 text-white hover:bg-amber-800 disabled:opacity-60 shrink-0"
+                className="inline-flex items-center justify-center gap-1.5 px-4 min-h-[40px] rounded-lg font-bold text-sm bg-emerald-700 text-white hover:bg-emerald-800 disabled:opacity-60 shrink-0"
               >
                 {onboardingStripe ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
-                Set up payouts
+                Get paid
               </button>
             </div>
           </section>

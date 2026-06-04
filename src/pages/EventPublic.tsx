@@ -66,7 +66,6 @@ const EventPublic = () => {
   const [selectedTier, setSelectedTier] = useState<string | null>(null);
   const [qty, setQty] = useState(1);
   const [buying, setBuying] = useState(false);
-  const [paymentsReady, setPaymentsReady] = useState<boolean>(true);
   const [maxPerBuyer, setMaxPerBuyer] = useState<number | null>(null);
   const [attendees, setAttendees] = useState<{ first_name: string; last_name: string; email: string }[]>([]);
 
@@ -128,20 +127,9 @@ const EventPublic = () => {
     const evCast = ev as { max_tickets_per_buyer?: number | null };
     setMaxPerBuyer(evCast.max_tickets_per_buyer ?? null);
 
-    // Look up the organizer's Stripe Connect readiness via a public RPC.
-    // Going through stripe_accounts directly would fail for the buyer because
-    // RLS only lets the owner read their own row — we'd always see "not ready".
-    // The RPC is SECURITY DEFINER and exposes just the boolean, no PII.
-    const orgUserId = (organizer as { user_id?: string } | null)?.user_id;
-    if (orgUserId) {
-      const { data: ready, error: rpcErr } = await supabase.rpc("organizer_payments_ready", {
-        p_user_id: orgUserId,
-      });
-      if (rpcErr) console.warn("[event-public] payments_ready rpc:", rpcErr);
-      setPaymentsReady(!!ready);
-    } else {
-      setPaymentsReady(false);
-    }
+    // Payments always go through the platform Stripe account now — no need
+    // to check the organizer's Connect readiness up-front. Payouts are
+    // settled separately after the event ends.
 
     // tier_inventory is a VIEW (no FK), so we can't ask PostgREST to embed
     // event_tiers.description here — the embed returns zero rows and the page
@@ -340,24 +328,6 @@ const EventPublic = () => {
 
       <main className="flex-1 -mt-6 md:-mt-10 relative z-10">
         <div className="container mx-auto px-4 max-w-4xl">
-          {/* Payments unavailable banner (organizer Stripe not active yet) */}
-          {!paymentsReady && (
-            <section className="bg-amber-50 border border-amber-200 rounded-2xl p-4 md:p-5 mb-5 flex items-start gap-3">
-              <div className="w-9 h-9 rounded-lg bg-amber-100 flex items-center justify-center shrink-0">
-                <ShieldCheck className="w-4 h-4 text-amber-700" />
-              </div>
-              <div className="flex-1">
-                <div className="font-bold text-sm md:text-base text-amber-900">
-                  Payments are temporarily unavailable
-                </div>
-                <div className="text-xs md:text-sm text-amber-800 mt-0.5">
-                  The organizer is still finishing their secure payments setup.
-                  Tickets will open for purchase as soon as their account is approved by Stripe.
-                </div>
-              </div>
-            </section>
-          )}
-
           {/* Description */}
           {event.description && (
             <section className="bg-card border border-border rounded-2xl p-5 md:p-7 mb-5">
@@ -383,7 +353,7 @@ const EventPublic = () => {
                 {tiers.map((t) => {
                   const isSelected = selectedTier === t.tier_id;
                   const soldOut = t.available_qty <= 0;
-                  const locked = soldOut || !paymentsReady;
+                  const locked = soldOut;
                   return (
                     <button
                       key={t.tier_id}
@@ -414,11 +384,7 @@ const EventPublic = () => {
                           </div>
                         )}
                         <div className="text-[11px] font-semibold text-muted-foreground mt-2">
-                          {soldOut
-                            ? "Sold out"
-                            : !paymentsReady
-                            ? "Sales paused"
-                            : `${t.available_qty} left`}
+                          {soldOut ? "Sold out" : `${t.available_qty} left`}
                         </div>
                       </div>
                       <div className="text-right shrink-0">
