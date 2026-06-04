@@ -14,6 +14,8 @@ import Footer from "@/components/Footer";
 import { SEOHead } from "@/components/SEOHead";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { downloadTicketPdf } from "@/lib/ticketPdf";
+import { toast } from "sonner";
 
 interface OrderRow {
   id: string;
@@ -30,6 +32,7 @@ interface OrderRow {
     slug: string | null;
     primary_color: string | null;
     banner_url: string | null;
+    logo_url: string | null;
   } | null;
   tier: { name: string } | null;
 }
@@ -53,6 +56,9 @@ const MyTickets = () => {
   const [tickets, setTickets] = useState<TicketRow[]>([]);
   const [qrUrls, setQrUrls] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  // Track which ticket is mid-PDF generation so the spinner shows on the
+  // right button and we can't double-trigger the download.
+  const [pdfPending, setPdfPending] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user) navigate("/auth");
@@ -67,7 +73,7 @@ const MyTickets = () => {
         .from("event_orders")
         .select(
           `id, event_id, buyer_id, quantity, total_cents, status, created_at,
-           event:events(title, date, location, slug, primary_color, banner_url),
+           event:events(title, date, location, slug, primary_color, banner_url, logo_url),
            tier:event_tiers(name)`,
         )
         .eq("id", orderId)
@@ -279,15 +285,55 @@ const MyTickets = () => {
                         Cancelled
                       </div>
                     )}
-                    {qrUrls[t.id] && (
-                      <a
-                        href={qrUrls[t.id]}
-                        download={`ticket-${i + 1}.svg`}
-                        className="inline-flex items-center gap-1.5 mt-2 text-xs font-bold text-primary hover:underline"
+                    {qrUrls[t.id] && order?.event && (
+                      <button
+                        type="button"
+                        disabled={pdfPending === t.id}
+                        onClick={async () => {
+                          if (!order?.event || !qrUrls[t.id]) return;
+                          setPdfPending(t.id);
+                          try {
+                            const holderName =
+                              [t.holder_first_name, t.holder_last_name]
+                                .filter(Boolean)
+                                .join(" ")
+                                .trim() || "Guest";
+                            await downloadTicketPdf({
+                              eventTitle: order.event.title,
+                              eventDate: order.event.date,
+                              eventLocation: order.event.location,
+                              eventLogoUrl: order.event.logo_url,
+                              tierName: order.tier?.name ?? null,
+                              holderName,
+                              holderEmail: t.holder_email,
+                              ticketId: t.id,
+                              orderId: order.id,
+                              ticketIndex: i + 1,
+                              ticketTotal: tickets.length,
+                              qrSvgUrl: qrUrls[t.id],
+                            });
+                            toast.success("Ticket downloaded.");
+                          } catch (err) {
+                            console.error("[my-tickets] pdf failed:", err);
+                            toast.error("Could not generate the PDF. Try again.");
+                          } finally {
+                            setPdfPending(null);
+                          }
+                        }}
+                        className="inline-flex items-center justify-center gap-1.5 mt-3 min-h-[40px] px-4 rounded-lg font-semibold text-white text-sm bg-primary hover:shadow-md disabled:opacity-60 transition-all"
                       >
-                        <Download className="w-3 h-3" />
-                        Save QR image
-                      </a>
+                        {pdfPending === t.id ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            Preparing…
+                          </>
+                        ) : (
+                          <>
+                            <Download className="w-3.5 h-3.5" />
+                            Download PDF ticket
+                          </>
+                        )}
+                      </button>
                     )}
                   </div>
                 </div>
