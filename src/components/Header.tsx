@@ -106,27 +106,26 @@ const Header = ({ minimal = false }: HeaderProps) => {
 
           {/* Desktop Navigation - Reorganized */}
           <nav className="hidden md:flex items-center flex-1 ml-8">
-            {/* PRIMARY CTAs - Left/Center (where eye lands first) */}
+            {/* PRIMARY CTAs - Left/Center (where eye lands first).
+                Two-action focus: buyers find a ticket, sellers list one. */}
             {!minimal && (
               <div className="flex items-center gap-3">
-                {/* Marketplace - Primary CTA */}
                 <Button
                   variant="marketplace"
-                  className={`font-semibold h-10 px-4 ${
+                  className={`font-bold h-12 px-6 text-base ${
                     location.pathname === "/marketplace" ? "shadow-glow" : ""
                   }`}
                   asChild
                 >
-                  <Link to="/marketplace">{t('nav.marketplace')}</Link>
+                  <Link to="/marketplace">Find a ticket</Link>
                 </Button>
 
-                {/* Sell Ticket - Primary CTA */}
                 <Button
                   variant="marketplace"
-                  className="font-semibold h-10 px-4"
+                  className="font-bold h-12 px-6 text-base"
                   asChild
                 >
-                  <Link to="/sell">{t('nav.sellTickets')}</Link>
+                  <Link to="/sell">Sell a ticket</Link>
                 </Button>
               </div>
             )}
@@ -265,7 +264,7 @@ const Header = ({ minimal = false }: HeaderProps) => {
                 </div>
               )}
 
-              {/* PRIMARY CTAs - Marketplace & Sell Ticket */}
+              {/* PRIMARY CTAs - Find a ticket / Sell a ticket */}
               {!minimal && (
                 <div className="flex flex-col gap-2.5 mb-2 pb-3 border-b border-border">
                   <Button
@@ -274,7 +273,7 @@ const Header = ({ minimal = false }: HeaderProps) => {
                     asChild
                     onClick={() => setIsMenuOpen(false)}
                   >
-                    <Link to="/marketplace">{t('nav.marketplace')}</Link>
+                    <Link to="/marketplace">Find a ticket</Link>
                   </Button>
                   <Button
                     variant="marketplace"
@@ -282,7 +281,7 @@ const Header = ({ minimal = false }: HeaderProps) => {
                     asChild
                     onClick={() => setIsMenuOpen(false)}
                   >
-                    <Link to="/sell">{t('nav.sellTickets')}</Link>
+                    <Link to="/sell">Sell a ticket</Link>
                   </Button>
                 </div>
               )}
