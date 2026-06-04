@@ -106,29 +106,8 @@ const Header = ({ minimal = false }: HeaderProps) => {
 
           {/* Desktop Navigation - Reorganized */}
           <nav className="hidden md:flex items-center flex-1 ml-8">
-            {/* PRIMARY CTAs - Left/Center (where eye lands first).
-                Two-action focus: buyers find a ticket, sellers list one. */}
-            {!minimal && (
-              <div className="flex items-center gap-3">
-                <Button
-                  variant="marketplace"
-                  className={`font-bold h-12 px-6 text-base ${
-                    location.pathname === "/marketplace" ? "shadow-glow" : ""
-                  }`}
-                  asChild
-                >
-                  <Link to="/marketplace">Find a ticket</Link>
-                </Button>
-
-                <Button
-                  variant="marketplace"
-                  className="font-bold h-12 px-6 text-base"
-                  asChild
-                >
-                  <Link to="/sell">Sell a ticket</Link>
-                </Button>
-              </div>
-            )}
+            {/* Primary CTAs intentionally removed from the header. They live in
+                the hero of each landing page so they're not duplicated up here. */}
 
             {/* SECONDARY NAVIGATION - Right side (informational) */}
             <div className="flex items-center gap-5 ml-auto mr-4">
@@ -264,27 +243,8 @@ const Header = ({ minimal = false }: HeaderProps) => {
                 </div>
               )}
 
-              {/* PRIMARY CTAs - Find a ticket / Sell a ticket */}
-              {!minimal && (
-                <div className="flex flex-col gap-2.5 mb-2 pb-3 border-b border-border">
-                  <Button
-                    variant="marketplace"
-                    className="w-full h-12 font-semibold text-base"
-                    asChild
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    <Link to="/marketplace">Find a ticket</Link>
-                  </Button>
-                  <Button
-                    variant="marketplace"
-                    className="w-full h-12 font-semibold text-base"
-                    asChild
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    <Link to="/sell">Sell a ticket</Link>
-                  </Button>
-                </div>
-              )}
+              {/* Primary CTAs removed from the mobile menu too — they live in
+                  the hero of each landing page, no duplication here. */}
 
               {/* SECONDARY navigation - How It Works, About, Contact & Settings */}
               <div className="flex flex-col gap-1.5 mb-2 pb-4 border-b border-border">

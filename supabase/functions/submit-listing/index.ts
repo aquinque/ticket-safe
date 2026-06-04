@@ -674,7 +674,11 @@ serve(async (req) => {
           },
           body: JSON.stringify({
             from: "TicketSafe <noreply@ticket-safe.eu>",
-            to: ["ticketsafe.friendly@gmail.com"],
+            // Resale validation is one of the two admin tasks Achille and Adrien
+            // want in their personal inboxes (the other being new Studio
+            // applications in organizer-notify). Anything routine stays on the
+            // shared ticketsafe.friendly@gmail.com inbox.
+            to: ["achille.quinquenel@edu.escp.eu", "adrien.menard@edu.escp.eu"],
             subject: `[TicketSafe] Nouveau billet à vérifier — ${event.title}`,
             html: `
 <!DOCTYPE html>

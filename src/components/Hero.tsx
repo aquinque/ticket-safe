@@ -59,19 +59,31 @@ const Hero = () => {
             Bank-secure payments · Easier to find tickets and buyers
           </p>
 
-          {/* CTA Buttons — primary = Find a ticket, secondary = Sell */}
-          <div className="flex flex-col gap-3 md:flex-row md:gap-4 justify-center mb-6 md:mb-8 animate-slide-up">
-            <Button variant="hero" size="lg" asChild className="h-14 md:h-12 text-base font-semibold">
+          {/* CTA Buttons — primary = Find a ticket, secondary = Sell.
+              On PC we push them BIG to make them the spotlight of the hero;
+              mobile keeps the existing comfortable tap target. */}
+          <div className="flex flex-col gap-3 md:flex-row md:gap-5 justify-center mb-6 md:mb-10 animate-slide-up">
+            <Button
+              variant="hero"
+              size="lg"
+              asChild
+              className="h-14 md:h-16 px-6 md:px-10 text-base md:text-xl font-bold rounded-xl md:rounded-2xl shadow-lg md:shadow-2xl hover:scale-[1.02] transition-transform"
+            >
               <Link to="/marketplace" aria-label="Find a ticket on the marketplace">
-                <Search className="w-5 h-5" />
+                <Search className="w-5 h-5 md:w-6 md:h-6" />
                 Find a Ticket
-                <ArrowRight className="w-5 h-5" />
+                <ArrowRight className="w-5 h-5 md:w-6 md:h-6" />
               </Link>
             </Button>
-            <Button variant="outline" size="lg" asChild className="h-14 md:h-12 text-base font-semibold border-2">
+            <Button
+              variant="outline"
+              size="lg"
+              asChild
+              className="h-14 md:h-16 px-6 md:px-10 text-base md:text-xl font-bold rounded-xl md:rounded-2xl border-2 hover:scale-[1.02] transition-transform"
+            >
               <Link to="/sell" aria-label="List your ticket for sale">
                 Sell a Ticket
-                <ArrowRight className="w-5 h-5" />
+                <ArrowRight className="w-5 h-5 md:w-6 md:h-6" />
               </Link>
             </Button>
           </div>

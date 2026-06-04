@@ -24,11 +24,19 @@ const cors = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Shared Ticket Safe admin inbox. All "needs your attention" admin
-// notifications (new Studio application, new listing to review, etc.)
-// land here. Achille and Adrien stopped receiving them by default to
-// keep their student inboxes clean — they can read this Gmail at any time.
+// Shared Ticket Safe admin inbox for routine messages.
 const ADMIN_EMAIL = "ticketsafe.friendly@gmail.com";
+
+// Two specific high-priority admin tasks Achille and Adrien want in their
+// personal inboxes so they act on them immediately:
+//   - a new Studio application landing
+//   - a new resale ticket pending review (lives in submit-listing)
+// Anything else routes to ADMIN_EMAIL above.
+const STUDIO_APPLICATION_RECIPIENTS = [
+  "achille.quinquenel@edu.escp.eu",
+  "adrien.menard@edu.escp.eu",
+];
+
 const SITE_URL = "https://ticket-safe.eu";
 
 function json(body: unknown, status = 200) {
@@ -72,17 +80,18 @@ function ctaButton(label: string, href: string): string {
 
 async function sendEmail(
   resendKey: string,
-  to: string,
+  to: string | string[],
   subject: string,
   html: string,
   replyTo?: string,
 ): Promise<{ ok: boolean; status: number; body: unknown }> {
+  const recipients = Array.isArray(to) ? to : [to];
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       from: "Ticket Safe <noreply@ticket-safe.eu>",
-      to: [to],
+      to: recipients,
       subject,
       html,
       ...(replyTo ? { reply_to: replyTo } : {}),
@@ -202,9 +211,9 @@ serve(async (req) => {
           <p style="margin:24px 0 8px;text-align:center">${ctaButton("Review in admin queue", `${SITE_URL}/admin/organizers`)}</p>
         `,
       );
-      const r = await sendEmail(resendKey, ADMIN_EMAIL, subject, html, org.contact_email);
+      const r = await sendEmail(resendKey, STUDIO_APPLICATION_RECIPIENTS, subject, html, org.contact_email);
       if (!r.ok) console.error("[organizer-notify] admin send failed:", r.status, r.body);
-      return json({ ok: r.ok, kind, to: ADMIN_EMAIL });
+      return json({ ok: r.ok, kind, to: STUDIO_APPLICATION_RECIPIENTS });
     }
 
     if (kind === "event_published") {
