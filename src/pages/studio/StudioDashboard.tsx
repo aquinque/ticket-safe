@@ -518,28 +518,25 @@ const PayoutModal = ({
     if (!canSubmit) return;
     setSubmitting(true);
 
-    // Save IBAN to the profile (so next time it's prefilled).
-    await supabase
-      .from("organizer_profiles")
-      .update({
-        payout_iban: cleanedIban,
-        payout_iban_holder: holder.trim(),
-        payout_iban_set_at: new Date().toISOString(),
-      })
-      .eq("id", organizerId);
-
-    // Create the payout request (RLS allows insert for the org owner).
-    const { error } = await supabase.from("organizer_payouts").insert({
-      organizer_id: organizerId,
-      amount_cents: cents,
-      iban_used: cleanedIban,
-      iban_holder_used: holder.trim(),
-      status: "requested",
+    // Hit request-payout (auth-gated edge function) — it validates the
+    // available balance server-side, saves the IBAN onto the profile,
+    // inserts the payout row, and fires the SEPA admin email + the
+    // organizer confirmation. Doing it in one round trip prevents the
+    // FE from racing against itself if the user double-clicks.
+    const { data, error } = await supabase.functions.invoke("request-payout", {
+      body: {
+        organizer_id: organizerId,
+        amount_cents: cents,
+        iban: cleanedIban,
+        iban_holder: holder.trim(),
+      },
     });
 
     setSubmitting(false);
-    if (error) {
-      toast.error(error.message);
+    if (error || (data as { error?: string })?.error) {
+      const msg =
+        (data as { error?: string })?.error ?? error?.message ?? "Could not request the payout.";
+      toast.error(msg);
       return;
     }
     onSubmitted();

@@ -25,7 +25,7 @@ const cors = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const PLATFORM_FEE_PERCENT = 5;
+const PLATFORM_FEE_PERCENT = 8;
 const MAX_QUANTITY = 50;
 const MIN_UNIT_PRICE_CENTS = 50;     // €0.50
 const MAX_UNIT_PRICE_CENTS = 500_000; // €5,000
@@ -203,10 +203,13 @@ serve(async (req) => {
     reservedQty = quantity;
 
     // ── Create event_orders row (pending) ────────────────────────────────
+    // Fee model: buyer pays the listed price; the 8% Ticket Safe fee is
+    // taken from the organizer's share (deducted at payout time, not added
+    // on top of the buyer's total).
     const unitPrice = tier.price_cents;
     const subtotal = unitPrice * quantity;
+    const grandTotal = subtotal;
     const feeCents = Math.round(subtotal * (PLATFORM_FEE_PERCENT / 100));
-    const grandTotal = subtotal + feeCents;
 
     const { data: order, error: orderErr } = await supabase
       .from("event_orders")
@@ -235,9 +238,11 @@ serve(async (req) => {
     orderId = order.id;
 
     // ── Create Stripe Checkout Session (Direct Charge on platform) ───────
-    // No transfer_data / application_fee — the funds settle on the platform
-    // account and we'll transfer the organizer's share via a separate
-    // Stripe Transfer after the event (driven by a cron / payout job).
+    // Buyer pays exactly the listed ticket price — the 8% Ticket Safe fee
+    // is deducted from the organizer's revenue at payout time, not added
+    // on top of the buyer's total. No transfer_data / application_fee —
+    // funds settle on the platform account, organizer's share is moved
+    // via a separate SEPA transfer (request-payout flow).
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       // Omitting payment_method_types lets Stripe auto-enable everything we
@@ -249,7 +254,7 @@ serve(async (req) => {
           quantity,
           price_data: {
             currency: (tier.currency ?? "EUR").toLowerCase(),
-            unit_amount: unitPrice + Math.round(feeCents / quantity), // include fee in unit so Stripe shows the right per-ticket total
+            unit_amount: unitPrice,
             product_data: {
               name: `${ev.title} — ${tier.name}`,
               description: `Ticket × ${quantity}`,

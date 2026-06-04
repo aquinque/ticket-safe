@@ -423,6 +423,18 @@ const StudioEventNew = () => {
                       max="5000"
                       step="0.5"
                     />
+                    {(() => {
+                      const p = Number(t.priceEuros);
+                      if (!Number.isFinite(p) || p <= 0) return null;
+                      const net = p * 0.92;
+                      return (
+                        <p className="text-[11px] text-muted-foreground mt-1.5 leading-snug">
+                          Buyer pays <strong className="text-foreground">€{p.toFixed(2)}</strong>
+                          {" "}· you receive{" "}
+                          <strong className="text-primary">€{net.toFixed(2)}</strong> per ticket (after 8% Ticket Safe fee).
+                        </p>
+                      );
+                    })()}
                   </div>
                   <div>
                     <label className="text-xs font-bold text-muted-foreground mb-1 block">Quantity</label>
