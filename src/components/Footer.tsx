@@ -231,7 +231,7 @@ const Footer = () => {
             <div className="text-xs text-muted-foreground text-center md:text-left">
               <p className="mb-1">{t('footer.copyright', { year: currentYear })}</p>
               <p className="text-[10px]">
-                TicketSafe SARL • France • Company Registration: [Pending] • VAT: [Pending]
+                Ticket Safe SAS · Capital social 1 000 € · RCS Paris 105 533 632 · TVA FR86 105 533 632 · Siège : 2 rue Wilhem, 75016 Paris
               </p>
             </div>
             <div className="flex flex-wrap items-center justify-center gap-3 text-xs">

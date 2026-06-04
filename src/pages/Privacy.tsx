@@ -246,9 +246,10 @@ export default function Privacy() {
                     Welcome to TicketSafe. We are committed to protecting your personal data and respecting your privacy. This Privacy Policy explains how we collect, use, store, and protect your information when you use our platform.
                   </p>
                   <p>
-                    <strong className="text-foreground">Data Controller:</strong> TicketSafe SARL, registered in France.<br/>
+                    <strong className="text-foreground">Data Controller:</strong> Ticket Safe SAS, a French société par actions simplifiée (RCS Paris 105 533 632, share capital €1 000).<br/>
                     <strong className="text-foreground">Contact:</strong> ticketsafe.friendly@gmail.com<br/>
-                    <strong className="text-foreground">Registered Address:</strong> [To be added]
+                    <strong className="text-foreground">Registered Address:</strong> 2 rue Wilhem, 75016 Paris, France<br/>
+                    <strong className="text-foreground">Intra-Community VAT:</strong> FR86 105 533 632
                   </p>
                 </div>
               </section>
