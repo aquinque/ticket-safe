@@ -143,12 +143,17 @@ const EventPublic = () => {
       setPaymentsReady(false);
     }
 
-    const { data: tr } = await supabase
+    // tier_inventory is a VIEW (no FK), so we can't ask PostgREST to embed
+    // event_tiers.description here — the embed returns zero rows and the page
+    // falls into the empty "Tickets will be on sale soon" state even when the
+    // event has active tiers. Read the view flat, then enrich descriptions
+    // with a second tiny query against event_tiers.
+    const { data: tr, error: trErr } = await supabase
       .from("tier_inventory")
-      .select("*, description:event_tiers!inner(description)")
+      .select("*")
       .eq("event_id", (ev as { id: string }).id);
+    if (trErr) console.warn("[event-public] tier_inventory query:", trErr);
 
-    // tier_inventory view doesn't include description; fetch separately if needed
     const { data: tdesc } = await supabase
       .from("event_tiers")
       .select("id, description")

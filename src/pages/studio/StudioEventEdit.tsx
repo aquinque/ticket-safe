@@ -480,12 +480,12 @@ const PerBuyerLimitControl = ({
   onSaved: (patch: Partial<EventRow>) => void;
 }) => {
   const [enabled, setEnabled] = useState<boolean>(event.max_tickets_per_buyer != null);
-  const [value, setValue] = useState<string>(String(event.max_tickets_per_buyer ?? 2));
+  const [value, setValue] = useState<string>(String(event.max_tickets_per_buyer ?? 1));
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     setEnabled(event.max_tickets_per_buyer != null);
-    setValue(String(event.max_tickets_per_buyer ?? 2));
+    setValue(String(event.max_tickets_per_buyer ?? 1));
   }, [event.max_tickets_per_buyer]);
 
   const dirty =
@@ -516,7 +516,7 @@ const PerBuyerLimitControl = ({
         <div className="flex-1">
           <h2 className="text-lg font-bold leading-tight">Tickets per buyer</h2>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Cap how many tickets a single buyer can purchase across all tiers of this event. Useful for galas / sold-out events.
+            By default each buyer can purchase 1 ticket. Raise the cap below if you want to allow more, or uncheck to disable the limit entirely.
             Changes only affect future purchases.
           </p>
         </div>

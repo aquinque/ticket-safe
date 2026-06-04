@@ -59,8 +59,8 @@ const StudioEventNew = () => {
   const [location, setLocation] = useState("");
   const [category, setCategory] = useState("party");
   const [primaryColor, setPrimaryColor] = useState("#003399");
-  const [limitEnabled, setLimitEnabled] = useState(false);
-  const [maxPerBuyer, setMaxPerBuyer] = useState("2");
+  const [limitEnabled, setLimitEnabled] = useState(true);
+  const [maxPerBuyer, setMaxPerBuyer] = useState("1");
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [bannerPreview, setBannerPreview] = useState<string | null>(null);
   const [slug, setSlug] = useState("");
@@ -467,10 +467,10 @@ const StudioEventNew = () => {
                 />
                 <div className="flex-1">
                   <div className="font-bold text-sm text-foreground">
-                    Cap tickets per buyer
+                    One ticket per buyer (recommended)
                   </div>
                   <div className="text-xs text-muted-foreground mt-0.5">
-                    Useful for galas / sold-out events to prevent one person from grabbing the entire allocation.
+                    Each buyer is limited to a single ticket for this event. Uncheck to allow multiple tickets per person.
                   </div>
                 </div>
               </label>
