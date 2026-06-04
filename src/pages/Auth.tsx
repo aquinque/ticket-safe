@@ -51,8 +51,15 @@ const Auth = () => {
     return emailRegex.test(email);
   };
 
+  // Allow-list for non-ESCP accounts that still need signup access
+  // (Ticket Safe ops / shared admin inboxes). Mirrors validate-signup edge fn.
+  const SIGNUP_EMAIL_ALLOWLIST = new Set<string>([
+    'ticketsafe.friendly@gmail.com',
+  ]);
+
   const isEscpEmail = (email: string) => {
-    return email.toLowerCase().trim().endsWith('@edu.escp.eu');
+    const normalized = email.toLowerCase().trim();
+    return normalized.endsWith('@edu.escp.eu') || SIGNUP_EMAIL_ALLOWLIST.has(normalized);
   };
 
   const getPasswordStrength = (password: string): { strength: number; label: string; color: string } => {

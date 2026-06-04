@@ -24,7 +24,11 @@ const cors = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const ADMIN_EMAIL = "adrien.menard@edu.escp.eu";
+// Shared Ticket Safe admin inbox. All "needs your attention" admin
+// notifications (new Studio application, new listing to review, etc.)
+// land here. Achille and Adrien stopped receiving them by default to
+// keep their student inboxes clean — they can read this Gmail at any time.
+const ADMIN_EMAIL = "ticketsafe.friendly@gmail.com";
 const SITE_URL = "https://ticket-safe.eu";
 
 function json(body: unknown, status = 200) {

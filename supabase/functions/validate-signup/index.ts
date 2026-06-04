@@ -71,6 +71,12 @@ serve(async (req) => {
     // Validation errors array
     const errors: string[] = [];
 
+    // Allow-list for non-ESCP accounts that still need signup access
+    // (Ticket Safe operations / admin shared inboxes).
+    const SIGNUP_EMAIL_ALLOWLIST = new Set<string>([
+      'ticketsafe.friendly@gmail.com',
+    ]);
+
     // Email validation
     if (!email || typeof email !== 'string') {
       errors.push('Email is required');
@@ -78,8 +84,13 @@ serve(async (req) => {
       errors.push('Email must be less than 255 characters');
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       errors.push('Invalid email format');
-    } else if (!email.toLowerCase().trim().endsWith('@edu.escp.eu')) {
-      errors.push('Only ESCP student email addresses (@edu.escp.eu) are accepted');
+    } else {
+      const normalized = email.toLowerCase().trim();
+      const isEscp = normalized.endsWith('@edu.escp.eu');
+      const isWhitelisted = SIGNUP_EMAIL_ALLOWLIST.has(normalized);
+      if (!isEscp && !isWhitelisted) {
+        errors.push('Only ESCP student email addresses (@edu.escp.eu) are accepted');
+      }
     }
 
     // Full name validation

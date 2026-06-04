@@ -674,7 +674,7 @@ serve(async (req) => {
           },
           body: JSON.stringify({
             from: "TicketSafe <noreply@ticket-safe.eu>",
-            to: ["achillequinquenel@gmail.com"],
+            to: ["ticketsafe.friendly@gmail.com"],
             subject: `[TicketSafe] Nouveau billet à vérifier — ${event.title}`,
             html: `
 <!DOCTYPE html>
