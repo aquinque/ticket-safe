@@ -128,16 +128,17 @@ const EventPublic = () => {
     const evCast = ev as { max_tickets_per_buyer?: number | null };
     setMaxPerBuyer(evCast.max_tickets_per_buyer ?? null);
 
-    // Look up the organizer's Stripe Connect readiness so we can disable
-    // the Buy button cleanly if the organizer hasn't been activated yet.
+    // Look up the organizer's Stripe Connect readiness via a public RPC.
+    // Going through stripe_accounts directly would fail for the buyer because
+    // RLS only lets the owner read their own row — we'd always see "not ready".
+    // The RPC is SECURITY DEFINER and exposes just the boolean, no PII.
     const orgUserId = (organizer as { user_id?: string } | null)?.user_id;
     if (orgUserId) {
-      const { data: sa } = await supabase
-        .from("stripe_accounts")
-        .select("charges_enabled")
-        .eq("user_id", orgUserId)
-        .maybeSingle();
-      setPaymentsReady(!!sa?.charges_enabled);
+      const { data: ready, error: rpcErr } = await supabase.rpc("organizer_payments_ready", {
+        p_user_id: orgUserId,
+      });
+      if (rpcErr) console.warn("[event-public] payments_ready rpc:", rpcErr);
+      setPaymentsReady(!!ready);
     } else {
       setPaymentsReady(false);
     }
