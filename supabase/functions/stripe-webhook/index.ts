@@ -356,7 +356,7 @@ serve(async (req) => {
 <tr><td style="padding:8px 0;color:#64748b">Total paid</td><td style="padding:8px 0;color:#2440b6;font-weight:700">€${total.toFixed(2)}</td></tr>
 </table>
 ${ticketBlocks.join("")}
-<p style="margin:24px 0 8px;text-align:center"><a href="https://ticket-safe.eu/settings/purchases" style="display:inline-block;background:linear-gradient(135deg,#3a5fe6,#2440b6);color:#fff;padding:12px 24px;border-radius:10px;text-decoration:none;font-weight:700">Open my tickets online</a></p>
+<p style="margin:24px 0 8px;text-align:center"><a href="https://ticket-safe.eu/my-tickets" style="display:inline-block;background:linear-gradient(135deg,#3a5fe6,#2440b6);color:#fff;padding:12px 24px;border-radius:10px;text-decoration:none;font-weight:700">Open my tickets online</a></p>
 <p style="margin:18px 0 0;font-size:12px;color:#64748b">If you can't scan from the email, open the link above to show the QR from your account. Need help? Reply to this email.</p>
 </div></div></body></html>`,
                 }),

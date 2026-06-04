@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Menu, X, User, LogOut, Settings, MessageSquare, Sparkles } from "lucide-react";
+import { Menu, X, User, LogOut, Settings, MessageSquare, Sparkles, Ticket as TicketIcon } from "lucide-react";
 import Logo from "@/components/Logo";
 import { useAuth } from "@/hooks/useAuth";
 import { useI18n } from "@/contexts/I18nContext";
@@ -188,6 +188,10 @@ const Header = ({ minimal = false }: HeaderProps) => {
                   <DropdownMenuItem onClick={() => navigate("/profile")}>
                     {t('nav.profile')}
                   </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate("/my-tickets")}>
+                    <TicketIcon className="h-4 w-4 mr-2" />
+                    My Tickets
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate("/settings/purchases")}>
                     My Purchases
                   </DropdownMenuItem>
@@ -342,6 +346,12 @@ const Header = ({ minimal = false }: HeaderProps) => {
                       <Link to="/profile">
                         <User className="w-4 h-4 mr-2" />
                         {t('nav.myAccount')}
+                      </Link>
+                    </Button>
+                    <Button variant="outline" className="h-11" asChild onClick={() => setIsMenuOpen(false)}>
+                      <Link to="/my-tickets">
+                        <TicketIcon className="w-4 h-4 mr-2" />
+                        My Tickets
                       </Link>
                     </Button>
                     <Button

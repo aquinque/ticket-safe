@@ -55,6 +55,7 @@ import StudioEventEdit from "./pages/studio/StudioEventEdit";
 import StudioProfile from "./pages/studio/StudioProfile";
 import EventPublic from "./pages/EventPublic";
 import MyTickets from "./pages/MyTickets";
+import MyTicketsHub from "./pages/MyTicketsHub";
 import AdminOrganizers from "./pages/admin/AdminOrganizers";
 import ChatBubble from "./components/ChatBubble";
 
@@ -116,6 +117,7 @@ const App = () => (
       <Route path="/studio/events/new" element={<StudioEventNew />} />
       <Route path="/studio/events/:id" element={<StudioEventEdit />} />
       <Route path="/e/:slug" element={<EventPublic />} />
+      <Route path="/my-tickets" element={<MyTicketsHub />} />
       <Route path="/my-tickets/:orderId" element={<MyTickets />} />
       <Route path="/admin/organizers" element={<AdminOrganizers />} />
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
