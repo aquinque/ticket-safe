@@ -14,8 +14,6 @@ import {
   Building2,
   Check,
   Sparkles,
-  Mail,
-  Flame,
 } from "lucide-react";
 import { SEOHead } from "@/components/SEOHead";
 import { useAuth } from "@/hooks/useAuth";
@@ -424,26 +422,21 @@ const EventPublic = () => {
                         </div>
                       )}
                       <div className="min-w-0">
-                        <div className="font-bold text-base md:text-lg leading-tight flex items-center gap-2">
+                        <div className="font-bold text-base md:text-lg leading-tight">
                           {t.name}
-                          {lowStock && !locked && (
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800">
-                              <Flame className="w-2.5 h-2.5" />
-                              Going fast
-                            </span>
-                          )}
                         </div>
                         {t.description && (
                           <div className="text-xs md:text-sm text-muted-foreground mt-1 line-clamp-2">
                             {t.description}
                           </div>
                         )}
-                        <div className={`text-[11px] font-semibold mt-2 ${lowStock ? "text-amber-700" : "text-muted-foreground"}`}>
+                        <div className={`text-[11px] font-medium mt-2 inline-flex items-center gap-1.5 ${lowStock ? "text-amber-700" : "text-muted-foreground"}`}>
+                          {lowStock && !soldOut && (
+                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500" />
+                          )}
                           {soldOut
                             ? "Sold out"
-                            : lowStock
-                            ? `Only ${t.available_qty} left!`
-                            : `${t.available_qty} left`}
+                            : `${t.available_qty} ${t.available_qty === 1 ? "ticket" : "tickets"} available`}
                         </div>
                       </div>
                       <div className="text-right shrink-0">
@@ -458,34 +451,39 @@ const EventPublic = () => {
             )}
           </section>
 
-          {/* ===== Checkout panel — appears when a tier is selected ===== */}
+          {/* ===== Checkout panel — appears when a tier is selected =====
+              Designed to feel like Stripe Checkout / Apple Pay — sober,
+              typography-driven, confident. No gradient swirls, no playful
+              chips, no emoji. Adult-grade. */}
           {selected && (
-            <section className="bg-card border-2 rounded-2xl p-5 md:p-7 mb-5 shadow-md animate-in fade-in slide-in-from-bottom-3 duration-300"
-              style={{ borderColor: `${primary}33` }}
-            >
-              <div className="flex items-center gap-2 mb-5">
-                <h2 className="text-lg md:text-xl font-bold">Your order</h2>
+            <section className="bg-card border border-border rounded-2xl p-6 md:p-8 mb-5 shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className="flex items-baseline justify-between mb-6 pb-5 border-b border-border">
+                <h2 className="text-xl md:text-2xl font-semibold tracking-tight">Checkout</h2>
+                <span className="text-xs font-medium text-muted-foreground">
+                  {selected.name}
+                </span>
               </div>
 
               {/* Quantity row */}
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-6">
                 <div>
-                  <div className="text-sm font-bold">Quantity</div>
+                  <div className="text-sm font-semibold text-foreground">Quantity</div>
                   {maxPerBuyer != null && (
-                    <div className="text-[11px] text-muted-foreground mt-0.5">
-                      Max {maxPerBuyer} per person
+                    <div className="text-xs text-muted-foreground mt-0.5">
+                      {maxPerBuyer} per person max.
                     </div>
                   )}
                 </div>
                 <div className="inline-flex items-center gap-3">
                   <button
                     onClick={() => setQty((n) => Math.max(1, n - 1))}
-                    className="w-10 h-10 rounded-xl border border-border flex items-center justify-center hover:bg-muted hover:border-primary/40 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="w-10 h-10 rounded-lg border border-border flex items-center justify-center hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                     disabled={qty <= 1}
+                    aria-label="Decrease quantity"
                   >
                     <Minus className="w-4 h-4" />
                   </button>
-                  <span className="w-10 text-center text-lg font-black tabular-nums">{qty}</span>
+                  <span className="w-8 text-center text-base font-semibold tabular-nums">{qty}</span>
                   <button
                     onClick={() =>
                       setQty((n) => {
@@ -494,50 +492,36 @@ const EventPublic = () => {
                         return Math.min(finalCap, n + 1);
                       })
                     }
-                    className="w-10 h-10 rounded-xl border border-border flex items-center justify-center hover:bg-muted hover:border-primary/40 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="w-10 h-10 rounded-lg border border-border flex items-center justify-center hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                     disabled={
                       qty >= Math.min(10, selected.available_qty) ||
                       (maxPerBuyer != null && qty >= maxPerBuyer)
                     }
+                    aria-label="Increase quantity"
                   >
                     <Plus className="w-4 h-4" />
                   </button>
                 </div>
               </div>
 
-              {/* Attendees */}
-              <div className="space-y-2.5 mb-5 pt-4 border-t border-border">
-                <div className="flex items-center justify-between">
-                  <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                    {qty > 1 ? `Attendee details · ${qty}` : "Your details"}
-                  </div>
-                  <span className="text-[10px] text-muted-foreground inline-flex items-center gap-1">
-                    <Mail className="w-3 h-3" />
-                    QR sent here
+              {/* Attendees — sober form, no playful chips */}
+              <div className="space-y-4 mb-6">
+                <div className="flex items-baseline justify-between">
+                  <h3 className="text-sm font-semibold text-foreground">
+                    {qty > 1 ? "Ticket holders" : "Your details"}
+                  </h3>
+                  <span className="text-xs text-muted-foreground">
+                    {qty > 1 ? "One per ticket" : "Where the QR is sent"}
                   </span>
                 </div>
                 {attendees.map((a, i) => (
-                  <div
-                    key={i}
-                    className="rounded-xl border border-border p-3 bg-muted/30 hover:bg-muted/50 transition-colors"
-                  >
-                    <div className="flex items-center gap-2 mb-2.5">
-                      <span
-                        className="inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-black text-white"
-                        style={{ background: primary }}
-                      >
-                        {i + 1}
-                      </span>
-                      <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-foreground/70">
-                        Ticket {i + 1}
-                      </span>
-                      {i === 0 && (
-                        <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">
-                          You
-                        </span>
-                      )}
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 mb-2">
+                  <div key={i} className="space-y-2">
+                    {qty > 1 && (
+                      <div className="text-xs font-medium text-muted-foreground">
+                        Ticket {i + 1} of {qty}
+                      </div>
+                    )}
+                    <div className="grid grid-cols-2 gap-2">
                       <input
                         value={a.first_name}
                         onChange={(e) => updateAttendee(i, { first_name: e.target.value })}
@@ -565,64 +549,54 @@ const EventPublic = () => {
                 ))}
               </div>
 
-              {/* Price breakdown — total is the visual hero */}
-              <div className="rounded-xl bg-muted/40 p-4 mb-4">
-                <div className="flex justify-between text-sm mb-1">
+              {/* Price breakdown — clean ledger style */}
+              <div className="pt-5 mb-6 border-t border-border space-y-2">
+                <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">
                     {selected.name} × {qty}
                   </span>
-                  <span className="tabular-nums">€{(totalCents / 100).toFixed(2)}</span>
+                  <span className="tabular-nums text-foreground">€{(totalCents / 100).toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between text-sm mb-3 pb-3 border-b border-border">
-                  <span className="text-muted-foreground">Platform fee (5%)</span>
-                  <span className="tabular-nums">€{(feeCents / 100).toFixed(2)}</span>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Platform fee</span>
+                  <span className="tabular-nums text-foreground">€{(feeCents / 100).toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between items-baseline">
-                  <span className="font-bold text-sm uppercase tracking-wider text-muted-foreground">Total</span>
-                  <span className="text-3xl md:text-4xl font-black tabular-nums" style={{ color: primary }}>
+                <div className="flex justify-between items-baseline pt-3 mt-3 border-t border-border">
+                  <span className="text-base font-semibold">Total due</span>
+                  <span className="text-2xl md:text-3xl font-semibold tabular-nums tracking-tight" style={{ color: primary }}>
                     €{(grandCents / 100).toFixed(2)}
                   </span>
                 </div>
               </div>
 
-              {/* Trust signals row */}
-              <div className="grid grid-cols-3 gap-2 mb-4 text-center">
-                <div className="flex flex-col items-center gap-1 p-2">
-                  <ShieldCheck className="w-4 h-4 text-primary" />
-                  <span className="text-[10px] font-semibold leading-tight text-muted-foreground">Secure<br />by Stripe</span>
-                </div>
-                <div className="flex flex-col items-center gap-1 p-2">
-                  <Sparkles className="w-4 h-4 text-primary" />
-                  <span className="text-[10px] font-semibold leading-tight text-muted-foreground">Instant<br />QR delivery</span>
-                </div>
-                <div className="flex flex-col items-center gap-1 p-2">
-                  <Mail className="w-4 h-4 text-primary" />
-                  <span className="text-[10px] font-semibold leading-tight text-muted-foreground">Refund if<br />cancelled</span>
-                </div>
-              </div>
-
-              {/* Big CTA */}
+              {/* CTA — flat, mature, no gradient swirls */}
               <button
                 onClick={handleBuy}
                 disabled={buying}
-                className="group w-full inline-flex items-center justify-center gap-2 min-h-[56px] px-6 rounded-xl font-bold text-white text-base md:text-lg disabled:opacity-60 transition-all hover:shadow-lg hover:scale-[1.01] active:scale-[0.99]"
+                className="group w-full inline-flex items-center justify-center gap-2 min-h-[52px] px-6 rounded-lg font-semibold text-white text-base disabled:opacity-60 transition-all hover:shadow-md active:scale-[0.99]"
                 style={{
-                  background: `linear-gradient(135deg, ${primary}, hsl(210 100% 45%))`,
-                  boxShadow: `0 8px 24px ${primary}40`,
+                  background: primary,
+                  boxShadow: buying ? "none" : `0 4px 14px ${primary}30`,
                 }}
               >
                 {buying ? (
                   <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    Opening secure checkout…
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Opening secure checkout
                   </>
                 ) : (
                   <>
-                    Get my ticket{qty > 1 ? "s" : ""} — €{(grandCents / 100).toFixed(2)}
-                    <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-0.5" />
+                    Continue to payment
+                    <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
                   </>
                 )}
               </button>
+
+              {/* Trust signal — single line, understated */}
+              <p className="text-[11px] text-muted-foreground mt-4 text-center inline-flex items-center justify-center gap-1.5 w-full">
+                <ShieldCheck className="w-3 h-3" />
+                Secured by Stripe. Refundable if the event is cancelled.
+              </p>
             </section>
           )}
 
@@ -693,25 +667,25 @@ const EventPublic = () => {
         </div>
       </main>
 
-      {/* ===== Sticky mobile checkout bar — always visible when tier selected ===== */}
+      {/* ===== Sticky mobile checkout bar — sober, matching the main panel ===== */}
       {selected && (
-        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/95 backdrop-blur-md shadow-[0_-4px_24px_rgba(0,0,0,0.08)] px-4 py-3 animate-in slide-in-from-bottom-2 duration-300">
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/95 backdrop-blur-md shadow-[0_-4px_24px_rgba(0,0,0,0.06)] px-4 py-3 animate-in slide-in-from-bottom-2 duration-300">
           <div className="container mx-auto max-w-4xl flex items-center gap-3">
             <div className="flex-1 min-w-0">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              <div className="text-[11px] font-medium text-muted-foreground truncate">
                 {qty} × {selected.name}
               </div>
-              <div className="text-xl font-black tabular-nums leading-tight" style={{ color: primary }}>
+              <div className="text-lg font-semibold tabular-nums leading-tight tracking-tight" style={{ color: primary }}>
                 €{(grandCents / 100).toFixed(2)}
               </div>
             </div>
             <button
               onClick={handleBuy}
               disabled={buying}
-              className="flex-shrink-0 inline-flex items-center justify-center gap-1.5 min-h-[48px] px-5 rounded-xl font-bold text-white disabled:opacity-60 transition-all"
+              className="flex-shrink-0 inline-flex items-center justify-center gap-1.5 min-h-[44px] px-5 rounded-lg font-semibold text-white text-sm disabled:opacity-60 transition-all hover:shadow-md"
               style={{
-                background: `linear-gradient(135deg, ${primary}, hsl(210 100% 45%))`,
-                boxShadow: `0 4px 12px ${primary}40`,
+                background: primary,
+                boxShadow: buying ? "none" : `0 4px 12px ${primary}30`,
               }}
             >
               {buying ? (

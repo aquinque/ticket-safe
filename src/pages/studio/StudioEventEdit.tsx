@@ -487,11 +487,15 @@ const StudioEventEdit = () => {
                           toast.error("Could not copy. Long-press the link to copy it manually.");
                         }
                       }}
+                      // Stay on brand blue both before AND after copy — never green.
+                      // The "copied" state is communicated by the icon (Check vs Copy)
+                      // + the inline ring, not by a color swap.
                       className="inline-flex items-center justify-center gap-1.5 px-3 md:px-4 rounded-xl font-bold text-white text-sm transition-all hover:shadow-md active:scale-[0.98] flex-shrink-0"
                       style={{
-                        background: shareCopied
-                          ? "linear-gradient(135deg, hsl(142 76% 36%), hsl(142 71% 45%))"
-                          : "linear-gradient(135deg, hsl(220 100% 30%), hsl(210 100% 45%))",
+                        background: "linear-gradient(135deg, hsl(220 100% 30%), hsl(210 100% 45%))",
+                        boxShadow: shareCopied
+                          ? "0 0 0 3px hsl(210 100% 45% / 0.25)"
+                          : undefined,
                       }}
                     >
                       {shareCopied ? (
