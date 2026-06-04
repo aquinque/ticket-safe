@@ -118,7 +118,59 @@ serve(async (req) => {
       p_actor_id: user.id,
     });
 
-    // 2. Iterate paid orders and refund
+    // 1.5. Close the pending-orders race window.
+    //
+    // Without this step there's a window between "event.status = cancelled"
+    // and the paid-orders sweep where a buyer mid-checkout could complete
+    // their payment via the Stripe webhook → end up with a 'paid' ticket for
+    // a cancelled event with no refund issued.
+    //
+    // Strategy:
+    //   • for each currently-pending order, try to flip it to 'expired' with
+    //     a status guard. If the webhook just won and the row is already 'paid',
+    //     the update no-ops and the paid-orders sweep below catches it instead.
+    //   • when we do successfully cancel a pending row, release the tier
+    //     reservation so inventory stays accurate (mirror of what the webhook
+    //     would have done on a normal checkout.session.expired event).
+    const { data: pendingOrders } = await supabase
+      .from("event_orders")
+      .select("id, tier_id, quantity")
+      .eq("event_id", eventId)
+      .eq("status", "pending");
+
+    let pendingClosed = 0;
+    for (const po of pendingOrders ?? []) {
+      const { data: closed } = await supabase
+        .from("event_orders")
+        .update({ status: "expired", cancelled_at: new Date().toISOString() })
+        .eq("id", po.id)
+        .eq("status", "pending")
+        .select("id")
+        .maybeSingle();
+      if (!closed) {
+        // Race lost — the webhook beat us and the order is now 'paid'.
+        // It'll be picked up by the paid-orders query below.
+        continue;
+      }
+      if (po.tier_id && (po.quantity ?? 0) > 0) {
+        await supabase.rpc("release_tier_reservation", {
+          p_tier_id: po.tier_id,
+          p_qty: po.quantity,
+        });
+      }
+      await supabase.rpc("audit_record", {
+        p_action: "event_order.expired_cancellation",
+        p_target_kind: "event_order",
+        p_target_id: po.id,
+        p_meta: { event_id: eventId },
+        p_actor_id: user.id,
+      });
+      pendingClosed += 1;
+    }
+
+    // 2. Iterate paid orders and refund.
+    // (Re-queried *after* the pending sweep above so any pending → paid
+    // transition that won its race is automatically included here.)
     const { data: orders } = await supabase
       .from("event_orders")
       .select("id, buyer_email, total_cents, stripe_payment_intent_id, status")
@@ -217,6 +269,7 @@ ${failures.length > 0 ? `<p style="color:#b91c1c">${failures.length} refund${fai
       event_id: eventId,
       refunded_count: refundedCount,
       refunded_total_cents: refundedTotalCents,
+      pending_closed: pendingClosed,
       failures,
     });
   } catch (err) {

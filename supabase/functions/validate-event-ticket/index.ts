@@ -282,6 +282,22 @@ serve(async (req) => {
         .select("scanned_at")
         .eq("id", ticket.id)
         .maybeSingle();
+      // IMPORTANT: log this case explicitly. Without it a coordinated double-scan
+      // (two phones presenting the same QR to two doormen simultaneously) leaves
+      // no trace in audit_log for the losing scanner — only the winner's
+      // scan.valid row appears. With this entry we can spot "1 ticket → 2
+      // attempted entries inside Δt ms" patterns and flag bad actors.
+      await supabase.rpc("audit_record", {
+        p_action: "scan.race_lost",
+        p_target_kind: "event_ticket",
+        p_target_id: ticket.id,
+        p_meta: {
+          event_id: ticket.event_id,
+          winner_scanned_at: re?.scanned_at ?? null,
+          err: updErr ? String(updErr.message ?? updErr) : null,
+        },
+        p_actor_id: user.id,
+      });
       return json({
         result: "ALREADY_USED",
         message: "Ticket already scanned moments ago.",
