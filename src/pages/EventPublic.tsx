@@ -458,134 +458,31 @@ const EventPublic = () => {
             )}
           </section>
 
-          {/* ===== Checkout panel — appears when a tier is selected =====
-              Designed to feel like Stripe Checkout / Apple Pay — sober,
-              typography-driven, confident. The innovation: a live ticket
-              preview at the top that builds in real time as the buyer
-              types, so they can SEE what they're getting before paying. */}
+          {/* ===== Checkout — radical redesign =====
+              Drops the "form below a static preview" pattern. Instead the
+              buyer fills out the **actual ticket cards** — inputs sit
+              directly on the gradient ticket, one card per seat. The
+              experience reads as "write your name on your ticket" rather
+              than "complete this form". No generic boxes, no platform-fee
+              line shouting at the buyer. Total + Continue live in their
+              own confident strip at the bottom. */}
           {selected && (
-            <section className="bg-card border border-border rounded-2xl p-6 md:p-8 mb-5 shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-300">
-              {/* ── LIVE TICKET PREVIEW ──
-                  Renders the actual ticket as a card: brand gradient header,
-                  perforated edges (the white circle notches simulate a
-                  physical tear strip), dashed cut line, and the holder name
-                  appearing in real time as the form is filled. Strong
-                  innovation signal without being childish. */}
-              <div
-                className="relative overflow-hidden rounded-2xl mb-6 text-white shadow-lg"
-                style={{ background: TS_GRADIENT }}
-              >
-                {/* Decorative perforation notches — mimic a real ticket */}
-                <div className="absolute top-1/2 -translate-y-1/2 -left-2.5 w-5 h-5 rounded-full bg-card" />
-                <div className="absolute top-1/2 -translate-y-1/2 -right-2.5 w-5 h-5 rounded-full bg-card" />
-                {/* Subtle radial highlight for depth */}
-                <div
-                  className="absolute inset-0 opacity-30 pointer-events-none"
-                  style={{
-                    backgroundImage:
-                      "radial-gradient(circle at 15% 15%, rgba(255,255,255,.35), transparent 45%), radial-gradient(circle at 85% 85%, rgba(255,255,255,.15), transparent 50%)",
-                  }}
-                />
-
-                {/* Top half — brand + event */}
-                <div className="relative p-5 md:p-6 pb-3">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/85">
-                      Ticket Safe
-                    </div>
-                    <div className="text-[10px] font-medium uppercase tracking-[0.18em] text-white/55">
-                      Preview
-                    </div>
-                  </div>
-                  <div className="text-lg md:text-xl font-bold leading-tight mb-1.5 line-clamp-2">
-                    {event.title}
-                  </div>
-                  <div className="text-xs text-white/85">
-                    {new Date(event.date).toLocaleString("en-GB", {
-                      dateStyle: "medium",
-                      timeStyle: "short",
-                    })}
-                    {event.location && (
-                      <>
-                        <span className="mx-1.5 text-white/40">·</span>
-                        {event.location}
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                {/* Perforated tear line */}
-                <div className="relative h-3 mx-3 border-b border-dashed border-white/30" />
-
-                {/* Bottom half — holder + tier */}
-                <div className="relative p-5 md:p-6 pt-4">
-                  {qty === 1 ? (
-                    <div>
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-white/55 mb-1">
-                        Holder
-                      </div>
-                      <div className="text-base md:text-lg font-semibold leading-tight min-h-[1.5em]">
-                        {(attendees[0]?.first_name || attendees[0]?.last_name)
-                          ? `${attendees[0]?.first_name ?? ""} ${attendees[0]?.last_name ?? ""}`.trim()
-                          : <span className="text-white/40 font-normal italic">Your name appears here</span>}
-                      </div>
-                    </div>
-                  ) : (
-                    <div>
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-white/55 mb-2">
-                        {qty} Holders
-                      </div>
-                      <div className="space-y-1">
-                        {attendees.map((a, i) => {
-                          const name = `${a.first_name ?? ""} ${a.last_name ?? ""}`.trim();
-                          return (
-                            <div key={i} className="text-sm font-medium leading-tight">
-                              <span className="text-white/45 mr-2 text-[10px] font-bold">#{i + 1}</span>
-                              {name || <span className="text-white/40 font-normal italic">Ticket {i + 1}</span>}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                  <div className="flex items-center justify-between mt-3.5 pt-3.5 border-t border-white/15">
-                    <div className="text-[11px] font-semibold tracking-wide text-white/80">
-                      {selected.name}
-                    </div>
-                    <div className="text-[11px] font-semibold tabular-nums text-white/80">
-                      €{(grandCents / 100).toFixed(2)}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-baseline justify-between mb-6 pb-5 border-b border-border">
-                <h2 className="text-xl md:text-2xl font-semibold tracking-tight">Checkout</h2>
-                <span className="text-xs font-medium text-muted-foreground">
-                  {selected.name}
-                </span>
-              </div>
-
-              {/* Quantity row */}
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <div className="text-sm font-semibold text-foreground">Quantity</div>
-                  {maxPerBuyer != null && (
-                    <div className="text-xs text-muted-foreground mt-0.5">
-                      {maxPerBuyer} per person max.
-                    </div>
-                  )}
-                </div>
-                <div className="inline-flex items-center gap-3">
+            <section className="mb-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              {/* Section heading — small, deliberate */}
+              <div className="flex items-baseline justify-between mb-4 px-1">
+                <h2 className="text-sm font-bold uppercase tracking-[0.18em] text-muted-foreground">
+                  {qty === 1 ? "Your ticket" : `Your ${qty} tickets`}
+                </h2>
+                <div className="inline-flex items-center gap-2">
                   <button
                     onClick={() => setQty((n) => Math.max(1, n - 1))}
-                    className="w-10 h-10 rounded-lg border border-border flex items-center justify-center hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                    className="w-8 h-8 rounded-md border border-border flex items-center justify-center hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                     disabled={qty <= 1}
-                    aria-label="Decrease quantity"
+                    aria-label="Remove a ticket"
                   >
-                    <Minus className="w-4 h-4" />
+                    <Minus className="w-3.5 h-3.5" />
                   </button>
-                  <span className="w-8 text-center text-base font-semibold tabular-nums">{qty}</span>
+                  <span className="w-6 text-center text-sm font-semibold tabular-nums">{qty}</span>
                   <button
                     onClick={() =>
                       setQty((n) => {
@@ -594,82 +491,148 @@ const EventPublic = () => {
                         return Math.min(finalCap, n + 1);
                       })
                     }
-                    className="w-10 h-10 rounded-lg border border-border flex items-center justify-center hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                    className="w-8 h-8 rounded-md border border-border flex items-center justify-center hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                     disabled={
                       qty >= Math.min(10, selected.available_qty) ||
                       (maxPerBuyer != null && qty >= maxPerBuyer)
                     }
-                    aria-label="Increase quantity"
+                    aria-label="Add a ticket"
                   >
-                    <Plus className="w-4 h-4" />
+                    <Plus className="w-3.5 h-3.5" />
                   </button>
                 </div>
               </div>
 
-              {/* Attendees — sober form, no playful chips */}
-              <div className="space-y-4 mb-6">
-                <div className="flex items-baseline justify-between">
-                  <h3 className="text-sm font-semibold text-foreground">
-                    {qty > 1 ? "Ticket holders" : "Your details"}
-                  </h3>
-                  <span className="text-xs text-muted-foreground">
-                    {qty > 1 ? "One per ticket" : "Where the QR is sent"}
-                  </span>
-                </div>
+              {/* One interactive ticket card per seat — the buyer writes on the ticket itself */}
+              <div className="space-y-3">
                 {attendees.map((a, i) => (
-                  <div key={i} className="space-y-2">
-                    {qty > 1 && (
-                      <div className="text-xs font-medium text-muted-foreground">
-                        Ticket {i + 1} of {qty}
-                      </div>
-                    )}
-                    <div className="grid grid-cols-2 gap-2">
-                      <input
-                        value={a.first_name}
-                        onChange={(e) => updateAttendee(i, { first_name: e.target.value })}
-                        placeholder="First name"
-                        className="ts-attendee"
-                        maxLength={100}
-                      />
-                      <input
-                        value={a.last_name}
-                        onChange={(e) => updateAttendee(i, { last_name: e.target.value })}
-                        placeholder="Last name"
-                        className="ts-attendee"
-                        maxLength={100}
-                      />
-                    </div>
-                    <input
-                      type="email"
-                      value={a.email}
-                      onChange={(e) => updateAttendee(i, { email: e.target.value })}
-                      placeholder="Email"
-                      className="ts-attendee w-full"
-                      maxLength={254}
+                  <div
+                    key={i}
+                    className="relative overflow-hidden rounded-2xl text-white shadow-lg ring-1 ring-white/10"
+                    style={{ background: TS_GRADIENT }}
+                  >
+                    {/* Perforation notches */}
+                    <div className="absolute top-1/2 -translate-y-1/2 -left-2.5 w-5 h-5 rounded-full bg-card z-10" />
+                    <div className="absolute top-1/2 -translate-y-1/2 -right-2.5 w-5 h-5 rounded-full bg-card z-10" />
+                    {/* Subtle radial highlight for depth */}
+                    <div
+                      className="absolute inset-0 opacity-30 pointer-events-none"
+                      style={{
+                        backgroundImage:
+                          "radial-gradient(circle at 15% 15%, rgba(255,255,255,.30), transparent 45%), radial-gradient(circle at 85% 85%, rgba(255,255,255,.12), transparent 50%)",
+                      }}
                     />
+
+                    {/* Top — event header */}
+                    <div className="relative px-5 md:px-6 pt-5 pb-3">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/85">
+                          Ticket Safe
+                        </div>
+                        {qty > 1 && (
+                          <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/65">
+                            #{i + 1} of {qty}
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-lg md:text-xl font-bold leading-tight mb-1 line-clamp-2">
+                        {event.title}
+                      </div>
+                      <div className="text-xs text-white/80">
+                        {new Date(event.date).toLocaleString("en-GB", {
+                          dateStyle: "medium",
+                          timeStyle: "short",
+                        })}
+                        {event.location && (
+                          <>
+                            <span className="mx-1.5 text-white/40">·</span>
+                            {event.location}
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Perforation line */}
+                    <div className="relative h-2.5 mx-3 border-b border-dashed border-white/30" />
+
+                    {/* Bottom — inline editable holder fields */}
+                    <div className="relative px-5 md:px-6 pt-4 pb-5 space-y-3">
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase tracking-[0.16em] text-white/55 mb-1.5">
+                          Holder name
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <input
+                            value={a.first_name}
+                            onChange={(e) => updateAttendee(i, { first_name: e.target.value })}
+                            placeholder="First"
+                            className="ts-ticket-input"
+                            maxLength={100}
+                            autoComplete="given-name"
+                            aria-label={qty > 1 ? `Ticket ${i + 1} first name` : "First name"}
+                          />
+                          <input
+                            value={a.last_name}
+                            onChange={(e) => updateAttendee(i, { last_name: e.target.value })}
+                            placeholder="Last"
+                            className="ts-ticket-input"
+                            maxLength={100}
+                            autoComplete="family-name"
+                            aria-label={qty > 1 ? `Ticket ${i + 1} last name` : "Last name"}
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold uppercase tracking-[0.16em] text-white/55 mb-1.5">
+                          Email (QR delivery)
+                        </label>
+                        <input
+                          type="email"
+                          value={a.email}
+                          onChange={(e) => updateAttendee(i, { email: e.target.value })}
+                          placeholder="name@example.com"
+                          className="ts-ticket-input w-full"
+                          maxLength={254}
+                          autoComplete="email"
+                          aria-label={qty > 1 ? `Ticket ${i + 1} email` : "Email"}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between pt-3 mt-1 border-t border-white/15">
+                        <div className="text-[11px] font-semibold tracking-wide text-white/85">
+                          {selected.name}
+                        </div>
+                        <div className="text-[11px] font-semibold tabular-nums text-white/85">
+                          €{(selected.price_cents / 100).toFixed(2)}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
 
-              {/* Price breakdown — clean ledger style */}
-              <div className="pt-5 mb-6 border-t border-border space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">
-                    {selected.name} × {qty}
-                  </span>
-                  <span className="tabular-nums text-foreground">€{(totalCents / 100).toFixed(2)}</span>
+              {/* Per-buyer limit hint, kept understated */}
+              {maxPerBuyer != null && qty >= maxPerBuyer && (
+                <div className="text-[11px] text-muted-foreground text-center mt-3">
+                  Limit reached — {maxPerBuyer} ticket{maxPerBuyer > 1 ? "s" : ""} per person.
                 </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Platform fee</span>
-                  <span className="tabular-nums text-foreground">€{(feeCents / 100).toFixed(2)}</span>
+              )}
+
+              {/* Confident totals strip — just one number that matters */}
+              <div className="mt-6 rounded-2xl bg-card border border-border p-5 md:p-6 shadow-sm">
+                <div className="flex items-end justify-between mb-5">
+                  <div>
+                    <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+                      Total
+                    </div>
+                    <div className="text-3xl md:text-4xl font-semibold tabular-nums tracking-tight leading-none mt-1" style={{ color: primary }}>
+                      €{(grandCents / 100).toFixed(2)}
+                    </div>
+                    <div className="text-[11px] text-muted-foreground mt-1.5">
+                      Includes 5% platform fee
+                    </div>
+                  </div>
                 </div>
-                <div className="flex justify-between items-baseline pt-3 mt-3 border-t border-border">
-                  <span className="text-base font-semibold">Total due</span>
-                  <span className="text-2xl md:text-3xl font-semibold tabular-nums tracking-tight" style={{ color: primary }}>
-                    €{(grandCents / 100).toFixed(2)}
-                  </span>
-                </div>
-              </div>
 
               {/* CTA — flat, mature, no gradient swirls */}
               <button
@@ -699,6 +662,7 @@ const EventPublic = () => {
                 <ShieldCheck className="w-3 h-3" />
                 Secured by Stripe. Refundable if the event is cancelled.
               </p>
+              </div> {/* close totals strip card */}
             </section>
           )}
 
@@ -818,6 +782,45 @@ const EventPublic = () => {
           outline: none;
           border-color: hsl(var(--primary));
           box-shadow: 0 0 0 3px hsl(var(--primary) / 0.15);
+        }
+        /* Ticket inline inputs — sit ON the gradient ticket card itself.
+           Transparent fill, soft white hairline, white text, brand-tinted
+           focus ring. The buyer writes "on the ticket", not in a form. */
+        .ts-ticket-input {
+          padding: 10px 13px;
+          border: 1px solid rgba(255, 255, 255, 0.22);
+          border-radius: 10px;
+          background: rgba(255, 255, 255, 0.08);
+          font-size: 14px;
+          line-height: 1.4;
+          color: #fff;
+          font-weight: 500;
+          width: 100%;
+          transition: background .15s, border-color .15s, box-shadow .15s;
+          -webkit-backdrop-filter: blur(6px);
+          backdrop-filter: blur(6px);
+        }
+        .ts-ticket-input::placeholder {
+          color: rgba(255, 255, 255, 0.5);
+          font-weight: 400;
+        }
+        .ts-ticket-input:hover {
+          background: rgba(255, 255, 255, 0.12);
+          border-color: rgba(255, 255, 255, 0.32);
+        }
+        .ts-ticket-input:focus {
+          outline: none;
+          background: rgba(255, 255, 255, 0.16);
+          border-color: rgba(255, 255, 255, 0.6);
+          box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.18);
+        }
+        /* Kill the yellow Chrome autofill overlay on these dark inputs */
+        .ts-ticket-input:-webkit-autofill,
+        .ts-ticket-input:-webkit-autofill:hover,
+        .ts-ticket-input:-webkit-autofill:focus {
+          -webkit-text-fill-color: #fff;
+          -webkit-box-shadow: 0 0 0 1000px rgba(0, 51, 153, 0.85) inset;
+          caret-color: #fff;
         }
       `}</style>
     </div>
