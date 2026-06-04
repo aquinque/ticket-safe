@@ -18,6 +18,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { looksLikeJWT, verifyStudioTicketJWT } from "../_shared/ticketJwt.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -59,11 +60,59 @@ serve(async (req) => {
     }
     const qrToken = (body.qr_token ?? "").trim();
     const requestedEventId = body.event_id;
-    if (!qrToken || qrToken.length < 16 || qrToken.length > 128) {
+    // JWTs are 200-400+ chars; legacy random-hex tokens are 40. Allow up to 600
+    // so a bigger payload (future extra claims) doesn't push us over the limit.
+    if (!qrToken || qrToken.length < 16 || qrToken.length > 600) {
       return json({ result: "INVALID", message: "QR token format invalid." });
     }
     if (requestedEventId && !/^[0-9a-f-]{36}$/i.test(requestedEventId)) {
       return json({ result: "INVALID", message: "event_id format invalid." });
+    }
+
+    // ── Signature pre-check ───────────────────────────────────────────────
+    // If the token *shape* says JWT, verify the HMAC before we touch the DB.
+    // This:
+    //   • catches forged QRs instantly (no DB query, no audit row generated
+    //     by the lookup path),
+    //   • lets us return a precise reason ("bad signature" vs "expired"),
+    //   • is the prerequisite for offline scanning later (a scanner cache
+    //     can do the same check without network).
+    // Legacy random-hex tokens (issued before TICKET_SIGNING_SECRET was set)
+    // fall through to the DB lookup so existing tickets keep working.
+    if (looksLikeJWT(qrToken)) {
+      const verify = await verifyStudioTicketJWT(qrToken);
+      if (!verify.ok) {
+        // secret_missing is a server-side misconfig — fall through to DB lookup
+        // so a forgotten env var doesn't lock everyone out at the door. The
+        // lookup-by-token path still works and we log loudly.
+        if (verify.reason === "secret_missing") {
+          console.error("[validate-event-ticket] TICKET_SIGNING_SECRET not set, skipping signature check");
+        } else if (verify.reason === "expired") {
+          await supabase.rpc("audit_record", {
+            p_action: "scan.jwt_expired",
+            p_target_kind: "event_ticket",
+            p_target_id: verify.payload?.sub ?? null,
+            p_meta: { scanned_event_id: requestedEventId ?? null },
+            p_actor_id: user.id,
+          });
+          return json({
+            result: "REVOKED",
+            message: "This ticket token has expired.",
+          });
+        } else {
+          await supabase.rpc("audit_record", {
+            p_action: "scan.jwt_forged",
+            p_target_kind: "event_ticket",
+            p_target_id: null,
+            p_meta: { reason: verify.reason, scanned_event_id: requestedEventId ?? null },
+            p_actor_id: user.id,
+          });
+          return json({
+            result: "FORGED",
+            message: "This QR is not a valid Ticket Safe ticket (signature mismatch).",
+          });
+        }
+      }
     }
 
     // Resolve ticket + its event + its organizer + its order in one round-trip

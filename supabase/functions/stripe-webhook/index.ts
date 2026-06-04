@@ -33,6 +33,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
 import QRCode from "https://esm.sh/qrcode@1.5.4";
+import { signStudioTicketJWT } from "../_shared/ticketJwt.ts";
 
 serve(async (req) => {
   // ---- env ----------------------------------------------------------------
@@ -157,9 +158,16 @@ serve(async (req) => {
             // 2. Finalize tier inventory: reserved → sold
             await supabase.rpc("finalize_tier_sale", { p_tier_id: tierId, p_qty: qty });
 
-            // 3. Issue per-seat event_tickets rows with random QR token.
-            // Pull attendees from the order (collected at checkout creation):
-            // one entry per seat → maps to holder_first_name / _last_name / _email.
+            // 3. Issue per-seat event_tickets rows with **signed** QR tokens.
+            // The qr_token is now an HS256 JWT signed with TICKET_SIGNING_SECRET,
+            // embedding { sub: ticket_id, evt: event_id, exp: event_date + 24h }.
+            // A door scanner can verify the signature before any DB round-trip
+            // and immediately reject anything not issued by us.
+            //
+            // Backward-compat: if TICKET_SIGNING_SECRET is unset (e.g. in a fresh
+            // staging env), signStudioTicketJWT returns null and we fall back to
+            // the legacy random-hex token. validate-event-ticket handles both
+            // shapes so tickets keep working through the migration.
             const { data: ord } = await supabase
               .from("event_orders")
               .select("buyer_id, buyer_email, event_id, attendees")
@@ -176,24 +184,51 @@ serve(async (req) => {
               const attendees = Array.isArray((ord as { attendees?: unknown }).attendees)
                 ? (ord as { attendees: { first_name?: string; last_name?: string; email?: string }[] }).attendees
                 : [];
-              const ticketRows = Array.from({ length: qty }).map((_, i) => {
-                const att = attendees[i] ?? null;
-                return {
-                  order_id: orderId,
-                  event_id: ord.event_id,
-                  tier_id: tierId,
-                  buyer_id: ord.buyer_id,
-                  qr_token:
+
+              // Fetch the event date once up-front so the JWT exp matches
+              // the actual show time + a 24h grace window.
+              const { data: evForExp } = await supabase
+                .from("events")
+                .select("date")
+                .eq("id", ord.event_id)
+                .maybeSingle();
+              const expSeconds = evForExp?.date
+                ? Math.floor(new Date(evForExp.date).getTime() / 1000) + 86_400
+                : Math.floor(Date.now() / 1000) + 30 * 86_400; // 30-day fallback
+
+              const ticketRows = await Promise.all(
+                Array.from({ length: qty }).map(async (_, i) => {
+                  const att = attendees[i] ?? null;
+                  // Pre-generate the row id so the JWT can embed it as `sub`
+                  // before the insert (no double round-trip).
+                  const ticketId = crypto.randomUUID();
+                  const signed = await signStudioTicketJWT({
+                    ticket_id: ticketId,
+                    event_id: ord.event_id,
+                    exp_seconds: expSeconds,
+                  });
+                  // Legacy fallback if signing secret missing — keeps the flow
+                  // functional, scanner will treat it as a legacy token.
+                  const qrToken =
+                    signed ??
                     crypto.randomUUID().replace(/-/g, "") +
-                    crypto.randomUUID().replace(/-/g, "").slice(0, 8),
-                  // Nominative: copy attendee details onto each ticket.
-                  // Fallback to the buyer's own email when attendees were not collected.
-                  holder_first_name: att?.first_name ?? null,
-                  holder_last_name: att?.last_name ?? null,
-                  holder_email: att?.email ?? ord.buyer_email ?? null,
-                  status: "valid" as const,
-                };
-              });
+                      crypto.randomUUID().replace(/-/g, "").slice(0, 8);
+                  return {
+                    id: ticketId,
+                    order_id: orderId,
+                    event_id: ord.event_id,
+                    tier_id: tierId,
+                    buyer_id: ord.buyer_id,
+                    qr_token: qrToken,
+                    // Nominative: copy attendee details onto each ticket.
+                    // Fallback to the buyer's own email when attendees were not collected.
+                    holder_first_name: att?.first_name ?? null,
+                    holder_last_name: att?.last_name ?? null,
+                    holder_email: att?.email ?? ord.buyer_email ?? null,
+                    status: "valid" as const,
+                  };
+                }),
+              );
               const { data: tixOut, error: tixErr } = await supabase
                 .from("event_tickets")
                 .insert(ticketRows)
