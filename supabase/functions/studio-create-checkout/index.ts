@@ -232,7 +232,10 @@ serve(async (req) => {
     // ── Create Stripe Checkout Session (Destination Charge) ──────────────
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
-      payment_method_types: ["card"],
+      // Omitting payment_method_types lets Stripe auto-enable everything we
+      // turned on in the Dashboard (cards + Apple Pay + Google Pay + Link).
+      // Apple Pay shows up natively in Safari on iPhone / Mac with no extra
+      // wiring once the ticket-safe.eu domain is verified in Stripe.
       line_items: [
         {
           quantity,

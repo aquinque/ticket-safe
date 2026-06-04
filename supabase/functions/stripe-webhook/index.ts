@@ -32,6 +32,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
+import QRCode from "https://esm.sh/qrcode@1.5.4";
 
 serve(async (req) => {
   // ---- env ----------------------------------------------------------------
@@ -164,6 +165,13 @@ serve(async (req) => {
               .select("buyer_id, buyer_email, event_id, attendees")
               .eq("id", orderId)
               .maybeSingle();
+            let insertedTickets: Array<{
+              id: string;
+              qr_token: string;
+              holder_first_name: string | null;
+              holder_last_name: string | null;
+              holder_email: string | null;
+            }> = [];
             if (ord) {
               const attendees = Array.isArray((ord as { attendees?: unknown }).attendees)
                 ? (ord as { attendees: { first_name?: string; last_name?: string; email?: string }[] }).attendees
@@ -186,9 +194,14 @@ serve(async (req) => {
                   status: "valid" as const,
                 };
               });
-              const { error: tixErr } = await supabase.from("event_tickets").insert(ticketRows);
+              const { data: tixOut, error: tixErr } = await supabase
+                .from("event_tickets")
+                .insert(ticketRows)
+                .select("id, qr_token, holder_first_name, holder_last_name, holder_email");
               if (tixErr) {
                 console.error("[studio_primary_sale] insert event_tickets failed:", tixErr);
+              } else if (tixOut) {
+                insertedTickets = tixOut;
               }
             }
 
@@ -254,6 +267,35 @@ serve(async (req) => {
                   });
               }
 
+              // Generate one QR PNG dataURL per ticket. Inlined as
+              // <img src="data:image/png;base64,..."> so every mail client
+              // (Gmail / Outlook / Apple Mail / iOS Mail) renders the QR
+              // without needing to fetch an external image or click a link.
+              const ticketBlocks: string[] = [];
+              for (let i = 0; i < insertedTickets.length; i++) {
+                const t = insertedTickets[i];
+                let qrDataUrl = "";
+                try {
+                  qrDataUrl = await QRCode.toDataURL(t.qr_token, {
+                    type: "image/png",
+                    width: 280,
+                    margin: 2,
+                    errorCorrectionLevel: "M",
+                    color: { dark: "#0F172A", light: "#FFFFFF" },
+                  });
+                } catch (e) {
+                  console.error("[studio_primary_sale] QR generate failed:", e);
+                }
+                const holder = [t.holder_first_name, t.holder_last_name].filter(Boolean).join(" ").trim();
+                ticketBlocks.push(`
+<div style="margin:18px 0;padding:20px;background:#fafafa;border:1px solid #e5e7eb;border-radius:14px;text-align:center">
+  <div style="font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:#64748b;font-weight:700;margin-bottom:6px">Ticket ${i + 1} of ${insertedTickets.length}</div>
+  ${holder ? `<div style="font-size:18px;font-weight:800;color:#0f172a;margin-bottom:14px">${holder}</div>` : ""}
+  ${qrDataUrl ? `<img src="${qrDataUrl}" alt="QR ticket ${i + 1}" width="240" height="240" style="display:block;margin:0 auto 8px;border-radius:8px;background:#fff;padding:8px;border:1px solid #e5e7eb">` : ""}
+  <div style="font-size:11px;color:#64748b">Single-use · checked at the door</div>
+</div>`);
+              }
+
               await fetch("https://api.resend.com/emails", {
                 method: "POST",
                 headers: {
@@ -263,24 +305,24 @@ serve(async (req) => {
                 body: JSON.stringify({
                   from: "Ticket Safe <noreply@ticket-safe.eu>",
                   to: [ord.buyer_email],
-                  subject: `Your ticket for ${evTitle} is confirmed`,
+                  subject: `Your ticket${qty > 1 ? "s" : ""} for ${evTitle}`,
                   html: `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f1f5f9;font-family:-apple-system,sans-serif">
 <div style="max-width:560px;margin:32px auto;background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 6px 24px rgba(15,23,42,.08)">
-<div style="background:linear-gradient(135deg,#003399,#0066cc);padding:28px 32px;color:#fff">
-<div style="font-size:11px;text-transform:uppercase;letter-spacing:.18em;opacity:.8;font-weight:700">Ticket Safe · Order confirmed</div>
+<div style="background:linear-gradient(135deg,#3a5fe6,#2440b6);padding:28px 32px;color:#fff">
+<div style="font-size:11px;text-transform:uppercase;letter-spacing:.18em;opacity:.85;font-weight:700">Ticket Safe · ${qty > 1 ? `${qty} tickets` : "Your ticket"} confirmed</div>
 <h1 style="margin:8px 0 0;font-size:24px;font-weight:800">${evTitle}</h1>
 </div>
 <div style="padding:28px 32px;font-size:15px;line-height:1.6;color:#1e293b">
-<p style="margin:0 0 16px">Your purchase is confirmed. ${qty} ticket${qty > 1 ? "s" : ""} will be ready at the door.</p>
+<p style="margin:0 0 16px">Show the QR code${qty > 1 ? "s" : ""} below at the door. ${qty > 1 ? "Each is single-use and assigned to one attendee." : "It is single-use."}</p>
 <table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:18px">
 <tr><td style="padding:8px 0;color:#64748b">Event</td><td style="padding:8px 0;color:#1e293b;font-weight:600">${evTitle}</td></tr>
 <tr><td style="padding:8px 0;color:#64748b">Date</td><td style="padding:8px 0">${evDate}</td></tr>
 <tr><td style="padding:8px 0;color:#64748b">Location</td><td style="padding:8px 0">${evRow?.location ?? "—"}</td></tr>
-<tr><td style="padding:8px 0;color:#64748b">Quantity</td><td style="padding:8px 0">${qty}</td></tr>
-<tr><td style="padding:8px 0;color:#64748b">Total paid</td><td style="padding:8px 0;color:#003399;font-weight:700">€${total.toFixed(2)}</td></tr>
+<tr><td style="padding:8px 0;color:#64748b">Total paid</td><td style="padding:8px 0;color:#2440b6;font-weight:700">€${total.toFixed(2)}</td></tr>
 </table>
-<p style="margin:24px 0 8px;text-align:center"><a href="https://ticket-safe.eu/settings/purchases" style="display:inline-block;background:linear-gradient(135deg,#003399,#0066cc);color:#fff;padding:12px 24px;border-radius:10px;text-decoration:none;font-weight:700">View my tickets</a></p>
-<p style="margin:18px 0 0;font-size:12px;color:#64748b">Your QR ticket(s) will be in My Purchases on ticket-safe.eu and at the door. Need help? Reply to this email.</p>
+${ticketBlocks.join("")}
+<p style="margin:24px 0 8px;text-align:center"><a href="https://ticket-safe.eu/settings/purchases" style="display:inline-block;background:linear-gradient(135deg,#3a5fe6,#2440b6);color:#fff;padding:12px 24px;border-radius:10px;text-decoration:none;font-weight:700">Open my tickets online</a></p>
+<p style="margin:18px 0 0;font-size:12px;color:#64748b">If you can't scan from the email, open the link above to show the QR from your account. Need help? Reply to this email.</p>
 </div></div></body></html>`,
                 }),
               });
