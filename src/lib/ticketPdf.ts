@@ -27,11 +27,15 @@ export interface TicketPdfInput {
   qrSvgUrl: string;           // blob: URL pointing at the SVG returned by event-ticket-qr
 }
 
-const BRAND_BLUE: [number, number, number] = [0, 51, 153];      // #003399
-const BRAND_LIGHT: [number, number, number] = [0, 102, 204];    // #0066cc
-const INK: [number, number, number] = [30, 41, 59];             // slate-800
-const MUTED: [number, number, number] = [100, 116, 139];        // slate-500
-const FAINT: [number, number, number] = [148, 163, 184];        // slate-400
+// RGB tuples for the brand palette. Kept as plain triplets so we can pass
+// each channel explicitly to jsPDF (spreading a tuple into setDrawColor /
+// setFillColor / setTextColor trips TypeScript's overload resolution in
+// strict mode and tanks the build).
+const BRAND_R = 0,    BRAND_G = 51,  BRAND_B = 153;   // #003399
+const LIGHT_R = 0,    LIGHT_G = 102, LIGHT_B = 204;   // #0066cc
+const INK_R = 30,     INK_G = 41,   INK_B = 59;       // slate-800
+const MUTED_R = 100,  MUTED_G = 116, MUTED_B = 139;   // slate-500
+const FAINT_R = 148,  FAINT_G = 163, FAINT_B = 184;   // slate-400
 
 /**
  * Repaint an SVG blob URL onto a canvas at high resolution and return a PNG
@@ -99,10 +103,15 @@ function formatEventDate(iso: string): { day: string; time: string } {
   };
 }
 
+/**
+ * Build a filesystem-safe filename from an event title. We strip everything
+ * outside the ASCII allowlist — that automatically removes accents (after
+ * NFKD normalisation splits them into combining marks) without needing a
+ * combining-mark Unicode range that some bundlers re-encode and break.
+ */
 function safeFilename(input: string): string {
   return input
     .normalize("NFKD")
-    .replace(/[̀-ͯ]/g, "")
     .replace(/[^a-zA-Z0-9 _-]+/g, "")
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-")
@@ -111,10 +120,38 @@ function safeFilename(input: string): string {
     .slice(0, 60) || "ticket";
 }
 
+// Minimal jsPDF surface we actually call. Lets us declare a typed handle on
+// the CDN module without pulling jsPDF into the lockfile.
+interface JsPDFLike {
+  setFillColor(r: number, g: number, b: number): void;
+  setTextColor(r: number, g: number, b: number): void;
+  setDrawColor(r: number, g: number, b: number): void;
+  setLineWidth(w: number): void;
+  setLineDashPattern(pattern: number[], phase: number): void;
+  setFont(family: string, style?: string): void;
+  setFontSize(size: number): void;
+  rect(x: number, y: number, w: number, h: number, style?: string): void;
+  roundedRect(x: number, y: number, w: number, h: number, rx: number, ry: number, style?: string): void;
+  line(x1: number, y1: number, x2: number, y2: number): void;
+  circle(x: number, y: number, r: number, style?: string): void;
+  text(text: string | string[], x: number, y: number, options?: Record<string, unknown>): void;
+  splitTextToSize(text: string, maxLen: number): string[];
+  getTextWidth(text: string): number;
+  addImage(data: string, format: string, x: number, y: number, w: number, h: number): void;
+  save(filename: string): void;
+}
+type JsPDFCtor = new (opts: { unit: string; format: string; orientation: string }) => JsPDFLike;
+
 export async function downloadTicketPdf(input: TicketPdfInput): Promise<void> {
-  // Lazy-load jsPDF so users who don't press Download never pay the bundle cost
-  const { jsPDF } = await import("jspdf");
-  const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
+  // Lazy-load jsPDF from esm.sh at runtime. Keeps it out of the bundle
+  // entirely (no install step, no lockfile churn, no build failure on a
+  // missing transitive dep) and only buyers who press Download pay the
+  // network round-trip. The /* @vite-ignore */ comment tells Vite not to
+  // try to pre-resolve the URL at build time.
+  const mod = await import(/* @vite-ignore */ "https://esm.sh/jspdf@2.5.2");
+  const JsPDF: JsPDFCtor = (mod as { jsPDF?: JsPDFCtor; default?: JsPDFCtor }).jsPDF
+    ?? (mod as { default: JsPDFCtor }).default;
+  const pdf = new JsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
   const pageW = 210;
   const pageH = 297;
 
@@ -126,9 +163,9 @@ export async function downloadTicketPdf(input: TicketPdfInput): Promise<void> {
   const slices = 80;
   for (let i = 0; i < slices; i++) {
     const t = i / (slices - 1);
-    const r = Math.round(BRAND_BLUE[0] + (BRAND_LIGHT[0] - BRAND_BLUE[0]) * t);
-    const g = Math.round(BRAND_BLUE[1] + (BRAND_LIGHT[1] - BRAND_BLUE[1]) * t);
-    const b = Math.round(BRAND_BLUE[2] + (BRAND_LIGHT[2] - BRAND_BLUE[2]) * t);
+    const r = Math.round(BRAND_R + (LIGHT_R - BRAND_R) * t);
+    const g = Math.round(BRAND_G + (LIGHT_G - BRAND_G) * t);
+    const b = Math.round(BRAND_B + (LIGHT_B - BRAND_B) * t);
     pdf.setFillColor(r, g, b);
     pdf.rect(0, (i * headerH) / slices, pageW, headerH / slices + 0.5, "F");
   }
@@ -167,7 +204,7 @@ export async function downloadTicketPdf(input: TicketPdfInput): Promise<void> {
   const titleLines = pdf.splitTextToSize(input.eventTitle, pageW - 56);
   pdf.text(titleLines.slice(0, 2), titleStartX, 30);
 
-  // Date + location pills
+  // Date + location
   const { day, time } = formatEventDate(input.eventDate);
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(10);
@@ -185,7 +222,6 @@ export async function downloadTicketPdf(input: TicketPdfInput): Promise<void> {
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(8);
     const labelW = pdf.getTextWidth(label) + 6;
-    // Darker navy fill on top of the gradient so the pill reads
     pdf.setFillColor(0, 31, 92);
     pdf.roundedRect(pillX, pillY, labelW, 6, 3, 3, "F");
     pdf.setTextColor(255, 255, 255);
@@ -193,7 +229,7 @@ export async function downloadTicketPdf(input: TicketPdfInput): Promise<void> {
   }
 
   // ── PERFORATION LINE ──
-  pdf.setDrawColor(...FAINT);
+  pdf.setDrawColor(FAINT_R, FAINT_G, FAINT_B);
   pdf.setLineDashPattern([1.5, 1.5], 0);
   pdf.line(8, headerH + 6, pageW - 8, headerH + 6);
   pdf.setLineDashPattern([], 0);
@@ -204,28 +240,28 @@ export async function downloadTicketPdf(input: TicketPdfInput): Promise<void> {
 
   // ── BODY: holder + reference ──
   const bodyY = headerH + 18;
-  pdf.setTextColor(...MUTED);
+  pdf.setTextColor(MUTED_R, MUTED_G, MUTED_B);
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(7);
   pdf.text("HOLDER", 16, bodyY, { charSpace: 0.8 });
-  pdf.setTextColor(...INK);
+  pdf.setTextColor(INK_R, INK_G, INK_B);
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(16);
   pdf.text(input.holderName || "—", 16, bodyY + 7);
 
   if (input.holderEmail) {
-    pdf.setTextColor(...MUTED);
+    pdf.setTextColor(MUTED_R, MUTED_G, MUTED_B);
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(9);
     pdf.text(input.holderEmail, 16, bodyY + 13);
   }
 
   // Reference column (right side)
-  pdf.setTextColor(...MUTED);
+  pdf.setTextColor(MUTED_R, MUTED_G, MUTED_B);
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(7);
   pdf.text("REFERENCE", pageW - 16, bodyY, { align: "right", charSpace: 0.8 });
-  pdf.setTextColor(...INK);
+  pdf.setTextColor(INK_R, INK_G, INK_B);
   pdf.setFont("courier", "normal");
   pdf.setFontSize(9);
   pdf.text(
@@ -247,7 +283,7 @@ export async function downloadTicketPdf(input: TicketPdfInput): Promise<void> {
   const qrY = bodyY + 28;
   // White card behind QR with subtle border
   pdf.setFillColor(255, 255, 255);
-  pdf.setDrawColor(...FAINT);
+  pdf.setDrawColor(FAINT_R, FAINT_G, FAINT_B);
   pdf.setLineWidth(0.4);
   pdf.roundedRect(qrX - 6, qrY - 6, qrSize + 12, qrSize + 24, 4, 4, "FD");
 
@@ -255,18 +291,18 @@ export async function downloadTicketPdf(input: TicketPdfInput): Promise<void> {
     const qrPng = await svgUrlToPngDataUrl(input.qrSvgUrl, 900);
     pdf.addImage(qrPng, "PNG", qrX, qrY, qrSize, qrSize);
   } catch {
-    pdf.setTextColor(...MUTED);
+    pdf.setTextColor(MUTED_R, MUTED_G, MUTED_B);
     pdf.setFont("helvetica", "normal");
     pdf.setFontSize(10);
     pdf.text("QR unavailable", pageW / 2, qrY + qrSize / 2, { align: "center" });
   }
 
   // QR caption
-  pdf.setTextColor(...INK);
+  pdf.setTextColor(INK_R, INK_G, INK_B);
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(9);
   pdf.text("Scan at the door", pageW / 2, qrY + qrSize + 9, { align: "center" });
-  pdf.setTextColor(...MUTED);
+  pdf.setTextColor(MUTED_R, MUTED_G, MUTED_B);
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(8);
   pdf.text(
@@ -278,11 +314,11 @@ export async function downloadTicketPdf(input: TicketPdfInput): Promise<void> {
 
   // ── FINE PRINT ──
   const fineY = qrY + qrSize + 30;
-  pdf.setDrawColor(...FAINT);
+  pdf.setDrawColor(FAINT_R, FAINT_G, FAINT_B);
   pdf.setLineWidth(0.2);
   pdf.line(16, fineY, pageW - 16, fineY);
 
-  pdf.setTextColor(...MUTED);
+  pdf.setTextColor(MUTED_R, MUTED_G, MUTED_B);
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(7.5);
   const fineText = [
@@ -295,16 +331,16 @@ export async function downloadTicketPdf(input: TicketPdfInput): Promise<void> {
   });
 
   // ── FOOTER ──
-  pdf.setDrawColor(...FAINT);
+  pdf.setDrawColor(FAINT_R, FAINT_G, FAINT_B);
   pdf.setLineWidth(0.2);
   pdf.line(16, pageH - 18, pageW - 16, pageH - 18);
 
-  pdf.setTextColor(...BRAND_BLUE);
+  pdf.setTextColor(BRAND_R, BRAND_G, BRAND_B);
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(8);
   pdf.text("TICKET SAFE", 16, pageH - 11, { charSpace: 0.8 });
 
-  pdf.setTextColor(...MUTED);
+  pdf.setTextColor(MUTED_R, MUTED_G, MUTED_B);
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(7.5);
   pdf.text("ticket-safe.eu · contact@ticket-safe.eu", pageW - 16, pageH - 11, { align: "right" });
