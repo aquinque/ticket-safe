@@ -56,13 +56,22 @@ serve(async (req) => {
     if (tErr || !ticket) return json({ error: "Ticket not found" }, 404);
     if (ticket.buyer_id !== user.id) return json({ error: "Forbidden" }, 403);
 
-    // 8-bit ECC, modest margin — readable at small sizes on phone screens.
+    // Low ECC + generous margin: the qr_token is a ~225-char JWT, which at
+    // ECC=M needs Version 9 (53x53 modules). At a 192px on-screen render,
+    // each module is ~3.5px — borderline for phone-to-phone scanning. Drop
+    // to ECC=L (7% redundancy is plenty for a screen-rendered QR — it isn't
+    // a printed sticker that has to survive scuffs) so it fits in fewer
+    // modules and each one is bigger and easier to scan. Margin=4 (the
+    // QR spec "quiet zone" recommendation) also helps camera detection.
+    // Width=512 gives the SVG a generous intrinsic size; SVG scales
+    // losslessly, but a higher baseline means downstream rasterisations
+    // (PDF) are sharper.
     const svg: string = await QRCode.toString(String(ticket.qr_token), {
       type: "svg",
-      errorCorrectionLevel: "M",
-      margin: 2,
-      width: 280,
-      color: { dark: "#0F172A", light: "#FFFFFF" },
+      errorCorrectionLevel: "L",
+      margin: 4,
+      width: 512,
+      color: { dark: "#000000", light: "#FFFFFF" },
     });
 
     return new Response(svg, {

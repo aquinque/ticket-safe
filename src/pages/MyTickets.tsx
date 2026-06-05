@@ -239,10 +239,16 @@ const MyTickets = () => {
                       <img
                         src={qrUrls[t.id]}
                         alt={`Ticket QR ${i + 1}`}
-                        className="w-48 h-48 md:w-52 md:h-52"
+                        // Bumped from 192/208px to 256/288px. At 192px each
+                        // QR module was ~3.5px wide on a JWT-loaded code —
+                        // borderline for phone-to-phone scanning. 256px+
+                        // gives each module ~5px which scans cleanly even
+                        // off a sweaty hand at the door.
+                        className="w-64 h-64 md:w-72 md:h-72"
+                        style={{ imageRendering: "pixelated" }}
                       />
                     ) : (
-                      <div className="w-48 h-48 md:w-52 md:h-52 flex items-center justify-center text-muted-foreground text-xs">
+                      <div className="w-64 h-64 md:w-72 md:h-72 flex items-center justify-center text-muted-foreground text-xs">
                         QR unavailable
                       </div>
                     )}
