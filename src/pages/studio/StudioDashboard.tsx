@@ -551,9 +551,9 @@ const PayoutModal = ({
           {/* Fee breakdown */}
           <div className="rounded-xl border border-border bg-muted/40 p-4 text-xs leading-relaxed text-muted-foreground">
             <div className="font-bold text-foreground mb-1.5 text-[11px] uppercase tracking-wider">Fee breakdown</div>
-            Buyers pay a <strong className="text-foreground">5% service fee</strong> on top of every ticket.{" "}
-            Ticket Safe additionally takes <strong className="text-foreground">8%</strong> from your share.{" "}
-            For a €10 ticket, the buyer pays €10.50 and you receive €9.20.
+            Buyers pay a <strong className="text-foreground">5% service fee</strong> on top at checkout.{" "}
+            Your balance above shows the gross. Ticket Safe takes another{" "}
+            <strong className="text-foreground">8%</strong> when you withdraw — net wired to your IBAN.
           </div>
 
           {!loadedDefaults ? (
@@ -582,11 +582,38 @@ const PayoutModal = ({
                 {!amountValid && (<p className="text-xs text-amber-700 mt-1">Amount must be between €1.00 and €{(available / 100).toFixed(2)}.</p>)}
               </div>
 
+              {/* Live 8% breakdown */}
+              {amountValid && cents > 0 && (() => {
+                const feeCents = Math.round(cents * 0.08);
+                const netCents = cents - feeCents;
+                return (
+                  <div className="rounded-xl bg-primary/5 border border-primary/20 p-4 text-sm space-y-1.5">
+                    <div className="flex items-center justify-between text-muted-foreground">
+                      <span>Gross withdrawal</span>
+                      <span>€{(cents / 100).toFixed(2)}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-muted-foreground">
+                      <span>Ticket Safe fee (8%)</span>
+                      <span>−€{(feeCents / 100).toFixed(2)}</span>
+                    </div>
+                    <div className="flex items-center justify-between font-black text-foreground text-base border-t border-primary/20 pt-1.5 mt-1.5">
+                      <span>You will receive</span>
+                      <span className="text-primary">€{(netCents / 100).toFixed(2)}</span>
+                    </div>
+                  </div>
+                );
+              })()}
+
               <button onClick={submit} disabled={!canSubmit} className="w-full inline-flex items-center justify-center gap-2 min-h-[44px] rounded-lg font-bold bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-60">
-                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : (<><ArrowRight className="w-4 h-4" />Request €{((cents || 0) / 100).toFixed(2)}</>)}
+                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : (
+                  <>
+                    <ArrowRight className="w-4 h-4" />
+                    Request €{(((cents || 0) - Math.round((cents || 0) * 0.08)) / 100).toFixed(2)} net
+                  </>
+                )}
               </button>
               <p className="text-[11px] text-muted-foreground text-center">
-                By submitting, you authorize Ticket Safe to wire the amount above to the IBAN provided. No Stripe account, no SIREN, no KYC — just the SEPA.
+                Ticket Safe deducts 8% at withdrawal. Net wired to your IBAN within 2-3 business days. No Stripe account, no SIREN, no KYC.
               </p>
             </>
           )}
