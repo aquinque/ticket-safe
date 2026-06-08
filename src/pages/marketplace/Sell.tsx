@@ -14,7 +14,7 @@
  */
 
 import { useState, useRef, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { z } from "zod";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -51,6 +51,7 @@ import {
   Search,
   X,
   CalendarPlus,
+  Zap,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Event } from "@/integrations/supabase/types/events";
@@ -96,6 +97,20 @@ const Sell = () => {
   const { language } = useI18n();
   const dateLocale = language === "fr" ? "fr-FR" : "en-US";
   const { refetchListings } = useTicketListings();
+  const [searchParams] = useSearchParams();
+  const studioTicketParam = searchParams.get("studio_ticket");
+
+  // Studio-resale fast path: when ?studio_ticket=<id> is present we know
+  // the seller's QR is one we issued (JWT-signed event_ticket). No upload
+  // step needed — we trust it, lock the event, and insert the listing
+  // straight into `tickets` with studio_ticket_id set so the webhook can
+  // later transfer the QR to the buyer.
+  const [studioTicket, setStudioTicket] = useState<{
+    id: string;
+    event_id: string;
+    qr_token: string;
+  } | null>(null);
+  const [studioLoading, setStudioLoading] = useState(false);
 
   // Event autocomplete
   const [eventSearch, setEventSearch] = useState("");
@@ -143,9 +158,81 @@ const Sell = () => {
   // Guard: redirect unauthenticated users
   useEffect(() => {
     if (!authLoading && !user) {
-      navigate("/auth");
+      navigate(`/auth?next=${encodeURIComponent("/marketplace/sell" + (studioTicketParam ? `?studio_ticket=${studioTicketParam}` : ""))}`);
     }
-  }, [user, authLoading, navigate]);
+  }, [user, authLoading, navigate, studioTicketParam]);
+
+  // Studio-resale path: fetch the ticket, validate ownership, prefill state.
+  useEffect(() => {
+    if (!user || !studioTicketParam) return;
+    let cancelled = false;
+    (async () => {
+      setStudioLoading(true);
+      try {
+        const { data: tk, error } = await supabase
+          .from("event_tickets")
+          .select(`id, event_id, qr_token, status, buyer_id,
+                   event:events(id, title, description, date, location, category, university, campus, image_url, is_active, base_price, created_at, updated_at)`)
+          .eq("id", studioTicketParam)
+          .maybeSingle();
+        if (cancelled) return;
+        if (error || !tk) {
+          toast.error("This ticket could not be found.");
+          navigate("/my-tickets");
+          return;
+        }
+        if (tk.buyer_id !== user.id) {
+          toast.error("You can only resell your own tickets.");
+          navigate("/my-tickets");
+          return;
+        }
+        if (tk.status !== "valid") {
+          toast.error("This ticket can no longer be resold (already used, transferred or refunded).");
+          navigate("/my-tickets");
+          return;
+        }
+        const { data: existing } = await supabase
+          .from("tickets")
+          .select("id, status")
+          .eq("studio_ticket_id", tk.id)
+          .in("status", ["available", "reserved", "sold"])
+          .maybeSingle();
+        if (existing) {
+          if (existing.status === "sold") {
+            toast.error("This ticket has already been resold.");
+          } else {
+            toast.info("You already have an active resale listing for this ticket.");
+          }
+          navigate("/settings/listings");
+          return;
+        }
+        const ev = (Array.isArray(tk.event) ? tk.event[0] : tk.event) as Event | null;
+        if (!ev) {
+          toast.error("Linked event not found.");
+          navigate("/my-tickets");
+          return;
+        }
+        setStudioTicket({ id: tk.id, event_id: tk.event_id, qr_token: tk.qr_token });
+        setSelectedEvent(ev);
+        setEventSearch(ev.title);
+        setFormData((prev) => ({
+          ...prev,
+          eventId: ev.id,
+          quantity: "1",
+          sellingPrice: ev.base_price ? String(ev.base_price) : prev.sellingPrice,
+        }));
+        setQrText(tk.qr_token);
+      } catch (err) {
+        if (!cancelled) {
+          toast.error(err instanceof Error ? err.message : "Failed to load ticket.");
+          navigate("/my-tickets");
+        }
+      } finally {
+        if (!cancelled) setStudioLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user, studioTicketParam, navigate]);
 
   // Debounced event search
   useEffect(() => {
@@ -352,6 +439,43 @@ const Sell = () => {
 
     setIsSubmitting(true);
 
+    // Studio-resale fast path: insert directly into `tickets`. The QR is
+    // already trusted (signed by our backend) so no admin review, no QR
+    // upload, no submit-listing roundtrip.
+    if (studioTicket) {
+      try {
+        const { data: ticket, error } = await supabase
+          .from("tickets")
+          .insert({
+            seller_id: user.id,
+            event_id: studioTicket.event_id,
+            selling_price: price,
+            quantity: parseInt(formData.quantity, 10) || 1,
+            notes: formData.notes || null,
+            status: "available",
+            qr_hash: `studio:${studioTicket.id}`,
+            qr_verified: true,
+            verification_status: "verified",
+            needs_review: false,
+            studio_ticket_id: studioTicket.id,
+          })
+          .select("id")
+          .single();
+        if (error) {
+          toast.error(error.message || "Could not list your ticket.");
+          return;
+        }
+        setCreatedListingId(ticket.id);
+        refetchListings();
+        toast.success("Listed instantly. Your QR stays valid until it sells.");
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "Unexpected error.");
+      } finally {
+        setIsSubmitting(false);
+      }
+      return;
+    }
+
     try {
       // Always force a token refresh to avoid "invalid jwt" errors from expired tokens.
       // refreshSession() fetches a fresh token from Supabase auth server unconditionally.
@@ -463,9 +587,13 @@ const Sell = () => {
                 <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
                   <ShieldCheck className="w-10 h-10 text-green-600" />
                 </div>
-                <h1 className="text-3xl font-bold mb-4">Ticket submitted for review!</h1>
+                <h1 className="text-3xl font-bold mb-4">
+                  {studioTicket ? "Live on the marketplace!" : "Ticket submitted for review!"}
+                </h1>
                 <p className="text-muted-foreground mb-8">
-                  Your ticket is pending admin approval. It will appear in the marketplace once verified.
+                  {studioTicket
+                    ? "Your Studio ticket is now visible to buyers. We'll invalidate your QR and issue a new one in the buyer's name the moment it sells."
+                    : "Your ticket is pending admin approval. It will appear in the marketplace once verified."}
                 </p>
               </>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -512,16 +640,54 @@ const Sell = () => {
           </div>
 
           <div className="text-center mb-12">
-            <h1 className="text-4xl font-bold mb-4">Sell a Ticket</h1>
+            <h1 className="text-4xl font-bold mb-4">
+              {studioTicket ? "Resell your ticket" : "Sell a Ticket"}
+            </h1>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Verify your ticket with its QR code and list it in under a minute.
+              {studioTicket
+                ? "This Studio ticket is already verified — just set a price and you're listed."
+                : "Verify your ticket with its QR code and list it in under a minute."}
             </p>
           </div>
+
+          {studioLoading && (
+            <div className="flex items-center justify-center py-10">
+              <Loader2 className="w-6 h-6 animate-spin text-primary" />
+            </div>
+          )}
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* ---- Main form ---- */}
             <div className="lg:col-span-2 space-y-6">
-              {/* Event selection */}
+              {studioTicket && selectedEvent && (
+                <Card className="border-emerald-200 bg-emerald-50/60">
+                  <CardContent className="pt-6">
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                        <Zap className="w-5 h-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold uppercase tracking-wider text-emerald-700 mb-1">
+                          Instant resale · Studio ticket
+                        </p>
+                        <p className="text-sm font-bold text-emerald-900 truncate">
+                          {selectedEvent.title}
+                        </p>
+                        <p className="text-xs text-emerald-800/80 mt-0.5">
+                          {new Date(selectedEvent.date).toLocaleDateString(dateLocale, { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+                          {selectedEvent.location ? ` · ${selectedEvent.location}` : ""}
+                        </p>
+                        <p className="text-xs text-emerald-800 mt-2">
+                          Your QR stays valid until someone buys it. The moment payment goes through, we invalidate yours and issue a fresh one in the buyer's name — no upload needed.
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Event selection — hidden in Studio-resale fast path */}
+              {!studioTicket && (
               <Card>
                 <CardHeader>
                   <CardTitle>Event</CardTitle>
@@ -697,8 +863,10 @@ const Sell = () => {
                   )}
                 </CardContent>
               </Card>
+              )}
 
-              {/* QR Code */}
+              {/* QR Code — skipped for trusted Studio resales */}
+              {!studioTicket && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -846,6 +1014,7 @@ const Sell = () => {
                   )}
                 </CardContent>
               </Card>
+              )}
 
               {/* Pricing */}
               <Card>

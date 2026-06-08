@@ -1,7 +1,8 @@
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 
-// Legacy /sell route — redirects to the current marketplace sell page.
-// The old page used a mock QR verification library (not connected to the DB).
+// Legacy /sell route — forwards to the current marketplace sell page,
+// preserving any query string (e.g. ?studio_ticket=…).
 export default function Sell() {
-  return <Navigate to="/marketplace/sell" replace />;
+  const { search } = useLocation();
+  return <Navigate to={`/marketplace/sell${search}`} replace />;
 }

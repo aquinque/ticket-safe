@@ -10,6 +10,7 @@ import {
   Clock,
   XCircle,
   ShieldCheck,
+  Tag,
 } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -36,6 +37,8 @@ interface OrderCard {
   scanned_count: number;
   refunded_count: number;
   attendees: string[];
+  sellableTicketId: string | null;
+  isResale: boolean;
 }
 
 const MyTicketsHub = () => {
@@ -120,6 +123,8 @@ const MyTicketsHub = () => {
             scanned_count: 0,
             refunded_count: 0,
             attendees: [],
+            sellableTicketId: null,
+            isResale: true,
           };
         },
       );
@@ -163,6 +168,7 @@ const MyTicketsHub = () => {
           const attendees = tix
             .map((t) => [t.holder_first_name, t.holder_last_name].filter(Boolean).join(" ").trim())
             .filter(Boolean);
+          const sellable = tix.find((t) => t.status === "valid" && t.scanned_at == null) ?? null;
           return {
             id: row.id,
             status: row.status,
@@ -182,6 +188,8 @@ const MyTicketsHub = () => {
             scanned_count: tix.filter((t) => t.scanned_at != null).length,
             refunded_count: tix.filter((t) => t.status === "refunded" || t.status === "cancelled").length,
             attendees,
+            sellableTicketId: sellable?.id ?? null,
+            isResale: false,
           };
         },
       );
@@ -295,16 +303,27 @@ const TicketCard = ({
   const dateObj = order.event_date ? new Date(order.event_date) : null;
   const allRefunded = order.refunded_count > 0 && order.refunded_count === order.ticket_count;
   const allScanned = order.scanned_count === order.ticket_count && order.ticket_count > 0;
+  const eventInFuture = dateObj ? dateObj.getTime() > Date.now() : false;
+  const canResell =
+    !order.isResale && eventInFuture && !allScanned && !allRefunded && order.sellableTicketId != null;
+
+  const openOrder = () => {
+    if (order.id.startsWith("resale-")) navigate(`/settings/purchases`);
+    else navigate(`/my-tickets/${order.id}`);
+  };
 
   return (
-    <button
-      onClick={() => {
-        // Resale tickets land on PurchaseHistory (their PDF/QR comes from
-        // the seller, no Ticket Safe-generated QR to render).
-        if (order.id.startsWith("resale-")) navigate(`/settings/purchases`);
-        else navigate(`/my-tickets/${order.id}`);
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={openOrder}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          openOrder();
+        }
       }}
-      className="w-full text-left bg-card border border-border rounded-2xl overflow-hidden hover:border-primary/30 hover:shadow-soft transition-all flex flex-col md:flex-row"
+      className="w-full text-left bg-card border border-border rounded-2xl overflow-hidden hover:border-primary/30 hover:shadow-soft transition-all flex flex-col md:flex-row cursor-pointer"
     >
       <div
         className="md:w-44 h-28 md:h-auto relative shrink-0"
@@ -359,18 +378,33 @@ const TicketCard = ({
             <span className="truncate"> · {order.attendees.slice(0, 3).join(", ")}{order.attendees.length > 3 ? `, +${order.attendees.length - 3}` : ""}</span>
           )}
         </div>
-        <div className="flex items-center justify-between pt-2 border-t border-border">
+        <div className="flex items-center justify-between pt-2 border-t border-border gap-2">
           <span className="text-xs inline-flex items-center gap-1 text-muted-foreground">
             <ShieldCheck className="w-3 h-3 text-green-600" />
             QR ready · single-use
           </span>
-          <span className="inline-flex items-center gap-1 text-xs font-bold text-primary">
-            Show QR
-            <ArrowRight className="w-3 h-3" />
-          </span>
+          <div className="flex items-center gap-2 shrink-0">
+            {canResell && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(`/sell?studio_ticket=${order.sellableTicketId}`);
+                }}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100"
+              >
+                <Tag className="w-3 h-3" />
+                Resell
+              </button>
+            )}
+            <span className="inline-flex items-center gap-1 text-xs font-bold text-primary">
+              Show QR
+              <ArrowRight className="w-3 h-3" />
+            </span>
+          </div>
         </div>
       </div>
-    </button>
+    </div>
   );
 };
 
