@@ -53,27 +53,76 @@ const MyTicketsHub = () => {
     let cancelled = false;
     (async () => {
       setLoading(true);
-      // Pull every Studio order the user has touched, join the event details
-      // and the per-seat tickets so we can show counts + holder badges in one
-      // round trip. We skip pending/expired/cancelled-without-tickets to keep
-      // the hub focused on usable tickets, but we still show refunded ones
-      // (with a clear status) so the buyer knows what happened.
-      const { data, error } = await supabase
-        .from("event_orders")
-        .select(
-          `id, status, quantity, total_cents, paid_at, created_at, event_id,
-           event:events(title, date, location, slug, banner_url, primary_color),
-           tier:event_tiers(name),
-           tickets:event_tickets(id, status, scanned_at, holder_first_name, holder_last_name)`,
-        )
-        .eq("buyer_id", user.id)
-        .in("status", ["paid", "refunded"])
-        .order("created_at", { ascending: false });
+      // Pull both Studio orders AND resale tickets the user bought in parallel.
+      // Resale tickets live in the `tickets` table (status='sold', buyer_id=me)
+      // and ship with the seller's original PDF/QR rather than a Ticket Safe
+      // generated QR, so the card renders slightly differently.
+      const [{ data: studioData, error: studioErr }, { data: resaleData, error: resaleErr }] = await Promise.all([
+        supabase
+          .from("event_orders")
+          .select(
+            `id, status, quantity, total_cents, paid_at, created_at, event_id,
+             event:events(title, date, location, slug, banner_url, primary_color),
+             tier:event_tiers(name),
+             tickets:event_tickets(id, status, scanned_at, holder_first_name, holder_last_name)`,
+          )
+          .eq("buyer_id", user.id)
+          .in("status", ["paid", "refunded"])
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("tickets")
+          .select(
+            `id, status, quantity, selling_price, file_url, notes, created_at, event_id,
+             event:events(title, date, location, slug, banner_url, primary_color)`,
+          )
+          .eq("buyer_id", user.id)
+          .eq("status", "sold")
+          .order("created_at", { ascending: false }),
+      ]);
+      const data = studioData;
+      const error = studioErr ?? resaleErr;
 
       if (error) {
         console.error("[my-tickets] fetch error:", error);
       }
       if (cancelled) return;
+
+      // Build resale cards first so they appear in the same OrderCard shape.
+      const resaleCards: OrderCard[] = (resaleData ?? []).map(
+        (row: {
+          id: string;
+          status: string;
+          quantity: number;
+          selling_price: number | null;
+          file_url: string | null;
+          notes: string | null;
+          created_at: string;
+          event_id: string;
+          event: { title?: string; date?: string; location?: string; slug?: string; banner_url?: string; primary_color?: string } | { title?: string; date?: string; location?: string; slug?: string; banner_url?: string; primary_color?: string }[] | null;
+        }) => {
+          const ev = Array.isArray(row.event) ? row.event[0] : row.event;
+          return {
+            id: `resale-${row.id}`,
+            status: "paid",
+            quantity: row.quantity ?? 1,
+            total_cents: Math.round((row.selling_price ?? 0) * 100 * (row.quantity ?? 1)),
+            paid_at: row.created_at,
+            created_at: row.created_at,
+            event_id: row.event_id,
+            event_title: ev?.title ?? "Resale ticket",
+            event_date: ev?.date ?? null,
+            event_location: ev?.location ?? null,
+            event_slug: ev?.slug ?? null,
+            event_banner_url: ev?.banner_url ?? null,
+            event_primary_color: ev?.primary_color ?? null,
+            tier_name: "Resale",
+            ticket_count: row.quantity ?? 1,
+            scanned_count: 0,
+            refunded_count: 0,
+            attendees: [],
+          };
+        },
+      );
 
       const cards: OrderCard[] = (data ?? []).map(
         (
@@ -137,7 +186,10 @@ const MyTicketsHub = () => {
         },
       );
 
-      setOrders(cards);
+      const allCards = [...cards, ...resaleCards].sort((a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+      );
+      setOrders(allCards);
       setLoading(false);
     })();
     return () => {
@@ -246,7 +298,12 @@ const TicketCard = ({
 
   return (
     <button
-      onClick={() => navigate(`/my-tickets/${order.id}`)}
+      onClick={() => {
+        // Resale tickets land on PurchaseHistory (their PDF/QR comes from
+        // the seller, no Ticket Safe-generated QR to render).
+        if (order.id.startsWith("resale-")) navigate(`/settings/purchases`);
+        else navigate(`/my-tickets/${order.id}`);
+      }}
       className="w-full text-left bg-card border border-border rounded-2xl overflow-hidden hover:border-primary/30 hover:shadow-soft transition-all flex flex-col md:flex-row"
     >
       <div

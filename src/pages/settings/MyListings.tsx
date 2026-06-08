@@ -35,7 +35,11 @@ import {
   XCircle,
   Euro,
   Plus,
+  Banknote,
+  ArrowRight,
+  Loader2,
 } from "lucide-react";
+import { toast as sonnerToast } from "sonner";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -109,6 +113,29 @@ const MyListings = () => {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortOption>("newest");
+
+  // Resale-seller earnings (gross of 8% Ticket Safe withdrawal fee).
+  const [earnings, setEarnings] = useState<{
+    net_earned_cents: number;
+    claimed_cents: number;
+    available_cents: number;
+    completed_sales: number;
+  } | null>(null);
+  const [payoutModalOpen, setPayoutModalOpen] = useState(false);
+
+  const loadEarnings = async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from("seller_earnings")
+      .select("net_earned_cents, claimed_cents, available_cents, completed_sales")
+      .eq("seller_id", user.id)
+      .maybeSingle();
+    setEarnings((data as { net_earned_cents: number; claimed_cents: number; available_cents: number; completed_sales: number } | null) ?? { net_earned_cents: 0, claimed_cents: 0, available_cents: 0, completed_sales: 0 });
+  };
+
+  useEffect(() => {
+    if (user) loadEarnings();
+  }, [user]);
 
   // Edit price state
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -322,6 +349,51 @@ const MyListings = () => {
               Sell a Ticket
             </Button>
           </div>
+
+          {/* ===== Earnings & Payout — Xceed/Shotgun-style. The "balance" you
+              see here is the gross of every completed resale sale (minus the
+              5% buyer fee Ticket Safe already took at checkout). The 8%
+              Ticket Safe fee is applied LATER, when you click "Get paid". */}
+          {earnings && earnings.available_cents > 0 && (
+            <section className="mb-6">
+              <div className="flex flex-col md:flex-row md:items-center gap-4 rounded-2xl border border-emerald-300 bg-emerald-50 px-5 py-4">
+                <div className="w-11 h-11 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0">
+                  <Banknote className="w-5 h-5 text-emerald-700" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="font-bold text-sm md:text-base text-emerald-900">
+                    €{(earnings.available_cents / 100).toFixed(2)} available to withdraw
+                  </div>
+                  <div className="text-xs md:text-sm text-emerald-800">
+                    Across {earnings.completed_sales} completed sale{earnings.completed_sales !== 1 ? "s" : ""}. Type your IBAN, we wire the SEPA within 2-3 business days (8% Ticket Safe fee applied at withdrawal).
+                  </div>
+                </div>
+                <Button
+                  variant="default"
+                  onClick={() => setPayoutModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 bg-emerald-700 text-white hover:bg-emerald-800 shrink-0"
+                >
+                  <ArrowRight className="w-4 h-4" />
+                  Get paid
+                </Button>
+              </div>
+            </section>
+          )}
+          {earnings && earnings.claimed_cents > 0 && earnings.available_cents === 0 && (
+            <section className="mb-6">
+              <div className="rounded-2xl border border-border bg-card px-5 py-4 flex items-center gap-3">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-bold">
+                    €{(earnings.claimed_cents / 100).toFixed(2)} payout in progress
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    We'll send the SEPA transfer to your IBAN within 2-3 business days.
+                  </div>
+                </div>
+              </div>
+            </section>
+          )}
 
           {/* Stats strip */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
@@ -659,8 +731,208 @@ const MyListings = () => {
         </DialogContent>
       </Dialog>
 
+      {payoutModalOpen && user && (
+        <SellerPayoutModal
+          userId={user.id}
+          available={earnings?.available_cents ?? 0}
+          claimed={earnings?.claimed_cents ?? 0}
+          netEarned={earnings?.net_earned_cents ?? 0}
+          onClose={() => setPayoutModalOpen(false)}
+          onSubmitted={() => {
+            setPayoutModalOpen(false);
+            loadEarnings();
+            sonnerToast.success("Payout requested. SEPA transfer within 2-3 business days.");
+          }}
+        />
+      )}
+
       <Footer />
     </div>
+  );
+};
+
+// ────────────────────────────────────────────────────────────────────────────
+// SellerPayoutModal — mirror of the Studio PayoutModal but wired to
+// request-seller-payout. No KYC, just an IBAN + amount. The 8% Ticket Safe
+// fee is computed live and subtracted from the gross at submit.
+// ────────────────────────────────────────────────────────────────────────────
+const SellerPayoutModal = ({
+  userId,
+  available,
+  claimed,
+  netEarned,
+  onClose,
+  onSubmitted,
+}: {
+  userId: string;
+  available: number;
+  claimed: number;
+  netEarned: number;
+  onClose: () => void;
+  onSubmitted: () => void;
+}) => {
+  const [iban, setIban] = useState("");
+  const [holder, setHolder] = useState("");
+  const [amount, setAmount] = useState(((available || 0) / 100).toFixed(2));
+  const [submitting, setSubmitting] = useState(false);
+  const [history, setHistory] = useState<{ id: string; amount_cents: number; status: string; iban_used: string; requested_at: string }[]>([]);
+  const [loadedDefaults, setLoadedDefaults] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const [{ data: profile }, { data: hist }] = await Promise.all([
+        supabase.from("profiles").select("payout_iban, payout_iban_holder").eq("id", userId).maybeSingle(),
+        supabase.from("seller_payouts").select("id, amount_cents, status, iban_used, requested_at").eq("seller_id", userId).order("requested_at", { ascending: false }).limit(10),
+      ]);
+      if (profile?.payout_iban) setIban((profile.payout_iban as string).replace(/\s+/g, "").toUpperCase());
+      if (profile?.payout_iban_holder) setHolder(profile.payout_iban_holder as string);
+      setHistory((hist as { id: string; amount_cents: number; status: string; iban_used: string; requested_at: string }[]) ?? []);
+      setLoadedDefaults(true);
+    })();
+  }, [userId]);
+
+  const cleanedIban = iban.replace(/\s+/g, "").toUpperCase();
+  const ibanValid = /^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/.test(cleanedIban);
+  const cents = Math.round(parseFloat(amount.replace(",", ".") || "0") * 100);
+  const amountValid = Number.isFinite(cents) && cents >= 100 && cents <= available;
+  const canSubmit = ibanValid && holder.trim().length >= 2 && amountValid && !submitting;
+
+  const submit = async () => {
+    if (!canSubmit) return;
+    setSubmitting(true);
+    const { data, error } = await supabase.functions.invoke("request-seller-payout", {
+      body: { amount_cents: cents, iban: cleanedIban, iban_holder: holder.trim() },
+    });
+    setSubmitting(false);
+    if (error || (data as { error?: string })?.error) {
+      sonnerToast.error((data as { error?: string })?.error ?? error?.message ?? "Could not request the payout.");
+      return;
+    }
+    onSubmitted();
+  };
+
+  const feeCents = amountValid && cents > 0 ? Math.round(cents * 0.08) : 0;
+  const netCents = cents - feeCents;
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end md:items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-card w-full max-w-lg rounded-2xl shadow-2xl border border-border max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="px-6 py-5 border-b border-border flex items-start justify-between">
+          <div>
+            <h2 className="text-xl font-black">Get paid</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">Resale earnings · SEPA · 2-3 business days · no KYC</p>
+          </div>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-xl leading-none">×</button>
+        </div>
+
+        <div className="px-6 py-5 space-y-5">
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3">
+              <div className="text-[10px] uppercase tracking-wider font-bold text-emerald-700">Available</div>
+              <div className="text-lg font-black text-emerald-900">€{(available / 100).toFixed(2)}</div>
+            </div>
+            <div className="rounded-xl bg-muted border border-border p-3">
+              <div className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">In progress</div>
+              <div className="text-lg font-black">€{(claimed / 100).toFixed(2)}</div>
+            </div>
+            <div className="rounded-xl bg-muted border border-border p-3">
+              <div className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Total earned</div>
+              <div className="text-lg font-black">€{(netEarned / 100).toFixed(2)}</div>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-border bg-muted/40 p-4 text-xs leading-relaxed text-muted-foreground">
+            <div className="font-bold text-foreground mb-1.5 text-[11px] uppercase tracking-wider">Fee breakdown</div>
+            Buyers pay a <strong className="text-foreground">5% service fee</strong> on top at checkout (already deducted upstream).
+            Ticket Safe takes another <strong className="text-foreground">8%</strong> when you withdraw — net wired to your IBAN.
+          </div>
+
+          {!loadedDefaults ? (
+            <div className="py-6 flex justify-center"><Loader2 className="w-5 h-5 animate-spin text-primary" /></div>
+          ) : available <= 0 ? (
+            <div className="rounded-xl border border-border bg-muted/40 p-4 text-sm text-muted-foreground">
+              Nothing to withdraw yet. Funds become available as your resale listings sell.
+            </div>
+          ) : (
+            <>
+              <div>
+                <label className="text-xs font-bold text-muted-foreground mb-1 block">IBAN holder name</label>
+                <input value={holder} onChange={(e) => setHolder(e.target.value)} className="w-full px-3 py-2.5 rounded-lg border border-border bg-background text-sm" placeholder="Your full name" maxLength={120} />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-muted-foreground mb-1 block">IBAN</label>
+                <input value={iban} onChange={(e) => setIban(e.target.value.toUpperCase())} className="w-full px-3 py-2.5 rounded-lg border border-border bg-background text-sm font-mono" placeholder="FR76 3000 4000 0312 3456 7890 143" maxLength={40} />
+                {iban && !ibanValid && (<p className="text-xs text-amber-700 mt-1">IBAN format looks off — double-check the digits.</p>)}
+              </div>
+              <div>
+                <label className="text-xs font-bold text-muted-foreground mb-1 block">Amount to withdraw (EUR)</label>
+                <div className="flex items-center gap-2">
+                  <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} step="0.01" min="1" max={(available / 100).toFixed(2)} className="flex-1 px-3 py-2.5 rounded-lg border border-border bg-background text-sm" />
+                  <button type="button" onClick={() => setAmount(((available || 0) / 100).toFixed(2))} className="px-3 py-2.5 rounded-lg border border-border text-xs font-bold hover:bg-muted">Max</button>
+                </div>
+                {!amountValid && (<p className="text-xs text-amber-700 mt-1">Amount must be between €1.00 and €{(available / 100).toFixed(2)}.</p>)}
+              </div>
+
+              {amountValid && cents > 0 && (
+                <div className="rounded-xl bg-primary/5 border border-primary/20 p-4 text-sm space-y-1.5">
+                  <div className="flex items-center justify-between text-muted-foreground">
+                    <span>Gross withdrawal</span>
+                    <span>€{(cents / 100).toFixed(2)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-muted-foreground">
+                    <span>Ticket Safe fee (8%)</span>
+                    <span>−€{(feeCents / 100).toFixed(2)}</span>
+                  </div>
+                  <div className="flex items-center justify-between font-black text-foreground text-base border-t border-primary/20 pt-1.5 mt-1.5">
+                    <span>You will receive</span>
+                    <span className="text-primary">€{(netCents / 100).toFixed(2)}</span>
+                  </div>
+                </div>
+              )}
+
+              <button onClick={submit} disabled={!canSubmit} className="w-full inline-flex items-center justify-center gap-2 min-h-[44px] rounded-lg font-bold bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-60">
+                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : (<><ArrowRight className="w-4 h-4" />Request €{(netCents / 100).toFixed(2)} net</>)}
+              </button>
+              <p className="text-[11px] text-muted-foreground text-center">
+                Ticket Safe deducts 8% at withdrawal. Net wired to your IBAN within 2-3 business days. No KYC required.
+              </p>
+            </>
+          )}
+
+          {history.length > 0 && (
+            <div className="pt-4 border-t border-border">
+              <h3 className="text-xs uppercase tracking-wider font-bold text-muted-foreground mb-2">Recent payouts</h3>
+              <div className="space-y-2">
+                {history.map((p) => (
+                  <div key={p.id} className="flex items-center justify-between text-sm">
+                    <div className="min-w-0">
+                      <div className="font-semibold">€{(p.amount_cents / 100).toFixed(2)}</div>
+                      <div className="text-[11px] text-muted-foreground truncate">{p.iban_used.slice(0, 4)} ··· {p.iban_used.slice(-4)} · {new Date(p.requested_at).toLocaleDateString("en-GB")}</div>
+                    </div>
+                    <SellerPayoutStatus status={p.status} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const SellerPayoutStatus = ({ status }: { status: string }) => {
+  const map: Record<string, string> = {
+    requested: "bg-amber-100 text-amber-700",
+    processing: "bg-blue-100 text-blue-700",
+    sent: "bg-emerald-100 text-emerald-700",
+    failed: "bg-red-100 text-red-700",
+    cancelled: "bg-muted text-muted-foreground",
+  };
+  return (
+    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${map[status] ?? "bg-muted text-muted-foreground"}`}>
+      {status}
+    </span>
   );
 };
 
