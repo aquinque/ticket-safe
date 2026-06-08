@@ -172,8 +172,32 @@ Deno.serve(async (req) => {
         return json({ status: "expired", message: "This ticket token has expired." });
       }
 
-      // Event match (if caller provided eventId)
-      const jwtEventId = (payload?.event_id ?? payload?.eid) as string | undefined;
+      // ── Studio event_tickets cross-check (v25 deployed) ──
+      // The JWT *is* the qr_token stored on event_tickets, so we look the
+      // live row up to know: real / right event / scanned / transferred /
+      // owned by the seller. This is the canonical source of truth — the
+      // legacy secure_tickets fallback below is kept only for older rows.
+      const { data: et } = await supabase
+        .from("event_tickets")
+        .select(`id, event_id, buyer_id, status, scanned_at,
+                 event:events(title, status)`)
+        .eq("qr_token", raw)
+        .maybeSingle();
+      if (et) {
+        const ev = Array.isArray((et as { event?: unknown }).event)
+          ? (et as { event: { title: string; status: string }[] }).event[0]
+          : (et as { event: { title: string; status: string } | null }).event;
+        if (ev?.status === "cancelled") return json({ status: "invalid", message: "The event linked to this ticket was cancelled — the seller has already been refunded." });
+        if (et.status === "transferred") return json({ status: "already_used", message: "This ticket was already resold on Ticket Safe — the new buyer holds the valid QR." });
+        if (et.status === "scanned" || et.scanned_at) return json({ status: "already_used", message: "This ticket has already been scanned at the door." });
+        if (et.status === "cancelled" || et.status === "refunded") return json({ status: "invalid", message: "This ticket was cancelled or refunded — it cannot be resold." });
+        if (eventId && et.event_id !== eventId) return json({ status: "wrong_event", message: `This QR belongs to a different event ("${ev?.title ?? "unknown"}"). Pick the correct event and re-upload.`, qr_type: "platform", event_id: et.event_id });
+        if (userId && et.buyer_id !== userId) return json({ status: "invalid", message: "This ticket doesn't belong to you. Only the original buyer can resell a Ticket Safe ticket." });
+        return json({ status: "valid", qr_type: "platform", needs_review: false, event_id: et.event_id, ticket_id: et.id, studio_ticket_id: et.id, message: "Studio ticket verified — real, owned by you, valid for this event, never scanned." });
+      }
+
+      // Event match fallback via JWT payload (legacy / no event_tickets row)
+      const jwtEventId = (payload?.event_id ?? payload?.eid ?? payload?.evt) as string | undefined;
       if (eventId && jwtEventId && jwtEventId !== eventId) {
         return json({
           status: "wrong_event",
@@ -183,7 +207,7 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Check secure_tickets status (platform-issued tickets)
+      // Check secure_tickets status (legacy platform-issued tickets)
       const ticketRef = (payload?.tid ?? payload?.sub ?? payload?.ticket_id) as string | undefined;
       if (ticketRef) {
         const { data: secTkt } = await supabase

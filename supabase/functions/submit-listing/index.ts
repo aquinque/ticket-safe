@@ -406,6 +406,10 @@ serve(async (req) => {
     // 6b. Signature verification
     let qrVerified = false;
     let qrType = "plain"; // for debug logging
+    // If the seller uploads a Studio JWT we issued ourselves, this captures
+    // the linked event_tickets row so we can persist studio_ticket_id on the
+    // resale listing AND auto-approve (no admin review for our own tickets).
+    let linkedStudioTicketId: string | null = null;
     const signingSecret = Deno.env.get("TICKET_SIGNING_SECRET");
 
     const JWT_RE = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/;
@@ -427,8 +431,51 @@ serve(async (req) => {
             return jsonResponse({ code: "EXPIRED", message: "This ticket token has expired" }, 400);
           }
 
-          // Look up ticket in secure_tickets
-          if (payload) {
+          // ── Studio event_tickets path (current source of truth) ──
+          // The JWT *is* the qr_token stored on event_tickets, so a direct
+          // lookup tells us: real (signed by us), owned by this seller,
+          // matching event, never scanned, not transferred.
+          const { data: et } = await supabase
+            .from("event_tickets")
+            .select(`id, event_id, buyer_id, status, scanned_at,
+                     event:events(title, status)`)
+            .eq("qr_token", trimmedQR)
+            .maybeSingle();
+
+          if (et) {
+            const ev = Array.isArray((et as { event?: unknown }).event)
+              ? (et as { event: { title: string; status: string }[] }).event[0]
+              : (et as { event: { title: string; status: string } | null }).event;
+
+            if (ev?.status === "cancelled") {
+              return jsonResponse({ code: "CANCELLED", message: "The event linked to this ticket was cancelled — the original buyer has been refunded." }, 400);
+            }
+            if (et.status === "transferred") {
+              return jsonResponse({ code: "ALREADY_USED", message: "This ticket was already resold on Ticket Safe — the new buyer holds the valid QR." }, 400);
+            }
+            if (et.status === "scanned" || et.scanned_at) {
+              return jsonResponse({ code: "ALREADY_USED", message: "This ticket has already been scanned at the door." }, 400);
+            }
+            if (et.status === "cancelled" || et.status === "refunded") {
+              return jsonResponse({ code: "CANCELLED", message: "This ticket was cancelled or refunded — it cannot be resold." }, 400);
+            }
+            if (et.event_id !== eventId.trim()) {
+              return jsonResponse({
+                code: "INVALID_FORMAT",
+                message: `This QR belongs to a different event ("${ev?.title ?? "unknown"}"). Pick the correct event and re-upload.`,
+              }, 400);
+            }
+            if (et.buyer_id !== user.id) {
+              return jsonResponse({
+                code: "INVALID_FORMAT",
+                message: "This ticket doesn't belong to you. Only the original buyer can resell a Ticket Safe ticket.",
+              }, 400);
+            }
+            // All Studio checks passed — flag for studio_ticket_id link + auto-approve
+            linkedStudioTicketId = et.id;
+            console.log("[submit-listing] Studio JWT verified against event_tickets", { ticket_id: et.id, event_id: et.event_id, seller_id: user.id });
+          } else if (payload) {
+            // Legacy secure_tickets fallback (kept for any pre-event_tickets rows)
             const ticketRef = (payload.tid ?? payload.sub ?? payload.ticket_id) as string | undefined;
             if (ticketRef) {
               const { data: secTkt } = await supabase
@@ -436,7 +483,6 @@ serve(async (req) => {
                 .select("id, status, is_revoked")
                 .eq("ticket_number", ticketRef)
                 .maybeSingle();
-
               if (secTkt) {
                 if (secTkt.is_revoked || secTkt.status === "REVOKED") {
                   return jsonResponse({ code: "CANCELLED", message: "This ticket has been revoked or cancelled" }, 400);
@@ -448,7 +494,6 @@ serve(async (req) => {
                   return jsonResponse({ code: "EXPIRED", message: "This ticket has expired" }, 400);
                 }
               }
-              // Not found in secure_tickets — may be an external JWT that happens to pass our signature (very unlikely), accept for review
             }
           }
           qrVerified = true;
@@ -538,20 +583,24 @@ serve(async (req) => {
     // -----------------------------------------------------------------------
     // 8. Insert listing
     // -----------------------------------------------------------------------
-    const needsReview = !qrVerified;
+    // Studio tickets we've already cross-checked against event_tickets are
+    // auto-approved (no admin review). Everything else still routes through
+    // the admin queue.
+    const isStudioResale = linkedStudioTicketId !== null;
+    const needsReview = !isStudioResale;
 
     console.log("[submit-listing] qr decision", {
-      qr_type:      qrType,
-      qr_verified:  qrVerified,
-      needs_review: needsReview,
-      event_id:     eventId,
-      event_title:  event.title,
-      seller_id:    user.id,
+      qr_type:                qrType,
+      qr_verified:            qrVerified,
+      needs_review:           needsReview,
+      studio_ticket_id:       linkedStudioTicketId,
+      event_id:               eventId,
+      event_title:            event.title,
+      seller_id:              user.id,
     });
 
     // ── Try full insert (with QR columns) ──────────────────────────────────
     // Falls back to minimal insert if optional columns don't exist yet (42703).
-    // ALL tickets start as pending and require admin approval before going live.
     let listing: Record<string, unknown> | null = null;
 
     const fullInsert = await supabase
@@ -564,9 +613,10 @@ serve(async (req) => {
         notes:               sanitizedNotes,
         status:              "available",
         qr_hash:             qrHash,
-        qr_verified:         qrVerified,
-        needs_review:        true,
-        verification_status: "pending",
+        qr_verified:         isStudioResale ? true : qrVerified,
+        needs_review:        needsReview,
+        verification_status: isStudioResale ? "verified" : "pending",
+        studio_ticket_id:    linkedStudioTicketId,
       })
       .select(
         "id, event_id, seller_id, selling_price, quantity, notes, status, qr_verified, needs_review, created_at, updated_at, event:events(id, title, date, location, category, university, campus)"
@@ -623,9 +673,10 @@ serve(async (req) => {
 
     // -----------------------------------------------------------------------
     // 9. Notify admin of pending ticket (fire-and-forget)
-    // ALL tickets require admin approval — always send notification email.
+    // Studio resales are pre-verified against event_tickets — no review email.
+    // Everything else still routes to Achille + Adrien for manual approval.
     // -----------------------------------------------------------------------
-    if (true) {
+    if (!isStudioResale) {
       const resendKey = Deno.env.get("RESEND_API_KEY");
       const siteUrl = Deno.env.get("SITE_URL") ?? "https://ticket-safe.eu";
       const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
