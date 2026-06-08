@@ -57,6 +57,7 @@ import EventPublic from "./pages/EventPublic";
 import MyTickets from "./pages/MyTickets";
 import MyTicketsHub from "./pages/MyTicketsHub";
 import AdminOrganizers from "./pages/admin/AdminOrganizers";
+import AdminPayouts from "./pages/admin/AdminPayouts";
 import ChatBubble from "./components/ChatBubble";
 
 const App = () => (
@@ -120,6 +121,7 @@ const App = () => (
       <Route path="/my-tickets" element={<MyTicketsHub />} />
       <Route path="/my-tickets/:orderId" element={<MyTickets />} />
       <Route path="/admin/organizers" element={<AdminOrganizers />} />
+      <Route path="/admin/payouts" element={<AdminPayouts />} />
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
       <Route path="*" element={<NotFound />} />
     </Routes>
