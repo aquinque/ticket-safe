@@ -67,16 +67,17 @@ const MyTickets = () => {
     let cancelled = false;
     (async () => {
       setLoading(true);
-      const { data: ord } = await supabase
-        .from("event_orders")
-        .select(
-          `id, event_id, buyer_id, quantity, total_cents, status, created_at,
-           event:events(title, date, location, slug, primary_color, banner_url, logo_url),
-           tier:event_tiers(name)`,
-        )
-        .eq("id", orderId)
-        .maybeSingle();
-      if (!ord || ord.buyer_id !== user.id) {
+      // Authorisation rule: the user must own at least ONE event_ticket in
+      // this order. That covers both Studio primary buyers (they own all
+      // tickets in their own order) AND Studio resale buyers (whose new
+      // ticket lives under the SELLER's original order_id after transfer).
+      const { data: tix } = await supabase
+        .from("event_tickets")
+        .select("id, qr_token, scanned_at, status, holder_first_name, holder_last_name, holder_email, event_id, tier_id")
+        .eq("order_id", orderId)
+        .eq("buyer_id", user.id)
+        .order("created_at", { ascending: true });
+      if (!tix || tix.length === 0) {
         if (!cancelled) {
           setOrder(null);
           setLoading(false);
@@ -84,23 +85,40 @@ const MyTickets = () => {
         return;
       }
 
-      const ev = Array.isArray((ord as { event: unknown }).event)
-        ? (ord as { event: OrderRow["event"][] }).event[0]
-        : (ord as { event: OrderRow["event"] }).event;
-      const tier = Array.isArray((ord as { tier: unknown }).tier)
-        ? (ord as { tier: OrderRow["tier"][] }).tier[0]
-        : (ord as { tier: OrderRow["tier"] }).tier;
-
-      const { data: tix } = await supabase
-        .from("event_tickets")
-        .select("id, qr_token, scanned_at, status, holder_first_name, holder_last_name, holder_email")
-        .eq("order_id", orderId)
-        .order("created_at", { ascending: true });
+      const firstEventId = (tix[0] as { event_id: string }).event_id;
+      const firstTierId = (tix[0] as { tier_id: string }).tier_id;
+      const [{ data: ord }, { data: ev }, { data: tier }] = await Promise.all([
+        supabase
+          .from("event_orders")
+          .select("id, event_id, buyer_id, quantity, total_cents, status, created_at")
+          .eq("id", orderId)
+          .maybeSingle(),
+        supabase
+          .from("events")
+          .select("title, date, location, slug, primary_color, banner_url, logo_url")
+          .eq("id", firstEventId)
+          .maybeSingle(),
+        supabase
+          .from("event_tiers")
+          .select("name")
+          .eq("id", firstTierId)
+          .maybeSingle(),
+      ]);
 
       if (cancelled) return;
 
-      setOrder({ ...(ord as OrderRow), event: ev ?? null, tier: tier ?? null });
-      setTickets((tix as TicketRow[]) ?? []);
+      setOrder({
+        id: orderId,
+        event_id: firstEventId,
+        buyer_id: user.id,
+        quantity: tix.length,
+        total_cents: (ord as { total_cents?: number } | null)?.total_cents ?? 0,
+        status: (ord as { status?: string } | null)?.status ?? "paid",
+        created_at: (ord as { created_at?: string } | null)?.created_at ?? new Date().toISOString(),
+        event: (ev as OrderRow["event"]) ?? null,
+        tier: (tier as OrderRow["tier"]) ?? null,
+      });
+      setTickets(tix as TicketRow[]);
 
       // Fetch each ticket's QR SVG via the auth-gated edge function. The
       // resulting blob:// URL is the only thing we render.

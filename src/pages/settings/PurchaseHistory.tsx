@@ -266,6 +266,22 @@ const PurchaseHistory = () => {
                           </Link>
                         </div>
                       )}
+
+                      {/* Resale purchase: link to the My Tickets hub where
+                          Studio-transferred tickets show the buyer's fresh
+                          QR and external resales link to the seller's file. */}
+                      {purchase.source === "resale" && purchase.status === "confirmed" && (
+                        <div className="mt-2 ml-6">
+                          <Link
+                            to="/my-tickets"
+                            className="inline-flex items-center gap-1.5 text-xs font-bold text-primary hover:gap-2 transition-all"
+                          >
+                            <QrCode className="w-3.5 h-3.5" />
+                            View ticket
+                            <ArrowRight className="w-3 h-3" />
+                          </Link>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

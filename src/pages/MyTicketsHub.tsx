@@ -60,7 +60,17 @@ const MyTicketsHub = () => {
       // Resale tickets live in the `tickets` table (status='sold', buyer_id=me)
       // and ship with the seller's original PDF/QR rather than a Ticket Safe
       // generated QR, so the card renders slightly differently.
-      const [{ data: studioData, error: studioErr }, { data: resaleData, error: resaleErr }] = await Promise.all([
+      // 3 sources, queried in parallel:
+      //   1. event_orders   — Studio primary buyers (their own order)
+      //   2. tickets        — resale buyers (external + Studio)
+      //   3. event_tickets  — buyers of a Studio RESALE: their new ticket
+      //                       sits under the SELLER's order_id, so query (1)
+      //                       misses it. We surface it as its own card here.
+      const [
+        { data: studioData, error: studioErr },
+        { data: resaleData, error: resaleErr },
+        { data: transferredData, error: transferredErr },
+      ] = await Promise.all([
         supabase
           .from("event_orders")
           .select(
@@ -75,23 +85,38 @@ const MyTicketsHub = () => {
         supabase
           .from("tickets")
           .select(
-            `id, status, quantity, selling_price, file_url, notes, created_at, event_id,
+            `id, status, quantity, selling_price, file_url, notes, created_at, event_id, studio_ticket_id,
              event:events(title, date, location, slug, banner_url, primary_color)`,
           )
           .eq("buyer_id", user.id)
           .eq("status", "sold")
           .order("created_at", { ascending: false }),
+        supabase
+          .from("event_tickets")
+          .select(
+            `id, order_id, event_id, tier_id, status, scanned_at,
+             holder_first_name, holder_last_name, created_at,
+             event:events(title, date, location, slug, banner_url, primary_color),
+             tier:event_tiers(name)`,
+          )
+          .eq("buyer_id", user.id)
+          .in("status", ["valid", "scanned"])
+          .order("created_at", { ascending: false }),
       ]);
       const data = studioData;
-      const error = studioErr ?? resaleErr;
+      const error = studioErr ?? resaleErr ?? transferredErr;
 
       if (error) {
         console.error("[my-tickets] fetch error:", error);
       }
       if (cancelled) return;
 
-      // Build resale cards first so they appear in the same OrderCard shape.
-      const resaleCards: OrderCard[] = (resaleData ?? []).map(
+      // Resale cards — show EXTERNAL resales only. Studio resales are
+      // surfaced via the event_tickets query below so the buyer gets the
+      // real QR view instead of a dead-end card.
+      const resaleCards: OrderCard[] = (resaleData ?? [])
+        .filter((row: { studio_ticket_id?: string | null }) => !row.studio_ticket_id)
+        .map(
         (row: {
           id: string;
           status: string;
@@ -101,6 +126,7 @@ const MyTicketsHub = () => {
           notes: string | null;
           created_at: string;
           event_id: string;
+          studio_ticket_id?: string | null;
           event: { title?: string; date?: string; location?: string; slug?: string; banner_url?: string; primary_color?: string } | { title?: string; date?: string; location?: string; slug?: string; banner_url?: string; primary_color?: string }[] | null;
         }) => {
           const ev = Array.isArray(row.event) ? row.event[0] : row.event;
@@ -128,6 +154,63 @@ const MyTicketsHub = () => {
           };
         },
       );
+
+      // Transferred cards — event_tickets the user owns that DON'T belong
+      // to one of their own Studio orders. These are Studio resales that
+      // the webhook re-issued in their name.
+      const studioOrderIds = new Set((data ?? []).map((r: { id: string }) => r.id));
+      const transferredRows = (transferredData ?? []).filter(
+        (t: { order_id: string }) => !studioOrderIds.has(t.order_id),
+      );
+      type TransferredRow = {
+        id: string;
+        order_id: string;
+        event_id: string;
+        status: string;
+        scanned_at: string | null;
+        holder_first_name: string | null;
+        holder_last_name: string | null;
+        created_at: string;
+        event: { title?: string; date?: string; location?: string; slug?: string; banner_url?: string; primary_color?: string } | { title?: string; date?: string; location?: string; slug?: string; banner_url?: string; primary_color?: string }[] | null;
+        tier: { name?: string } | { name?: string }[] | null;
+      };
+      const byOrder = new Map<string, TransferredRow[]>();
+      for (const t of transferredRows as TransferredRow[]) {
+        const arr = byOrder.get(t.order_id) ?? [];
+        arr.push(t);
+        byOrder.set(t.order_id, arr);
+      }
+      const transferredCards: OrderCard[] = Array.from(byOrder.entries()).map(([orderId, rows]) => {
+        const first = rows[0];
+        const ev = Array.isArray(first.event) ? first.event[0] : first.event;
+        const tier = Array.isArray(first.tier) ? first.tier[0] : first.tier;
+        const attendees = rows
+          .map((t) => [t.holder_first_name, t.holder_last_name].filter(Boolean).join(" ").trim())
+          .filter(Boolean);
+        const sellable = rows.find((t) => t.status === "valid" && t.scanned_at == null);
+        return {
+          id: orderId,
+          status: "paid",
+          quantity: rows.length,
+          total_cents: 0,
+          paid_at: first.created_at,
+          created_at: first.created_at,
+          event_id: first.event_id,
+          event_title: ev?.title ?? "Event",
+          event_date: ev?.date ?? null,
+          event_location: ev?.location ?? null,
+          event_slug: ev?.slug ?? null,
+          event_banner_url: ev?.banner_url ?? null,
+          event_primary_color: ev?.primary_color ?? null,
+          tier_name: tier?.name ?? "Resale (transferred)",
+          ticket_count: rows.length,
+          scanned_count: rows.filter((t) => t.scanned_at != null).length,
+          refunded_count: 0,
+          attendees,
+          sellableTicketId: sellable?.id ?? null,
+          isResale: false,
+        };
+      });
 
       const cards: OrderCard[] = (data ?? []).map(
         (
@@ -194,8 +277,8 @@ const MyTicketsHub = () => {
         },
       );
 
-      const allCards = [...cards, ...resaleCards].sort((a, b) =>
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+      const allCards = [...cards, ...transferredCards, ...resaleCards].sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
       );
       setOrders(allCards);
       setLoading(false);
