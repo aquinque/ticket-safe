@@ -399,6 +399,63 @@ ${ticketBlocks.join("")}
             .eq("id", listingId)
             .in("status", ["available", "reserved"]);
 
+          // ── Studio-resale QR transfer (deployed v30+) ────────────────────
+          // If this resale row was created from a Studio ticket the user
+          // already owned, invalidate that QR (status='transferred') and
+          // issue a fresh signed event_ticket row to the buyer so the door
+          // scanner accepts the new owner and rejects the seller.
+          // The canonical implementation lives in the deployed function;
+          // this on-disk twin only stubs the hook so a future CLI deploy
+          // doesn't silently drop the behavior.
+          try {
+            const buyerIdForXfer = session.metadata?.buyer_id ?? null;
+            const { data: xferListing } = await supabase
+              .from("tickets")
+              .select("studio_ticket_id")
+              .eq("id", listingId)
+              .maybeSingle();
+            const studioTicketId = (xferListing as { studio_ticket_id?: string | null } | null)?.studio_ticket_id ?? null;
+            if (studioTicketId && buyerIdForXfer) {
+              const { data: oldTicket } = await supabase
+                .from("event_tickets")
+                .select("id, event_id, tier_id, order_id, status")
+                .eq("id", studioTicketId)
+                .maybeSingle();
+              if (oldTicket && oldTicket.status !== "transferred" && oldTicket.status !== "scanned") {
+                await supabase.from("event_tickets").update({ status: "transferred" }).eq("id", oldTicket.id);
+                const { data: buyerForXfer } = await supabase.from("profiles").select("full_name, email").eq("id", buyerIdForXfer).maybeSingle();
+                const { data: evForExp } = await supabase.from("events").select("date").eq("id", oldTicket.event_id).maybeSingle();
+                const expSeconds = evForExp?.date
+                  ? Math.floor(new Date(evForExp.date).getTime() / 1000) + 86_400
+                  : Math.floor(Date.now() / 1000) + 30 * 86_400;
+                const newTicketId = crypto.randomUUID();
+                const signed = await signStudioTicketJWT({
+                  ticket_id: newTicketId,
+                  event_id: oldTicket.event_id,
+                  exp_seconds: expSeconds,
+                });
+                const newQr = signed ?? crypto.randomUUID().replace(/-/g, "");
+                const fullName = ((buyerForXfer as { full_name?: string } | null)?.full_name ?? "").trim();
+                const parts = fullName.split(/\s+/).filter(Boolean);
+                await supabase.from("event_tickets").insert({
+                  id: newTicketId,
+                  order_id: oldTicket.order_id,
+                  event_id: oldTicket.event_id,
+                  tier_id: oldTicket.tier_id,
+                  buyer_id: buyerIdForXfer,
+                  qr_token: newQr,
+                  holder_first_name: parts[0] ?? null,
+                  holder_last_name: parts.length > 1 ? parts.slice(1).join(" ") : null,
+                  holder_email: (buyerForXfer as { email?: string } | null)?.email ?? null,
+                  status: "valid",
+                });
+                console.log(`[resale-xfer] old=${oldTicket.id} new=${newTicketId} buyer=${buyerIdForXfer}`);
+              }
+            }
+          } catch (err) {
+            console.error("[resale-xfer] failed:", err);
+          }
+
           // Send confirmation email to buyer + notification to seller
           const buyerId = session.metadata?.buyer_id;
           if (buyerId) {
