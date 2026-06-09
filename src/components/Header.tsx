@@ -217,6 +217,10 @@ const Header = ({ minimal = false }: HeaderProps) => {
                         <User className="h-4 w-4 mr-2" />
                         Admin · Organizers
                       </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => navigate("/admin/debug")}>
+                        <Settings className="h-4 w-4 mr-2" />
+                        Admin · System health
+                      </DropdownMenuItem>
                     </>
                   )}
                   <DropdownMenuSeparator />
