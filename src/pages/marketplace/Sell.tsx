@@ -19,6 +19,7 @@ import { z } from "zod";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { BackButton } from "@/components/BackButton";
+import { AnimatedNumber } from "@/components/AnimatedNumber";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -1178,8 +1179,12 @@ const Sell = () => {
                     <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-2">
                       You receive
                     </div>
-                    <div className="text-3xl md:text-4xl font-semibold tabular-nums tracking-tight leading-none text-primary mb-4">
-                      {bd ? `€${bd.sellerPayoutEuros.toFixed(2)}` : "€—"}
+                    <div className="text-3xl md:text-4xl font-semibold tracking-tight leading-none text-primary mb-4">
+                      {bd ? (
+                        <AnimatedNumber value={bd.sellerPayoutEuros} prefix="€" />
+                      ) : (
+                        <span className="tabular-nums">€—</span>
+                      )}
                     </div>
 
                     <div className="space-y-1.5 text-sm pt-4 border-t border-border">

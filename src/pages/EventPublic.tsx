@@ -16,6 +16,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { SEOHead } from "@/components/SEOHead";
+import { AnimatedNumber } from "@/components/AnimatedNumber";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -686,8 +687,8 @@ const EventPublic = () => {
                   <span className="text-base md:text-lg font-semibold tracking-tight text-foreground">
                     Total
                   </span>
-                  <span className="text-3xl md:text-4xl font-semibold tabular-nums tracking-tight leading-none" style={{ color: primary }}>
-                    €{(grandCents / 100).toFixed(2)}
+                  <span style={{ color: primary }} className="text-3xl md:text-4xl font-semibold tracking-tight leading-none">
+                    <AnimatedNumber value={grandCents / 100} prefix="€" />
                   </span>
                 </div>
 

@@ -321,14 +321,19 @@ export default function Marketplace() {
                 {view === "available" && ` · ${filtered.filter(e => (e.available_tickets ?? 0) > 0).length} with tickets`}
               </p>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filtered.map((ev) => {
+                {filtered.map((ev, i) => {
                   const hasTickets = (ev.available_tickets ?? 0) > 0;
                   const diffDays = Math.ceil((new Date(ev.start_date).getTime() - Date.now()) / 86400000);
 
                   return (
                     <Card
                       key={ev.id}
-                      className="overflow-hidden hover:shadow-xl transition-all duration-300 cursor-pointer group"
+                      // Stagger entrance: each card fades + slides up 4px,
+                      // capped at 12 (~600ms) so a grid of 50 doesn't make
+                      // the user wait. Combined with a hover lift (-translate-y
+                      // + brand-tinted shadow) so each card feels alive.
+                      className="overflow-hidden hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300 cursor-pointer group animate-in fade-in slide-in-from-bottom-2 fill-mode-both"
+                      style={{ animationDelay: `${Math.min(i, 12) * 40}ms` }}
                       onClick={() => navigate(`/event/${ev.id}/tickets`)}
                     >
                       <div className="relative h-48 overflow-hidden">

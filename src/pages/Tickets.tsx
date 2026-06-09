@@ -489,8 +489,14 @@ const Tickets = () => {
               />
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
-                {filteredEvents.map((e) => (
-                  <EventCard key={e.id} event={e} />
+                {filteredEvents.map((e, i) => (
+                  <div
+                    key={e.id}
+                    className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both"
+                    style={{ animationDelay: `${Math.min(i, 12) * 40}ms` }}
+                  >
+                    <EventCard event={e} />
+                  </div>
                 ))}
               </div>
             )}
