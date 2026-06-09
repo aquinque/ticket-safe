@@ -296,8 +296,21 @@ const MyTicketsHub = () => {
     );
   }
 
-  const upcoming = orders.filter((o) => o.event_date && new Date(o.event_date) >= new Date());
-  const past = orders.filter((o) => !o.event_date || new Date(o.event_date) < new Date());
+  // "Available" = event still in the future AND at least one ticket can
+  // still be scanned (not all used / refunded). Anything else falls into
+  // "Past or used": the event already happened, or every ticket has been
+  // burnt at the door, or every ticket was refunded.
+  const now = Date.now();
+  const isAvailable = (o: OrderCard) => {
+    const future = o.event_date && new Date(o.event_date).getTime() >= now;
+    if (!future) return false;
+    if (o.ticket_count === 0) return true; // resale card with no event_tickets — treat as available
+    const allUsed = o.scanned_count >= o.ticket_count;
+    const allRefunded = o.refunded_count >= o.ticket_count;
+    return !allUsed && !allRefunded;
+  };
+  const available = orders.filter(isAvailable);
+  const pastOrUsed = orders.filter((o) => !isAvailable(o));
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -333,16 +346,16 @@ const MyTicketsHub = () => {
             </div>
           ) : (
             <>
-              {upcoming.length > 0 && (
-                <Section title="Upcoming" count={upcoming.length}>
-                  {upcoming.map((o) => (
+              {available.length > 0 && (
+                <Section title="Available" count={available.length}>
+                  {available.map((o) => (
                     <TicketCard key={o.id} order={o} navigate={navigate} />
                   ))}
                 </Section>
               )}
-              {past.length > 0 && (
-                <Section title="Past" count={past.length}>
-                  {past.map((o) => (
+              {pastOrUsed.length > 0 && (
+                <Section title="Past or used" count={pastOrUsed.length}>
+                  {pastOrUsed.map((o) => (
                     <TicketCard key={o.id} order={o} navigate={navigate} />
                   ))}
                 </Section>
