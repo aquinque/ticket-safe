@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Banknote, Download, CheckCircle2, Loader2, ArrowLeft, FileText, Clock } from "lucide-react";
+import { Banknote, Download, CheckCircle2, Loader2, ArrowLeft, FileText, Clock, AlertTriangle, ExternalLink, Copy } from "lucide-react";
 import { toast } from "sonner";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -35,6 +35,10 @@ const AdminPayouts = () => {
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [marking, setMarking] = useState<string | null>(null);
+  // Stays sticky once the function reports "not configured" so the admin
+  // sees the exact setup steps without having to re-click and re-read
+  // the small toast.
+  const [sepaConfigError, setSepaConfigError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user) navigate("/auth", { replace: true });
@@ -140,8 +144,14 @@ const AdminPayouts = () => {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.error ?? `HTTP ${res.status}`);
+        const msg = err.error ?? `HTTP ${res.status}`;
+        if (typeof msg === "string" && msg.toLowerCase().includes("not configured")) {
+          setSepaConfigError(msg);
+        }
+        throw new Error(msg);
       }
+      // Successful export means the secrets are set — clear any stale banner
+      setSepaConfigError(null);
       const batchId = res.headers.get("X-Batch-Id") ?? "batch";
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
@@ -214,6 +224,68 @@ const AdminPayouts = () => {
               <p className="text-sm text-muted-foreground">Batch every Studio + resale payout into one bank upload.</p>
             </div>
           </div>
+
+          {/* SEPA debtor config banner — shown the moment export-payout-batch
+              tells us the secrets aren't set on the Supabase project. */}
+          {sepaConfigError && (
+            <div className="mb-6 bg-amber-50 border-2 border-amber-300 rounded-2xl p-5 md:p-6">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-amber-700 mt-1 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-base font-black text-amber-900 mb-1">SEPA debtor account not configured</h3>
+                  <p className="text-sm text-amber-900/90 mb-4">
+                    The XML can't be generated until three secrets are set on the Supabase project. Open
+                    {" "}
+                    <a
+                      href="https://supabase.com/dashboard/project/lgmnatfvdzzjzyxlenry/settings/functions"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 font-bold underline"
+                    >
+                      Project Settings → Edge Functions → Secrets
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                    {" "}and add:
+                  </p>
+                  <div className="space-y-2 mb-4">
+                    {[
+                      { key: "SEPA_DEBTOR_NAME", hint: "Legal name of the Ticket Safe account (e.g. \"Ticket Safe SAS\")" },
+                      { key: "SEPA_DEBTOR_IBAN", hint: "Source IBAN — your business bank account (FR76…, no spaces)" },
+                      { key: "SEPA_DEBTOR_BIC",  hint: "SWIFT/BIC of that bank (e.g. BOUSFRPPXXX)" },
+                    ].map((s) => (
+                      <div key={s.key} className="flex items-center justify-between gap-2 bg-white border border-amber-200 rounded-lg px-3 py-2">
+                        <div className="min-w-0">
+                          <div className="text-xs font-bold font-mono text-amber-900">{s.key}</div>
+                          <div className="text-[11px] text-amber-800/80 truncate">{s.hint}</div>
+                        </div>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(s.key).catch(() => undefined);
+                            toast.success(`Copied ${s.key}`);
+                          }}
+                          className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-900 hover:underline shrink-0"
+                          title="Copy the secret key name"
+                        >
+                          <Copy className="w-3 h-3" />
+                          Copy
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-amber-900/80">
+                    Edge functions read these on the next invocation — no redeploy needed. Click "Export batch" again once they're saved.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSepaConfigError(null)}
+                  className="text-amber-900/60 hover:text-amber-900 text-xs font-bold shrink-0"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Pending strip */}
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
