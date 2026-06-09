@@ -152,14 +152,6 @@ const Home = () => {
             </h1>
           </div>
 
-          {/* ===== Holographic ticket showcase =====
-              Compact horizontal ticket stub between headline and path
-              cards. Wide-but-short so it doesn't push the two CTAs out
-              of the fold. */}
-          <div className="mb-6 md:mb-10">
-            <HoloTicket />
-          </div>
-
           {/* Two paths */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 md:gap-6 animate-slide-up">
             {/* Path 1 — Buy event tickets */}
