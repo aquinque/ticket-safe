@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Calendar, MapPin, User, ShoppingCart, Info, MessageSquare, HelpCircle, CheckCircle2 } from "lucide-react";
+import { Calendar, MapPin, User, ShoppingCart, Info, MessageSquare, HelpCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { SEOHead } from "@/components/SEOHead";
 import { getEventImage } from "@/lib/eventImages";
@@ -47,11 +47,6 @@ const EventTicketsMarketplace = () => {
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
-  // Reference face value for this event — the cheapest primary-sale tier
-  // price. Used to badge resale listings as "Below face value" (a real
-  // anti-scalping signal Ticket Safe can claim vs the wild west of DMs).
-  // null when the event has no Studio tiers (imported / external event).
-  const [faceValue, setFaceValue] = useState<number | null>(null);
 
   useEffect(() => {
     if (!eventId) return;
@@ -84,20 +79,6 @@ const EventTicketsMarketplace = () => {
 
       if (ticketErr) console.error("Ticket fetch error:", ticketErr);
       setListings((ticketData as unknown as Listing[]) ?? []);
-
-      // Cheapest active Studio tier = reference face value for the event.
-      // One short query, fire-and-forget — listings render even if this fails.
-      const { data: tierData } = await supabase
-        .from("event_tiers")
-        .select("price_cents")
-        .eq("event_id", eventId)
-        .eq("is_active", true)
-        .order("price_cents", { ascending: true })
-        .limit(1);
-      if (tierData && tierData.length > 0 && typeof tierData[0].price_cents === "number") {
-        setFaceValue(tierData[0].price_cents / 100);
-      }
-
       setLoading(false);
     }
 
@@ -281,12 +262,6 @@ const EventTicketsMarketplace = () => {
                       {(() => {
                         const price = listing.selling_price ?? 0;
                         const breakdown = calcBreakdown(price, 1);
-                        // Compare against the cheapest active Studio tier
-                        // for this event. > 1 cent of slack so floating-point
-                        // jitter doesn't badge equal-priced listings.
-                        const savings = faceValue != null ? faceValue - price : null;
-                        const isBelowFace = savings != null && savings >= 0.01;
-                        const isAtFace = savings != null && Math.abs(savings) < 0.01;
                         return (
                           <div className="text-center">
                             <p className="text-sm text-muted-foreground mb-1">Price per ticket</p>
@@ -305,18 +280,6 @@ const EventTicketsMarketplace = () => {
                                 </a>
                               </div>
                             </div>
-                            {/* Face-value comparison badge — anti-scalping signal */}
-                            {isBelowFace && (
-                              <div className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold">
-                                <CheckCircle2 className="w-3 h-3" />
-                                Save €{savings!.toFixed(2)} vs face value
-                              </div>
-                            )}
-                            {isAtFace && (
-                              <div className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-muted text-muted-foreground text-[11px] font-bold">
-                                At face value
-                              </div>
-                            )}
                           </div>
                         );
                       })()}

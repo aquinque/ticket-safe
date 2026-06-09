@@ -345,18 +345,18 @@ export default function Marketplace() {
                         </div>
                         {hasTickets && (
                           <div className="absolute top-3 left-3">
-                            <Badge variant="default" className="bg-green-600">
+                            <Badge variant="default" className="bg-primary">
                               {ev.available_tickets} ticket{ev.available_tickets !== 1 ? "s" : ""}
                             </Badge>
                           </div>
                         )}
                         {isTonight(ev.start_date) && (
-                          <Badge className="absolute bottom-3 right-3 bg-amber-500 text-white border-transparent flex items-center gap-1">
+                          <Badge className="absolute bottom-3 right-3 bg-primary text-primary-foreground border-transparent flex items-center gap-1">
                             <Clock className="w-3 h-3" />Tonight
                           </Badge>
                         )}
                         {!isTonight(ev.start_date) && diffDays === 1 && (
-                          <Badge className="absolute bottom-3 right-3 bg-amber-500 text-white border-transparent flex items-center gap-1">
+                          <Badge className="absolute bottom-3 right-3 bg-primary text-primary-foreground border-transparent flex items-center gap-1">
                             <Clock className="w-3 h-3" />Tomorrow
                           </Badge>
                         )}
@@ -395,12 +395,13 @@ export default function Marketplace() {
                           )}
                         </div>
 
-                        {/* Live activity ribbon — real "sold in last 24h" count
-                            from the marketplace stats hook. Only renders when
-                            > 0 so we don't paint a dead "0 sold" line on quiet
-                            events. */}
+                        {/* Live activity ribbon — real "sold in last 24h" count.
+                            Brand-blue palette only: bg-primary/10 + primary
+                            text. Low stock is communicated through the bar
+                            width + text on the stock row below, not through
+                            colour. */}
                         {stats?.soldByEvent24h[ev.id] ? (
-                          <div className="mb-3 inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-amber-50 text-amber-700 text-[11px] font-bold">
+                          <div className="mb-3 inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-bold">
                             <Flame className="w-3 h-3" />
                             {stats.soldByEvent24h[ev.id]} sold in the last 24h
                           </div>
@@ -415,28 +416,27 @@ export default function Marketplace() {
                                   €{ev.min_price.toFixed(2)}
                                 </p>
                               </div>
-                              {/* Stock indicator — green when stock comfortable,
-                                  amber on 1-3 left (FOMO without lying). */}
+                              {/* Stock indicator — brand-blue only. Bar width
+                                  + text emphasis carry the urgency, no traffic-
+                                  light palette. */}
                               <div className="text-right">
                                 <div
-                                  className={`text-[11px] font-bold leading-none mb-1 ${
-                                    (ev.available_tickets ?? 0) <= 3 ? "text-amber-700" : "text-emerald-700"
+                                  className={`text-[11px] leading-none mb-1 ${
+                                    (ev.available_tickets ?? 0) <= 3
+                                      ? "font-bold text-primary"
+                                      : "font-semibold text-muted-foreground"
                                   }`}
                                 >
-                                  {ev.available_tickets} left
+                                  {(ev.available_tickets ?? 0) <= 3
+                                    ? `Only ${ev.available_tickets} left`
+                                    : `${ev.available_tickets} left`}
                                 </div>
                                 <div className="w-16 h-1.5 rounded-full bg-muted overflow-hidden">
                                   {/* Bar width: comfortable >= 10 fills 100%;
                                       4-9 fills 50%; 1-3 fills 20%. Coarse on
                                       purpose — we don't know total capacity. */}
                                   <div
-                                    className={`h-full rounded-full ${
-                                      (ev.available_tickets ?? 0) <= 3
-                                        ? "bg-amber-500"
-                                        : (ev.available_tickets ?? 0) < 10
-                                        ? "bg-emerald-500"
-                                        : "bg-emerald-500"
-                                    }`}
+                                    className="h-full rounded-full bg-primary"
                                     style={{
                                       width:
                                         (ev.available_tickets ?? 0) <= 3
@@ -548,9 +548,9 @@ export default function Marketplace() {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 max-w-4xl mx-auto mb-10">
               {[
                 { icon: GraduationCap, title: "Sign up", description: "Verify your student email instantly", color: "bg-primary/10", iconColor: "text-primary" },
-                { icon: ShieldCheck, title: "Buy or list", description: "Browse verified tickets or list yours in 2 minutes", color: "bg-blue-500/10", iconColor: "text-blue-500" },
-                { icon: QrCode, title: "Secure transfer", description: "Tickets are authenticated and transferred safely", color: "bg-purple-500/10", iconColor: "text-purple-500" },
-                { icon: Banknote, title: "Pay or get paid", description: "Escrow protects buyers. Sellers get paid within 24h.", color: "bg-green-500/10", iconColor: "text-green-500" },
+                { icon: ShieldCheck, title: "Buy or list", description: "Browse verified tickets or list yours in 2 minutes", color: "bg-primary/10", iconColor: "text-primary" },
+                { icon: QrCode, title: "Secure transfer", description: "Tickets are authenticated and transferred safely", color: "bg-primary/10", iconColor: "text-primary" },
+                { icon: Banknote, title: "Pay or get paid", description: "Escrow protects buyers. Sellers get paid within 24h.", color: "bg-primary/10", iconColor: "text-primary" },
               ].map((step, index) => {
                 const Icon = step.icon;
                 return (
