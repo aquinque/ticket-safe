@@ -14,6 +14,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { downloadTicketPdf } from "@/lib/ticketPdf";
 import { toast } from "sonner";
+import { Mail } from "lucide-react";
 
 interface OrderRow {
   id: string;
@@ -215,13 +216,16 @@ const MyTickets = () => {
 
       <main className="flex-1 py-6 md:py-10">
         <div className="container mx-auto px-4 max-w-xl">
-          <button
-            onClick={() => navigate("/settings/purchases")}
-            className="inline-flex items-center gap-1.5 text-sm font-semibold text-muted-foreground hover:text-foreground mb-6"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to purchases
-          </button>
+          <div className="flex items-center justify-between mb-6 gap-3">
+            <button
+              onClick={() => navigate("/settings/purchases")}
+              className="inline-flex items-center gap-1.5 text-sm font-semibold text-muted-foreground hover:text-foreground"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back to purchases
+            </button>
+            <ResendEmailButton orderId={order.id} />
+          </div>
 
           {/* Compact intro — the title lives on each ticket card, so up here
               we only need a quiet summary line. */}
@@ -445,6 +449,48 @@ const MyTickets = () => {
 
       <Footer />
     </div>
+  );
+};
+
+// Re-send the order confirmation email (with each ticket QR card).
+// Useful when the buyer can't find the original message in their inbox.
+const ResendEmailButton = ({ orderId }: { orderId: string }) => {
+  const [sending, setSending] = useState(false);
+  const [sentAt, setSentAt] = useState<number | null>(null);
+  const handleClick = async () => {
+    if (sending) return;
+    if (sentAt && Date.now() - sentAt < 60_000) {
+      toast.info("Email already sent. Wait a minute before re-trying.");
+      return;
+    }
+    setSending(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("replay-order-email", {
+        body: { order_id: orderId },
+      });
+      if (error || (data as { error?: string })?.error) {
+        toast.error((data as { error?: string })?.error ?? error?.message ?? "Could not resend.");
+        return;
+      }
+      setSentAt(Date.now());
+      toast.success("Confirmation email re-sent to your inbox.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Network error.");
+    } finally {
+      setSending(false);
+    }
+  };
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      disabled={sending}
+      className="inline-flex items-center gap-1.5 px-3 min-h-[34px] rounded-lg text-xs font-bold bg-muted hover:bg-muted/80 border border-border disabled:opacity-60"
+      title="Resend the original ticket email"
+    >
+      {sending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Mail className="w-3.5 h-3.5" />}
+      Resend email
+    </button>
   );
 };
 

@@ -12,3 +12,13 @@ Allow: /
 
 User-agent: *
 Allow: /
+Disallow: /admin/
+Disallow: /studio/
+Disallow: /settings/
+Disallow: /checkout
+Disallow: /my-tickets
+Disallow: /profile
+Disallow: /messages
+Disallow: /auth
+
+Sitemap: https://ticket-safe.eu/sitemap.xml

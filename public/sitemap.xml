@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://ticket-safe.eu/</loc><priority>1.0</priority><changefreq>weekly</changefreq></url>
+  <url><loc>https://ticket-safe.eu/tickets</loc><priority>0.9</priority><changefreq>daily</changefreq></url>
+  <url><loc>https://ticket-safe.eu/marketplace</loc><priority>0.9</priority><changefreq>daily</changefreq></url>
+  <url><loc>https://ticket-safe.eu/marketplace/buy</loc><priority>0.8</priority><changefreq>daily</changefreq></url>
+  <url><loc>https://ticket-safe.eu/marketplace/sell</loc><priority>0.7</priority><changefreq>weekly</changefreq></url>
+  <url><loc>https://ticket-safe.eu/events</loc><priority>0.8</priority><changefreq>daily</changefreq></url>
+  <url><loc>https://ticket-safe.eu/how-it-works</loc><priority>0.6</priority><changefreq>monthly</changefreq></url>
+  <url><loc>https://ticket-safe.eu/how-it-works/tickets</loc><priority>0.6</priority><changefreq>monthly</changefreq></url>
+  <url><loc>https://ticket-safe.eu/organizers</loc><priority>0.6</priority><changefreq>monthly</changefreq></url>
+  <url><loc>https://ticket-safe.eu/about</loc><priority>0.5</priority><changefreq>monthly</changefreq></url>
+  <url><loc>https://ticket-safe.eu/contact</loc><priority>0.5</priority><changefreq>monthly</changefreq></url>
+  <url><loc>https://ticket-safe.eu/privacy</loc><priority>0.3</priority><changefreq>yearly</changefreq></url>
+  <url><loc>https://ticket-safe.eu/terms</loc><priority>0.3</priority><changefreq>yearly</changefreq></url>
+  <url><loc>https://ticket-safe.eu/cookie-policy</loc><priority>0.3</priority><changefreq>yearly</changefreq></url>
+  <url><loc>https://ticket-safe.eu/refund-policy</loc><priority>0.3</priority><changefreq>yearly</changefreq></url>
+  <url><loc>https://ticket-safe.eu/legal</loc><priority>0.3</priority><changefreq>yearly</changefreq></url>
+</urlset>
