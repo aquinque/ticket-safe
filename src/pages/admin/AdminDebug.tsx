@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { PageHeader } from "@/components/PageHeader";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -139,25 +140,21 @@ const AdminDebug = () => {
             Back home
           </button>
 
-          <div className="flex items-center justify-between mb-6 gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center">
-                <Database className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <h1 className="text-2xl md:text-3xl font-black leading-tight">System health</h1>
-                <p className="text-sm text-muted-foreground">Live snapshot of stuck states, webhook traffic, and recent scans.</p>
-              </div>
-            </div>
-            <button
-              onClick={load}
-              disabled={loading}
-              className="inline-flex items-center gap-1.5 px-3 min-h-[36px] rounded-lg text-xs font-bold bg-muted hover:bg-muted/80 border border-border disabled:opacity-60"
-            >
-              {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-              Refresh
-            </button>
-          </div>
+          <PageHeader
+            icon={Database}
+            title="System health"
+            description="Live snapshot of stuck states, webhook traffic, and recent scans."
+            action={
+              <button
+                onClick={load}
+                disabled={loading}
+                className="inline-flex items-center gap-1.5 px-3 min-h-[36px] rounded-lg text-xs font-bold bg-muted hover:bg-muted/80 border border-border disabled:opacity-60"
+              >
+                {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                Refresh
+              </button>
+            }
+          />
 
           {/* Health cards */}
           {health && (

@@ -4,6 +4,7 @@ import { Banknote, Download, CheckCircle2, Loader2, ArrowLeft, FileText, Clock, 
 import { toast } from "sonner";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { PageHeader } from "@/components/PageHeader";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -283,15 +284,11 @@ const AdminPayouts = () => {
             Back home
           </button>
 
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center">
-              <Banknote className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <h1 className="text-2xl md:text-3xl font-black leading-tight">SEPA payout queue</h1>
-              <p className="text-sm text-muted-foreground">Batch every Studio + resale payout into one bank upload.</p>
-            </div>
-          </div>
+          <PageHeader
+            icon={Banknote}
+            title="SEPA payout queue"
+            description="Batch every Studio + resale payout into one bank upload."
+          />
 
           {/* SEPA debtor config banner — shown the moment export-payout-batch
               tells us the secrets aren't set on the Supabase project. */}

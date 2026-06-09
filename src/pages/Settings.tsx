@@ -2,21 +2,20 @@ import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { BackButton } from "@/components/BackButton";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { useI18n } from "@/contexts/I18nContext";
+import { Card, CardContent } from "@/components/ui/card";
+import { PageHeader } from "@/components/PageHeader";
 import { SEOHead } from "@/components/SEOHead";
 import {
   Monitor,
   User,
   ShoppingBag,
-  ChevronRight,
+  ArrowRight,
   ShieldCheck,
   Tag,
+  Settings as SettingsIcon,
 } from "lucide-react";
 
 const Settings = () => {
-  const { t } = useI18n();
   const navigate = useNavigate();
 
   const settingsSections = [
@@ -66,44 +65,43 @@ const Settings = () => {
     <div className="min-h-screen bg-background flex flex-col">
       <SEOHead titleKey="nav.settings" descriptionKey="settings.description" />
       <Header />
-      <main className="py-16 flex-1">
+      <main className="py-6 md:py-10 flex-1">
         <div className="container mx-auto px-4 max-w-4xl">
-          <div className="mb-6">
+          <div className="mb-5">
             <BackButton />
           </div>
 
-          {/* Page Header */}
-          <div className="mb-8">
-            <h1 className="text-4xl font-bold mb-2">Settings</h1>
-            <p className="text-muted-foreground">
-              Manage your account preferences and view your activity
-            </p>
-          </div>
+          <PageHeader
+            icon={SettingsIcon}
+            title="Settings"
+            description="Manage your account preferences and view your activity."
+          />
 
-          {/* Settings Sections */}
-          <div className="space-y-4">
+          {/* Settings sections — uniform card with hover arrow that mirrors
+              the rest of the app's primary-action affordance. */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
             {settingsSections.map((section) => {
               const Icon = section.icon;
               return (
                 <Card
                   key={section.id}
-                  className="hover:shadow-lg transition-shadow cursor-pointer"
+                  className="group hover:shadow-md hover:border-primary/40 transition-all cursor-pointer"
                   onClick={() => navigate(section.path)}
                 >
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4 flex-1">
-                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${section.color}`}>
-                          <Icon className="w-6 h-6" />
-                        </div>
-                        <div className="flex-1">
-                          <h3 className="text-lg font-semibold mb-1">{section.title}</h3>
-                          <p className="text-sm text-muted-foreground">
-                            {section.description}
-                          </p>
-                        </div>
+                  <CardContent className="p-5 md:p-6">
+                    <div className="flex items-start gap-4">
+                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${section.color}`}>
+                        <Icon className="w-6 h-6" />
                       </div>
-                      <ChevronRight className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <h3 className="text-base md:text-lg font-bold leading-tight">{section.title}</h3>
+                          <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all shrink-0" />
+                        </div>
+                        <p className="text-sm text-muted-foreground leading-relaxed">
+                          {section.description}
+                        </p>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>

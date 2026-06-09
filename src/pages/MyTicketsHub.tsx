@@ -15,6 +15,7 @@ import {
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { SEOHead } from "@/components/SEOHead";
+import { PageHeader } from "@/components/PageHeader";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -319,30 +320,37 @@ const MyTicketsHub = () => {
 
       <main className="flex-1 py-6 md:py-10">
         <div className="container mx-auto px-4 max-w-4xl">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center">
-              <TicketIcon className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <h1 className="text-2xl md:text-3xl font-black leading-tight">My tickets</h1>
-              <p className="text-sm text-muted-foreground">Every event ticket attached to your Ticket Safe account.</p>
-            </div>
-          </div>
+          <PageHeader
+            icon={TicketIcon}
+            title="My tickets"
+            description="Every event ticket attached to your Ticket Safe account."
+          />
 
           {orders.length === 0 ? (
-            <div className="bg-card border border-border rounded-2xl p-8 text-center">
-              <TicketIcon className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+            <div className="bg-card border border-border rounded-2xl p-10 text-center">
+              <div className="inline-flex w-14 h-14 rounded-2xl bg-primary/10 items-center justify-center mb-4">
+                <TicketIcon className="w-7 h-7 text-primary" />
+              </div>
               <h2 className="text-lg font-bold mb-1">No tickets yet</h2>
-              <p className="text-sm text-muted-foreground mb-5">
-                Browse upcoming campus events and grab your first ticket.
+              <p className="text-sm text-muted-foreground mb-6 max-w-sm mx-auto">
+                Find an upcoming campus event or browse the resale marketplace for someone else's spare ticket.
               </p>
-              <Link
-                to="/tickets"
-                className="inline-flex items-center gap-1.5 px-4 min-h-[40px] rounded-lg font-bold bg-primary text-primary-foreground hover:bg-primary-hover"
-              >
-                Browse events
-                <ArrowRight className="w-4 h-4" />
-              </Link>
+              <div className="flex flex-col sm:flex-row gap-2 justify-center">
+                <Link
+                  to="/tickets"
+                  className="inline-flex items-center justify-center gap-1.5 px-5 min-h-[44px] rounded-lg font-bold bg-primary text-primary-foreground hover:bg-primary-hover"
+                >
+                  Browse events
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+                <Link
+                  to="/marketplace/buy"
+                  className="inline-flex items-center justify-center gap-1.5 px-5 min-h-[44px] rounded-lg font-bold bg-muted hover:bg-muted/80 border border-border"
+                >
+                  Resale marketplace
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+              </div>
             </div>
           ) : (
             <>
