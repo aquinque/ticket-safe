@@ -29,6 +29,9 @@ import Footer from "@/components/Footer";
 import { SEOHead } from "@/components/SEOHead";
 import { supabase } from "@/integrations/supabase/client";
 import { detectCampus } from "@/lib/campus";
+import { useAuth } from "@/hooks/useAuth";
+import { useRecommendations } from "@/hooks/useRecommendations";
+import { Sparkles } from "lucide-react";
 
 type Campus = "all" | "paris" | "madrid" | "turin" | "berlin" | "london";
 
@@ -206,6 +209,13 @@ const Tickets = () => {
   const [query, setQuery] = useState("");
   const [allEvents, setAllEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Personalised event recommendations. When the viewer has past
+  // purchases we mix in their categories / organisers / campuses to
+  // rank what they'd most likely enjoy next; otherwise we fall back
+  // to popularity ("trending").
+  const { user } = useAuth();
+  const { recommended, reason } = useRecommendations(allEvents, user?.id, 4);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -488,17 +498,66 @@ const Tickets = () => {
                 campus={selectedCampus}
               />
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
-                {filteredEvents.map((e, i) => (
-                  <div
-                    key={e.id}
-                    className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both"
-                    style={{ animationDelay: `${Math.min(i, 12) * 40}ms` }}
-                  >
-                    <EventCard event={e} />
+              <>
+                {/* ===== Recommended for you =====
+                    Personalised when the user has past purchases (mixes
+                    categories, organisers and campus signal). Falls back
+                    to "trending" for anons / new accounts. Only renders
+                    when the recommended list isn't a subset of the
+                    filtered grid the user is already looking at — no
+                    point in showing the same events twice. */}
+                {recommended.length > 0 && query.trim() === "" && category === "all" && (
+                  <div className="mb-8">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-primary/10">
+                          <Sparkles className="w-4 h-4 text-primary" />
+                        </div>
+                        <div>
+                          <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+                            {reason === "personalized" ? "Recommended for you" : "Trending right now"}
+                          </div>
+                          <div className="text-sm font-semibold">
+                            {reason === "personalized"
+                              ? "Based on what you've enjoyed before"
+                              : "What other students are buying"}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+                      {recommended.slice(0, 4).map((e, i) => (
+                        <div
+                          key={`reco-${e.id}`}
+                          className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both"
+                          style={{ animationDelay: `${i * 50}ms` }}
+                        >
+                          <EventCard event={e} />
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="flex items-center gap-3 mt-8 mb-4">
+                      <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+                        All upcoming events
+                      </div>
+                      <div className="flex-1 h-px bg-border" />
+                    </div>
                   </div>
-                ))}
-              </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
+                  {filteredEvents.map((e, i) => (
+                    <div
+                      key={e.id}
+                      className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both"
+                      style={{ animationDelay: `${Math.min(i, 12) * 40}ms` }}
+                    >
+                      <EventCard event={e} />
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
           </div>
         </section>

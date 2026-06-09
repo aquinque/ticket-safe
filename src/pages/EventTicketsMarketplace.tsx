@@ -7,7 +7,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Calendar, MapPin, User, ShoppingCart, Info, MessageSquare, HelpCircle } from "lucide-react";
+import { Calendar, MapPin, User, ShoppingCart, Info, MessageSquare, HelpCircle, BarChart3, TrendingUp, TrendingDown, Minus, Sparkles } from "lucide-react";
+import { useEventPriceIntel } from "@/hooks/useEventPriceIntel";
 import { supabase } from "@/integrations/supabase/client";
 import { SEOHead } from "@/components/SEOHead";
 import { getEventImage } from "@/lib/eventImages";
@@ -47,6 +48,9 @@ const EventTicketsMarketplace = () => {
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  // Live price intel for this event — used by the market-insight card and
+  // by the "best deal" badge on each listing card.
+  const { intel } = useEventPriceIntel(eventId);
 
   useEffect(() => {
     if (!eventId) return;
@@ -238,6 +242,81 @@ const EventTicketsMarketplace = () => {
             </div>
           ) : (
             <>
+            {/* ===== Market insight card — live price intelligence =====
+                Average sold, lowest available, last sold price, 7-day
+                trend. Lets a buyer eyeball whether the current listings
+                are a fair deal vs. what's actually been transacted on
+                the platform. Only renders when we have at least one
+                completed sale to anchor the stats. */}
+            {intel.recentSalesCount > 0 && (
+              <div className="mb-6 rounded-2xl border border-border bg-card p-5 md:p-6 shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-primary/10">
+                      <BarChart3 className="w-4 h-4 text-primary" />
+                    </div>
+                    <div>
+                      <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+                        Market insight
+                      </div>
+                      <div className="text-sm font-semibold">
+                        Based on {intel.recentSalesCount} sale{intel.recentSalesCount > 1 ? "s" : ""} in the last 30 days
+                      </div>
+                    </div>
+                  </div>
+                  {intel.trend && intel.trendPct != null && (
+                    <div
+                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold ${
+                        intel.trend === "up"
+                          ? "bg-primary/10 text-primary"
+                          : intel.trend === "down"
+                          ? "bg-muted text-foreground/70"
+                          : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {intel.trend === "up" ? (
+                        <TrendingUp className="w-3 h-3" />
+                      ) : intel.trend === "down" ? (
+                        <TrendingDown className="w-3 h-3" />
+                      ) : (
+                        <Minus className="w-3 h-3" />
+                      )}
+                      {intel.trend === "flat"
+                        ? "Stable"
+                        : `${intel.trendPct > 0 ? "+" : ""}${intel.trendPct.toFixed(0)}% this week`}
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="rounded-xl bg-muted/40 px-3 py-3">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
+                      Avg sold
+                    </div>
+                    <div className="text-xl md:text-2xl font-semibold tabular-nums text-foreground leading-none">
+                      €{intel.avgSold != null ? intel.avgSold.toFixed(0) : "—"}
+                    </div>
+                  </div>
+                  <div className="rounded-xl bg-muted/40 px-3 py-3">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
+                      Lowest now
+                    </div>
+                    <div className="text-xl md:text-2xl font-semibold tabular-nums text-primary leading-none">
+                      €{intel.lowestAvailable != null ? intel.lowestAvailable.toFixed(0) : "—"}
+                    </div>
+                  </div>
+                  <div className="rounded-xl bg-muted/40 px-3 py-3">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">
+                      Last sold
+                    </div>
+                    <div className="text-xl md:text-2xl font-semibold tabular-nums text-foreground leading-none">
+                      €{intel.lastSold ? intel.lastSold.price.toFixed(0) : "—"}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Make an offer hint — only shown when listings exist */}
             <div className="mb-8 flex items-start gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3">
               <MessageSquare className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
@@ -262,6 +341,13 @@ const EventTicketsMarketplace = () => {
                       {(() => {
                         const price = listing.selling_price ?? 0;
                         const breakdown = calcBreakdown(price, 1);
+                        // Compare against the rolling avg from intel.
+                        // > 5 % below avg = "good deal" pill. Within 5 %
+                        // stays silent so we don't badge every listing.
+                        const avg = intel.avgSold;
+                        const savings = avg != null && price > 0 ? avg - price : null;
+                        const pctBelow = avg != null && price > 0 ? ((avg - price) / avg) * 100 : null;
+                        const isBestDeal = pctBelow != null && pctBelow >= 5;
                         return (
                           <div className="text-center">
                             <p className="text-sm text-muted-foreground mb-1">Price per ticket</p>
@@ -280,6 +366,12 @@ const EventTicketsMarketplace = () => {
                                 </a>
                               </div>
                             </div>
+                            {isBestDeal && savings != null && (
+                              <div className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-bold">
+                                <Sparkles className="w-3 h-3" />
+                                €{savings.toFixed(0)} below avg
+                              </div>
+                            )}
                           </div>
                         );
                       })()}
