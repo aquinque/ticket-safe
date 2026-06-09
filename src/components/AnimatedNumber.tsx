@@ -29,7 +29,7 @@ export function AnimatedNumber({
   decimals = 2,
   prefix = "",
   className = "",
-}: AnimatedNumberProps): JSX.Element {
+}: AnimatedNumberProps) {
   const [display, setDisplay] = useState<number>(value);
   const previousRef = useRef<number>(value);
   const rafRef = useRef<number | null>(null);
