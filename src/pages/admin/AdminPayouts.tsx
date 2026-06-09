@@ -140,14 +140,28 @@ const AdminPayouts = () => {
       if (!token) throw new Error("Not signed in");
       const supabaseUrl = (import.meta.env.VITE_SUPABASE_URL ?? "").replace(/\/+$/, "");
 
+      const apikey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? "";
       const res = await fetch(`${supabaseUrl}/functions/v1/export-payout-batch`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        // apikey is required by the Supabase gateway in addition to the
+        // user JWT — without it the gateway 401s before the function runs,
+        // which surfaces as a generic "Edge Function error" in the SDK.
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          apikey,
+        },
         body: JSON.stringify({ include_studio: true, include_resale: true }),
       });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        const msg = err.error ?? `HTTP ${res.status}`;
+        const ct = res.headers.get("content-type") ?? "";
+        let msg: string;
+        if (ct.includes("application/json")) {
+          const err = await res.json().catch(() => ({}));
+          msg = err.error ?? `HTTP ${res.status}`;
+        } else {
+          msg = (await res.text().catch(() => "")) || `HTTP ${res.status}`;
+        }
         if (typeof msg === "string" && msg.toLowerCase().includes("not configured")) {
           setSepaConfigError(msg);
         }
