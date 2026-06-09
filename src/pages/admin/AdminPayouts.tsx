@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Banknote, Download, CheckCircle2, Loader2, ArrowLeft, FileText, Clock, AlertTriangle, ExternalLink, Copy } from "lucide-react";
+import { Banknote, Download, CheckCircle2, Loader2, ArrowLeft, FileText, Clock, AlertTriangle, ExternalLink, Copy, Zap, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -35,10 +35,13 @@ const AdminPayouts = () => {
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [marking, setMarking] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
+  const [polling, setPolling] = useState(false);
   // Stays sticky once the function reports "not configured" so the admin
   // sees the exact setup steps without having to re-click and re-read
   // the small toast.
   const [sepaConfigError, setSepaConfigError] = useState<string | null>(null);
+  const [revolutConfigError, setRevolutConfigError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user) navigate("/auth", { replace: true });
@@ -171,6 +174,57 @@ const AdminPayouts = () => {
     }
   };
 
+  const sendViaRevolut = async () => {
+    if (pending.length === 0) return;
+    setSending(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("send-payout-batch-revolut", {
+        body: { include_studio: true, include_resale: true },
+      });
+      if (error) throw new Error(error.message);
+      const payload = data as { ok?: boolean; error?: string; sent?: number; failed?: number; batch_id?: string };
+      if (payload.error) {
+        if (payload.error.toLowerCase().includes("not configured")) setRevolutConfigError(payload.error);
+        throw new Error(payload.error);
+      }
+      setRevolutConfigError(null);
+      const sentCount = payload.sent ?? 0;
+      const failedCount = payload.failed ?? 0;
+      if (failedCount > 0) {
+        toast.warning(`${sentCount} sent, ${failedCount} failed. Approve the rest in your Revolut app and click Refresh.`);
+      } else {
+        toast.success(`${sentCount} transfer${sentCount === 1 ? "" : "s"} created. Open your Revolut app and approve the SCA.`);
+      }
+      load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Send failed");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const pollRevolut = async () => {
+    setPolling(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("poll-revolut-batch", { body: {} });
+      if (error) throw new Error(error.message);
+      const payload = data as { polled?: number; completed?: number; failed?: number; error?: string };
+      if (payload.error) throw new Error(payload.error);
+      const completed = payload.completed ?? 0;
+      const failed = payload.failed ?? 0;
+      if (completed === 0 && failed === 0) {
+        toast.info(`Polled ${payload.polled ?? 0} transfer${payload.polled === 1 ? "" : "s"}. None completed yet — approve them in Revolut.`);
+      } else {
+        toast.success(`${completed} completed${failed > 0 ? `, ${failed} failed` : ""}.`);
+      }
+      load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Poll failed");
+    } finally {
+      setPolling(false);
+    }
+  };
+
   const markSent = async (batchId: string) => {
     setMarking(batchId);
     try {
@@ -294,23 +348,112 @@ const AdminPayouts = () => {
             <Card label="Studio / Resale" value={`${pending.filter(p => p.kind === "studio").length} / ${pending.filter(p => p.kind === "resale").length}`} icon={FileText} />
           </div>
 
-          {/* Export button */}
+          {/* Revolut config-required banner — surfaces the moment
+              send-payout-batch-revolut tells us secrets aren't set. */}
+          {revolutConfigError && (
+            <div className="mb-6 bg-violet-50 border-2 border-violet-300 rounded-2xl p-5 md:p-6">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-violet-700 mt-1 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-base font-black text-violet-900 mb-1">Revolut Business API not configured</h3>
+                  <p className="text-sm text-violet-900/90 mb-3">
+                    To send transfers automatically without uploading XML, set up Revolut Business API access:
+                  </p>
+                  <ol className="text-sm text-violet-900/90 list-decimal pl-5 space-y-1 mb-4">
+                    <li>Go to <strong>Revolut Business → Settings → APIs → Add API client</strong></li>
+                    <li>
+                      Generate a key pair locally:{" "}
+                      <code className="bg-white px-1.5 py-0.5 rounded text-xs">openssl genrsa -out revolut.pem 2048 && openssl rsa -in revolut.pem -pubout -out revolut-public.pem</code>
+                    </li>
+                    <li>Upload <code className="bg-white px-1.5 py-0.5 rounded text-xs">revolut-public.pem</code> to Revolut → copy the Client ID it returns</li>
+                    <li>
+                      Open{" "}
+                      <a
+                        href="https://supabase.com/dashboard/project/lgmnatfvdzzjzyxlenry/settings/functions"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 font-bold underline"
+                      >
+                        Supabase secrets
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>{" "}
+                      and add:
+                    </li>
+                  </ol>
+                  <div className="space-y-2 mb-3">
+                    {[
+                      { key: "REVOLUT_CLIENT_ID", hint: "From Revolut → Settings → APIs" },
+                      { key: "REVOLUT_PRIVATE_KEY", hint: "Whole contents of revolut.pem (with -----BEGIN PRIVATE KEY-----)" },
+                    ].map((s) => (
+                      <div key={s.key} className="flex items-center justify-between gap-2 bg-white border border-violet-200 rounded-lg px-3 py-2">
+                        <div className="min-w-0">
+                          <div className="text-xs font-bold font-mono text-violet-900">{s.key}</div>
+                          <div className="text-[11px] text-violet-800/80 truncate">{s.hint}</div>
+                        </div>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(s.key).catch(() => undefined);
+                            toast.success(`Copied ${s.key}`);
+                          }}
+                          className="inline-flex items-center gap-1 text-[11px] font-bold text-violet-900 hover:underline shrink-0"
+                        >
+                          <Copy className="w-3 h-3" />
+                          Copy
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-violet-900/80">
+                    Once set, hit "Send via Revolut" again — transfers are created via API, you approve with one SCA in your phone.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setRevolutConfigError(null)}
+                  className="text-violet-900/60 hover:text-violet-900 text-xs font-bold shrink-0"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Send / Export buttons */}
           <section className="mb-8 bg-card border border-border rounded-2xl p-5 md:p-6">
-            <div className="flex flex-col md:flex-row md:items-center gap-4">
-              <div className="flex-1 min-w-0">
-                <h2 className="text-lg font-black">Export SEPA batch</h2>
+            <div className="flex flex-col gap-4">
+              <div>
+                <h2 className="text-lg font-black">Pay out the queue</h2>
                 <p className="text-sm text-muted-foreground mt-0.5">
-                  Generate a pain.001.001.03 XML you upload directly to your bank (Qonto, SG, BNP, Crédit Agricole). All {pending.length} pending payouts get marked "processing" with a fresh batch id. After the bank confirms, click "Mark sent" on the batch below.
+                  Two paths: the green button uses the Revolut Business API end-to-end (you only approve the SCA in your phone). The grey button generates a pain.001.001.03 XML you upload manually to any SEPA bank — fallback for non-Revolut accounts.
                 </p>
               </div>
-              <button
-                onClick={exportBatch}
-                disabled={exporting || pending.length === 0}
-                className="inline-flex items-center justify-center gap-2 min-h-[44px] px-5 rounded-lg font-bold bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-60 shrink-0"
-              >
-                {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-                Export batch ({pending.length})
-              </button>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <button
+                  onClick={sendViaRevolut}
+                  disabled={sending || exporting || pending.length === 0}
+                  className="inline-flex items-center justify-center gap-2 min-h-[44px] px-5 rounded-lg font-bold bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60 shrink-0"
+                >
+                  {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+                  Send via Revolut ({pending.length})
+                </button>
+                <button
+                  onClick={exportBatch}
+                  disabled={exporting || sending || pending.length === 0}
+                  className="inline-flex items-center justify-center gap-2 min-h-[44px] px-5 rounded-lg font-bold bg-muted hover:bg-muted/80 border border-border disabled:opacity-60 shrink-0"
+                >
+                  {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                  Export XML ({pending.length})
+                </button>
+                <button
+                  onClick={pollRevolut}
+                  disabled={polling}
+                  className="inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-lg font-bold bg-muted hover:bg-muted/80 border border-border disabled:opacity-60 shrink-0"
+                  title="Pull status from Revolut for any batch still 'processing'"
+                >
+                  {polling ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                  Refresh status
+                </button>
+              </div>
             </div>
           </section>
 
