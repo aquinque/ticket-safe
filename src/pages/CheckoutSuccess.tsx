@@ -43,10 +43,10 @@ const CheckoutSuccess = () => {
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button variant="hero" asChild>
-              <Link to="/settings/purchases">View My Tickets</Link>
+              <Link to="/my-tickets">Show my QR ticket</Link>
             </Button>
             <Button variant="outline" asChild>
-              <Link to="/marketplace/buy">Browse More Tickets</Link>
+              <Link to="/tickets">Browse more events</Link>
             </Button>
           </div>
         </div>

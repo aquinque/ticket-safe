@@ -44,7 +44,7 @@ const CheckoutCancel = () => {
               </Button>
             )}
             <Button variant="outline" asChild>
-              <Link to="/marketplace/buy">Back to Marketplace</Link>
+              <Link to="/tickets">Browse other events</Link>
             </Button>
           </div>
         </div>
