@@ -1,12 +1,11 @@
 /*
   # Security Headers for ticket-safe
 
-  # Content Security Policy (CSP)
-  # Prevents XSS by controlling which resources can be loaded.
-  # NOTE: 'unsafe-inline' kept for styles only (shadcn/Tailwind dynamic styles).
-  # script-src does NOT allow 'unsafe-eval' or external CDNs — all JS must be self-hosted.
-  # Stripe Checkout is whitelisted for frame-src so the hosted checkout can load.
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https: blob:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com; frame-src https://js.stripe.com https://checkout.stripe.com https://hooks.stripe.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests
+  # Content Security Policy (CSP) — kept in sync with the meta tag in
+  # index.html (which is what's actually enforced on GitHub Pages today).
+  # If the site migrates to a host that respects _headers (Cloudflare
+  # Pages, Netlify), this HTTP-level CSP becomes authoritative.
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://*.supabase.co; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https: blob:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://api.resend.com; frame-src https://js.stripe.com https://hooks.stripe.com https://*.stripe.com; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'; upgrade-insecure-requests
 
   # Prevent clickjacking attacks
   X-Frame-Options: DENY
@@ -26,10 +25,12 @@
   # Strict Transport Security - enforce HTTPS
   Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
 
-  # Cross-Origin Policies
+  # Cross-Origin Policies — relaxed to credentialless / cross-origin so
+  # external event banner images (Cloudinary, Imgur, organizer-hosted)
+  # still render. require-corp would block them.
   Cross-Origin-Opener-Policy: same-origin
-  Cross-Origin-Embedder-Policy: require-corp
-  Cross-Origin-Resource-Policy: same-origin
+  Cross-Origin-Embedder-Policy: credentialless
+  Cross-Origin-Resource-Policy: cross-origin
 
   # Cache Control for security-sensitive pages
   Cache-Control: no-store, no-cache, must-revalidate, proxy-revalidate
