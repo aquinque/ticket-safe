@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { BackButton } from "@/components/BackButton";
+import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
@@ -145,16 +146,12 @@ const PurchaseHistory = () => {
             <BackButton fallbackPath="/settings" />
           </div>
 
-          {/* Page Header */}
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-xl bg-green-50 dark:bg-green-950/30 flex items-center justify-center shrink-0">
-              <ShoppingBag className="w-5 h-5 text-green-600" />
-            </div>
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold leading-tight">Purchase History</h1>
-              <p className="text-sm text-muted-foreground">All your ticket purchases</p>
-            </div>
-          </div>
+          <PageHeader
+            icon={ShoppingBag}
+            title="Purchase history"
+            description="All your ticket purchases in one place."
+            iconClass="bg-green-50 dark:bg-green-950/30 text-green-600"
+          />
 
           {/* Stats — 3 compact cards */}
           <div className="grid grid-cols-3 gap-3 mb-6">

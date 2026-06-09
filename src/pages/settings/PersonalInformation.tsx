@@ -2,6 +2,7 @@ import { useState } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { BackButton } from "@/components/BackButton";
+import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -89,24 +90,18 @@ const PersonalInformation = () => {
     <div className="min-h-screen bg-background flex flex-col">
       <SEOHead titleKey="nav.settings" descriptionKey="settings.description" />
       <Header />
-      <main className="py-16 flex-1">
+      <main className="py-6 md:py-10 flex-1">
         <div className="container mx-auto px-4 max-w-3xl">
-          <div className="mb-6">
+          <div className="mb-5">
             <BackButton fallbackPath="/settings" />
           </div>
 
-          {/* Page Header */}
-          <div className="mb-8">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-xl bg-purple-50 dark:bg-purple-950/30 flex items-center justify-center">
-                <User className="w-5 h-5 text-purple-600" />
-              </div>
-              <h1 className="text-4xl font-bold">Personal Information</h1>
-            </div>
-            <p className="text-muted-foreground">
-              Manage your account details and credentials
-            </p>
-          </div>
+          <PageHeader
+            icon={User}
+            title="Personal information"
+            description="Manage your account details and credentials."
+            iconClass="bg-purple-50 dark:bg-purple-950/30 text-purple-600"
+          />
 
           {/* Settings Cards */}
           <div className="space-y-6">

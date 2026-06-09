@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { BackButton } from "@/components/BackButton";
+import { PageHeader } from "@/components/PageHeader";
 import {
   Card,
   CardContent,
@@ -152,22 +153,16 @@ const PrivacyData = () => {
       <Header />
       <main className="py-16 flex-1">
         <div className="container mx-auto px-4 max-w-3xl">
-          <div className="mb-6">
+          <div className="mb-5">
             <BackButton fallbackPath="/settings" />
           </div>
 
-          {/* Page Header */}
-          <div className="mb-8">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-950/30 flex items-center justify-center">
-                <ShieldCheck className="w-5 h-5 text-amber-600" />
-              </div>
-              <h1 className="text-4xl font-bold">My Data &amp; Privacy</h1>
-            </div>
-            <p className="text-muted-foreground">
-              Exercise your GDPR rights — no questions asked, no friction.
-            </p>
-          </div>
+          <PageHeader
+            icon={ShieldCheck}
+            title="My data &amp; privacy"
+            description="Exercise your GDPR rights — no questions asked, no friction."
+            iconClass="bg-amber-50 dark:bg-amber-950/30 text-amber-600"
+          />
 
           <div className="space-y-6">
             {/* EXPORT */}
