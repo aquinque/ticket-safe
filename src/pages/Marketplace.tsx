@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SEOHead } from "@/components/SEOHead";
 import { useESCPEvents } from "@/hooks/useESCPEvents";
+import { useMarketplaceStats } from "@/hooks/useMarketplaceStats";
 import { useI18n } from "@/contexts/I18nContext";
 import { getEventImage } from "@/lib/eventImages";
 import { toast } from "sonner";
@@ -19,6 +20,7 @@ import {
   Calendar,
   Clock,
   Filter,
+  Flame,
   GraduationCap,
   HelpCircle,
   MapPin,
@@ -27,7 +29,9 @@ import {
   ShieldCheck,
   ShoppingBag,
   Tag,
+  Ticket,
   Users,
+  Zap,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import {
@@ -38,6 +42,19 @@ import {
 import { isTonight, matchesDateFilter, type DateFilterId } from "@/lib/dateFilters";
 
 type ViewMode = "available" | "all";
+
+/**
+ * Renders a big stat as "1.2k+" / "12k+" / plain number. Keeps the hero strip
+ * readable when counts climb into the thousands without leaving "1248" naked.
+ */
+function formatStat(n: number): string {
+  if (n >= 1000) {
+    const k = n / 1000;
+    return `${k >= 10 ? k.toFixed(0) : k.toFixed(1)}k+`;
+  }
+  if (n >= 100) return `${Math.floor(n / 10) * 10}+`;
+  return String(n);
+}
 
 const DATE_FILTERS = [
   { id: "all-dates", labelKey: "Any date" },
@@ -72,6 +89,7 @@ export default function Marketplace() {
   const { events: allEvents, loading, error } = useESCPEvents({
     onlyWithTickets: view === "available",
   });
+  const { stats } = useMarketplaceStats();
 
   const setView = useCallback(
     (v: ViewMode) => {
@@ -101,16 +119,67 @@ export default function Marketplace() {
       <SEOHead titleKey="marketplace.title" descriptionKey="marketplace.subtitle" />
       <Header />
 
-      <main className="flex-1 py-10">
+      <main className="flex-1 py-8 md:py-10">
         <div className="container mx-auto px-4 max-w-7xl">
           {/* Page header */}
-          <div className="mb-8 text-center">
+          <div className="mb-6 text-center">
             <h1 className="text-4xl md:text-5xl font-bold mb-3">{t('marketplace.title')}</h1>
             <p className="text-lg text-muted-foreground">{t('marketplace.subtitle')}</p>
           </div>
 
+          {/* ===== Hero stats strip — 4 trust-building numbers ===== */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-8">
+            <div className="bg-card border border-border rounded-2xl px-4 py-4 md:px-5 md:py-5 hover:shadow-sm transition-shadow">
+              <div className="flex items-center gap-2 mb-1.5">
+                <Ticket className="w-4 h-4 text-primary" />
+                <span className="text-[10px] md:text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Tickets sold
+                </span>
+              </div>
+              <div className="text-2xl md:text-3xl font-bold tabular-nums tracking-tight">
+                {stats ? formatStat(stats.lifetimeSold) : "—"}
+              </div>
+              <div className="text-[11px] text-muted-foreground mt-0.5">All-time on Ticket Safe</div>
+            </div>
+
+            <div className="bg-card border border-border rounded-2xl px-4 py-4 md:px-5 md:py-5 hover:shadow-sm transition-shadow">
+              <div className="flex items-center gap-2 mb-1.5">
+                <Tag className="w-4 h-4 text-primary" />
+                <span className="text-[10px] md:text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Available now
+                </span>
+              </div>
+              <div className="text-2xl md:text-3xl font-bold tabular-nums tracking-tight">
+                {stats ? formatStat(stats.activeListings) : "—"}
+              </div>
+              <div className="text-[11px] text-muted-foreground mt-0.5">Live listings right now</div>
+            </div>
+
+            <div className="bg-card border border-border rounded-2xl px-4 py-4 md:px-5 md:py-5 hover:shadow-sm transition-shadow">
+              <div className="flex items-center gap-2 mb-1.5">
+                <Zap className="w-4 h-4 text-primary" />
+                <span className="text-[10px] md:text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  QR delivery
+                </span>
+              </div>
+              <div className="text-2xl md:text-3xl font-bold tabular-nums tracking-tight">100%</div>
+              <div className="text-[11px] text-muted-foreground mt-0.5">Instant after payment</div>
+            </div>
+
+            <div className="bg-card border border-border rounded-2xl px-4 py-4 md:px-5 md:py-5 hover:shadow-sm transition-shadow">
+              <div className="flex items-center gap-2 mb-1.5">
+                <ShieldCheck className="w-4 h-4 text-primary" />
+                <span className="text-[10px] md:text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Hidden fees
+                </span>
+              </div>
+              <div className="text-2xl md:text-3xl font-bold tabular-nums tracking-tight">€0</div>
+              <div className="text-[11px] text-muted-foreground mt-0.5">5% shown upfront, always</div>
+            </div>
+          </div>
+
           {/* View toggle */}
-          <div className="flex items-center justify-center gap-2 mb-8">
+          <div className="flex items-center justify-center gap-2 mb-5">
             <div
               role="group"
               aria-label="Marketplace view"
@@ -161,63 +230,65 @@ export default function Marketplace() {
             </div>
           </div>
 
-          {/* Filters */}
-          <Card className="mb-8">
-            <CardContent className="pt-6">
-              <div className="space-y-4">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                  <Input
-                    placeholder="Search events, venues, or organizers..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="pl-10"
-                    aria-label="Search events"
-                  />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Filter className="w-4 h-4 text-muted-foreground" aria-hidden="true" />
-                    <span className="text-sm font-medium text-muted-foreground">Category:</span>
-                  </div>
-                  <div className="flex flex-wrap gap-2" role="group" aria-label="Filter by category">
-                    {CATEGORY_FILTERS.map((f) => (
-                      <Button
-                        key={f.id}
-                        variant={category === f.id ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setCategory(f.id)}
-                        className="rounded-full"
-                        aria-pressed={category === f.id}
-                      >
-                        {f.label}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <Clock className="w-4 h-4 text-muted-foreground" aria-hidden="true" />
-                    <span className="text-sm font-medium text-muted-foreground">When:</span>
-                  </div>
-                  <div className="flex flex-wrap gap-2" role="group" aria-label="Filter by date">
-                    {DATE_FILTERS.map((f) => (
-                      <Button
-                        key={f.id}
-                        variant={dateFilter === f.id ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setDateFilter(f.id)}
-                        className="rounded-full"
-                        aria-pressed={dateFilter === f.id}
-                      >
-                        {f.labelKey}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
+          {/* ===== Sticky filter bar ===== */}
+          {/* top-14 matches the Header height (h-14 / md:h-16); on lg it lowers
+              to keep clear of the bigger logo. Backdrop-blur lets event cards
+              fade under it during scroll, like Shotgun / Pretix. */}
+          <div className="sticky top-14 md:top-16 lg:top-20 z-30 -mx-4 px-4 mb-6 bg-background/85 backdrop-blur-md border-y border-border/60 py-3">
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Search */}
+              <div className="relative flex-1 min-w-[200px]">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
+                <Input
+                  placeholder="Search events, venues, organizers…"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-10 h-10"
+                  aria-label="Search events"
+                />
               </div>
-            </CardContent>
-          </Card>
+
+              {/* Category chips — scroll horizontally on mobile */}
+              <div className="flex items-center gap-1.5 overflow-x-auto py-1 -my-1 max-w-full" role="group" aria-label="Filter by category">
+                <Filter className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" aria-hidden="true" />
+                {CATEGORY_FILTERS.map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => setCategory(f.id)}
+                    aria-pressed={category === f.id}
+                    className={`flex-shrink-0 px-3 h-8 rounded-full text-xs font-semibold transition-colors ${
+                      category === f.id
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Date chips */}
+              <div className="flex items-center gap-1.5 overflow-x-auto py-1 -my-1" role="group" aria-label="Filter by date">
+                <Clock className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" aria-hidden="true" />
+                {DATE_FILTERS.map((f) => (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => setDateFilter(f.id)}
+                    aria-pressed={dateFilter === f.id}
+                    className={`flex-shrink-0 px-3 h-8 rounded-full text-xs font-semibold transition-colors ${
+                      dateFilter === f.id
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                    }`}
+                  >
+                    {f.labelKey}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
 
           {/* Loading */}
           {loading && (
@@ -324,10 +395,60 @@ export default function Marketplace() {
                           )}
                         </div>
 
+                        {/* Live activity ribbon — real "sold in last 24h" count
+                            from the marketplace stats hook. Only renders when
+                            > 0 so we don't paint a dead "0 sold" line on quiet
+                            events. */}
+                        {stats?.soldByEvent24h[ev.id] ? (
+                          <div className="mb-3 inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-amber-50 text-amber-700 text-[11px] font-bold">
+                            <Flame className="w-3 h-3" />
+                            {stats.soldByEvent24h[ev.id]} sold in the last 24h
+                          </div>
+                        ) : null}
+
                         {hasTickets && ev.min_price != null && (
                           <div className="mb-4 p-3 bg-primary/5 rounded-lg">
-                            <p className="text-xs text-muted-foreground">From</p>
-                            <p className="text-2xl font-bold text-primary">€{ev.min_price.toFixed(2)}</p>
+                            <div className="flex items-end justify-between gap-3">
+                              <div>
+                                <p className="text-xs text-muted-foreground">From</p>
+                                <p className="text-2xl font-bold text-primary tabular-nums leading-none">
+                                  €{ev.min_price.toFixed(2)}
+                                </p>
+                              </div>
+                              {/* Stock indicator — green when stock comfortable,
+                                  amber on 1-3 left (FOMO without lying). */}
+                              <div className="text-right">
+                                <div
+                                  className={`text-[11px] font-bold leading-none mb-1 ${
+                                    (ev.available_tickets ?? 0) <= 3 ? "text-amber-700" : "text-emerald-700"
+                                  }`}
+                                >
+                                  {ev.available_tickets} left
+                                </div>
+                                <div className="w-16 h-1.5 rounded-full bg-muted overflow-hidden">
+                                  {/* Bar width: comfortable >= 10 fills 100%;
+                                      4-9 fills 50%; 1-3 fills 20%. Coarse on
+                                      purpose — we don't know total capacity. */}
+                                  <div
+                                    className={`h-full rounded-full ${
+                                      (ev.available_tickets ?? 0) <= 3
+                                        ? "bg-amber-500"
+                                        : (ev.available_tickets ?? 0) < 10
+                                        ? "bg-emerald-500"
+                                        : "bg-emerald-500"
+                                    }`}
+                                    style={{
+                                      width:
+                                        (ev.available_tickets ?? 0) <= 3
+                                          ? "20%"
+                                          : (ev.available_tickets ?? 0) < 10
+                                          ? "50%"
+                                          : "100%",
+                                    }}
+                                  />
+                                </div>
+                              </div>
+                            </div>
                           </div>
                         )}
 
