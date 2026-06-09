@@ -52,6 +52,7 @@ import {
   X,
   CalendarPlus,
   Zap,
+  ArrowRight,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Event } from "@/integrations/supabase/types/events";
@@ -584,8 +585,8 @@ const Sell = () => {
         <main className="flex-1 flex items-center justify-center py-16">
           <div className="container mx-auto px-4 max-w-lg text-center">
             <>
-                <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <ShieldCheck className="w-10 h-10 text-green-600" />
+                <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <ShieldCheck className="w-10 h-10 text-primary" />
                 </div>
                 <h1 className="text-3xl font-bold mb-4">
                   {studioTicket ? "Live on the marketplace!" : "Ticket submitted for review!"}
@@ -629,26 +630,105 @@ const Sell = () => {
     isQRTextValid(qrText) &&
     !isSubmitting;
 
+  // Compute progress for the stepper. For Studio resales the event + QR are
+  // already verified by definition, so the user only has to do "price" → "publish".
+  const hasEvent = !!selectedEvent;
+  const hasVerifiedQr =
+    !!studioTicket || (qrVerifyStatus?.status === "valid");
+  const hasPriceSet =
+    parseFloat(formData.sellingPrice) > 0 &&
+    isFinite(parseFloat(formData.sellingPrice));
+  const stepIndex = !hasEvent
+    ? 0
+    : !hasVerifiedQr
+    ? 1
+    : !hasPriceSet
+    ? 2
+    : 3;
+  const steps = studioTicket
+    ? [
+        { label: "Set price", done: hasPriceSet },
+        { label: "Publish", done: false },
+      ]
+    : [
+        { label: "Event", done: hasEvent },
+        { label: "Verify QR", done: hasVerifiedQr },
+        { label: "Price", done: hasPriceSet },
+        { label: "Publish", done: false },
+      ];
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <SEOHead titleKey="marketplace.sell.title" descriptionKey="marketplace.sell.description" />
       <Header />
-      <main className="py-16 flex-1">
-        <div className="container mx-auto px-4 max-w-4xl">
-          <div className="mb-6">
+
+      {/* ===== Branded hero with step indicator =====
+          Gradient strip on Ticket Safe blue. Title on the left, stepper on
+          the right (or below on mobile). Each step has a numbered chip; the
+          chip lights up brand-blue when its step is done. Gives the user a
+          clear sense of "where am I in the process" without being childish. */}
+      <section
+        className="relative text-white overflow-hidden"
+        style={{ background: "linear-gradient(135deg, hsl(220 100% 30%), hsl(210 100% 45%))" }}
+      >
+        <div
+          className="absolute inset-0 opacity-30 pointer-events-none"
+          style={{
+            backgroundImage:
+              "radial-gradient(circle at 15% 20%, rgba(255,255,255,.30), transparent 45%), radial-gradient(circle at 85% 80%, rgba(255,255,255,.12), transparent 50%)",
+          }}
+        />
+        <div className="relative container mx-auto px-4 max-w-4xl pt-8 pb-10 md:pt-12 md:pb-14">
+          <div className="mb-5">
             <BackButton />
           </div>
-
-          <div className="text-center mb-12">
-            <h1 className="text-4xl font-bold mb-4">
-              {studioTicket ? "Resell your ticket" : "Sell a Ticket"}
-            </h1>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              {studioTicket
-                ? "This Studio ticket is already verified — just set a price and you're listed."
-                : "Verify your ticket with its QR code and list it in under a minute."}
-            </p>
+          <div className="text-[10px] md:text-xs font-bold uppercase tracking-[0.2em] text-white/80 mb-2">
+            {studioTicket ? "Studio resale · instant" : "List a ticket"}
           </div>
+          <h1 className="text-3xl md:text-5xl font-bold leading-tight tracking-tight mb-3">
+            {studioTicket ? "Resell your ticket" : "Sell a ticket"}
+          </h1>
+          <p className="text-sm md:text-base text-white/85 max-w-xl mb-6 md:mb-8">
+            {studioTicket
+              ? "This Studio ticket is already verified — just set a price and you're listed."
+              : "Verify your ticket with its QR code and list it in under a minute."}
+          </p>
+
+          {/* Stepper */}
+          <div className="flex items-center gap-2 md:gap-3 overflow-x-auto -mx-1 px-1 pb-1">
+            {steps.map((s, i) => {
+              const isActive = i === stepIndex;
+              const isDone = s.done;
+              return (
+                <div key={s.label} className="flex items-center gap-2 md:gap-3 flex-shrink-0">
+                  <div
+                    className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full ring-1 transition-colors ${
+                      isDone
+                        ? "bg-white text-primary ring-white"
+                        : isActive
+                        ? "bg-white/20 text-white ring-white/40 backdrop-blur"
+                        : "bg-white/5 text-white/65 ring-white/15"
+                    }`}
+                  >
+                    <span className="inline-flex items-center justify-center w-4 h-4 rounded-full text-[10px] font-bold bg-white/30">
+                      {isDone ? "✓" : i + 1}
+                    </span>
+                    <span className="text-[11px] md:text-xs font-bold uppercase tracking-wider">
+                      {s.label}
+                    </span>
+                  </div>
+                  {i < steps.length - 1 && (
+                    <span className="w-3 md:w-5 h-px bg-white/30" aria-hidden />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      <main className="py-8 md:py-10 flex-1 pb-32 lg:pb-10">
+        <div className="container mx-auto px-4 max-w-4xl">
 
           {studioLoading && (
             <div className="flex items-center justify-center py-10">
@@ -660,24 +740,24 @@ const Sell = () => {
             {/* ---- Main form ---- */}
             <div className="lg:col-span-2 space-y-6">
               {studioTicket && selectedEvent && (
-                <Card className="border-emerald-200 bg-emerald-50/60">
+                <Card className="border-primary/30 bg-primary/5">
                   <CardContent className="pt-6">
                     <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                      <div className="w-10 h-10 rounded-xl bg-primary text-primary-foreground flex items-center justify-center shrink-0">
                         <Zap className="w-5 h-5" />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-xs font-bold uppercase tracking-wider text-emerald-700 mb-1">
+                        <p className="text-xs font-bold uppercase tracking-wider text-primary mb-1">
                           Instant resale · Studio ticket
                         </p>
-                        <p className="text-sm font-bold text-emerald-900 truncate">
+                        <p className="text-sm font-bold text-foreground truncate">
                           {selectedEvent.title}
                         </p>
-                        <p className="text-xs text-emerald-800/80 mt-0.5">
+                        <p className="text-xs text-muted-foreground mt-0.5">
                           {new Date(selectedEvent.date).toLocaleDateString(dateLocale, { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
                           {selectedEvent.location ? ` · ${selectedEvent.location}` : ""}
                         </p>
-                        <p className="text-xs text-emerald-800 mt-2">
+                        <p className="text-xs text-foreground/80 mt-2">
                           Your QR stays valid until someone buys it. The moment payment goes through, we invalidate yours and issue a fresh one in the buyer's name — no upload needed.
                         </p>
                       </div>
@@ -948,12 +1028,12 @@ const Sell = () => {
                       {!qrVerifying && qrVerifyStatus && (
                         <>
                           {qrVerifyStatus.status === "valid" && (
-                            <Alert className="bg-green-50 border-green-200">
-                              <CheckCircle2 className="w-4 h-4 text-green-600" />
-                              <AlertDescription className="text-green-800 font-medium">
+                            <Alert className="bg-primary/10 border-primary/30">
+                              <CheckCircle2 className="w-4 h-4 text-primary" />
+                              <AlertDescription className="text-primary font-medium">
                                 Ticket accepted
                                 {qrVerifyStatus.needs_review && (
-                                  <span className="font-normal ml-1 text-green-700">
+                                  <span className="font-normal ml-1 text-primary/80">
                                     — will be reviewed before going live
                                   </span>
                                 )}
@@ -969,9 +1049,9 @@ const Sell = () => {
                             </Alert>
                           )}
                           {qrVerifyStatus.status === "already_listed" && (
-                            <Alert className="bg-yellow-50 border-yellow-300">
-                              <AlertTriangle className="w-4 h-4 text-yellow-600" />
-                              <AlertDescription className="text-yellow-800">
+                            <Alert className="bg-muted border-border">
+                              <AlertTriangle className="w-4 h-4 text-foreground/70" />
+                              <AlertDescription className="text-foreground/80">
                                 <span className="font-medium">Already listed</span> — submitting will replace your existing listing
                               </AlertDescription>
                             </Alert>
@@ -1083,85 +1163,141 @@ const Sell = () => {
             </div>
 
             {/* ---- Sidebar ---- */}
-            <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Selling Guidelines</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3 text-sm">
-                  {[
-                    "Provide the real QR code from your original ticket",
-                    "Set a fair price for your ticket",
-                    "Each QR code can only be listed once",
-                    "Only verified students can buy",
-                    "Secure escrow payment processing",
-                  ].map((text) => (
-                    <div key={text} className="flex items-start gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-accent mt-0.5 flex-shrink-0" />
-                      <span>{text}</span>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-
+            <div className="space-y-5 lg:sticky lg:top-24 lg:self-start">
+              {/* ===== Earnings card — the visual hero of the sidebar =====
+                  "You receive €X" is the answer to the only question the
+                  seller cares about. Big tabular-nums number in brand blue,
+                  the breakdown lives below it as a quiet ledger. */}
               {(() => {
                 const price = parseFloat(formData.sellingPrice);
                 const qty = parseInt(formData.quantity, 10) || 1;
                 const hasPrice = isFinite(price) && price > 0;
                 const bd = hasPrice ? calcBreakdown(price, qty) : null;
                 return (
-                  <Card>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-base">Your Earnings</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2 text-sm">
+                  <div className="rounded-2xl bg-card border border-border p-5 md:p-6 shadow-sm">
+                    <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-2">
+                      You receive
+                    </div>
+                    <div className="text-3xl md:text-4xl font-semibold tabular-nums tracking-tight leading-none text-primary mb-4">
+                      {bd ? `€${bd.sellerPayoutEuros.toFixed(2)}` : "€—"}
+                    </div>
+
+                    <div className="space-y-1.5 text-sm pt-4 border-t border-border">
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">
                           Listing price{qty > 1 ? ` × ${qty}` : ""}
                         </span>
-                        <span>{bd ? `€${bd.listPriceEuros.toFixed(2)}` : "—"}</span>
+                        <span className="tabular-nums">
+                          {bd ? `€${bd.listPriceEuros.toFixed(2)}` : "—"}
+                        </span>
                       </div>
-                      <div className="flex justify-between text-destructive/80">
-                        <span>Platform commission (5%)</span>
-                        <span>{bd ? `−€${bd.sellerCommissionEuros.toFixed(2)}` : "—"}</span>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">
+                          Platform commission <span className="text-muted-foreground/70">(5%)</span>
+                        </span>
+                        <span className="tabular-nums text-muted-foreground">
+                          {bd ? `−€${bd.sellerCommissionEuros.toFixed(2)}` : "—"}
+                        </span>
                       </div>
-                      <div className="flex justify-between font-bold text-green-700 border-t pt-2 mt-1">
-                        <span>You receive</span>
-                        <span>{bd ? `€${bd.sellerPayoutEuros.toFixed(2)}` : "—"}</span>
-                      </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+
+                    <Button
+                      variant="hero"
+                      size="lg"
+                      className="w-full mt-5 h-12 text-base font-semibold"
+                      disabled={!canSubmit}
+                      onClick={handleSubmit}
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Publishing your listing…
+                        </>
+                      ) : (
+                        <>
+                          Publish listing
+                          <ArrowRight className="w-4 h-4 ml-1" />
+                        </>
+                      )}
+                    </Button>
+
+                    <p className="text-[11px] text-center text-muted-foreground mt-3">
+                      By listing, you agree to our{" "}
+                      <Link to="/privacy" className="underline hover:text-foreground">
+                        terms of service
+                      </Link>
+                      .
+                    </p>
+                  </div>
                 );
               })()}
 
-              <Button
-                variant="hero"
-                size="lg"
-                className="w-full"
-                disabled={!canSubmit}
-                onClick={handleSubmit}
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Verifying & listing…
-                  </>
-                ) : (
-                  "List Ticket"
-                )}
-              </Button>
-
-              <p className="text-xs text-center text-muted-foreground">
-                By listing, you agree to our{" "}
-                <Link to="/privacy" className="underline">
-                  terms of service
-                </Link>
-                .
-              </p>
+              {/* ===== Guidelines — compact, brand-blue only ===== */}
+              <div className="rounded-2xl bg-card border border-border p-5 md:p-6 shadow-sm">
+                <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-3">
+                  How it works
+                </div>
+                <div className="space-y-2.5 text-sm">
+                  {[
+                    "Real QR from your original ticket",
+                    "Each QR can only be listed once",
+                    "Verified students only — no scalpers",
+                    "Escrow payment, instant when sold",
+                    "Set any price you want — fair is faster",
+                  ].map((text) => (
+                    <div key={text} className="flex items-start gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                      <span className="text-foreground/85">{text}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </main>
+
+      {/* ===== Sticky mobile CTA — appears once a price is set =====
+          Mirrors the buy-flow sticky bar on EventPublic. Total payout +
+          Publish button always reachable, no need to scroll back up. */}
+      {hasPriceSet && canSubmit && (
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/95 backdrop-blur-md shadow-[0_-4px_24px_rgba(0,0,0,0.06)] px-4 py-3 animate-in slide-in-from-bottom-2 duration-300">
+          <div className="container mx-auto max-w-4xl flex items-center gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="text-[11px] font-medium text-muted-foreground">
+                You receive
+              </div>
+              {(() => {
+                const price = parseFloat(formData.sellingPrice);
+                const qty = parseInt(formData.quantity, 10) || 1;
+                const bd = calcBreakdown(price, qty);
+                return (
+                  <div className="text-lg font-semibold tabular-nums tracking-tight text-primary leading-tight">
+                    €{bd.sellerPayoutEuros.toFixed(2)}
+                  </div>
+                );
+              })()}
+            </div>
+            <Button
+              variant="hero"
+              size="lg"
+              className="flex-shrink-0 h-11 px-5 text-sm font-semibold"
+              disabled={!canSubmit || isSubmitting}
+              onClick={handleSubmit}
+            >
+              {isSubmitting ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <>
+                  Publish
+                  <ArrowRight className="w-4 h-4 ml-1" />
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      )}
+
       <Footer />
     </div>
   );
