@@ -1,6 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { ArrowRight, Ticket, Repeat2, ShieldCheck, QrCode, Lock, Sparkles, GraduationCap, User, LogOut, LayoutDashboard } from "lucide-react";
 import Logo from "@/components/Logo";
+import { HoloTicket } from "@/components/HoloTicket";
 import { SEOHead } from "@/components/SEOHead";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrganizer } from "@/hooks/useOrganizer";
@@ -150,6 +151,14 @@ const Home = () => {
                 student events.
               </span>
             </h1>
+          </div>
+
+          {/* ===== Holographic ticket showcase =====
+              Sits between the headline and the two path-cards. On mobile it
+              renders compact; on desktop it occupies a generous slice of
+              the viewport before the choice CTAs. */}
+          <div className="mb-8 md:mb-14">
+            <HoloTicket />
           </div>
 
           {/* Two paths */}
