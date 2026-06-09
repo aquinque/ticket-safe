@@ -132,7 +132,9 @@ const StudioEventEdit = () => {
   }, [id]);
 
   useEffect(() => {
-    if (!authLoading && !user) navigate("/auth");
+    if (!authLoading && !user) {
+      navigate(`/auth?next=${encodeURIComponent(window.location.pathname)}`);
+    }
   }, [user, authLoading, navigate]);
 
   useEffect(() => {

@@ -61,7 +61,9 @@ const ChatRoom = () => {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!authLoading && !user) navigate("/auth");
+    if (!authLoading && !user) {
+      navigate(`/auth?next=${encodeURIComponent(window.location.pathname)}`);
+    }
   }, [user, authLoading, navigate]);
 
   // Fetch conversation metadata

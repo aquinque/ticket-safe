@@ -58,7 +58,8 @@ const Checkout = () => {
 
   useEffect(() => {
     if (!authLoading && !user) {
-      navigate("/auth");
+      const next = `/checkout${window.location.search}`;
+      navigate(`/auth?next=${encodeURIComponent(next)}`);
     }
   }, [user, authLoading, navigate]);
 
@@ -211,7 +212,7 @@ const Checkout = () => {
       const token = sessionData.session?.access_token;
       if (!token) {
         toast.error("Session expired. Please log in again.");
-        navigate("/auth");
+        navigate(`/auth?next=${encodeURIComponent(`/checkout${window.location.search}`)}`);
         return;
       }
 

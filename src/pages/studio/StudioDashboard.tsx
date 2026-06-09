@@ -60,7 +60,7 @@ const StudioDashboard = () => {
   const [payoutModalOpen, setPayoutModalOpen] = useState(false);
 
   useEffect(() => {
-    if (!authLoading && !user) navigate("/auth");
+    if (!authLoading && !user) navigate("/auth?next=/studio");
   }, [user, authLoading, navigate]);
 
   // Pull the organizer's live earnings the moment we know who they are.

@@ -165,7 +165,7 @@ const OrganizerScan = () => {
 
   // Redirect if not logged in
   useEffect(() => {
-    if (!authLoading && !user) navigate("/auth");
+    if (!authLoading && !user) navigate("/auth?next=/organizer/scan");
   }, [user, authLoading, navigate]);
 
   // Load upcoming events the user can scan tickets for:

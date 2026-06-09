@@ -12,6 +12,7 @@ import {
   ShoppingBag,
   ChevronRight,
   ShieldCheck,
+  Tag,
 } from "lucide-react";
 
 const Settings = () => {
@@ -42,6 +43,14 @@ const Settings = () => {
       icon: ShoppingBag,
       path: "/settings/purchases",
       color: "text-green-600 bg-green-50 dark:bg-green-950/30"
+    },
+    {
+      id: "listings",
+      title: "My Listings",
+      description: "Resale listings, earnings, and SEPA payouts",
+      icon: Tag,
+      path: "/settings/listings",
+      color: "text-rose-600 bg-rose-50 dark:bg-rose-950/30"
     },
     {
       id: "privacy",

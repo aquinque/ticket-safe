@@ -45,7 +45,7 @@ const PurchaseHistory = () => {
 
   useEffect(() => {
     if (!user) {
-      navigate("/auth");
+      navigate("/auth?next=/settings/purchases");
       return;
     }
 

@@ -59,8 +59,10 @@ const MyTickets = () => {
   const [pdfPending, setPdfPending] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!authLoading && !user) navigate("/auth");
-  }, [user, authLoading, navigate]);
+    if (!authLoading && !user) {
+      navigate(`/auth?next=${encodeURIComponent(`/my-tickets/${orderId ?? ""}`)}`);
+    }
+  }, [user, authLoading, navigate, orderId]);
 
   useEffect(() => {
     if (!orderId || !user) return;

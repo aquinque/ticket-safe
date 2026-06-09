@@ -70,7 +70,7 @@ const StudioEventNew = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!authLoading && !user) navigate("/auth");
+    if (!authLoading && !user) navigate("/auth?next=/studio/events/new");
   }, [user, authLoading, navigate]);
 
   useEffect(() => {

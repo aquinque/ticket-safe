@@ -91,7 +91,7 @@ const EventTicketsMarketplace = () => {
 
   const handleMakeOffer = async (listing: Listing) => {
     if (!user) {
-      navigate("/auth");
+      navigate(`/auth?next=${encodeURIComponent(window.location.pathname + window.location.search)}`);
       return;
     }
     if (user.id === listing.seller_id) {

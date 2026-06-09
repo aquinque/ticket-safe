@@ -17,7 +17,7 @@ const Messages = () => {
   const { conversations, loading } = useConversations();
 
   useEffect(() => {
-    if (!authLoading && !user) navigate("/auth");
+    if (!authLoading && !user) navigate("/auth?next=/messages");
   }, [user, authLoading, navigate]);
 
   return (

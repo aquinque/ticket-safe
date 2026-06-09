@@ -75,7 +75,7 @@ const ReviewTickets = () => {
 
   // Redirect if not logged in
   useEffect(() => {
-    if (!authLoading && !user) navigate("/auth");
+    if (!authLoading && !user) navigate("/auth?next=/admin/review");
   }, [user, authLoading, navigate]);
 
   // Check admin role

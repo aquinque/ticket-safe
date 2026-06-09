@@ -39,7 +39,7 @@ const StudioProfile = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!authLoading && !user) navigate("/auth");
+    if (!authLoading && !user) navigate("/auth?next=/studio/profile");
   }, [user, authLoading, navigate]);
 
   useEffect(() => {

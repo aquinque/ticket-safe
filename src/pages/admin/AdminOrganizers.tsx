@@ -53,7 +53,7 @@ const AdminOrganizers = () => {
   const [acting, setActing] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!authLoading && !user) navigate("/auth");
+    if (!authLoading && !user) navigate("/auth?next=/admin/organizers");
   }, [user, authLoading, navigate]);
 
   useEffect(() => {
