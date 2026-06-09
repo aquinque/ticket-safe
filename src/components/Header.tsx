@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Menu, X, User, LogOut, Settings, MessageSquare, Sparkles, Ticket as TicketIcon } from "lucide-react";
+import { Menu, X, User, LogOut, Settings, MessageSquare, Sparkles, Ticket as TicketIcon, Shield, Banknote } from "lucide-react";
 import Logo from "@/components/Logo";
 import { useAuth } from "@/hooks/useAuth";
 import { useI18n } from "@/contexts/I18nContext";
@@ -37,6 +37,7 @@ const Header = ({ minimal = false }: HeaderProps) => {
   const [userName, setUserName] = useState<string>("");
   const [isScrolled, setIsScrolled] = useState(false);
   const [signOutOpen, setSignOutOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const location = useLocation();
   const { user, signOut } = useAuth();
   const { t, language } = useI18n();
@@ -71,7 +72,7 @@ const Header = ({ minimal = false }: HeaderProps) => {
               .select('full_name')
               .eq('id', user.id)
               .maybeSingle();
-            
+
             if (data && !error) {
               setUserName(data.full_name);
             }
@@ -81,8 +82,21 @@ const Header = ({ minimal = false }: HeaderProps) => {
         };
         fetchUserProfile();
       }
+
+      // Admin role check — unlocks the Review queue + Payouts shortcuts in
+      // the dropdown so admins don't have to remember the URLs.
+      (async () => {
+        const { data } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", user.id)
+          .eq("role", "admin")
+          .maybeSingle();
+        setIsAdmin(!!data);
+      })();
     } else {
       setUserName("");
+      setIsAdmin(false);
     }
   }, [user]);
 
@@ -188,6 +202,23 @@ const Header = ({ minimal = false }: HeaderProps) => {
                     <Settings className="h-4 w-4 mr-2" />
                     {t('nav.settings')}
                   </DropdownMenuItem>
+                  {isAdmin && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => navigate("/admin/review")}>
+                        <Shield className="h-4 w-4 mr-2" />
+                        Admin · Review tickets
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => navigate("/admin/payouts")}>
+                        <Banknote className="h-4 w-4 mr-2" />
+                        Admin · SEPA payouts
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => navigate("/admin/organizers")}>
+                        <User className="h-4 w-4 mr-2" />
+                        Admin · Organizers
+                      </DropdownMenuItem>
+                    </>
+                  )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setSignOutOpen(true); }}>
                     <LogOut className="h-4 w-4 mr-2" />

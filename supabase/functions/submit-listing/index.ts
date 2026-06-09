@@ -319,6 +319,34 @@ serve(async (req) => {
     }
 
     // -----------------------------------------------------------------------
+    // 5b. Anti-scalping cap (max 1.5× face value)
+    //
+    // Reference price: max of (event_tiers.price_cents) for Studio events,
+    // fallback to events.base_price for externals. If neither is known we
+    // don't enforce a cap (no reference to compare against).
+    // -----------------------------------------------------------------------
+    {
+      const { data: tiers } = await supabase
+        .from("event_tiers")
+        .select("price_cents")
+        .eq("event_id", eventId.trim());
+      const maxTierCents = (tiers ?? []).reduce((m: number, t: { price_cents?: number }) => Math.max(m, t.price_cents ?? 0), 0);
+      const refCents = maxTierCents > 0
+        ? maxTierCents
+        : (typeof event.base_price === "number" ? Math.round(event.base_price * 100) : 0);
+      if (refCents > 0) {
+        const capCents = Math.ceil(refCents * 1.5);
+        const offeredCents = Math.round(price * 100);
+        if (offeredCents > capCents) {
+          return jsonResponse({
+            code: "INVALID_FORMAT",
+            message: `Anti-scalping: you cannot sell above €${(capCents / 100).toFixed(2)} (face value × 1.5).`,
+          }, 400);
+        }
+      }
+    }
+
+    // -----------------------------------------------------------------------
     // 5b. Cross-event text validation (when PDF text is extracted client-side)
     // Only blocks if the ticket text CLEARLY belongs to a different event:
     // - at least 2 distinctive keywords (>=6 chars) from another event match

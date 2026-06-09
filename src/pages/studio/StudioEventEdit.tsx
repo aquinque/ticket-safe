@@ -90,6 +90,63 @@ interface AttendeeRow {
   scanned_at: string | null;
 }
 
+// CSV export for door staff. We never leak qr_token in the export — that
+// would let anyone with the file walk anyone in. Just the buyer, the
+// attendee name, and scan state.
+function exportAttendeesCsv(
+  event: EventRow,
+  orders: OrderRow[],
+  tiers: TierRow[],
+  attendees: AttendeeRow[],
+  attendeesByOrder: Map<string, AttendeeRow[]>,
+) {
+  const esc = (v: unknown): string => {
+    const s = String(v ?? "");
+    if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+    return s;
+  };
+  const rows: string[] = [];
+  rows.push(["Attendee name", "Email on file", "Tier", "Buyer email", "Order ref", "Status", "Scanned at"].join(","));
+  for (const o of orders) {
+    if (o.status === "refunded" || o.status === "cancelled") continue;
+    const tier = tiers.find((t) => t.id === o.tier_id);
+    const att = attendeesByOrder.get(o.id) ?? [];
+    if (att.length === 0) {
+      rows.push([
+        esc("(unnamed)"),
+        esc(o.buyer_email),
+        esc(tier?.name ?? ""),
+        esc(o.buyer_email),
+        esc(o.id.slice(0, 8)),
+        esc(o.status),
+        esc(""),
+      ].join(","));
+    } else {
+      for (const a of att) {
+        rows.push([
+          esc([a.holder_first_name, a.holder_last_name].filter(Boolean).join(" ") || "(unnamed)"),
+          esc(a.holder_email ?? ""),
+          esc(tier?.name ?? ""),
+          esc(o.buyer_email),
+          esc(o.id.slice(0, 8)),
+          esc(a.scanned_at ? "SCANNED" : a.status),
+          esc(a.scanned_at ? new Date(a.scanned_at).toISOString() : ""),
+        ].join(","));
+      }
+    }
+  }
+  const blob = new Blob([rows.join("\n")], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const slug = (event.slug ?? event.id).replace(/[^a-z0-9-]/gi, "-").slice(0, 40);
+  a.href = url;
+  a.download = `door-list_${slug}_${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 const StudioEventEdit = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -689,11 +746,23 @@ const StudioEventEdit = () => {
 
           {/* Buyers — every order, with the named attendees that order issued */}
           <section className="bg-card border border-border rounded-2xl p-5 md:p-6">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-4 gap-3">
               <h2 className="text-lg font-bold">Buyers</h2>
-              <span className="text-xs text-muted-foreground">
-                {orders.length} order{orders.length === 1 ? "" : "s"} · {attendees.length} ticket{attendees.length === 1 ? "" : "s"}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground hidden sm:inline">
+                  {orders.length} order{orders.length === 1 ? "" : "s"} · {attendees.length} ticket{attendees.length === 1 ? "" : "s"}
+                </span>
+                {attendees.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => exportAttendeesCsv(event, orders, tiers, attendees, attendeesByOrder)}
+                    className="inline-flex items-center gap-1.5 px-3 min-h-[34px] rounded-lg text-xs font-bold bg-muted hover:bg-muted/80 border border-border"
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    Door list CSV
+                  </button>
+                )}
+              </div>
             </div>
             {orders.length === 0 ? (
               <p className="text-sm text-muted-foreground">No orders yet. They will appear here in real time.</p>
