@@ -17,6 +17,8 @@ interface SEOHeadProps {
   type?: string;
   /** Canonical URL override. Defaults to the current pathname. */
   url?: string;
+  /** Optional schema.org JSON-LD payload for rich results. */
+  jsonLd?: Record<string, unknown>;
 }
 
 /** Ensures an HTMLMetaElement exists for the given selector, creating it if missing. */
@@ -48,6 +50,7 @@ export const SEOHead = ({
   image,
   type = 'website',
   url,
+  jsonLd,
 }: SEOHeadProps) => {
   const { t, language } = useI18n();
   const location = useLocation();
@@ -100,7 +103,20 @@ export const SEOHead = ({
     xDefault.setAttribute('hreflang', 'x-default');
     xDefault.setAttribute('href', `${baseUrl}${currentPath}`);
     document.head.appendChild(xDefault);
-  }, [t, language, location.pathname, title, titleKey, description, descriptionKey, image, type, url]);
+
+    // schema.org JSON-LD — drives Google rich results (Event card, Product
+    // snippets, etc.). We replace any prior tag so SPA navigations don't
+    // leak stale schema.
+    const TAG_ID = 'seo-jsonld';
+    document.getElementById(TAG_ID)?.remove();
+    if (jsonLd) {
+      const script = document.createElement('script');
+      script.type = 'application/ld+json';
+      script.id = TAG_ID;
+      script.text = JSON.stringify(jsonLd);
+      document.head.appendChild(script);
+    }
+  }, [t, language, location.pathname, title, titleKey, description, descriptionKey, image, type, url, jsonLd]);
 
   return null;
 };

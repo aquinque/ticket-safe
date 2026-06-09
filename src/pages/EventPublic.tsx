@@ -270,6 +270,37 @@ const EventPublic = () => {
         image={event.banner_url ?? event.organizer?.logo_url ?? null}
         type="event"
         url={`https://ticket-safe.eu/e/${event.slug}`}
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "Event",
+          name: event.title,
+          description: event.description ?? `Tickets for ${event.title}`,
+          startDate: event.date,
+          ...(event.ends_at ? { endDate: event.ends_at } : {}),
+          eventStatus: "https://schema.org/EventScheduled",
+          eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
+          location: event.location
+            ? { "@type": "Place", name: event.location, address: event.location }
+            : undefined,
+          image: event.banner_url ?? event.organizer?.logo_url ?? undefined,
+          organizer: event.organizer?.name
+            ? {
+                "@type": "Organization",
+                name: event.organizer.name,
+                url: event.organizer.website ?? undefined,
+              }
+            : undefined,
+          offers: tiers
+            .filter((t) => t.is_active && (t.total_qty ?? 0) - (t.sold_qty ?? 0) > 0)
+            .map((t) => ({
+              "@type": "Offer",
+              name: t.name,
+              price: (t.price_cents / 100).toFixed(2),
+              priceCurrency: "EUR",
+              availability: "https://schema.org/InStock",
+              url: `https://ticket-safe.eu/e/${event.slug}`,
+            })),
+        }}
       />
 
       {/* ===== Branded hero — always Ticket Safe blue ===== */}

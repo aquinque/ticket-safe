@@ -32,6 +32,14 @@
   <meta property="og:description" content="The secure marketplace for verified students to buy and sell event tickets legally and safely. No scams, no bots—just real students.">
   <meta name="twitter:description" content="The secure marketplace for verified students to buy and sell event tickets legally and safely. No scams, no bots—just real students.">
   <meta name="theme-color" content="#3a5fe6">
+  <!-- Preconnect to critical third-parties so the TLS handshake happens
+       in parallel with the document parse, shaving ~200ms off the first
+       authenticated request. dns-prefetch falls back on browsers that
+       cap preconnect. -->
+  <link rel="preconnect" href="https://lgmnatfvdzzjzyxlenry.supabase.co" crossorigin>
+  <link rel="dns-prefetch" href="https://lgmnatfvdzzjzyxlenry.supabase.co">
+  <link rel="preconnect" href="https://js.stripe.com" crossorigin>
+  <link rel="dns-prefetch" href="https://js.stripe.com">
   <!-- Modern browsers prefer the SVG (crisp at any DPI) -->
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <!-- PNG fallbacks: Google search-result favicons require a square PNG/ICO >= 48x48 -->
