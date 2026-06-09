@@ -10,6 +10,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -186,22 +187,17 @@ const ReviewTickets = () => {
       <main className="flex-1 py-8">
         <div className="container mx-auto px-4 max-w-4xl">
 
-          {/* Title */}
-          <div className="flex items-center justify-between mb-8">
-            <div className="flex items-center gap-3">
-              <Shield className="w-6 h-6 text-primary" />
-              <div>
-                <h1 className="text-2xl font-bold">Ticket Review Queue</h1>
-                <p className="text-sm text-muted-foreground">
-                  {loading ? "Loading…" : `${tickets.length} ticket${tickets.length !== 1 ? "s" : ""} pending review`}
-                </p>
-              </div>
-            </div>
-            <Button variant="outline" size="sm" onClick={fetchPending} disabled={loading}>
-              <RefreshCw className={`w-4 h-4 mr-1.5 ${loading ? "animate-spin" : ""}`} />
-              Refresh
-            </Button>
-          </div>
+          <PageHeader
+            icon={Shield}
+            title="Ticket review queue"
+            description={loading ? "Loading…" : `${tickets.length} ticket${tickets.length !== 1 ? "s" : ""} pending review`}
+            action={
+              <Button variant="outline" size="sm" onClick={fetchPending} disabled={loading}>
+                <RefreshCw className={`w-4 h-4 mr-1.5 ${loading ? "animate-spin" : ""}`} />
+                Refresh
+              </Button>
+            }
+          />
 
           {/* Queue */}
           {loading ? (
