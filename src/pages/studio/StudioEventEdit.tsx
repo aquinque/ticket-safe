@@ -14,7 +14,6 @@ import {
   ExternalLink,
   Save,
   Image as ImageIcon,
-  Palette,
   Tag,
   Type,
   FileText,
@@ -39,13 +38,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { useOrganizer } from "@/hooks/useOrganizer";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-
-// Quick-pick brand colours for the public event page (incl. white).
-const BRAND_COLORS = [
-  "#003399", "#3A5FE6", "#7C3AED", "#DB2777",
-  "#E11D48", "#EA580C", "#16A34A", "#0891B2",
-  "#0F172A", "#FFFFFF",
-];
 
 interface EventRow {
   id: string;
@@ -418,7 +410,7 @@ const StudioEventEdit = () => {
           <div
             className="rounded-2xl p-6 md:p-8 text-white mb-6"
             style={{
-              background: `linear-gradient(135deg, ${event.primary_color ?? "#003399"}, hsl(210 100% 45%))`,
+              background: "linear-gradient(135deg, #003399, hsl(210 100% 45%))",
             }}
           >
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
@@ -943,7 +935,9 @@ const EventDetailsEditor = ({
   const [endsAt, setEndsAt] = useState(toDatetimeLocal(event.ends_at));
   const [location, setLocation] = useState(event.location ?? "");
   const [category, setCategory] = useState(event.category ?? "party");
-  const [primaryColor, setPrimaryColor] = useState(event.primary_color ?? "#003399");
+  // Brand colour is fixed (colour customisation removed) — the banner photo is
+  // the event's visual; everything else stays Ticket Safe blue.
+  const primaryColor = "#003399";
   const [slug, setSlug] = useState(event.slug ?? "");
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [bannerPreview, setBannerPreview] = useState<string | null>(event.banner_url ?? null);
@@ -960,7 +954,6 @@ const EventDetailsEditor = ({
     setEndsAt(toDatetimeLocal(event.ends_at));
     setLocation(event.location ?? "");
     setCategory(event.category ?? "party");
-    setPrimaryColor(event.primary_color ?? "#003399");
     setSlug(event.slug ?? "");
     setBannerPreview(event.banner_url ?? null);
     setBannerFile(null);
@@ -1141,40 +1134,7 @@ const EventDetailsEditor = ({
             </Field>
           </div>
 
-          <Field label="Primary color" icon={Palette}>
-            <div className="flex flex-wrap gap-2 mb-3">
-              {BRAND_COLORS.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => setPrimaryColor(c)}
-                  aria-label={`Use ${c}`}
-                  className={`w-8 h-8 rounded-full border transition-transform hover:scale-110 ${
-                    primaryColor.toUpperCase() === c
-                      ? "ring-2 ring-primary ring-offset-2 ring-offset-background scale-110 border-transparent"
-                      : "border-border"
-                  }`}
-                  style={{ background: c }}
-                />
-              ))}
-            </div>
-            <div className="flex items-center gap-3">
-              <input
-                type="color"
-                value={primaryColor}
-                onChange={(e) => setPrimaryColor(e.target.value)}
-                className="w-12 h-12 rounded-lg border border-border cursor-pointer"
-              />
-              <input
-                value={primaryColor}
-                onChange={(e) => setPrimaryColor(e.target.value.toUpperCase())}
-                className="ts-edit flex-1 font-mono uppercase"
-                maxLength={7}
-              />
-            </div>
-          </Field>
-
-          <Field label="Banner image" icon={ImageIcon} hint="Cropped to 16:9. Max 5 MB.">
+          <Field label="Banner image" icon={ImageIcon} hint="Cropped to 16:9. Max 5 MB. This is your event's visual.">
             {bannerPreview ? (
               <div className="relative rounded-xl overflow-hidden">
                 <img src={bannerPreview} alt="Banner preview" className="w-full aspect-[16/9] object-cover" />

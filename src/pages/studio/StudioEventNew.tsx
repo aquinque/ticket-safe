@@ -25,13 +25,6 @@ import { toast } from "sonner";
 import { detectCampus } from "@/lib/campus";
 import { ImageCropDialog } from "@/components/ImageCropDialog";
 
-// Quick-pick brand colours for the public event page (incl. white).
-const BRAND_COLORS = [
-  "#003399", "#3A5FE6", "#7C3AED", "#DB2777",
-  "#E11D48", "#EA580C", "#16A34A", "#0891B2",
-  "#0F172A", "#FFFFFF",
-];
-
 const slugify = (input: string): string =>
   input
     .toLowerCase()
@@ -66,7 +59,9 @@ const StudioEventNew = () => {
   const [endsAt, setEndsAt] = useState("");
   const [location, setLocation] = useState("");
   const [category, setCategory] = useState("party");
-  const [primaryColor, setPrimaryColor] = useState("#003399");
+  // Brand colour is fixed (colour customisation removed) — events always use
+  // the Ticket Safe blue; the banner photo is what makes each event distinct.
+  const primaryColor = "#003399";
   const [limitEnabled, setLimitEnabled] = useState(true);
   const [maxPerBuyer, setMaxPerBuyer] = useState("1");
   const [bannerFile, setBannerFile] = useState<File | null>(null);
@@ -88,8 +83,6 @@ const StudioEventNew = () => {
       navigate("/organizers/apply");
     } else if (organizer && organizer.status !== "approved") {
       navigate("/studio");
-    } else if (organizer) {
-      setPrimaryColor(organizer.primary_color || "#003399");
     }
   }, [organizer, orgLoading, authLoading, navigate]);
 
@@ -344,39 +337,7 @@ const StudioEventNew = () => {
 
           {/* Branding */}
           <Section title="Branding" icon={Palette}>
-            <Field label="Primary color" icon={Palette} hint="Used as the accent on your public event page.">
-              <div className="flex flex-wrap gap-2 mb-3">
-                {BRAND_COLORS.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => setPrimaryColor(c)}
-                    aria-label={`Use ${c}`}
-                    className={`w-8 h-8 rounded-full border transition-transform hover:scale-110 ${
-                      primaryColor.toUpperCase() === c
-                        ? "ring-2 ring-primary ring-offset-2 ring-offset-background scale-110 border-transparent"
-                        : "border-border"
-                    }`}
-                    style={{ background: c }}
-                  />
-                ))}
-              </div>
-              <div className="flex items-center gap-3">
-                <input
-                  type="color"
-                  value={primaryColor}
-                  onChange={(e) => setPrimaryColor(e.target.value)}
-                  className="w-12 h-12 rounded-lg border border-border cursor-pointer"
-                />
-                <input
-                  value={primaryColor}
-                  onChange={(e) => setPrimaryColor(e.target.value.toUpperCase())}
-                  className="ts-input flex-1 font-mono uppercase"
-                  maxLength={7}
-                />
-              </div>
-            </Field>
-            <Field label="Banner image" icon={ImageIcon} hint="Cropped to 16:9. Max 5 MB.">
+            <Field label="Banner image" icon={ImageIcon} hint="Cropped to 16:9. Max 5 MB. This is your event's visual.">
               {bannerPreview ? (
                 <div className="relative rounded-xl overflow-hidden group">
                   <img src={bannerPreview} alt="Banner preview" className="w-full aspect-[16/9] object-cover" />
