@@ -369,112 +369,97 @@ const EventPublic = () => {
         }}
       />
 
-      {/* ===== Immersive hero — leads with the event photo (Shotgun/Dice style),
-          falls back to Ticket Safe blue when there's no banner. Brand accents
-          (CTA etc.) stay TS blue below. ===== */}
-      <section className="relative text-white overflow-hidden min-h-[46vh] md:min-h-[54vh] flex flex-col">
-        {event.banner_url ? (
-          <>
-            <img
-              src={event.banner_url}
-              alt={event.title}
-              className="absolute inset-0 w-full h-full object-cover animate-in fade-in duration-700"
-            />
-            {/* Legibility gradient — deep brand navy at the bottom so the title
-                and pills always read, photo stays vivid up top. */}
-            <div
-              className="absolute inset-0 pointer-events-none"
-              style={{
-                background:
-                  "linear-gradient(to top, rgba(2,14,45,0.94) 0%, rgba(2,14,45,0.55) 42%, rgba(2,14,45,0.12) 78%, rgba(2,14,45,0.18) 100%)",
-              }}
-            />
-          </>
-        ) : (
-          <>
-            <div className="absolute inset-0" style={{ background: TS_GRADIENT }} />
-            <div
-              className="absolute inset-0 opacity-40 pointer-events-none"
-              style={{
-                backgroundImage:
-                  "radial-gradient(circle at 25% 20%, rgba(255,255,255,.20), transparent 40%), radial-gradient(circle at 80% 75%, rgba(255,255,255,.10), transparent 45%)",
-              }}
-            />
-          </>
-        )}
+      {/* ===== Clean banner + title (Eventbrite/Dice style) =====
+          The banner shows in its true 16:9 frame — the exact photo the organizer
+          cropped, no extra zoom. The title sits cleanly below, on the page. ===== */}
+      <section className="relative">
+        <div className="bg-gradient-to-br from-[#02122d] via-[#0a2f73] to-[#0a3a8a]">
+          <div className="container mx-auto max-w-4xl sm:px-4 sm:pt-4">
+            <div className="relative w-full aspect-[16/9] sm:rounded-2xl overflow-hidden bg-black/20 sm:ring-1 sm:ring-white/10">
+              {event.banner_url ? (
+                <img
+                  src={event.banner_url}
+                  alt={event.title}
+                  className="absolute inset-0 w-full h-full object-cover animate-in fade-in duration-700"
+                />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center" style={{ background: TS_GRADIENT }}>
+                  {event.organizer?.logo_url ? (
+                    <img src={event.organizer.logo_url} alt={event.organizer.name} className="max-h-[52%] max-w-[58%] object-contain" />
+                  ) : (
+                    <Ticket className="w-16 h-16 text-white/70" strokeWidth={1.5} />
+                  )}
+                </div>
+              )}
 
-        {/* Top row: back arrow (left) + Powered-by chip (right) */}
-        <div className="relative container mx-auto px-4 pt-6 max-w-4xl w-full flex items-center justify-between">
-          <button
-            type="button"
-            onClick={() => {
-              if (location.key && location.key !== "default") navigate(-1);
-              else navigate("/tickets");
-            }}
-            className="group inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/25 backdrop-blur ring-1 ring-white/25 hover:bg-black/40 transition-colors"
-            aria-label="Back"
-          >
-            <ArrowLeft className="w-4 h-4 text-white transition-transform group-hover:-translate-x-0.5" />
-            <span className="text-xs font-bold text-white">Back</span>
-          </button>
-          <Link to="/" className="hidden sm:block">
-            <span className="text-[10px] md:text-xs font-bold uppercase tracking-[0.2em] text-white/80 hover:text-white transition-colors drop-shadow">
-              Powered by Ticket Safe
-            </span>
-          </Link>
+              {/* Top row over the image: back + powered-by */}
+              <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (location.key && location.key !== "default") navigate(-1);
+                    else navigate("/tickets");
+                  }}
+                  className="group inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/45 backdrop-blur ring-1 ring-white/20 hover:bg-black/60 transition-colors"
+                  aria-label="Back"
+                >
+                  <ArrowLeft className="w-4 h-4 text-white transition-transform group-hover:-translate-x-0.5" />
+                  <span className="text-xs font-bold text-white">Back</span>
+                </button>
+                <Link to="/" className="hidden sm:inline-flex px-3 py-1.5 rounded-full bg-black/40 backdrop-blur ring-1 ring-white/15">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/90">Powered by Ticket Safe</span>
+                </Link>
+              </div>
+
+              {/* Category + From price, bottom-left over the image */}
+              <div className="absolute bottom-3 left-3 flex flex-wrap gap-2">
+                {categoryLabel && (
+                  <span className="inline-flex items-center px-3 py-1.5 rounded-full bg-black/55 backdrop-blur text-white text-[11px] font-bold uppercase tracking-[0.14em]">
+                    {categoryLabel}
+                  </span>
+                )}
+                {minPriceCents != null && (
+                  <span className="inline-flex items-center px-3 py-1.5 rounded-full bg-white text-[#02122d] text-xs font-black shadow-sm">
+                    From €{(minPriceCents / 100).toFixed(minPriceCents % 100 === 0 ? 0 : 2)}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Spacer pushes the title block to the bottom, over the photo */}
-        <div className="flex-1" />
+        {/* Title block — clean, on the page background */}
+        <div className="container mx-auto max-w-4xl px-4 pt-5 md:pt-6">
+          {event.organizer && (
+            <div className="inline-flex items-center gap-2.5 mb-3 px-3 py-1.5 rounded-full bg-muted ring-1 ring-border">
+              {event.organizer.logo_url ? (
+                <img src={event.organizer.logo_url} alt={event.organizer.name} className="w-5 h-5 rounded-full object-cover" />
+              ) : (
+                <div className="w-5 h-5 rounded-full bg-primary/15 text-primary flex items-center justify-center text-[10px] font-black">
+                  {event.organizer.name[0]?.toUpperCase()}
+                </div>
+              )}
+              <span className="text-xs font-bold text-foreground leading-none">{event.organizer.name}</span>
+            </div>
+          )}
 
-        {/* Bottom content block */}
-        <div className="relative container mx-auto px-4 pb-9 md:pb-12 max-w-4xl w-full">
-          <div className="flex flex-wrap items-center gap-2 mb-4">
-            {event.organizer && (
-              <div className="inline-flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-black/30 backdrop-blur ring-1 ring-white/25">
-                {event.organizer.logo_url ? (
-                  <img
-                    src={event.organizer.logo_url}
-                    alt={event.organizer.name}
-                    className="w-6 h-6 rounded-full bg-white/10 object-cover"
-                  />
-                ) : (
-                  <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-[11px] font-black">
-                    {event.organizer.name[0]?.toUpperCase()}
-                  </div>
-                )}
-                <div className="text-xs font-semibold leading-none">{event.organizer.name}</div>
-              </div>
-            )}
-            {categoryLabel && (
-              <span className="inline-flex items-center px-3 py-1.5 rounded-full bg-white/15 backdrop-blur ring-1 ring-white/25 text-[11px] font-bold uppercase tracking-[0.14em]">
-                {categoryLabel}
-              </span>
-            )}
-            {minPriceCents != null && (
-              <span className="inline-flex items-center px-3 py-1.5 rounded-full bg-white text-[#02122d] text-xs font-black shadow-sm">
-                From €{(minPriceCents / 100).toFixed(minPriceCents % 100 === 0 ? 0 : 2)}
-              </span>
-            )}
-          </div>
-
-          <h1 className="text-3xl md:text-5xl lg:text-6xl font-black tracking-tight leading-[1.05] mb-4 drop-shadow-sm max-w-3xl">
+          <h1 className="text-3xl md:text-5xl font-black tracking-tight leading-[1.06] mb-3.5 text-foreground">
             {event.title}
           </h1>
 
-          <div className="flex items-center gap-2 flex-wrap text-sm md:text-base text-white">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/30 backdrop-blur ring-1 ring-white/20">
-              <Calendar className="w-4 h-4" />
+          <div className="flex items-center gap-2 flex-wrap text-sm">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted text-foreground font-medium">
+              <Calendar className="w-4 h-4 text-primary" />
               {new Date(event.date).toLocaleString("en-GB", { dateStyle: "long", timeStyle: "short" })}
             </span>
             {event.location && (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/30 backdrop-blur ring-1 ring-white/20">
-                <MapPin className="w-4 h-4" />
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted text-foreground font-medium">
+                <MapPin className="w-4 h-4 text-primary" />
                 {event.location}
               </span>
             )}
             {event.ends_at && (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/30 backdrop-blur ring-1 ring-white/20">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted text-muted-foreground">
                 <Clock className="w-3.5 h-3.5" />
                 Ends {new Date(event.ends_at).toLocaleString("en-GB", { timeStyle: "short" })}
               </span>
@@ -484,7 +469,7 @@ const EventPublic = () => {
       </section>
 
       {/* pb-32 leaves room for the mobile sticky checkout bar so nothing is hidden behind it */}
-      <main className="flex-1 -mt-6 md:-mt-10 relative z-10 pb-32 lg:pb-0">
+      <main className="flex-1 mt-6 md:mt-8 relative z-10 pb-32 lg:pb-0">
         <div className="container mx-auto px-4 max-w-4xl">
           {/* ===== Ticket picker — the hero of this page ===== */}
           <section className="bg-card border border-border rounded-2xl p-5 md:p-7 mb-5 shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-500">

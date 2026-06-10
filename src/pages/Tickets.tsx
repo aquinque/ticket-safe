@@ -55,6 +55,7 @@ type Event = {
   gradient: string;
   icon: typeof Music;
   bannerUrl: string | null;
+  logoUrl: string | null;
 };
 
 const ICON_BY_CATEGORY: Record<string, typeof Music> = {
@@ -92,8 +93,8 @@ async function fetchPublishedEvents(): Promise<Event[]> {
   const { data: evRows, error } = await supabase
     .from("events")
     .select(
-      `id, title, slug, date, location, campus, category, primary_color, banner_url, status,
-       organizer:organizer_profiles!events_organizer_id_fkey(id, name, slug, primary_color, contact_email, about)`,
+      `id, title, slug, date, location, campus, category, primary_color, banner_url, logo_url, status,
+       organizer:organizer_profiles!events_organizer_id_fkey(id, name, slug, primary_color, contact_email, about, logo_url)`,
     )
     .eq("status", "published")
     .not("organizer_id", "is", null)
@@ -114,7 +115,8 @@ async function fetchPublishedEvents(): Promise<Event[]> {
     category: string | null;
     primary_color: string | null;
     banner_url: string | null;
-    organizer: { id: string; name: string; slug: string; primary_color: string; contact_email: string; about: string | null } | { id: string; name: string; slug: string; primary_color: string; contact_email: string; about: string | null }[] | null;
+    logo_url: string | null;
+    organizer: { id: string; name: string; slug: string; primary_color: string; contact_email: string; about: string | null; logo_url: string | null } | { id: string; name: string; slug: string; primary_color: string; contact_email: string; about: string | null; logo_url: string | null }[] | null;
   }>;
 
   const ids = rows.map((e) => e.id);
@@ -179,6 +181,7 @@ async function fetchPublishedEvents(): Promise<Event[]> {
             : GRADIENT_BY_CAMPUS[derivedCampus] ?? GRADIENT_BY_CAMPUS.paris,
         icon: ICON_BY_CATEGORY[normCategory] ?? Sparkles,
         bannerUrl: e.banner_url,
+        logoUrl: e.logo_url ?? org?.logo_url ?? null,
       } satisfies Event;
     });
 }
@@ -736,26 +739,31 @@ const EventCard = ({ event }: { event: Event }) => {
       to={`/e/${event.slug}`}
       className="group flex flex-col rounded-2xl overflow-hidden bg-card border border-border hover:border-primary/30 hover:shadow-hover hover:-translate-y-1 transition-all duration-300"
     >
-      {/* Visual banner */}
-      <div className="relative aspect-[16/9] overflow-hidden" style={{ background: event.gradient }}>
-        {event.bannerUrl && (
+      {/* Visual — the banner photo if there is one, otherwise the organizer
+          logo on a clean neutral card. No event colour wash. */}
+      <div className="relative aspect-[16/9] overflow-hidden bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900">
+        {event.bannerUrl ? (
           <img src={event.bannerUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
-        )}
-        <div
-          className="pointer-events-none absolute -top-12 -right-12 w-48 h-48 rounded-full opacity-50 blur-2xl bg-white/30"
-        />
-        {!event.bannerUrl && (
+        ) : event.logoUrl ? (
+          <div className="absolute inset-0 flex items-center justify-center p-6">
+            <img
+              src={event.logoUrl}
+              alt={event.organizer}
+              className="max-h-[80%] max-w-[78%] object-contain group-hover:scale-105 transition-transform duration-500"
+            />
+          </div>
+        ) : (
           <div className="absolute inset-0 flex items-center justify-center">
-            <Icon className="w-16 h-16 text-white/80 group-hover:scale-110 transition-transform duration-500" strokeWidth={1.5} />
+            <Icon className="w-14 h-14 text-slate-400 dark:text-slate-500 group-hover:scale-110 transition-transform duration-500" strokeWidth={1.5} />
           </div>
         )}
 
-        {/* Badges */}
+        {/* Badges — dark pills so they read on a photo or a light logo card */}
         <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
-          <span className="px-2.5 py-1 rounded-full bg-black/30 backdrop-blur text-white text-[10px] font-bold uppercase tracking-wider">
+          <span className="px-2.5 py-1 rounded-full bg-black/55 backdrop-blur text-white text-[10px] font-bold uppercase tracking-wider">
             {event.category}
           </span>
-          <span className="px-2.5 py-1 rounded-full bg-white/20 backdrop-blur text-white text-[10px] font-bold uppercase tracking-wider">
+          <span className="px-2.5 py-1 rounded-full bg-black/45 backdrop-blur text-white text-[10px] font-bold uppercase tracking-wider">
             {event.campus}
           </span>
           {soldOut ? (
