@@ -362,54 +362,68 @@ const EventPublic = () => {
         }}
       />
 
-      {/* ===== Branded hero — always Ticket Safe blue ===== */}
-      <section
-        className="relative text-white overflow-hidden"
-        style={{ background: TS_GRADIENT }}
-      >
-        {event.banner_url && (
-          <img
-            src={event.banner_url}
-            alt=""
-            className="absolute inset-0 w-full h-full object-cover opacity-25"
-          />
-        )}
-        {/* Subtle radial glow for depth */}
-        <div
-          className="absolute inset-0 opacity-40 pointer-events-none"
-          style={{
-            backgroundImage:
-              "radial-gradient(circle at 25% 20%, rgba(255,255,255,.20), transparent 40%), radial-gradient(circle at 80% 75%, rgba(255,255,255,.10), transparent 45%)",
-          }}
-        />
-        <div className="relative container mx-auto px-4 pt-10 pb-12 md:pt-14 md:pb-16 max-w-4xl">
-          {/* Top row: back arrow (left) + Powered-by chip (right). Lets buyers
-              who land here from a story / link feel they can step out instead
-              of being trapped in the page. Uses history.back when available,
-              falls back to /tickets so direct visitors still get somewhere
-              useful. */}
-          <div className="flex items-center justify-between mb-6">
-            <button
-              type="button"
-              onClick={() => {
-                if (window.history.length > 1) navigate(-1);
-                else navigate("/tickets");
+      {/* ===== Immersive hero — leads with the event photo (Shotgun/Dice style),
+          falls back to Ticket Safe blue when there's no banner. Brand accents
+          (CTA etc.) stay TS blue below. ===== */}
+      <section className="relative text-white overflow-hidden min-h-[46vh] md:min-h-[54vh] flex flex-col">
+        {event.banner_url ? (
+          <>
+            <img
+              src={event.banner_url}
+              alt={event.title}
+              className="absolute inset-0 w-full h-full object-cover animate-in fade-in duration-700"
+            />
+            {/* Legibility gradient — deep brand navy at the bottom so the title
+                and pills always read, photo stays vivid up top. */}
+            <div
+              className="absolute inset-0 pointer-events-none"
+              style={{
+                background:
+                  "linear-gradient(to top, rgba(2,14,45,0.94) 0%, rgba(2,14,45,0.55) 42%, rgba(2,14,45,0.12) 78%, rgba(2,14,45,0.18) 100%)",
               }}
-              className="group inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/15 backdrop-blur ring-1 ring-white/25 hover:bg-white/25 transition-colors"
-              aria-label="Back"
-            >
-              <ArrowLeft className="w-4 h-4 text-white transition-transform group-hover:-translate-x-0.5" />
-              <span className="text-xs font-bold text-white">Back</span>
-            </button>
-            <Link to="/" className="hidden sm:block">
-              <span className="text-[10px] md:text-xs font-bold uppercase tracking-[0.2em] text-white/70 hover:text-white/90 transition-colors">
-                Powered by Ticket Safe
-              </span>
-            </Link>
-          </div>
+            />
+          </>
+        ) : (
+          <>
+            <div className="absolute inset-0" style={{ background: TS_GRADIENT }} />
+            <div
+              className="absolute inset-0 opacity-40 pointer-events-none"
+              style={{
+                backgroundImage:
+                  "radial-gradient(circle at 25% 20%, rgba(255,255,255,.20), transparent 40%), radial-gradient(circle at 80% 75%, rgba(255,255,255,.10), transparent 45%)",
+              }}
+            />
+          </>
+        )}
 
+        {/* Top row: back arrow (left) + Powered-by chip (right) */}
+        <div className="relative container mx-auto px-4 pt-6 max-w-4xl w-full flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => {
+              if (window.history.length > 1) navigate(-1);
+              else navigate("/tickets");
+            }}
+            className="group inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/25 backdrop-blur ring-1 ring-white/25 hover:bg-black/40 transition-colors"
+            aria-label="Back"
+          >
+            <ArrowLeft className="w-4 h-4 text-white transition-transform group-hover:-translate-x-0.5" />
+            <span className="text-xs font-bold text-white">Back</span>
+          </button>
+          <Link to="/" className="hidden sm:block">
+            <span className="text-[10px] md:text-xs font-bold uppercase tracking-[0.2em] text-white/80 hover:text-white transition-colors drop-shadow">
+              Powered by Ticket Safe
+            </span>
+          </Link>
+        </div>
+
+        {/* Spacer pushes the title block to the bottom, over the photo */}
+        <div className="flex-1" />
+
+        {/* Bottom content block */}
+        <div className="relative container mx-auto px-4 pb-9 md:pb-12 max-w-4xl w-full">
           {event.organizer && (
-            <div className="inline-flex items-center gap-2.5 mb-5 px-3 py-1.5 rounded-full bg-white/15 backdrop-blur ring-1 ring-white/25">
+            <div className="inline-flex items-center gap-2.5 mb-4 px-3 py-1.5 rounded-full bg-black/30 backdrop-blur ring-1 ring-white/25">
               {event.organizer.logo_url ? (
                 <img
                   src={event.organizer.logo_url}
@@ -421,29 +435,27 @@ const EventPublic = () => {
                   {event.organizer.name[0]?.toUpperCase()}
                 </div>
               )}
-              <div className="text-xs font-semibold leading-none">
-                {event.organizer.name}
-              </div>
+              <div className="text-xs font-semibold leading-none">{event.organizer.name}</div>
             </div>
           )}
 
-          <h1 className="text-3xl md:text-5xl lg:text-6xl font-black tracking-tight leading-[1.05] mb-5">
+          <h1 className="text-3xl md:text-5xl lg:text-6xl font-black tracking-tight leading-[1.05] mb-4 drop-shadow-sm max-w-3xl">
             {event.title}
           </h1>
 
-          <div className="flex items-center gap-2 flex-wrap text-sm md:text-base text-white/95">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur ring-1 ring-white/15">
+          <div className="flex items-center gap-2 flex-wrap text-sm md:text-base text-white">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/30 backdrop-blur ring-1 ring-white/20">
               <Calendar className="w-4 h-4" />
               {new Date(event.date).toLocaleString("en-GB", { dateStyle: "long", timeStyle: "short" })}
             </span>
             {event.location && (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur ring-1 ring-white/15">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/30 backdrop-blur ring-1 ring-white/20">
                 <MapPin className="w-4 h-4" />
                 {event.location}
               </span>
             )}
             {event.ends_at && (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur ring-1 ring-white/15 opacity-90">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/30 backdrop-blur ring-1 ring-white/20">
                 <Clock className="w-3.5 h-3.5" />
                 Ends {new Date(event.ends_at).toLocaleString("en-GB", { timeStyle: "short" })}
               </span>

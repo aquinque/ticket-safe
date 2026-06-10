@@ -23,6 +23,14 @@ import { useOrganizer } from "@/hooks/useOrganizer";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { detectCampus } from "@/lib/campus";
+import { ImageCropDialog } from "@/components/ImageCropDialog";
+
+// Quick-pick brand colours for the public event page (incl. white).
+const BRAND_COLORS = [
+  "#003399", "#3A5FE6", "#7C3AED", "#DB2777",
+  "#E11D48", "#EA580C", "#16A34A", "#0891B2",
+  "#0F172A", "#FFFFFF",
+];
 
 const slugify = (input: string): string =>
   input
@@ -63,6 +71,8 @@ const StudioEventNew = () => {
   const [maxPerBuyer, setMaxPerBuyer] = useState("1");
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [bannerPreview, setBannerPreview] = useState<string | null>(null);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
+  const [cropOpen, setCropOpen] = useState(false);
   const [slug, setSlug] = useState("");
   const [slugTouched, setSlugTouched] = useState(false);
   const [tiers, setTiers] = useState<TierDraft[]>([initialTier()]);
@@ -94,8 +104,15 @@ const StudioEventNew = () => {
       toast.error("Banner image must be under 5 MB.");
       return;
     }
-    setBannerFile(f);
-    setBannerPreview(URL.createObjectURL(f));
+    // Open the cropper so the organizer can frame the photo to 16:9.
+    setCropSrc(URL.createObjectURL(f));
+    setCropOpen(true);
+    e.target.value = ""; // allow re-selecting the same file later
+  };
+
+  const onCropped = (file: File) => {
+    setBannerFile(file);
+    setBannerPreview(URL.createObjectURL(file));
   };
 
   const addTier = () => {
@@ -328,6 +345,22 @@ const StudioEventNew = () => {
           {/* Branding */}
           <Section title="Branding" icon={Palette}>
             <Field label="Primary color" icon={Palette} hint="Used as the accent on your public event page.">
+              <div className="flex flex-wrap gap-2 mb-3">
+                {BRAND_COLORS.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setPrimaryColor(c)}
+                    aria-label={`Use ${c}`}
+                    className={`w-8 h-8 rounded-full border transition-transform hover:scale-110 ${
+                      primaryColor.toUpperCase() === c
+                        ? "ring-2 ring-primary ring-offset-2 ring-offset-background scale-110 border-transparent"
+                        : "border-border"
+                    }`}
+                    style={{ background: c }}
+                  />
+                ))}
+              </div>
               <div className="flex items-center gap-3">
                 <input
                   type="color"
@@ -343,24 +376,32 @@ const StudioEventNew = () => {
                 />
               </div>
             </Field>
-            <Field label="Banner image" icon={ImageIcon} hint="16:9 recommended. Max 5 MB.">
+            <Field label="Banner image" icon={ImageIcon} hint="Cropped to 16:9. Max 5 MB.">
               {bannerPreview ? (
-                <div className="relative rounded-xl overflow-hidden">
+                <div className="relative rounded-xl overflow-hidden group">
                   <img src={bannerPreview} alt="Banner preview" className="w-full aspect-[16/9] object-cover" />
-                  <button
-                    onClick={() => {
-                      setBannerFile(null);
-                      setBannerPreview(null);
-                    }}
-                    className="absolute top-2 right-2 px-3 py-1.5 rounded-lg bg-black/60 text-white text-xs font-bold"
-                  >
-                    Replace
-                  </button>
+                  <div className="absolute top-2 right-2 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => { if (bannerPreview) { setCropSrc(bannerPreview); setCropOpen(true); } }}
+                      className="px-3 py-1.5 rounded-lg bg-black/60 text-white text-xs font-bold hover:bg-black/75"
+                    >
+                      Reframe
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setBannerFile(null); setBannerPreview(null); }}
+                      className="px-3 py-1.5 rounded-lg bg-black/60 text-white text-xs font-bold hover:bg-black/75"
+                    >
+                      Replace
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <label className="flex flex-col items-center justify-center aspect-[16/9] rounded-xl border-2 border-dashed border-border bg-muted/30 cursor-pointer hover:border-primary/50">
                   <ImageIcon className="w-7 h-7 text-muted-foreground mb-1" />
                   <span className="text-sm font-semibold text-muted-foreground">Click to upload banner</span>
+                  <span className="text-xs text-muted-foreground mt-0.5">You'll crop it to fit</span>
                   <input type="file" accept="image/*" onChange={onBannerChange} className="hidden" />
                 </label>
               )}
@@ -531,6 +572,8 @@ const StudioEventNew = () => {
         .ts-input { width: 100%; padding: 12px 14px; border: 1px solid hsl(var(--border)); border-radius: 12px; background: hsl(var(--background)); font-size: 16px; line-height: 1.4; color: hsl(var(--foreground)); transition: border-color .15s, box-shadow .15s; }
         .ts-input:focus { outline: none; border-color: hsl(var(--primary)); box-shadow: 0 0 0 3px hsl(var(--primary) / 0.15); }
       `}</style>
+
+      <ImageCropDialog src={cropSrc} open={cropOpen} onOpenChange={setCropOpen} onCropped={onCropped} />
 
       <Footer />
     </div>

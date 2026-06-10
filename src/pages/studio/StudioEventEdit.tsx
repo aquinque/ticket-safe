@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import Header from "@/components/Header";
+import { ImageCropDialog } from "@/components/ImageCropDialog";
 import { BackButton } from "@/components/BackButton";
 import Footer from "@/components/Footer";
 import { SEOHead } from "@/components/SEOHead";
@@ -38,6 +39,13 @@ import { useAuth } from "@/hooks/useAuth";
 import { useOrganizer } from "@/hooks/useOrganizer";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+
+// Quick-pick brand colours for the public event page (incl. white).
+const BRAND_COLORS = [
+  "#003399", "#3A5FE6", "#7C3AED", "#DB2777",
+  "#E11D48", "#EA580C", "#16A34A", "#0891B2",
+  "#0F172A", "#FFFFFF",
+];
 
 interface EventRow {
   id: string;
@@ -939,6 +947,8 @@ const EventDetailsEditor = ({
   const [slug, setSlug] = useState(event.slug ?? "");
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [bannerPreview, setBannerPreview] = useState<string | null>(event.banner_url ?? null);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
+  const [cropOpen, setCropOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -956,6 +966,11 @@ const EventDetailsEditor = ({
     setBannerFile(null);
   }, [event]);
 
+  const onCropped = (file: File) => {
+    setBannerFile(file);
+    setBannerPreview(URL.createObjectURL(file));
+  };
+
   const onBannerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
@@ -963,8 +978,9 @@ const EventDetailsEditor = ({
       toast.error("Banner image must be under 5 MB.");
       return;
     }
-    setBannerFile(f);
-    setBannerPreview(URL.createObjectURL(f));
+    setCropSrc(URL.createObjectURL(f));
+    setCropOpen(true);
+    e.target.value = "";
   };
 
   const validate = (): string | null => {
@@ -1126,6 +1142,22 @@ const EventDetailsEditor = ({
           </div>
 
           <Field label="Primary color" icon={Palette}>
+            <div className="flex flex-wrap gap-2 mb-3">
+              {BRAND_COLORS.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setPrimaryColor(c)}
+                  aria-label={`Use ${c}`}
+                  className={`w-8 h-8 rounded-full border transition-transform hover:scale-110 ${
+                    primaryColor.toUpperCase() === c
+                      ? "ring-2 ring-primary ring-offset-2 ring-offset-background scale-110 border-transparent"
+                      : "border-border"
+                  }`}
+                  style={{ background: c }}
+                />
+              ))}
+            </div>
             <div className="flex items-center gap-3">
               <input
                 type="color"
@@ -1142,15 +1174,24 @@ const EventDetailsEditor = ({
             </div>
           </Field>
 
-          <Field label="Banner image" icon={ImageIcon} hint="16:9 recommended. Max 5 MB.">
+          <Field label="Banner image" icon={ImageIcon} hint="Cropped to 16:9. Max 5 MB.">
             {bannerPreview ? (
               <div className="relative rounded-xl overflow-hidden">
                 <img src={bannerPreview} alt="Banner preview" className="w-full aspect-[16/9] object-cover" />
-                <label className="absolute top-2 right-2 inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-black/60 text-white text-xs font-bold cursor-pointer">
-                  <Pencil className="w-3 h-3" />
-                  Replace
-                  <input type="file" accept="image/*" onChange={onBannerChange} className="hidden" />
-                </label>
+                <div className="absolute top-2 right-2 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { if (bannerPreview) { setCropSrc(bannerPreview); setCropOpen(true); } }}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-black/60 text-white text-xs font-bold hover:bg-black/75"
+                  >
+                    Reframe
+                  </button>
+                  <label className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-black/60 text-white text-xs font-bold cursor-pointer hover:bg-black/75">
+                    <Pencil className="w-3 h-3" />
+                    Replace
+                    <input type="file" accept="image/*" onChange={onBannerChange} className="hidden" />
+                  </label>
+                </div>
               </div>
             ) : (
               <label className="flex flex-col items-center justify-center aspect-[16/9] rounded-xl border-2 border-dashed border-border bg-muted/30 cursor-pointer hover:border-primary/50">
@@ -1160,6 +1201,8 @@ const EventDetailsEditor = ({
               </label>
             )}
           </Field>
+
+          <ImageCropDialog src={cropSrc} open={cropOpen} onOpenChange={setCropOpen} onCropped={onCropped} />
 
           <Field
             label="Public URL slug"
