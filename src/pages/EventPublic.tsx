@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate, useLocation, Link } from "react-router-dom";
 import {
   Calendar,
   MapPin,
@@ -62,6 +62,7 @@ interface TierAvailability {
 const EventPublic = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, loading: authLoading } = useAuth();
 
   const [event, setEvent] = useState<PublicEvent | null>(null);
@@ -401,7 +402,7 @@ const EventPublic = () => {
           <button
             type="button"
             onClick={() => {
-              if (window.history.length > 1) navigate(-1);
+              if (location.key && location.key !== "default") navigate(-1);
               else navigate("/tickets");
             }}
             className="group inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/25 backdrop-blur ring-1 ring-white/25 hover:bg-black/40 transition-colors"

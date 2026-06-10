@@ -155,7 +155,9 @@ const Y_FOOTER = Y_QR     + H_QR;
  *   - width 1200   — high-resolution PNG so the embed stays crisp on print
  */
 async function generateQrPng(payload: string): Promise<string> {
-  const mod = await import(/* @vite-ignore */ "https://esm.sh/qrcode@1.5.4");
+  // Bundled (lazy chunk), not loaded from a CDN — keeps the QR generator out
+  // of the main bundle while staying within our strict CSP (no esm.sh).
+  const mod = await import("qrcode");
   const QRCode = (mod as { default?: { toDataURL: (s: string, o: Record<string, unknown>) => Promise<string> } })
     .default
     ?? (mod as unknown as { toDataURL: (s: string, o: Record<string, unknown>) => Promise<string> });
@@ -306,7 +308,9 @@ type JsPDFCtor = new (opts: { unit: string; format: string; orientation: string 
  *   });
  */
 export async function generateTicketPDF(data: TicketData): Promise<void> {
-  const mod = await import(/* @vite-ignore */ "https://esm.sh/jspdf@2.5.2");
+  // Bundled (lazy chunk), not from a CDN — fixes the PDF download under our
+  // strict CSP and removes a runtime supply-chain dependency on esm.sh.
+  const mod = await import("jspdf");
   const JsPDF: JsPDFCtor =
     (mod as { jsPDF?: JsPDFCtor; default?: JsPDFCtor }).jsPDF
     ?? (mod as { default: JsPDFCtor }).default;

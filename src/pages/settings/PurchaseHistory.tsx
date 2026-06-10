@@ -40,11 +40,15 @@ type Purchase = {
 const PurchaseHistory = () => {
   const { t, language } = useI18n();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Wait for auth to resolve before deciding. Redirecting while `user` is
+    // still null on first paint bounces a logged-in user to /auth and back,
+    // which pollutes history and makes the Back button feel broken.
+    if (authLoading) return;
     if (!user) {
       navigate("/auth?next=/settings/purchases");
       return;
@@ -110,7 +114,7 @@ const PurchaseHistory = () => {
     };
 
     fetchPurchases();
-  }, [user, navigate]);
+  }, [user, authLoading, navigate]);
 
   const getStatusBadge = (status: string) => {
     switch (status) {

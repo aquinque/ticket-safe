@@ -12,9 +12,11 @@ export const BackButton = ({ className = "", fallbackPath = "/" }: BackButtonPro
   const location = useLocation();
 
   const handleBack = () => {
-    // Real "go back" to the previous page when there's in-app history;
-    // otherwise fall back to a sensible path (e.g. when landing here directly).
-    if (window.history.length > 1) {
+    // Go back only when there's REAL in-app history. React Router sets
+    // location.key to "default" for the very first entry (direct landing,
+    // shared link, new tab) — navigate(-1) there would leave the app or land
+    // on a blank page, so fall back to a safe in-app path instead.
+    if (location.key && location.key !== "default") {
       navigate(-1);
     } else {
       navigate(fallbackPath);

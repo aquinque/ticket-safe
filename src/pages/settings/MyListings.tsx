@@ -112,7 +112,8 @@ const MyListings = () => {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [search, setSearch] = useState("");
-  const [sort, setSort] = useState<SortOption>("newest");
+  // Default to showing ACTIVE listings first (sold/cancelled fall below).
+  const [sort, setSort] = useState<SortOption>("active_first");
 
   // Resale-seller earnings (gross of 5% Ticket Safe withdrawal fee).
   const [earnings, setEarnings] = useState<{
