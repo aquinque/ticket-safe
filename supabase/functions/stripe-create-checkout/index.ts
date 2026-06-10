@@ -77,8 +77,12 @@ serve(async (req) => {
     if (!reserved || reserved.length === 0) return json({ error: "This ticket was just purchased by someone else." }, 409);
     reservedListingId = listingId;
 
-    let verifiedAgreedPrice: number | null = null;
-    if (agreedPrice) {
+    // Always honor the buyer's accepted offer on this listing: they pay the
+    // negotiated price regardless of which "Buy" button they came from. The DB
+    // offer is the source of truth (the client `agreedPrice` hint is ignored,
+    // so a tampered URL can't change the price either way).
+    let negotiatedPrice: number | null = null;
+    {
       const { data: acceptedOffer } = await supabase
         .from("offers")
         .select("price, conversation:conversations!inner(ticket_id, buyer_id)")
@@ -88,11 +92,14 @@ serve(async (req) => {
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
-      if (acceptedOffer && Math.abs(acceptedOffer.price - agreedPrice) < 0.01) verifiedAgreedPrice = acceptedOffer.price;
+      if (acceptedOffer && Number.isFinite(acceptedOffer.price) && acceptedOffer.price > 0) {
+        negotiatedPrice = acceptedOffer.price;
+      }
     }
+    void agreedPrice; // kept for backward-compat in the request body, no longer used
 
     const qty = Math.min(Math.max(1, listing.quantity ?? 1), MAX_QUANTITY);
-    const rawUnitPrice = verifiedAgreedPrice ?? listing.selling_price;
+    const rawUnitPrice = negotiatedPrice ?? listing.selling_price;
     const unitPrice = Math.min(Math.max(MIN_UNIT_PRICE_EUR, Number(rawUnitPrice) || 0), MAX_UNIT_PRICE_EUR);
 
     // New fee math: 5% on top for the buyer; 8% deferred to seller payout.
@@ -147,7 +154,7 @@ serve(async (req) => {
         qty: String(qty),
         buyer_fee_cents: String(buyerFeeCents),
         seller_fee_percent: String(SELLER_FEE_PERCENT),
-        ...(verifiedAgreedPrice ? { agreed_price: String(verifiedAgreedPrice) } : {}),
+        ...(negotiatedPrice ? { agreed_price: String(negotiatedPrice) } : {}),
       },
       // Stripe requires expires_at to be at least 30 minutes in the future.
       expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
