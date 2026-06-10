@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -5,6 +6,8 @@ import { BackButton } from "@/components/BackButton";
 import { Card, CardContent } from "@/components/ui/card";
 import { PageHeader } from "@/components/PageHeader";
 import { SEOHead } from "@/components/SEOHead";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Monitor,
   User,
@@ -12,11 +15,32 @@ import {
   ArrowRight,
   ShieldCheck,
   Tag,
+  Banknote,
   Settings as SettingsIcon,
 } from "lucide-react";
 
 const Settings = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+
+  // Live seller wallet balance, shown right on the hub so it's as obvious as
+  // a Vinted balance — even before opening "My Listings".
+  const [walletCents, setWalletCents] = useState<number | null>(null);
+  useEffect(() => {
+    if (!user) return;
+    let active = true;
+    supabase
+      .from("seller_earnings")
+      .select("available_cents")
+      .eq("seller_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (active) setWalletCents((data as { available_cents?: number } | null)?.available_cents ?? 0);
+      });
+    return () => {
+      active = false;
+    };
+  }, [user]);
 
   const settingsSections = [
     {
@@ -76,6 +100,32 @@ const Settings = () => {
             title="Settings"
             description="Manage your account preferences and view your activity."
           />
+
+          {/* Seller wallet — Vinted-style balance, front and centre. Tap to open
+              My Listings where you withdraw to your IBAN. */}
+          <button
+            type="button"
+            onClick={() => navigate("/settings/listings")}
+            className="w-full text-left mb-4 rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-card p-5 md:p-6 hover:shadow-md transition-all group"
+          >
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0">
+                  <Banknote className="w-6 h-6 text-emerald-700" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs font-bold uppercase tracking-wider text-emerald-800/80">Your wallet</div>
+                  <div className="text-2xl md:text-3xl font-black tabular-nums leading-tight text-emerald-900">
+                    {walletCents === null ? "€—" : `€${(walletCents / 100).toFixed(2)}`}
+                  </div>
+                  <div className="text-xs text-emerald-800/80">
+                    {walletCents && walletCents > 0 ? "available to withdraw — tap to get paid" : "from your resale sales — tap to view"}
+                  </div>
+                </div>
+              </div>
+              <ArrowRight className="w-5 h-5 text-emerald-700 group-hover:translate-x-0.5 transition-transform shrink-0" />
+            </div>
+          </button>
 
           {/* Settings sections — uniform card with hover arrow that mirrors
               the rest of the app's primary-action affordance. */}
