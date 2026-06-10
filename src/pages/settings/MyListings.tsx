@@ -354,46 +354,56 @@ const MyListings = () => {
               see here is the gross of every completed resale sale (minus the
               5% buyer fee Ticket Safe already took at checkout). The 8%
               Ticket Safe fee is applied LATER, when you click "Get paid". */}
-          {earnings && earnings.available_cents > 0 && (
-            <section className="mb-6">
-              <div className="flex flex-col md:flex-row md:items-center gap-4 rounded-2xl border border-emerald-300 bg-emerald-50 px-5 py-4">
-                <div className="w-11 h-11 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0">
-                  <Banknote className="w-5 h-5 text-emerald-700" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="font-bold text-sm md:text-base text-emerald-900">
-                    €{(earnings.available_cents / 100).toFixed(2)} available to withdraw
+          {/* ===== Wallet — your resale earnings (Vinted-style). Always shown so
+              you see your balance even before your first sale. The balance is
+              the price of every completed resale (the 5% buyer fee was already
+              taken at checkout); Ticket Safe takes 8% when you withdraw. ===== */}
+          <section className="mb-6">
+            <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-card p-5 md:p-6">
+              <div className="flex items-start justify-between gap-4 flex-wrap">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0">
+                    <Banknote className="w-6 h-6 text-emerald-700" />
                   </div>
-                  <div className="text-xs md:text-sm text-emerald-800">
-                    Across {earnings.completed_sales} completed sale{earnings.completed_sales !== 1 ? "s" : ""}. Type your IBAN, we wire the SEPA within 2-3 business days (8% Ticket Safe fee applied at withdrawal).
+                  <div>
+                    <div className="text-xs font-bold uppercase tracking-wider text-emerald-800/80">Your wallet</div>
+                    <div className="text-3xl font-black tabular-nums leading-tight text-emerald-900">
+                      €{((earnings?.available_cents ?? 0) / 100).toFixed(2)}
+                    </div>
+                    <div className="text-xs text-emerald-800/80">available to withdraw</div>
                   </div>
                 </div>
                 <Button
                   variant="default"
                   onClick={() => setPayoutModalOpen(true)}
-                  className="inline-flex items-center gap-1.5 bg-emerald-700 text-white hover:bg-emerald-800 shrink-0"
+                  disabled={!earnings || earnings.available_cents <= 0}
+                  className="inline-flex items-center gap-1.5 bg-emerald-700 text-white hover:bg-emerald-800 disabled:opacity-50 shrink-0"
                 >
                   <ArrowRight className="w-4 h-4" />
                   Get paid
                 </Button>
               </div>
-            </section>
-          )}
-          {earnings && earnings.claimed_cents > 0 && earnings.available_cents === 0 && (
-            <section className="mb-6">
-              <div className="rounded-2xl border border-border bg-card px-5 py-4 flex items-center gap-3">
-                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-bold">
-                    €{(earnings.claimed_cents / 100).toFixed(2)} payout in progress
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    We'll send the SEPA transfer to your IBAN within 2-3 business days.
-                  </div>
+              <div className="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-emerald-200/70">
+                <div>
+                  <div className="text-sm font-bold tabular-nums">€{((earnings?.net_earned_cents ?? 0) / 100).toFixed(2)}</div>
+                  <div className="text-[11px] text-muted-foreground">Total earned</div>
+                </div>
+                <div>
+                  <div className="text-sm font-bold tabular-nums">{earnings?.completed_sales ?? 0}</div>
+                  <div className="text-[11px] text-muted-foreground">Sales</div>
+                </div>
+                <div>
+                  <div className="text-sm font-bold tabular-nums">€{((earnings?.claimed_cents ?? 0) / 100).toFixed(2)}</div>
+                  <div className="text-[11px] text-muted-foreground">Withdrawn / pending</div>
                 </div>
               </div>
-            </section>
-          )}
+              <p className="text-[11px] text-muted-foreground mt-3">
+                {earnings && earnings.available_cents > 0
+                  ? "Tap “Get paid”, type your IBAN — we wire the SEPA within 2-3 business days. Ticket Safe takes 8% at withdrawal."
+                  : "Your earnings land here automatically when your resale listings sell. Ticket Safe takes 8% at withdrawal — no KYC."}
+              </p>
+            </div>
+          </section>
 
           {/* Stats strip */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
