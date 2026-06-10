@@ -81,6 +81,10 @@ const MyTicketsHub = () => {
              tickets:event_tickets(id, status, scanned_at, holder_first_name, holder_last_name)`,
           )
           .eq("buyer_id", user.id)
+          // Fetch paid + refunded so studioOrderIds below covers the user's own
+          // orders (and excludes their tickets from the "transferred" list).
+          // We only BUILD cards from paid orders — refunded ones are not tickets
+          // the user holds, so they never appear in My Tickets.
           .in("status", ["paid", "refunded"])
           .order("created_at", { ascending: false }),
         supabase
@@ -213,7 +217,7 @@ const MyTicketsHub = () => {
         };
       });
 
-      const cards: OrderCard[] = (data ?? []).map(
+      const cards: OrderCard[] = (data ?? []).filter((r: { status?: string }) => r.status === "paid").map(
         (
           row: {
             id: string;

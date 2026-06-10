@@ -123,45 +123,44 @@ const Header = ({ minimal = false }: HeaderProps) => {
             {/* Primary CTAs intentionally removed from the header. They live in
                 the hero of each landing page so they're not duplicated up here. */}
 
-            {/* SECONDARY NAVIGATION - Right side (informational) */}
+            {/* RIGHT NAV — the user's own stuff is front and centre. Logged-in:
+                My Tickets + My Wallet. Logged-out: just How It Works (for
+                conversion). About / Contact live lower — in the account menu
+                and the footer — so they don't compete with the user's hub. */}
             <div className="flex items-center gap-5 ml-auto mr-4">
-              {!minimal && (
-                <Link
-                  to="/how-it-works"
-                  className={`text-sm font-semibold transition-colors hover:text-primary ${
-                    isActive("/how-it-works") ? "text-primary" : "text-foreground"
-                  }`}
-                >
-                  How It Works
-                </Link>
+              {user ? (
+                <>
+                  <Link
+                    to="/my-tickets"
+                    className={`inline-flex items-center gap-1.5 text-sm font-bold transition-colors hover:text-primary ${
+                      isActive("/my-tickets") ? "text-primary" : "text-foreground"
+                    }`}
+                  >
+                    <TicketIcon className="w-4 h-4" />
+                    My Tickets
+                  </Link>
+                  <Link
+                    to="/settings/listings"
+                    className={`inline-flex items-center gap-1.5 text-sm font-bold transition-colors hover:text-primary ${
+                      isActive("/settings/listings") ? "text-primary" : "text-foreground"
+                    }`}
+                  >
+                    <Banknote className="w-4 h-4" />
+                    My Wallet
+                  </Link>
+                </>
+              ) : (
+                !minimal && (
+                  <Link
+                    to="/how-it-works"
+                    className={`text-sm font-semibold transition-colors hover:text-primary ${
+                      isActive("/how-it-works") ? "text-primary" : "text-muted-foreground"
+                    }`}
+                  >
+                    How It Works
+                  </Link>
+                )
               )}
-              {user && (
-                <Link
-                  to="/my-tickets"
-                  className={`inline-flex items-center gap-1.5 text-sm font-semibold transition-colors hover:text-primary ${
-                    isActive("/my-tickets") ? "text-primary" : "text-foreground"
-                  }`}
-                >
-                  <TicketIcon className="w-3.5 h-3.5" />
-                  My Tickets
-                </Link>
-              )}
-              <Link
-                to="/about"
-                className={`text-sm font-semibold transition-colors hover:text-primary ${
-                  isActive("/about") ? "text-primary" : "text-foreground"
-                }`}
-              >
-                {t('nav.about')}
-              </Link>
-              <Link
-                to="/contact"
-                className={`text-sm font-semibold transition-colors hover:text-primary ${
-                  isActive("/contact") ? "text-primary" : "text-foreground"
-                }`}
-              >
-                {t('nav.contact')}
-              </Link>
             </div>
           </nav>
 
@@ -195,6 +194,10 @@ const Header = ({ minimal = false }: HeaderProps) => {
                     <TicketIcon className="h-4 w-4 mr-2" />
                     My Tickets
                   </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate("/settings/listings")}>
+                    <Banknote className="h-4 w-4 mr-2" />
+                    My Wallet
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate("/settings/purchases")}>
                     My Purchases
                   </DropdownMenuItem>
@@ -223,6 +226,16 @@ const Header = ({ minimal = false }: HeaderProps) => {
                       </DropdownMenuItem>
                     </>
                   )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem className="text-muted-foreground text-xs" onClick={() => navigate("/how-it-works")}>
+                    How It Works
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="text-muted-foreground text-xs" onClick={() => navigate("/about")}>
+                    {t('nav.about')}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="text-muted-foreground text-xs" onClick={() => navigate("/contact")}>
+                    {t('nav.contact')}
+                  </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onSelect={(e) => { e.preventDefault(); setSignOutOpen(true); }}>
                     <LogOut className="h-4 w-4 mr-2" />
@@ -281,44 +294,37 @@ const Header = ({ minimal = false }: HeaderProps) => {
               {/* Primary CTAs removed from the mobile menu too — they live in
                   the hero of each landing page, no duplication here. */}
 
-              {/* SECONDARY navigation - How It Works, About, Contact & Settings */}
-              <div className="flex flex-col gap-1.5 mb-2 pb-4 border-b border-border">
-                {!minimal && (
+              {/* PROMINENT — the user's own stuff, front and centre on phone */}
+              {user && (
+                <div className="flex flex-col gap-2 mb-2 pb-4 border-b border-border">
                   <Link
-                    to="/how-it-works"
-                    className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors hover:bg-muted ${
-                      isActive("/how-it-works") ? "text-primary" : "text-foreground"
-                    }`}
+                    to="/my-tickets"
                     onClick={() => setIsMenuOpen(false)}
+                    className={`flex items-center gap-2.5 px-3 h-12 rounded-lg font-bold text-base transition-colors ${isActive("/my-tickets") ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`}
                   >
-                    How It Works
+                    <TicketIcon className="w-5 h-5" />
+                    My Tickets
                   </Link>
-                )}
-                <Link
-                  to="/about"
-                  className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors hover:bg-muted ${
-                    isActive("/about") ? "text-primary" : "text-foreground"
-                  }`}
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  {t('nav.about')}
-                </Link>
-                <Link
-                  to="/contact"
-                  className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors hover:bg-muted ${
-                    isActive("/contact") ? "text-primary" : "text-foreground"
-                  }`}
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  {t('nav.contact')}
-                </Link>
-                {user && (
+                  <Link
+                    to="/settings/listings"
+                    onClick={() => setIsMenuOpen(false)}
+                    className={`flex items-center gap-2.5 px-3 h-12 rounded-lg font-bold text-base transition-colors ${isActive("/settings/listings") ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`}
+                  >
+                    <Banknote className="w-5 h-5" />
+                    My Wallet
+                  </Link>
+                  <Link
+                    to="/profile"
+                    onClick={() => setIsMenuOpen(false)}
+                    className={`flex items-center gap-2.5 px-3 h-12 rounded-lg font-bold text-base transition-colors ${isActive("/profile") ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`}
+                  >
+                    <User className="w-5 h-5" />
+                    My Profile
+                  </Link>
                   <Link
                     to="/messages"
-                    className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors hover:bg-muted flex items-center gap-2 ${
-                      location.pathname.startsWith("/messages") ? "text-primary" : "text-foreground"
-                    }`}
                     onClick={() => { setIsMenuOpen(false); markAllRead(); }}
+                    className={`flex items-center gap-2.5 px-3 h-11 rounded-lg font-semibold text-sm transition-colors ${location.pathname.startsWith("/messages") ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`}
                   >
                     <MessageSquare className="w-4 h-4" />
                     Messages
@@ -328,37 +334,48 @@ const Header = ({ minimal = false }: HeaderProps) => {
                       </span>
                     )}
                   </Link>
-                )}
-                {user && (
                   <Link
                     to="/settings"
-                    className={`px-3 py-2.5 rounded-md text-sm font-semibold transition-colors hover:bg-muted flex items-center gap-2 ${
-                      isActive("/settings") ? "text-primary" : "text-foreground"
-                    }`}
                     onClick={() => setIsMenuOpen(false)}
+                    className={`flex items-center gap-2.5 px-3 h-11 rounded-lg font-semibold text-sm transition-colors ${isActive("/settings") ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`}
                   >
                     <Settings className="w-4 h-4" />
                     {t('nav.settings')}
                   </Link>
+                </div>
+              )}
+
+              {/* DE-EMPHASIZED — informational pages, lower down */}
+              <div className="flex flex-col gap-0.5 mb-2 pb-4 border-b border-border">
+                {!minimal && (
+                  <Link
+                    to="/how-it-works"
+                    onClick={() => setIsMenuOpen(false)}
+                    className={`px-3 py-2 rounded-md text-sm transition-colors hover:bg-muted ${isActive("/how-it-works") ? "text-primary" : "text-muted-foreground"}`}
+                  >
+                    How It Works
+                  </Link>
                 )}
+                <Link
+                  to="/about"
+                  onClick={() => setIsMenuOpen(false)}
+                  className={`px-3 py-2 rounded-md text-sm transition-colors hover:bg-muted ${isActive("/about") ? "text-primary" : "text-muted-foreground"}`}
+                >
+                  {t('nav.about')}
+                </Link>
+                <Link
+                  to="/contact"
+                  onClick={() => setIsMenuOpen(false)}
+                  className={`px-3 py-2 rounded-md text-sm transition-colors hover:bg-muted ${isActive("/contact") ? "text-primary" : "text-muted-foreground"}`}
+                >
+                  {t('nav.contact')}
+                </Link>
               </div>
 
-              {/* User account section */}
-              <div className="flex flex-col gap-2.5 mt-2 pt-4 border-t border-border">
+              {/* Auth / sign out */}
+              <div className="flex flex-col gap-2.5">
                 {user ? (
                   <>
-                    <Button variant="outline" className="h-11" asChild onClick={() => setIsMenuOpen(false)}>
-                      <Link to="/profile">
-                        <User className="w-4 h-4 mr-2" />
-                        {t('nav.myAccount')}
-                      </Link>
-                    </Button>
-                    <Button variant="outline" className="h-11" asChild onClick={() => setIsMenuOpen(false)}>
-                      <Link to="/my-tickets">
-                        <TicketIcon className="w-4 h-4 mr-2" />
-                        My Tickets
-                      </Link>
-                    </Button>
                     <Button
                       variant="outline"
                       className="h-11"
