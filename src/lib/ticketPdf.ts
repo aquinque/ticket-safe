@@ -130,8 +130,8 @@ const H_HEADER = 14;
 const H_HERO   = 90;
 const H_PERF   = 8;
 const H_INFO   = 52;
-const H_QR     = 85;
-const H_FOOTER = 28;
+const H_QR     = 90;
+const H_FOOTER = 23;
 
 // Pre-computed Y positions for each section
 const Y_HEADER = 0;
@@ -466,7 +466,7 @@ export async function generateTicketPDF(data: TicketData): Promise<void> {
 
   const qrSize = 65;
   const qrX = (A4_W - qrSize) / 2;
-  const qrY = Y_QR + 10;
+  const qrY = Y_QR + 6;
 
   // White card around the QR with a thin slate border
   pdf.setFillColor(255, 255, 255);
@@ -484,16 +484,17 @@ export async function generateTicketPDF(data: TicketData): Promise<void> {
     pdf.text("QR unavailable", A4_W / 2, qrY + qrSize / 2, { align: "center" });
   }
 
-  // Caption — "Scan at entrance" + ticket ID in monospace
+  // Caption — moved closer to QR so it stays inside H_QR and never
+  // collides with the white footer band.
   pdf.setTextColor(C_INK.r, C_INK.g, C_INK.b);
   pdf.setFont("helvetica", "bold");
   pdf.setFontSize(11);
-  pdf.text("Scan at entrance", A4_W / 2, qrY + qrSize + 10, { align: "center" });
+  pdf.text("Scan at entrance", A4_W / 2, qrY + qrSize + 8, { align: "center" });
 
   pdf.setTextColor(C_MUTED.r, C_MUTED.g, C_MUTED.b);
   pdf.setFont("courier", "normal");
   pdf.setFontSize(9);
-  pdf.text(`#${data.ticketId}`, A4_W / 2, qrY + qrSize + 15.5, { align: "center" });
+  pdf.text(`#${data.ticketId}`, A4_W / 2, qrY + qrSize + 14, { align: "center" });
 
   // ── 6. FOOTER ────────────────────────────────────────────────────────
   pdf.setFillColor(255, 255, 255);
