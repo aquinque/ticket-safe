@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowRight, Ticket, Repeat2, ShieldCheck, QrCode, Lock, Sparkles, GraduationCap, User, LogOut, LayoutDashboard } from "lucide-react";
+import { ArrowRight, Ticket, Repeat2, ShieldCheck, QrCode, Lock, Sparkles, GraduationCap, User, LogOut, LayoutDashboard, Banknote } from "lucide-react";
 import Logo from "@/components/Logo";
 import { SEOHead } from "@/components/SEOHead";
 import { useAuth } from "@/hooks/useAuth";
@@ -93,9 +93,17 @@ const Home = () => {
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => navigate("/profile")}>
+                  <DropdownMenuItem onClick={() => navigate("/profile")} className="font-semibold">
                     <User className="w-4 h-4 mr-2" />
                     My profile
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate("/my-tickets")} className="font-semibold">
+                    <Ticket className="w-4 h-4 mr-2" />
+                    My Tickets
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate("/settings/listings")} className="font-semibold">
+                    <Banknote className="w-4 h-4 mr-2" />
+                    My Wallet
                   </DropdownMenuItem>
                   {isStudioOrganizer && (
                     <DropdownMenuItem onClick={() => navigate("/studio")}>
@@ -103,6 +111,7 @@ const Home = () => {
                       Ticket Safe Studio
                     </DropdownMenuItem>
                   )}
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => navigate("/settings")}>
                     Settings
                   </DropdownMenuItem>
