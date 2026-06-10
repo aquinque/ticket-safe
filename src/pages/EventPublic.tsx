@@ -318,6 +318,12 @@ const EventPublic = () => {
   const totalCents = selected ? selected.price_cents * qty : 0;
   const feeCents = Math.round(totalCents * 0.05);
   const grandCents = totalCents + feeCents;
+  // Lowest available price, for the "From €X" hero badge.
+  const availablePrices = tiers.filter((t) => t.available_qty > 0).map((t) => t.price_cents);
+  const minPriceCents = availablePrices.length ? Math.min(...availablePrices) : null;
+  const categoryLabel = event.category
+    ? event.category.charAt(0).toUpperCase() + event.category.slice(1)
+    : null;
 
   return (
     <div
@@ -423,22 +429,34 @@ const EventPublic = () => {
 
         {/* Bottom content block */}
         <div className="relative container mx-auto px-4 pb-9 md:pb-12 max-w-4xl w-full">
-          {event.organizer && (
-            <div className="inline-flex items-center gap-2.5 mb-4 px-3 py-1.5 rounded-full bg-black/30 backdrop-blur ring-1 ring-white/25">
-              {event.organizer.logo_url ? (
-                <img
-                  src={event.organizer.logo_url}
-                  alt={event.organizer.name}
-                  className="w-6 h-6 rounded-full bg-white/10 object-cover"
-                />
-              ) : (
-                <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-[11px] font-black">
-                  {event.organizer.name[0]?.toUpperCase()}
-                </div>
-              )}
-              <div className="text-xs font-semibold leading-none">{event.organizer.name}</div>
-            </div>
-          )}
+          <div className="flex flex-wrap items-center gap-2 mb-4">
+            {event.organizer && (
+              <div className="inline-flex items-center gap-2.5 px-3 py-1.5 rounded-full bg-black/30 backdrop-blur ring-1 ring-white/25">
+                {event.organizer.logo_url ? (
+                  <img
+                    src={event.organizer.logo_url}
+                    alt={event.organizer.name}
+                    className="w-6 h-6 rounded-full bg-white/10 object-cover"
+                  />
+                ) : (
+                  <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-[11px] font-black">
+                    {event.organizer.name[0]?.toUpperCase()}
+                  </div>
+                )}
+                <div className="text-xs font-semibold leading-none">{event.organizer.name}</div>
+              </div>
+            )}
+            {categoryLabel && (
+              <span className="inline-flex items-center px-3 py-1.5 rounded-full bg-white/15 backdrop-blur ring-1 ring-white/25 text-[11px] font-bold uppercase tracking-[0.14em]">
+                {categoryLabel}
+              </span>
+            )}
+            {minPriceCents != null && (
+              <span className="inline-flex items-center px-3 py-1.5 rounded-full bg-white text-[#02122d] text-xs font-black shadow-sm">
+                From €{(minPriceCents / 100).toFixed(minPriceCents % 100 === 0 ? 0 : 2)}
+              </span>
+            )}
+          </div>
 
           <h1 className="text-3xl md:text-5xl lg:text-6xl font-black tracking-tight leading-[1.05] mb-4 drop-shadow-sm max-w-3xl">
             {event.title}
@@ -496,6 +514,9 @@ const EventPublic = () => {
                   const soldOut = t.available_qty <= 0;
                   const locked = soldOut;
                   const lowStock = !soldOut && t.available_qty <= 5;
+                  const soldPct = t.total_qty > 0 ? t.sold_qty / t.total_qty : 0;
+                  const sellingFast = !soldOut && !lowStock && soldPct >= 0.7;
+                  const urgent = lowStock || sellingFast;
                   return (
                     <button
                       key={t.tier_id}
@@ -540,13 +561,30 @@ const EventPublic = () => {
                             {t.description}
                           </div>
                         )}
-                        <div className={`text-[11px] font-medium mt-2 inline-flex items-center gap-1.5 ${lowStock ? "text-amber-700" : "text-muted-foreground"}`}>
-                          {lowStock && !soldOut && (
-                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500" />
+                        <div className="mt-2.5">
+                          <div className={`text-[11px] font-semibold inline-flex items-center gap-1.5 mb-1.5 ${urgent ? "text-amber-700" : "text-muted-foreground"}`}>
+                            {urgent && (
+                              <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                            )}
+                            {soldOut
+                              ? "Sold out"
+                              : lowStock
+                              ? `Only ${t.available_qty} left`
+                              : sellingFast
+                              ? "Selling fast"
+                              : `${t.available_qty} ${t.available_qty === 1 ? "ticket" : "tickets"} available`}
+                          </div>
+                          {!soldOut && t.total_qty > 0 && (
+                            <div className="h-1.5 w-full max-w-[190px] rounded-full bg-muted overflow-hidden">
+                              <div
+                                className="h-full rounded-full transition-all duration-500"
+                                style={{
+                                  width: `${Math.min(100, Math.max(6, soldPct * 100))}%`,
+                                  background: urgent ? "#f59e0b" : primary,
+                                }}
+                              />
+                            </div>
                           )}
-                          {soldOut
-                            ? "Sold out"
-                            : `${t.available_qty} ${t.available_qty === 1 ? "ticket" : "tickets"} available`}
                         </div>
                       </div>
                       <div className="text-right shrink-0">
