@@ -4,7 +4,6 @@ import {
   Calendar,
   MapPin,
   Loader2,
-  ArrowLeft,
   Plus,
   Trash2,
   Eye,
@@ -32,6 +31,7 @@ import {
 } from "lucide-react";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import Header from "@/components/Header";
+import { BackButton } from "@/components/BackButton";
 import Footer from "@/components/Footer";
 import { SEOHead } from "@/components/SEOHead";
 import { useAuth } from "@/hooks/useAuth";
@@ -402,13 +402,9 @@ const StudioEventEdit = () => {
 
       <main className="flex-1 py-6 md:py-10">
         <div className="container mx-auto px-4 max-w-5xl">
-          <button
-            onClick={() => navigate("/studio")}
-            className="inline-flex items-center gap-1.5 text-sm font-semibold text-muted-foreground hover:text-foreground mb-5"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to dashboard
-          </button>
+          <div className="mb-4">
+            <BackButton fallbackPath="/studio" />
+          </div>
 
           {/* Header strip */}
           <div

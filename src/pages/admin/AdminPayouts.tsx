@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Banknote, Download, CheckCircle2, Loader2, ArrowLeft, FileText, Clock, AlertTriangle, ExternalLink, Copy, Zap, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import Header from "@/components/Header";
+import { BackButton } from "@/components/BackButton";
 import Footer from "@/components/Footer";
 import { PageHeader } from "@/components/PageHeader";
 import { useAuth } from "@/hooks/useAuth";
@@ -318,10 +319,9 @@ const AdminPayouts = () => {
       <Header minimal />
       <main className="flex-1 py-6 md:py-10">
         <div className="container mx-auto px-4 max-w-5xl">
-          <button onClick={() => navigate("/")} className="inline-flex items-center gap-1.5 text-sm font-semibold text-muted-foreground hover:text-foreground mb-5">
-            <ArrowLeft className="w-4 h-4" />
-            Back home
-          </button>
+          <div className="mb-4">
+            <BackButton />
+          </div>
 
           <PageHeader
             icon={Banknote}

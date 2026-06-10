@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { BackButton } from "@/components/BackButton";
 import { SEOHead } from "@/components/SEOHead";
 import { useOrganizer } from "@/hooks/useOrganizer";
 
@@ -110,6 +111,9 @@ const Organizers = () => {
 
           <div className="container mx-auto px-4 py-12 md:py-24 relative">
             <div className="max-w-3xl">
+              <div className="mb-5">
+                <BackButton />
+              </div>
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 backdrop-blur border border-white/20 text-[10px] md:text-xs font-semibold tracking-wider uppercase mb-4 md:mb-5">
                 <Sparkles className="w-3 h-3" />
                 <span className="leading-tight">TicketSafe Studio — Beta for EBS Paris</span>

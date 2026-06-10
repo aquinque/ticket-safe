@@ -12,6 +12,7 @@
 import { Link, useSearchParams } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { BackButton } from "@/components/BackButton";
 import { Button } from "@/components/ui/button";
 import { XCircle } from "lucide-react";
 import { SEOHead } from "@/components/SEOHead";
@@ -26,6 +27,9 @@ const CheckoutCancel = () => {
       <Header />
       <main className="flex-1 flex items-center justify-center py-16">
         <div className="container mx-auto px-4 max-w-lg text-center">
+          <div className="mb-4 text-left">
+            <BackButton fallbackPath="/tickets" />
+          </div>
           <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
             <XCircle className="w-10 h-10 text-red-600" />
           </div>

@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { BackButton } from "@/components/BackButton";
 import { SEOHead } from "@/components/SEOHead";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -293,6 +294,9 @@ const OrganizerApply = () => {
         />
 
         <div className="container mx-auto px-4 py-8 md:py-16 max-w-3xl relative">
+          <div className="mb-4">
+            <BackButton fallbackPath="/organizers" />
+          </div>
           <div className="text-center mb-7 md:mb-10">
             <div className="text-[10px] md:text-xs uppercase tracking-[0.2em] font-bold text-primary mb-2 md:mb-3">
               Studio beta

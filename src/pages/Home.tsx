@@ -26,7 +26,8 @@ const Home = () => {
 
   const handleSignOut = async () => {
     await signOut();
-    navigate("/", { replace: true });
+    // Hard reload so the whole app re-initialises signed-out.
+    window.location.href = "/";
   };
 
   return (

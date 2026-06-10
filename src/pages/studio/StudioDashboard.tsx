@@ -21,6 +21,7 @@ import {
 import { toast } from "sonner";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { BackButton } from "@/components/BackButton";
 import { SEOHead } from "@/components/SEOHead";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrganizer } from "@/hooks/useOrganizer";
@@ -276,6 +277,9 @@ const StudioDashboard = () => {
           }}
         >
           <div className="container mx-auto px-4 py-8 md:py-10">
+            <div className="mb-5">
+              <BackButton />
+            </div>
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-5">
               <div className="flex items-center gap-4">
                 {organizer.logo_url ? (

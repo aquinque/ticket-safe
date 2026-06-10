@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  ArrowLeft,
   Loader2,
   Save,
   Building2,
@@ -16,6 +15,7 @@ import {
 } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { BackButton } from "@/components/BackButton";
 import { SEOHead } from "@/components/SEOHead";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrganizer } from "@/hooks/useOrganizer";
@@ -145,13 +145,9 @@ const StudioProfile = () => {
 
       <main className="flex-1 py-6 md:py-10">
         <div className="container mx-auto px-4 max-w-3xl">
-          <button
-            onClick={() => navigate("/studio")}
-            className="inline-flex items-center gap-1.5 text-sm font-semibold text-muted-foreground hover:text-foreground mb-5"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to dashboard
-          </button>
+          <div className="mb-4">
+            <BackButton fallbackPath="/studio" />
+          </div>
 
           <h1 className="text-2xl md:text-4xl font-black mb-2">Organizer profile</h1>
           <p className="text-sm md:text-base text-muted-foreground mb-8">

@@ -12,6 +12,7 @@ import { useEffect } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { BackButton } from "@/components/BackButton";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, Sparkles, Mail, Ticket } from "lucide-react";
 import { SEOHead } from "@/components/SEOHead";
@@ -87,6 +88,9 @@ const CheckoutSuccess = () => {
       <Header />
       <main className="flex-1 flex items-center justify-center py-12 md:py-16">
         <div className="container mx-auto px-4 max-w-lg text-center">
+          <div className="mb-4 text-left">
+            <BackButton fallbackPath="/my-tickets" />
+          </div>
           {/* Check icon with branded halo. animate-in scales it up on mount
               so the moment lands with motion, not a static badge. */}
           <div className="relative w-24 h-24 mx-auto mb-7 animate-in zoom-in-50 duration-500 ease-out">

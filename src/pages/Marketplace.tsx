@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { BackButton } from "@/components/BackButton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -107,6 +108,9 @@ export default function Marketplace() {
 
       <main className="flex-1 py-8 md:py-10">
         <div className="container mx-auto px-4 max-w-7xl">
+          <div className="mb-4">
+            <BackButton />
+          </div>
           {/* Page header */}
           <div className="mb-6 text-center">
             <h1 className="text-4xl md:text-5xl font-bold">{t('marketplace.title')}</h1>

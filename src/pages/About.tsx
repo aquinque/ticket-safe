@@ -1,5 +1,6 @@
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { BackButton } from "@/components/BackButton";
 import { SEOHead } from "@/components/SEOHead";
 import { Link } from "react-router-dom";
 import {
@@ -98,6 +99,9 @@ const About = () => {
           />
 
           <div className="container mx-auto px-4 py-12 md:py-20 relative max-w-5xl">
+            <div className="mb-5">
+              <BackButton />
+            </div>
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 backdrop-blur border border-white/20 text-[10px] md:text-xs font-bold uppercase tracking-[0.2em] mb-4">
               <Sparkles className="w-3 h-3" />
               About Ticket Safe

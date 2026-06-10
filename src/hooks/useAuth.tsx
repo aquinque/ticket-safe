@@ -64,11 +64,25 @@ export const useAuth = () => {
 
   const signOut = async () => {
     try {
-      await supabase.auth.signOut();
+      // scope 'global' revokes the refresh token server-side too, so the user
+      // is signed out everywhere — not just this tab.
+      await supabase.auth.signOut({ scope: 'global' });
+    } catch (error) {
+      // Even if the network call fails (e.g. session already invalid), we still
+      // clear local state below so the UI never gets stuck "logged in".
+      console.error('Error signing out:', error);
+    } finally {
       setUser(null);
       setSession(null);
-    } catch (error) {
-      console.error('Error signing out:', error);
+      try {
+        // Belt-and-braces: nuke any persisted Supabase auth tokens so a stale
+        // session can't be rehydrated on the next page load.
+        Object.keys(localStorage)
+          .filter((k) => k.startsWith('sb-') && k.includes('-auth-token'))
+          .forEach((k) => localStorage.removeItem(k));
+      } catch {
+        /* localStorage may be unavailable — ignore */
+      }
     }
   };
 

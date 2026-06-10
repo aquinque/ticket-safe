@@ -104,7 +104,9 @@ const Header = ({ minimal = false }: HeaderProps) => {
 
   const handleSignOut = async () => {
     await signOut();
-    navigate("/auth");
+    // Hard reload so every part of the app re-initialises with no session —
+    // guarantees you're signed out everywhere, not just in this component.
+    window.location.href = "/auth";
   };
 
   return (

@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { BackButton } from "@/components/BackButton";
 import { SEOHead } from "@/components/SEOHead";
 import { PageHeader } from "@/components/PageHeader";
 import { useAuth } from "@/hooks/useAuth";
@@ -324,6 +325,9 @@ const MyTicketsHub = () => {
 
       <main className="flex-1 py-6 md:py-10">
         <div className="container mx-auto px-4 max-w-4xl">
+          <div className="mb-4">
+            <BackButton />
+          </div>
           <PageHeader
             icon={TicketIcon}
             title="My tickets"

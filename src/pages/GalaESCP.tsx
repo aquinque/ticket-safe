@@ -16,6 +16,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import { BackButton } from "@/components/BackButton";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -151,6 +152,12 @@ const GalaESCP = () => {
     <div className="min-h-screen bg-background">
       <SEOHead titleKey="common.appName" descriptionKey="common.appName" />
       <Header />
+
+      <div className="container mx-auto px-4 pt-4">
+        <div className="mb-4">
+          <BackButton />
+        </div>
+      </div>
 
       {/* ================================================================
           HERO — full-bleed gala image with overlay

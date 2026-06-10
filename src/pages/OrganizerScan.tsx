@@ -12,6 +12,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Header from "@/components/Header";
+import { BackButton } from "@/components/BackButton";
 import Footer from "@/components/Footer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -470,6 +471,9 @@ const OrganizerScan = () => {
 
       <main className="flex-1 py-8">
         <div className="container mx-auto px-4 max-w-5xl">
+          <div className="mb-4">
+            <BackButton fallbackPath="/studio" />
+          </div>
 
           {/* Title */}
           <div className="mb-6 flex items-center gap-3">

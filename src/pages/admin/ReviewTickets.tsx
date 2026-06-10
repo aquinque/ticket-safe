@@ -9,6 +9,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
+import { BackButton } from "@/components/BackButton";
 import Footer from "@/components/Footer";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -186,6 +187,9 @@ const ReviewTickets = () => {
       <Header />
       <main className="flex-1 py-8">
         <div className="container mx-auto px-4 max-w-4xl">
+          <div className="mb-4">
+            <BackButton />
+          </div>
 
           <PageHeader
             icon={Shield}
