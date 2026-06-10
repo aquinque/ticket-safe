@@ -34,6 +34,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
 import QRCode from "https://esm.sh/qrcode@1.5.4";
 import { signStudioTicketJWT } from "../_shared/ticketJwt.ts";
+import { generateTicketsPDFServer, type ServerTicketData } from "../_shared/ticketPdfServer.ts";
+import { sendTicketConfirmationEmail } from "../_shared/sendTicketConfirmationEmail.ts";
+import { type OrderSummaryData } from "../_shared/orderSummaryPdf.ts";
 
 serve(async (req) => {
   // ---- env ----------------------------------------------------------------
@@ -302,65 +305,122 @@ serve(async (req) => {
                   });
               }
 
-              // Generate one QR PNG dataURL per ticket. Inlined as
-              // <img src="data:image/png;base64,..."> so every mail client
-              // (Gmail / Outlook / Apple Mail / iOS Mail) renders the QR
-              // without needing to fetch an external image or click a link.
-              const ticketBlocks: string[] = [];
-              for (let i = 0; i < insertedTickets.length; i++) {
-                const t = insertedTickets[i];
-                let qrDataUrl = "";
-                try {
-                  qrDataUrl = await QRCode.toDataURL(t.qr_token, {
-                    type: "image/png",
-                    width: 280,
-                    margin: 2,
-                    errorCorrectionLevel: "M",
-                    color: { dark: "#0F172A", light: "#FFFFFF" },
-                  });
-                } catch (e) {
-                  console.error("[studio_primary_sale] QR generate failed:", e);
-                }
-                const holder = [t.holder_first_name, t.holder_last_name].filter(Boolean).join(" ").trim();
-                ticketBlocks.push(`
-<div style="margin:18px 0;padding:20px;background:#fafafa;border:1px solid #e5e7eb;border-radius:14px;text-align:center">
-  <div style="font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:#64748b;font-weight:700;margin-bottom:6px">Ticket ${i + 1} of ${insertedTickets.length}</div>
-  ${holder ? `<div style="font-size:18px;font-weight:800;color:#0f172a;margin-bottom:14px">${holder}</div>` : ""}
-  ${qrDataUrl ? `<img src="${qrDataUrl}" alt="QR ticket ${i + 1}" width="240" height="240" style="display:block;margin:0 auto 8px;border-radius:8px;background:#fff;padding:8px;border:1px solid #e5e7eb">` : ""}
-  <div style="font-size:11px;color:#64748b">Single-use · checked at the door</div>
-</div>`);
-              }
+              // ── New buyer email pipeline ──
+              // The old block sent a single HTML email with QR images inlined
+              // as base64 <img> tags. We've replaced that with the new
+              // sendTicketConfirmationEmail orchestrator: same branded HTML
+              // body, plus two real PDF attachments (ticket.pdf with one page
+              // per seat, and order-summary.pdf with the buyer's receipt).
+              if (insertedTickets.length > 0) {
+                // Side queries: tier name + organiser name. Both small,
+                // both fired in parallel so the email path stays fast.
+                const [tierQ, orgQ] = await Promise.all([
+                  supabase.from("event_tiers")
+                    .select("name, price_cents")
+                    .eq("id", tierId)
+                    .maybeSingle(),
+                  evRow?.organizer_id
+                    ? supabase.from("organizer_profiles")
+                        .select("name")
+                        .eq("id", evRow.organizer_id)
+                        .maybeSingle()
+                    : Promise.resolve({ data: null as { name?: string } | null }),
+                ]);
+                const tierName = (tierQ.data as { name?: string } | null)?.name ?? "Standard";
+                const unitPriceCents =
+                  (tierQ.data as { price_cents?: number } | null)?.price_cents
+                  ?? Math.round((session.amount_total ?? 0) / qty);
+                const organizerName =
+                  (orgQ.data as { name?: string } | null)?.name ?? "Ticket Safe";
 
-              await fetch("https://api.resend.com/emails", {
-                method: "POST",
-                headers: {
-                  Authorization: `Bearer ${resendKey}`,
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                  from: "Ticket Safe <noreply@ticket-safe.eu>",
-                  to: [ord.buyer_email],
-                  subject: `Your ticket${qty > 1 ? "s" : ""} for ${evTitle}`,
-                  html: `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f1f5f9;font-family:-apple-system,sans-serif">
-<div style="max-width:560px;margin:32px auto;background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 6px 24px rgba(15,23,42,.08)">
-<div style="background:linear-gradient(135deg,#3a5fe6,#2440b6);padding:28px 32px;color:#fff">
-<div style="font-size:11px;text-transform:uppercase;letter-spacing:.18em;opacity:.85;font-weight:700">Ticket Safe · ${qty > 1 ? `${qty} tickets` : "Your ticket"} confirmed</div>
-<h1 style="margin:8px 0 0;font-size:24px;font-weight:800">${evTitle}</h1>
-</div>
-<div style="padding:28px 32px;font-size:15px;line-height:1.6;color:#1e293b">
-<p style="margin:0 0 16px">Show the QR code${qty > 1 ? "s" : ""} below at the door. ${qty > 1 ? "Each is single-use and assigned to one attendee." : "It is single-use."}</p>
-<table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:18px">
-<tr><td style="padding:8px 0;color:#64748b">Event</td><td style="padding:8px 0;color:#1e293b;font-weight:600">${evTitle}</td></tr>
-<tr><td style="padding:8px 0;color:#64748b">Date</td><td style="padding:8px 0">${evDate}</td></tr>
-<tr><td style="padding:8px 0;color:#64748b">Location</td><td style="padding:8px 0">${evRow?.location ?? "—"}</td></tr>
-<tr><td style="padding:8px 0;color:#64748b">Total paid</td><td style="padding:8px 0;color:#2440b6;font-weight:700">€${total.toFixed(2)}</td></tr>
-</table>
-${ticketBlocks.join("")}
-<p style="margin:24px 0 8px;text-align:center"><a href="https://ticket-safe.eu/my-tickets" style="display:inline-block;background:linear-gradient(135deg,#3a5fe6,#2440b6);color:#fff;padding:12px 24px;border-radius:10px;text-decoration:none;font-weight:700">Open my tickets online</a></p>
-<p style="margin:18px 0 0;font-size:12px;color:#64748b">If you can't scan from the email, open the link above to show the QR from your account. Need help? Reply to this email.</p>
-</div></div></body></html>`,
-                }),
-              });
+                // Buyer display name — pulled from the first attendee, which
+                // is typically the buyer themselves on the Studio flow.
+                const buyer = insertedTickets[0];
+                const buyerFirstName = buyer.holder_first_name ?? "";
+                const buyerLastName  = buyer.holder_last_name ?? "";
+
+                // Dates — keep evDate (formatted by the old block above) but
+                // also split into day + time for the receipt's layout.
+                const evDateOnly = evRow?.date
+                  ? new Date(evRow.date).toLocaleDateString("en-GB", {
+                      weekday: "long", day: "numeric", month: "long", year: "numeric",
+                    })
+                  : "—";
+                const evTimeOnly = evRow?.date
+                  ? new Date(evRow.date).toLocaleTimeString("en-GB", {
+                      hour: "2-digit", minute: "2-digit",
+                    })
+                  : "—";
+                const purchaseDate = new Date().toLocaleDateString("en-GB", {
+                  day: "numeric", month: "long", year: "numeric",
+                });
+                const unitPriceStr = `${(unitPriceCents / 100).toFixed(2)}€`;
+                const totalPaidStr = `${total.toFixed(2)}€`;
+
+                // Build per-ticket payloads — one card per holder, used by the
+                // multi-page PDF generator below.
+                const ticketsData: ServerTicketData[] = insertedTickets.map((t, i) => ({
+                  eventName:      evTitle,
+                  eventDate:      evRow?.date ?? evDateOnly,
+                  eventTime:      evTimeOnly,
+                  eventLocation:  evRow?.location ?? "",
+                  organizerName,
+                  buyerFirstName: t.holder_first_name ?? buyerFirstName,
+                  buyerLastName:  t.holder_last_name  ?? buyerLastName,
+                  buyerEmail:     t.holder_email ?? ord.buyer_email,
+                  ticketType:     tierName,
+                  pricePaid:      unitPriceStr,
+                  ticketId:       t.id.slice(0, 12).toUpperCase(),
+                  qrToken:        t.qr_token,
+                  status:         "Valid",
+                  ticketIndex:    i + 1,
+                  ticketTotal:    insertedTickets.length,
+                }));
+
+                // Single OrderSummaryData feeds both the email body AND the
+                // attached order-summary.pdf — single source of truth.
+                const orderData: OrderSummaryData = {
+                  orderNumber:    orderId.slice(0, 13).toUpperCase(),
+                  purchaseDate,
+                  buyerFirstName,
+                  buyerLastName,
+                  buyerEmail:     ord.buyer_email,
+                  eventName:      evTitle,
+                  eventDate:      evDateOnly,
+                  eventTime:      evTimeOnly,
+                  eventLocation:  evRow?.location ?? "",
+                  ticketType:     tierName,
+                  quantity:       qty,
+                  unitPrice:      unitPriceStr,
+                  totalPaid:      totalPaidStr,
+                  paymentMethod:  "Card",
+                  paymentStatus:  "Paid",
+                  organizerName,
+                  ticketId:       insertedTickets[0].id.slice(0, 12).toUpperCase(),
+                  transactionId:  paymentIntentId ?? session.id,
+                };
+
+                // Render the multi-page ticket PDF.
+                let ticketPdfBytes = new Uint8Array();
+                try {
+                  ticketPdfBytes = await generateTicketsPDFServer(ticketsData);
+                } catch (err) {
+                  console.error("[studio_primary_sale] ticket PDF render failed:", err);
+                  // Soft-fail: we still send the email with the order-summary
+                  // attached so the buyer has at least the receipt.
+                }
+
+                const result = await sendTicketConfirmationEmail({
+                  resendApiKey: resendKey,
+                  to: ord.buyer_email,
+                  order: orderData,
+                  ticketPdfBytes,
+                });
+                console.log(
+                  "[studio_primary_sale] confirmation email:",
+                  result.ok ? `ok id=${result.resendId}` : `error=${result.error}`,
+                );
+              }
             }
           }
           break;
