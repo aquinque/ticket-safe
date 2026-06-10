@@ -53,6 +53,16 @@ serve(async (req) => {
     const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.slice(7));
     if (authError || !user) return json({ error: "Session expired. Please log in again." }, 401);
 
+    // Rate limit: cap checkout-session creation per user so the endpoint can't
+    // be scripted to spam Stripe or mass-reserve inventory. Fails open if the
+    // limiter is unreachable — never blocks a legitimate payment.
+    try {
+      const { data: rlOk } = await supabase.rpc("rate_limit_consume", {
+        p_bucket: "resale_checkout", p_key: user.id, p_max_hits: 12, p_window_sec: 60,
+      });
+      if (rlOk === false) return json({ error: "Too many checkout attempts. Please wait a minute and try again." }, 429);
+    } catch { /* fail open */ }
+
     let listingId: string;
     let agreedPrice: number | null = null;
     try {

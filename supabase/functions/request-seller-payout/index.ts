@@ -50,6 +50,15 @@ serve(async (req) => {
   const { data: { user }, error: userErr } = await supabase.auth.getUser(authHeader.replace("Bearer ", ""));
   if (userErr || !user) return json({ error: "Unauthorized" }, 401);
 
+  // Rate limit: cap payout requests per seller so the endpoint can't be used to
+  // flood the admin SEPA queue. Fails open if the limiter is unreachable.
+  try {
+    const { data: rlOk } = await supabase.rpc("rate_limit_consume", {
+      p_bucket: "seller_payout", p_key: user.id, p_max_hits: 6, p_window_sec: 300,
+    });
+    if (rlOk === false) return json({ error: "Too many payout requests. Please wait a few minutes." }, 429);
+  } catch { /* fail open */ }
+
   let body: { amount_cents?: number; iban?: string; iban_holder?: string };
   try { body = await req.json(); } catch { return json({ error: "Invalid JSON" }, 400); }
 
