@@ -24,6 +24,9 @@ import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 // Initialise PDF worker once (Vite resolves the URL at build time)
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
+// Verbose decode tracing — only in dev. Warnings (real failures) always log.
+const DEBUG = import.meta.env.DEV;
+
 // ---------------------------------------------------------------------------
 // Internal: scan a File object with html5-qrcode
 // ---------------------------------------------------------------------------
@@ -95,7 +98,7 @@ export async function decodeQRFromImage(file: File): Promise<string | null> {
     throw new Error("Image is too large (max 10 MB).");
   }
 
-  console.log(
+  if (DEBUG) console.log(
     "[qrValidator] image →",
     file.name,
     `${(file.size / 1024).toFixed(1)} KB`,
@@ -105,7 +108,7 @@ export async function decodeQRFromImage(file: File): Promise<string | null> {
   // Level 1: original resolution
   let result = await scanFileWithHtml5QR(file);
   if (result) {
-    console.log("[qrValidator] success (L1 original) →", result.slice(0, 80));
+    if (DEBUG) console.log("[qrValidator] success (L1 original) →", result.slice(0, 80));
     return result;
   }
 
@@ -114,7 +117,7 @@ export async function decodeQRFromImage(file: File): Promise<string | null> {
     const up2x = await upscaleImageFile(file, 2);
     result = await scanFileWithHtml5QR(up2x);
     if (result) {
-      console.log("[qrValidator] success (L2 2× upscale) →", result.slice(0, 80));
+      if (DEBUG) console.log("[qrValidator] success (L2 2× upscale) →", result.slice(0, 80));
       return result;
     }
   } catch (e) {
@@ -126,7 +129,7 @@ export async function decodeQRFromImage(file: File): Promise<string | null> {
     const up3x = await upscaleImageFile(file, 3);
     result = await scanFileWithHtml5QR(up3x);
     if (result) {
-      console.log("[qrValidator] success (L3 3× upscale) →", result.slice(0, 80));
+      if (DEBUG) console.log("[qrValidator] success (L3 3× upscale) →", result.slice(0, 80));
       return result;
     }
   } catch (e) {
@@ -149,7 +152,7 @@ export async function decodeQRFromPDF(file: File): Promise<string | null> {
     throw new Error("PDF is too large (max 25 MB).");
   }
 
-  console.log(
+  if (DEBUG) console.log(
     "[qrValidator] PDF →",
     file.name,
     `${(file.size / 1024).toFixed(1)} KB`,
@@ -179,6 +182,9 @@ export async function decodeQRFromPDF(file: File): Promise<string | null> {
         const ctx = canvas.getContext("2d");
         if (!ctx) continue;
 
+        // pdfjs-dist's RenderParameters type omits `canvas`, which newer
+        // runtime versions accept/require — cast to satisfy the type gap.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         await page.render({ canvasContext: ctx, viewport, canvas } as any).promise;
 
         const blob = await new Promise<Blob | null>((res) =>
@@ -194,7 +200,7 @@ export async function decodeQRFromPDF(file: File): Promise<string | null> {
 
         const qr = await scanFileWithHtml5QR(pageFile);
         if (qr) {
-          console.log(
+          if (DEBUG) console.log(
             "[qrValidator] PDF QR found — page",
             pageNum,
             "scale",
@@ -262,7 +268,7 @@ async function extractTextFromPDF(file: File): Promise<string> {
   }
 
   const fullText = parts.join("\n");
-  console.log(
+  if (DEBUG) console.log(
     "[qrValidator] extracted PDF text:",
     fullText.length,
     "chars →",

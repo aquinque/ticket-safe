@@ -51,7 +51,9 @@ export function sanitizeInput(input: string, maxLength: number = 1000): string {
   // 2. Normalize whitespace / trim.
   sanitized = sanitized.replace(/\s+/g, ' ').trim();
   // 3. Strip zero-width / bidi-override characters used in homoglyph attacks.
-  sanitized = sanitized.replace(/[​-‏‪-‮⁠-⁤﻿]/g, '');
+  //    (U+200B–200F, U+202A–202E, U+2060–2064, U+FEFF — written as escapes so
+  //    the invisible characters don't live literally in the source.)
+  sanitized = sanitized.replace(/[\u200B-\u200F\u202A-\u202E\u2060-\u2064\uFEFF]/g, '');
   // 4. Enforce length cap (default 1000 chars).
   if (sanitized.length > maxLength) {
     sanitized = sanitized.substring(0, maxLength);

@@ -24,7 +24,7 @@ export function useSecurity() {
         function_name: eventType,
         access_granted: true,
         resource_id: (metadata.resource_id as string) ?? null,
-      } as any);
+      });
     } catch (error) {
       console.error('Error logging security event:', error);
     }
@@ -41,7 +41,7 @@ export function useSecurity() {
         .order('created_at', { ascending: false })
         .limit(50);
 
-      setSecurityEvents((data ?? []).map((d: any) => ({
+      setSecurityEvents((data ?? []).map((d) => ({
         id: d.id,
         access_type: d.function_name,
         resource_type: 'security',

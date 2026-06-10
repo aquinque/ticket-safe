@@ -55,6 +55,10 @@ const Checkout = () => {
   const [notFound, setNotFound] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
+  // Negotiated price from an accepted offer (auto-detected below). Takes
+  // precedence over the listing price so the displayed total matches what the
+  // server charges, no matter how the buyer reached this page.
+  const [offerPrice, setOfferPrice] = useState<number | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -93,6 +97,30 @@ const Checkout = () => {
 
     fetchListing();
   }, [listingId]);
+
+  // Auto-detect the buyer's accepted offer for this listing (mirrors the server,
+  // which charges this price regardless of the URL).
+  useEffect(() => {
+    if (!listingId || !user) return;
+    let active = true;
+    // offers/conversations aren't in the generated Supabase types yet.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase as any)
+      .from("offers")
+      .select("price, conversation:conversations!inner(ticket_id, buyer_id)")
+      .eq("status", "accepted")
+      .eq("conversations.ticket_id", listingId)
+      .eq("conversations.buyer_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }: { data: { price: number } | null }) => {
+        if (active && data && Number.isFinite(data.price)) setOfferPrice(data.price);
+      });
+    return () => {
+      active = false;
+    };
+  }, [listingId, user]);
 
   // --- Loading ---
   if (loading || authLoading) {
@@ -160,8 +188,10 @@ const Checkout = () => {
   }
 
   // --- Amounts ---
+  // Accepted offer (auto-detected) wins, then a URL hint, then the listing price.
   const event = listing.event;
-  const unitPrice = agreedPrice ?? listing.selling_price;
+  const negotiatedPrice = offerPrice ?? agreedPrice;
+  const unitPrice = negotiatedPrice ?? listing.selling_price;
   const subtotal = unitPrice * listing.quantity;
   const platformFee = Math.round(subtotal * PLATFORM_FEE_PERCENT) / 100;
   const total = subtotal + platformFee;
@@ -284,10 +314,10 @@ const Checkout = () => {
 
               {/* Order summary */}
               <div className="space-y-2">
-                {agreedPrice && agreedPrice !== listing.selling_price && (
+                {negotiatedPrice && negotiatedPrice !== listing.selling_price && (
                   <div className="p-3 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-md mb-2">
                     <p className="text-sm font-medium text-green-800 dark:text-green-200">
-                      Negotiated price: €{agreedPrice.toFixed(2)}
+                      Negotiated price: €{negotiatedPrice.toFixed(2)}
                     </p>
                     <p className="text-xs text-green-600 dark:text-green-400">
                       Original listing: €{listing.selling_price.toFixed(2)}

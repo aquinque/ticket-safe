@@ -218,25 +218,58 @@ const AdminPayouts = () => {
     }
   };
 
-  const pollRevolut = async () => {
+  // Always reloads the queue + batches from the DB. Best-effort: also pull
+  // Revolut status for any 'processing' batch — but if Revolut is on hold or
+  // unconfigured (poll returns non-2xx), that must NOT break the refresh.
+  const refresh = async () => {
     setPolling(true);
     try {
+      await load();
       const { data, error } = await supabase.functions.invoke("poll-revolut-batch", { body: {} });
-      if (error) throw new Error(error.message);
-      const payload = data as { polled?: number; completed?: number; failed?: number; error?: string };
-      if (payload.error) throw new Error(payload.error);
+      const payloadErr = (data as { error?: string } | null)?.error;
+      if (error || payloadErr) {
+        // Revolut not available — the DB view is already refreshed, so this is fine.
+        toast.success("Queue refreshed.");
+        return;
+      }
+      const payload = data as { completed?: number; failed?: number };
       const completed = payload.completed ?? 0;
       const failed = payload.failed ?? 0;
-      if (completed === 0 && failed === 0) {
-        toast.info(`Polled ${payload.polled ?? 0} transfer${payload.polled === 1 ? "" : "s"}. None completed yet — approve them in Revolut.`);
+      if (completed > 0 || failed > 0) {
+        await load();
+        toast.success(`Queue refreshed · ${completed} completed${failed ? `, ${failed} failed` : ""}.`);
       } else {
-        toast.success(`${completed} completed${failed > 0 ? `, ${failed} failed` : ""}.`);
+        toast.success("Queue refreshed.");
       }
-      load();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Poll failed");
+    } catch {
+      // poll-revolut-batch threw (e.g. on hold). The reload above already ran.
+      toast.success("Queue refreshed.");
     } finally {
       setPolling(false);
+    }
+  };
+
+  // Recover a batch that got stuck in 'processing' (e.g. a Revolut batch that
+  // never completed): send its payouts back to the queue as 'requested' so they
+  // can be paid via SEPA export, and cancel the batch.
+  const returnToQueue = async (batchId: string) => {
+    if (!window.confirm(
+      `Return batch ${batchId} to the queue?\n\nIts payouts go back to "requested" so you can pay them via Export XML (SEPA). Only do this if the batch was NOT actually paid.`,
+    )) return;
+    setMarking(batchId);
+    try {
+      const [{ error: e1 }, { error: e2 }] = await Promise.all([
+        supabase.from("organizer_payouts").update({ status: "requested", batch_id: null }).eq("batch_id", batchId),
+        supabase.from("seller_payouts").update({ status: "requested", batch_id: null }).eq("batch_id", batchId),
+      ]);
+      if (e1 || e2) throw new Error(e1?.message ?? e2?.message ?? "Update failed");
+      await supabase.from("payout_batches").update({ status: "cancelled" }).eq("id", batchId);
+      toast.success(`Batch ${batchId} returned to the queue — pay it with Export XML.`);
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not return batch to queue");
+    } finally {
+      setMarking(null);
     }
   };
 
@@ -456,13 +489,13 @@ const AdminPayouts = () => {
                   Export XML ({pending.length})
                 </button>
                 <button
-                  onClick={pollRevolut}
+                  onClick={refresh}
                   disabled={polling}
                   className="inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-lg font-bold bg-muted hover:bg-muted/80 border border-border disabled:opacity-60 shrink-0"
-                  title="Pull status from Revolut for any batch still 'processing'"
+                  title="Reload the queue and batches (also syncs Revolut status when available)"
                 >
                   {polling ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-                  Refresh status
+                  Refresh
                 </button>
               </div>
             </div>
@@ -528,14 +561,25 @@ const AdminPayouts = () => {
                         {b.status}
                       </span>
                       {b.status === "processing" && (
-                        <button
-                          onClick={() => markSent(b.id)}
-                          disabled={marking === b.id}
-                          className="inline-flex items-center gap-1.5 px-3 min-h-[34px] rounded-lg text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60"
-                        >
-                          {marking === b.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-                          Mark sent
-                        </button>
+                        <>
+                          <button
+                            onClick={() => returnToQueue(b.id)}
+                            disabled={marking === b.id}
+                            className="inline-flex items-center gap-1.5 px-3 min-h-[34px] rounded-lg text-xs font-bold bg-muted hover:bg-muted/80 border border-border disabled:opacity-60"
+                            title="Send these payouts back to the queue (e.g. a stuck Revolut batch) so you can pay them via Export XML"
+                          >
+                            <ArrowLeft className="w-3.5 h-3.5" />
+                            Return to queue
+                          </button>
+                          <button
+                            onClick={() => markSent(b.id)}
+                            disabled={marking === b.id}
+                            className="inline-flex items-center gap-1.5 px-3 min-h-[34px] rounded-lg text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60"
+                          >
+                            {marking === b.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                            Mark sent
+                          </button>
+                        </>
                       )}
                     </div>
                   </div>

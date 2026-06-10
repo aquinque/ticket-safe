@@ -27,6 +27,7 @@ interface ConversationMeta {
   id: string;
   buyer_id: string;
   seller_id: string;
+  ticket_id: string;
   ticket: {
     id: string;
     selling_price: number;
@@ -72,7 +73,7 @@ const ChatRoom = () => {
     supabase
       .from("conversations")
       .select(
-        `id, buyer_id, seller_id,
+        `id, buyer_id, seller_id, ticket_id,
          ticket:tickets(id, selling_price, quantity, event:events(id, title, date, image_url, category)),
          buyer:profiles!conversations_buyer_id_fkey(full_name),
          seller:profiles!conversations_seller_id_fkey(full_name)`
@@ -126,8 +127,17 @@ const ChatRoom = () => {
   };
 
   const handleBuyAtPrice = () => {
-    if (!meta?.ticket?.id || !acceptedOffer) return;
-    navigate(`/checkout?listing_id=${meta.ticket.id}&agreed_price=${acceptedOffer.price}`);
+    // Use the raw ticket_id FK (always readable), not the embedded ticket row
+    // which can come back null under RLS / once the listing changes state.
+    const ticketId = meta?.ticket_id ?? meta?.ticket?.id;
+    if (!ticketId) {
+      toast.error("Couldn't open checkout — the listing is unavailable. Refresh and try again.");
+      return;
+    }
+    // The server applies the accepted offer price automatically; we still pass
+    // it so the checkout page shows the negotiated price instantly.
+    const priceParam = acceptedOffer ? `&agreed_price=${acceptedOffer.price}` : "";
+    navigate(`/checkout?listing_id=${ticketId}${priceParam}`);
   };
 
   if (!conversationId || (!loading && !meta)) {
