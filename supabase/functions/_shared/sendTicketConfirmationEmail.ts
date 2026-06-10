@@ -87,7 +87,9 @@ export async function sendTicketConfirmationEmail(
   const html = generateConfirmationEmail(emailData);
 
   // 3. Build the Resend payload
-  const subject = `Your ticket for ${order.eventName} is confirmed`;
+  // Subject — per spec, kept short and brand-led so it reads cleanly in
+  // every inbox preview, even when the event name is long.
+  const subject = "Your TicketSafe ticket is confirmed";
   const payload = {
     from,
     to: [to],

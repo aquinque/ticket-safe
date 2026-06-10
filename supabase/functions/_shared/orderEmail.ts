@@ -1,21 +1,31 @@
 /**
  * generateConfirmationEmail(orderData)
  *
- * Builds the HTML body of the order-confirmation email that goes out
- * right after a successful Stripe payment. Two PDFs are attached
- * separately (ticket.pdf + order-summary.pdf) — see
- * sendTicketConfirmationEmail() in this folder.
+ * Builds the HTML body of the order-confirmation email sent right after
+ * a successful Stripe payment. Two PDFs are attached separately by
+ * sendTicketConfirmationEmail() — this file ONLY produces the HTML body.
  *
- * Compatibility:
+ * Design intent
+ *   The previous version felt like an AI-generated SaaS template:
+ *   purple/blue gradient header, ALL-CAPS overline, rounded 18px cards,
+ *   excessive padding. This rewrite goes the opposite direction —
+ *   premium ticketing-email language à la Shotgun / Dice / Eventbrite:
+ *     • Clean white background, no gradient
+ *     • Brand-blue accents ONLY on the title strip + key totals
+ *     • System font stack (Apple → Segoe → Roboto → Helvetica → Arial)
+ *     • Subtle 1px hairlines instead of shadowed cards
+ *     • Sentence-case copy instead of caps
+ *     • 580 px desktop, fully fluid mobile
+ *
+ * Compatibility
  *   - Layout uses <table>s with cellpadding / cellspacing so Outlook
- *     (which ignores box-model CSS on divs) renders the cards correctly.
- *   - All CSS is INLINE on each element. Outlook strips <style> blocks
- *     wholesale; Gmail rewrites them.
- *   - Fonts: Arial / Helvetica / sans-serif — system stack that's
- *     installed on every desktop and phone, no webfont download.
- *   - Max body width 600 px (industry standard for email).
- *   - No background images on critical elements: the buyer still sees
- *     the full information if their client blocks images.
+ *     (which ignores box-model CSS on <div>s) renders cleanly.
+ *   - All visual CSS is INLINE on each element. The <style> block in
+ *     <head> only carries the mobile media query — gracefully degrades
+ *     on clients that strip it.
+ *   - No images required for the design to work. Logo is the
+ *     "TicketSafe" wordmark in brand-blue type; if the user's client
+ *     blocks images, nothing breaks.
  */
 
 export interface OrderEmailData {
@@ -38,24 +48,27 @@ export interface OrderEmailData {
 
   organizerName: string;
 
-  /** Defaults if omitted. */
   supportEmail?: string;
   websiteUrl?: string;
   myTicketsUrl?: string;
 }
 
-// Brand palette duplicated here so the template stays self-contained —
-// no risk of an upstream colour change silently desyncing what buyers see.
-const BRAND_BLUE    = "#003399";
-const BRAND_LIGHT   = "#0066cc";
-const INK           = "#0f172a";
-const MUTED         = "#64748b";
-const FAINT         = "#94a3b8";
-const HAIRLINE      = "#e2e8f0";
-const BG_PAGE       = "#f1f5f9";
-const BG_CARD       = "#ffffff";
-const BG_SOFT       = "#f8fafc";
-const VALID_BG      = "#dceaff";
+// Brand palette — pulled from src/index.css :root tokens so the email
+// matches the rest of the product exactly.
+//   --primary: 220 100% 30% → #003399  (Deep ESCP Blue — the brand)
+//   --accent : 210 100% 45% → #0073E6  (Bright Accent Blue — secondary)
+const BRAND       = "#003399";
+const BRAND_DARK  = "#002878";
+const INK         = "#0f172a"; // slate-900 — body text
+const INK_2       = "#1e293b"; // slate-800
+const MUTED       = "#475569"; // slate-600 — labels, secondary text
+const FAINT       = "#94a3b8"; // slate-400 — disclaimers
+const HAIR        = "#e2e8f0"; // slate-200 — hairlines
+const BG_PAGE     = "#f5f7fa"; // page wrapping bg
+const SECTION_BG  = "#f8fafc"; // subtle tint for the order summary section
+
+// Single email-safe system font stack used everywhere
+const FONT = `-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif`;
 
 function esc(s: string | number | undefined | null): string {
   return String(s ?? "")
@@ -68,7 +81,7 @@ function esc(s: string | number | undefined | null): string {
 
 export function generateConfirmationEmail(d: OrderEmailData): string {
   const supportEmail = d.supportEmail ?? "support@ticket-safe.eu";
-  const websiteUrl   = d.websiteUrl ?? "https://ticket-safe.eu";
+  const websiteUrl   = d.websiteUrl   ?? "https://ticket-safe.eu";
   const myTicketsUrl = d.myTicketsUrl ?? "https://ticket-safe.eu/my-tickets";
 
   return `<!DOCTYPE html>
@@ -76,148 +89,140 @@ export function generateConfirmationEmail(d: OrderEmailData): string {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Your TicketSafe order is confirmed</title>
+<meta name="color-scheme" content="light only">
+<meta name="supported-color-schemes" content="light only">
+<title>Your TicketSafe ticket is confirmed</title>
+<style>
+  /* Mobile refinements. Gmail and Apple Mail honour these; clients that
+     strip <style> still get a perfectly fluid layout from the inline CSS. */
+  @media only screen and (max-width: 600px) {
+    .ts-wrap   { padding: 16px 0 !important; }
+    .ts-card   { border-radius: 0 !important; border-left: 0 !important; border-right: 0 !important; }
+    .ts-pad    { padding: 24px 20px !important; }
+    .ts-pad-sm { padding: 20px 20px !important; }
+    .ts-title  { font-size: 22px !important; line-height: 1.25 !important; }
+    .ts-body   { font-size: 15px !important; line-height: 1.6 !important; }
+    .ts-row td { font-size: 14px !important; padding: 8px 0 !important; }
+    .ts-cta a  { display: block !important; width: 100% !important; box-sizing: border-box !important; }
+  }
+  /* Dark-mode override prevention — many clients invert backgrounds */
+  [data-ogsc] .ts-card, [data-ogsb] .ts-card { background: #ffffff !important; color: ${INK} !important; }
+</style>
 </head>
-<body style="margin:0;padding:0;background:${BG_PAGE};font-family:Arial,Helvetica,sans-serif;color:${INK};">
-  <!-- Pre-header: shown in inbox preview but hidden in the body -->
-  <div style="display:none;visibility:hidden;opacity:0;height:0;width:0;overflow:hidden;mso-hide:all;">
-    Your ticket for ${esc(d.eventName)} is attached. Order ${esc(d.orderNumber)} — ${esc(d.pricePaid)} paid.
+<body style="margin:0;padding:0;background:${BG_PAGE};font-family:${FONT};color:${INK};-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;">
+  <!-- Inbox preview text — shown next to the subject in Gmail / Apple Mail.
+       Hidden inside the body itself via display:none. -->
+  <div style="display:none;visibility:hidden;opacity:0;height:0;width:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:${BG_PAGE};">
+    Your ticket and order summary are attached.
   </div>
 
   <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:${BG_PAGE};">
     <tr>
-      <td align="center" style="padding:24px 12px;">
-        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="max-width:600px;background:${BG_CARD};border-radius:18px;overflow:hidden;box-shadow:0 6px 28px rgba(15,23,42,0.08);">
+      <td align="center" class="ts-wrap" style="padding:32px 14px;">
 
-          <!-- ─── HEADER (brand gradient) ─── -->
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="580" class="ts-card" style="max-width:580px;width:100%;background:#ffffff;border:1px solid ${HAIR};border-radius:10px;">
+
+          <!-- ─── HEADER: wordmark + small "Order confirmed" caption ─── -->
           <tr>
-            <td style="background:linear-gradient(135deg,${BRAND_BLUE} 0%,${BRAND_LIGHT} 100%);background-color:${BRAND_BLUE};padding:32px 36px;color:#ffffff;">
+            <td class="ts-pad-sm" style="padding:26px 28px 18px;border-bottom:1px solid ${HAIR};">
               <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                 <tr>
-                  <td style="font-size:11px;text-transform:uppercase;letter-spacing:0.22em;font-weight:700;color:rgba(255,255,255,0.85);">
-                    TICKET SAFE · ORDER CONFIRMED
+                  <td style="font-family:${FONT};font-size:18px;font-weight:700;color:${BRAND};letter-spacing:-0.01em;">
+                    TicketSafe
                   </td>
-                </tr>
-                <tr>
-                  <td style="padding-top:10px;font-size:24px;font-weight:800;line-height:1.2;color:#ffffff;">
-                    Your TicketSafe order is confirmed
-                  </td>
-                </tr>
-                <tr>
-                  <td style="padding-top:6px;font-size:14px;color:rgba(255,255,255,0.90);">
-                    Thank you for your purchase.
+                  <td align="right" style="font-family:${FONT};font-size:13px;color:${MUTED};">
+                    Order confirmed
                   </td>
                 </tr>
               </table>
             </td>
           </tr>
 
-          <!-- ─── MAIN MESSAGE ─── -->
+          <!-- ─── TITLE + INTRO ─── -->
           <tr>
-            <td style="padding:30px 36px 8px;font-size:15px;line-height:1.65;color:${INK};">
-              <p style="margin:0 0 14px;">Hi <strong>${esc(d.buyerFirstName)}</strong>,</p>
-              <p style="margin:0 0 14px;">
-                Thank you for your purchase on <strong>TicketSafe</strong>. Your payment has been successfully processed and your ticket for <strong>${esc(d.eventName)}</strong> is now confirmed.
+            <td class="ts-pad" style="padding:30px 28px 8px;">
+              <h1 class="ts-title" style="margin:0 0 18px;font-family:${FONT};font-size:26px;line-height:1.2;font-weight:700;color:${INK};letter-spacing:-0.01em;">
+                Your ticket is confirmed
+              </h1>
+              <p class="ts-body" style="margin:0 0 14px;font-family:${FONT};font-size:16px;line-height:1.65;color:${INK_2};">
+                Hi ${esc(d.buyerFirstName)},
               </p>
-              <p style="margin:0 0 14px;">
-                You will find your ticket attached to this email as a PDF. Please keep it accessible on your phone and present the QR code at the entrance of the event.
+              <p class="ts-body" style="margin:0 0 14px;font-family:${FONT};font-size:16px;line-height:1.65;color:${INK_2};">
+                Thanks for your purchase. Your payment has been successfully processed, and your ticket for <strong style="color:${INK};">${esc(d.eventName)}</strong> is now confirmed.
               </p>
-              <p style="margin:0;">
-                We have also attached your order summary for your records.
+              <p class="ts-body" style="margin:0 0 14px;font-family:${FONT};font-size:16px;line-height:1.65;color:${INK_2};">
+                Your ticket is attached to this email as a PDF. Please keep it accessible on your phone and present the QR code at the entrance.
+              </p>
+              <p class="ts-body" style="margin:0 0 6px;font-family:${FONT};font-size:16px;line-height:1.65;color:${INK_2};">
+                We've also attached your order summary for your records.
               </p>
             </td>
           </tr>
 
-          <!-- ─── ORDER SUMMARY CARD ─── -->
+          <!-- ─── ORDER SUMMARY ─── -->
           <tr>
-            <td style="padding:24px 36px 8px;">
-              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:${BG_SOFT};border:1px solid ${HAIRLINE};border-radius:14px;overflow:hidden;">
-                <!-- Title row -->
-                <tr>
-                  <td style="padding:18px 22px 12px;border-bottom:1px solid ${HAIRLINE};">
-                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
-                      <tr>
-                        <td style="font-size:10px;text-transform:uppercase;letter-spacing:0.20em;font-weight:700;color:${MUTED};">
-                          ORDER SUMMARY
-                        </td>
-                        <td align="right" style="font-size:11px;font-weight:700;letter-spacing:0.10em;color:${BRAND_BLUE};background:${VALID_BG};padding:4px 10px;border-radius:999px;display:inline-block;">
-                          ${esc((d.paymentStatus ?? "Paid").toUpperCase())}
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-                <!-- Body rows -->
-                <tr>
-                  <td style="padding:14px 22px 18px;">
-                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="font-size:14px;color:${INK};">
-                      ${row("Event",          esc(d.eventName), { strong: true })}
-                      ${row("Date",           esc(d.eventDate))}
-                      ${row("Time",           esc(d.eventTime))}
-                      ${row("Location",       esc(d.eventLocation))}
-                      ${spacer()}
-                      ${row("Ticket type",    esc(d.ticketType))}
-                      ${row("Quantity",       String(d.quantity))}
-                      ${row("Price paid",     esc(d.pricePaid), { strongValue: true, valueColor: BRAND_BLUE })}
-                      ${spacer()}
-                      ${row("Order number",   esc(d.orderNumber), { mono: true })}
-                      ${row("Buyer",          esc(`${d.buyerFirstName} ${d.buyerLastName}`))}
-                      ${row("Purchase date",  esc(d.purchaseDate))}
-                    </table>
-                  </td>
-                </tr>
+            <td class="ts-pad" style="padding:18px 28px 4px;">
+              <div style="font-family:${FONT};font-size:13px;font-weight:600;color:${MUTED};margin-bottom:12px;">
+                Order summary
+              </div>
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" class="ts-row" style="background:${SECTION_BG};border:1px solid ${HAIR};border-radius:8px;">
+                ${row("Event",          esc(d.eventName), { strongValue: true })}
+                ${row("Date",           esc(d.eventDate))}
+                ${row("Time",           esc(d.eventTime))}
+                ${row("Location",       esc(d.eventLocation))}
+                ${rowDivider()}
+                ${row("Ticket",         esc(d.ticketType))}
+                ${row("Quantity",       String(d.quantity))}
+                ${row("Total paid",     esc(d.pricePaid), { strongValue: true, valueColor: BRAND, valueSize: 16 })}
+                ${rowDivider()}
+                ${row("Order number",   esc(d.orderNumber), { mono: true })}
+                ${row("Payment status", esc(d.paymentStatus))}
               </table>
             </td>
           </tr>
 
-          <!-- ─── CTA — Open in My Tickets ─── -->
+          <!-- ─── CTA — Open my ticket ─── -->
           <tr>
-            <td align="center" style="padding:20px 36px 6px;">
-              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
-                <tr>
-                  <td align="center" style="background:${BRAND_BLUE};border-radius:10px;">
-                    <a href="${esc(myTicketsUrl)}" target="_blank"
-                       style="display:inline-block;padding:13px 28px;font-size:14px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:10px;letter-spacing:0.02em;">
-                      Open my ticket
-                    </a>
-                  </td>
-                </tr>
-              </table>
+            <td align="center" class="ts-pad ts-cta" style="padding:24px 28px 8px;">
+              <a href="${esc(myTicketsUrl)}" target="_blank"
+                 style="display:inline-block;padding:14px 28px;font-family:${FONT};font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;background:${BRAND};border-radius:6px;letter-spacing:0;mso-padding-alt:0;border:1px solid ${BRAND_DARK};">
+                Open my ticket
+              </a>
             </td>
           </tr>
 
           <!-- ─── IMPORTANT INFORMATION ─── -->
           <tr>
-            <td style="padding:22px 36px 4px;">
-              <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.20em;font-weight:700;color:${MUTED};margin-bottom:10px;">
-                IMPORTANT INFORMATION
+            <td class="ts-pad" style="padding:22px 28px 8px;">
+              <div style="font-family:${FONT};font-size:13px;font-weight:600;color:${MUTED};margin-bottom:10px;">
+                Important information
               </div>
-              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="font-size:13px;color:${INK};line-height:1.6;">
-                ${noticeRow("Your QR code is valid for one entry only.")}
-                ${noticeRow("Do not share your ticket with anyone.")}
-                ${noticeRow("A valid ID may be required at the entrance.")}
-                ${noticeRow("Screenshots or duplicate tickets may be refused.")}
-                ${noticeRow(`If you have any issue, please contact us at <a href="mailto:${esc(supportEmail)}" style="color:${BRAND_BLUE};text-decoration:none;">${esc(supportEmail)}</a>.`)}
-              </table>
+              <p class="ts-body" style="margin:0;font-family:${FONT};font-size:14px;line-height:1.7;color:${MUTED};">
+                Please keep your ticket safe. Your QR code is valid for one entry only and should not be shared. A valid ID may be required at the entrance. Screenshots or duplicated tickets may be refused.
+              </p>
             </td>
           </tr>
 
           <!-- ─── FOOTER ─── -->
           <tr>
-            <td style="padding:28px 36px 30px;border-top:1px solid ${HAIRLINE};margin-top:20px;">
+            <td class="ts-pad" style="padding:28px 28px 30px;border-top:1px solid ${HAIR};">
               <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                 <tr>
-                  <td style="font-size:11px;font-weight:700;letter-spacing:0.22em;color:${BRAND_BLUE};text-transform:uppercase;">
-                    POWERED BY TICKET SAFE
+                  <td style="font-family:${FONT};font-size:14px;font-weight:600;color:${BRAND};">
+                    TicketSafe
                   </td>
-                  <td align="right" style="font-size:12px;color:${MUTED};">
+                  <td align="right" style="font-family:${FONT};font-size:13px;color:${MUTED};">
                     <a href="${esc(websiteUrl)}" style="color:${MUTED};text-decoration:none;">ticket-safe.eu</a>
                   </td>
                 </tr>
                 <tr>
-                  <td colspan="2" style="padding-top:12px;font-size:11px;color:${FAINT};line-height:1.6;">
-                    This is an automated confirmation email. Please do not reply directly to this message.<br>
-                    For any question, contact <a href="mailto:${esc(supportEmail)}" style="color:${MUTED};text-decoration:underline;">${esc(supportEmail)}</a>.
+                  <td colspan="2" style="padding-top:8px;font-family:${FONT};font-size:13px;color:${MUTED};">
+                    <a href="mailto:${esc(supportEmail)}" style="color:${MUTED};text-decoration:underline;">${esc(supportEmail)}</a>
+                  </td>
+                </tr>
+                <tr>
+                  <td colspan="2" style="padding-top:14px;font-family:${FONT};font-size:12px;color:${FAINT};line-height:1.5;">
+                    This is an automated confirmation email. Please do not reply directly to this message.
                   </td>
                 </tr>
               </table>
@@ -225,6 +230,7 @@ export function generateConfirmationEmail(d: OrderEmailData): string {
           </tr>
 
         </table>
+
       </td>
     </tr>
   </table>
@@ -239,24 +245,18 @@ export function generateConfirmationEmail(d: OrderEmailData): string {
 function row(
   label: string,
   value: string,
-  opts: { strong?: boolean; strongValue?: boolean; mono?: boolean; valueColor?: string } = {},
+  opts: { strongValue?: boolean; mono?: boolean; valueColor?: string; valueSize?: number } = {},
 ): string {
-  const valueWeight = opts.strong || opts.strongValue ? 700 : 500;
-  const valueFamily = opts.mono ? "Menlo,Consolas,monospace" : "Arial,Helvetica,sans-serif";
+  const valueWeight = opts.strongValue ? 600 : 500;
+  const valueFamily = opts.mono ? "ui-monospace,Menlo,Consolas,monospace" : FONT;
   const valueColor  = opts.valueColor ?? INK;
+  const valueSize   = opts.valueSize ?? 14;
   return `<tr>
-    <td style="padding:5px 0;width:42%;color:${MUTED};font-size:12px;font-weight:600;letter-spacing:0.04em;">${esc(label)}</td>
-    <td style="padding:5px 0;color:${valueColor};font-size:14px;font-weight:${valueWeight};font-family:${valueFamily};text-align:right;">${value}</td>
+    <td style="padding:11px 16px;width:40%;color:${MUTED};font-family:${FONT};font-size:13px;font-weight:500;vertical-align:top;">${esc(label)}</td>
+    <td style="padding:11px 16px;color:${valueColor};font-family:${valueFamily};font-size:${valueSize}px;font-weight:${valueWeight};text-align:right;vertical-align:top;">${value}</td>
   </tr>`;
 }
 
-function spacer(): string {
-  return `<tr><td colspan="2" style="padding:6px 0;"><div style="height:1px;background:${HAIRLINE};line-height:1px;font-size:1px;">&nbsp;</div></td></tr>`;
-}
-
-function noticeRow(html: string): string {
-  return `<tr>
-    <td valign="top" style="padding:3px 8px 3px 0;color:${BRAND_LIGHT};font-weight:700;width:14px;">•</td>
-    <td style="padding:3px 0;color:${INK};font-size:13px;">${html}</td>
-  </tr>`;
+function rowDivider(): string {
+  return `<tr><td colspan="2" style="padding:0;"><div style="height:1px;background:${HAIR};line-height:1px;font-size:1px;">&nbsp;</div></td></tr>`;
 }
