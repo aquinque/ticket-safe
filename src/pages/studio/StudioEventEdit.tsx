@@ -19,6 +19,7 @@ import {
   FileText,
   Pencil,
   QrCode,
+  ArrowRight,
   BarChart3,
   CheckCircle2,
   Banknote,
@@ -265,9 +266,16 @@ const StudioEventEdit = () => {
     if (!event) return;
     const paidCount = orders.filter((o) => o.status === "paid").length;
     const warning = paidCount > 0
-      ? `This event has ${paidCount} paid order${paidCount > 1 ? "s" : ""}. Cancelling will issue full refunds (including the 5% platform fee) to every buyer. This cannot be undone.`
-      : "Cancel this event? Buyers will not see it anymore.";
+      ? `Are you sure you want to cancel this event?\n\nIt has ${paidCount} paid order${paidCount > 1 ? "s" : ""}. Cancelling will issue full refunds (including the 5% platform fee) to every buyer.`
+      : "Are you sure you want to cancel this event? Buyers will no longer see it.";
     if (!window.confirm(warning)) return;
+
+    // Second, stronger confirmation — this is destructive and irreversible.
+    const finalWarning = paidCount > 0
+      ? `Are you REALLY sure? This cannot be undone.\n\nThe event will be removed, all ${paidCount} buyer${paidCount > 1 ? "s" : ""} refunded, and every ticket invalidated. You will lose everything.`
+      : "Are you REALLY sure? This cannot be undone — the event and all its tickets will be gone for good.";
+    if (!window.confirm(finalWarning)) return;
+
     const reason = window.prompt("Reason for cancellation (shown to buyers in the refund email):") || "";
 
     setSaving(true);
@@ -466,10 +474,10 @@ const StudioEventEdit = () => {
                 {event.status === "published" && (
                   <Link
                     to={`/organizer/scan?event_id=${event.id}`}
-                    className="inline-flex items-center gap-1.5 px-4 min-h-[40px] rounded-lg font-bold text-sm bg-white/15 backdrop-blur border border-white/30 text-white hover:bg-white/25"
+                    className="inline-flex items-center gap-2 px-4 min-h-[40px] rounded-lg font-black text-sm bg-white text-primary shadow-md hover:shadow-lg ring-2 ring-white/70"
                     title="Open the door scanner with this event pre-selected"
                   >
-                    <QrCode className="w-3.5 h-3.5" />
+                    <QrCode className="w-4 h-4" />
                     Scan tickets
                   </Link>
                 )}
@@ -487,6 +495,30 @@ const StudioEventEdit = () => {
               </div>
             </div>
           </div>
+
+          {/* Door-scanning CTA — made prominent so whoever is on the door can
+              jump straight into the scanner for this event. */}
+          {event.status === "published" && (
+            <Link
+              to={`/organizer/scan?event_id=${event.id}`}
+              className="group flex items-center gap-4 rounded-2xl border border-emerald-300/70 bg-gradient-to-br from-emerald-50 to-card p-4 md:p-5 mb-6 hover:shadow-md transition-all"
+            >
+              <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-sm">
+                <QrCode className="w-6 h-6 md:w-7 md:h-7" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-base md:text-lg font-black text-emerald-900 leading-tight">Scan tickets at the door</div>
+                <div className="text-xs md:text-sm text-emerald-800/80 mt-0.5">
+                  Opens the scanner with this event pre-selected — check guests in, in seconds.
+                </div>
+              </div>
+              <span className="hidden sm:inline-flex items-center gap-1.5 px-4 h-10 rounded-lg bg-emerald-600 text-white font-bold text-sm shrink-0 group-hover:bg-emerald-700 transition-colors">
+                Open scanner
+                <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+              </span>
+              <ArrowRight className="sm:hidden w-5 h-5 text-emerald-700 shrink-0" />
+            </Link>
+          )}
 
           {/* Editable event details (draft only) */}
           <EventDetailsEditor
