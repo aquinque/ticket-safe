@@ -186,18 +186,21 @@ const Header = ({ minimal = false }: HeaderProps) => {
                     {userName ? `${t('nav.welcome')}, ${userName.split(' ')[0]}!` : t('nav.myAccount')}
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => navigate("/profile")}>
+                <DropdownMenuContent align="end" className="w-52">
+                  {/* My Profile, then My Tickets + My Wallet right beneath it */}
+                  <DropdownMenuItem onClick={() => navigate("/profile")} className="font-semibold">
+                    <User className="h-4 w-4 mr-2" />
                     {t('nav.profile')}
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate("/my-tickets")}>
+                  <DropdownMenuItem onClick={() => navigate("/my-tickets")} className="font-semibold">
                     <TicketIcon className="h-4 w-4 mr-2" />
                     My Tickets
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate("/settings/listings")}>
+                  <DropdownMenuItem onClick={() => navigate("/settings/listings")} className="font-semibold">
                     <Banknote className="h-4 w-4 mr-2" />
                     My Wallet
                   </DropdownMenuItem>
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => navigate("/settings/purchases")}>
                     My Purchases
                   </DropdownMenuItem>
