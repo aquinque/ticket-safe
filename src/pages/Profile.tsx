@@ -5,26 +5,28 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useI18n } from "@/contexts/I18nContext";
+import { toast } from "@/hooks/use-toast";
+import { SEOHead } from "@/components/SEOHead";
 import {
-  Plus,
-  ChevronDown,
-  ChevronUp,
-  ExternalLink,
-  Settings,
+  User,
+  Mail,
+  Lock,
+  Save,
+  AlertCircle,
+  ShieldCheck,
+  GraduationCap,
   Ticket,
   Tag,
-  Calendar as CalendarIcon,
-  Sparkles,
-  History as HistoryIcon,
-  ShoppingBag,
+  ArrowRight,
   Banknote,
-  Wallet,
-  TrendingUp,
-  TrendingDown,
+  ShoppingBag,
+  ArrowDownLeft,
+  ArrowUpRight,
 } from "lucide-react";
 
 interface Purchase {
@@ -34,7 +36,7 @@ interface Purchase {
   price: number;
   quantity: number;
   status: string;
-  fileUrl: string | null;
+  soldAt: string | null;
 }
 
 interface Sale {
@@ -46,20 +48,29 @@ interface Sale {
   soldAt: string | null;
 }
 
+/** One unified transaction row, in or out. */
+interface TxRow {
+  id: string;
+  kind: "purchase" | "sale";
+  title: string;
+  date: string; // ISO — when it happened (for sorting)
+  amount: number; // euros
+  status: string;
+}
+
 const Profile = () => {
-  const [userData, setUserData] = useState({
-    name: "",
-    email: "",
-    campus: "",
-  });
+  const [userData, setUserData] = useState({ name: "", email: "", campus: "" });
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
   const [loading, setLoading] = useState(true);
-  const [historyOpen, setHistoryOpen] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [savingPassword, setSavingPassword] = useState(false);
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { language, t } = useI18n();
   const dateLocale = language === "fr" ? "fr-FR" : "en-US";
+  const fr = language === "fr";
 
   // Redirect to auth if not logged in
   useEffect(() => {
@@ -68,7 +79,6 @@ const Profile = () => {
     }
   }, [user, authLoading, navigate]);
 
-  // Fetch user data when user is available
   useEffect(() => {
     if (authLoading || !user) return;
     let mounted = true;
@@ -90,10 +100,7 @@ const Profile = () => {
         if (!profile) {
           if (mounted) {
             setUserData({
-              name:
-                user.user_metadata?.full_name ||
-                user.email?.split("@")[0] ||
-                "User",
+              name: user.user_metadata?.full_name || user.email?.split("@")[0] || "User",
               email: user.email || "",
               campus: user.user_metadata?.university || "",
             });
@@ -104,89 +111,66 @@ const Profile = () => {
           return;
         }
 
-        // Fetch purchases — extended with file_url so we can show "View my ticket"
-        const { data: purchaseData, error: purchaseError } = await supabase
+        // Resale purchases (transactions) + primary purchases (event_orders).
+        const { data: purchaseData } = await supabase
           .from("transactions")
-          .select(
-            `*, ticket:tickets(file_url, event:events(title, date))`
-          )
+          .select(`*, ticket:tickets(event:events(title, date))`)
           .eq("buyer_id", user.id)
           .order("created_at", { ascending: false });
 
-        if (purchaseError) {
-          console.error("Error fetching purchases:", purchaseError);
-        }
+        const { data: orderData } = await supabase
+          .from("event_orders")
+          .select(`id, quantity, unit_price_cents, total_cents, status, paid_at, created_at, event:events(title, date)`)
+          .eq("buyer_id", user.id)
+          .eq("status", "paid")
+          .order("paid_at", { ascending: false });
 
-        const { data: saleData, error: saleError } = await supabase
+        const { data: saleData } = await supabase
           .from("tickets")
           .select(`*, event:events(title, date)`)
           .eq("seller_id", user.id)
           .order("created_at", { ascending: false });
 
-        if (saleError) {
-          console.error("Error fetching sales:", saleError);
-        }
+        if (!mounted) return;
 
-        // Primary tickets (Studio + Beta free claims) live in event_orders.
-        // Fetch them too so they show up alongside resale purchases.
-        const { data: orderData, error: orderError } = await supabase
-          .from("event_orders")
-          .select(
-            `id, quantity, unit_price_cents, status, paid_at, created_at,
-             event:events(title, date)`
-          )
-          .eq("buyer_id", user.id)
-          .eq("status", "paid")
-          .order("paid_at", { ascending: false });
+        setUserData({
+          name: profile.full_name || user.email?.split("@")[0] || "User",
+          email: profile.email || user.email || "",
+          campus: profile.university || "",
+        });
 
-        if (orderError) {
-          console.error("Error fetching event orders:", orderError);
-        }
+        const resalePurchases: Purchase[] = (purchaseData ?? []).map((p) => ({
+          id: p.id,
+          eventTitle: p.ticket?.event?.title || "Unknown Event",
+          date: p.ticket?.event?.date || p.created_at,
+          price: p.amount,
+          quantity: p.quantity ?? 1,
+          status: p.status === "completed" ? "confirmed" : p.status,
+          soldAt: p.created_at,
+        }));
 
-        if (mounted) {
-          setUserData({
-            name:
-              profile.full_name || user.email?.split("@")[0] || "User",
-            email: profile.email || user.email || "",
-            campus: profile.university || "",
-          });
+        const primaryPurchases: Purchase[] = (orderData ?? []).map((o) => ({
+          id: `order-${o.id}`,
+          eventTitle: o.event?.title || "Unknown Event",
+          date: o.event?.date || o.paid_at || o.created_at,
+          price: (o.total_cents ?? (o.unit_price_cents ?? 0) * (o.quantity ?? 1)) / 100,
+          quantity: o.quantity ?? 1,
+          status: "confirmed",
+          soldAt: o.paid_at || o.created_at,
+        }));
 
-          const resalePurchases = (purchaseData ?? []).map((p) => ({
-            id: p.id,
-            eventTitle: p.ticket?.event?.title || "Unknown Event",
-            date: p.ticket?.event?.date || p.created_at,
-            price: p.amount,
-            quantity: p.quantity ?? 1,
-            status:
-              p.status === "completed" ? "confirmed" : p.status,
-            fileUrl: p.ticket?.file_url ?? null,
-          }));
+        setPurchases([...primaryPurchases, ...resalePurchases]);
 
-          const primaryPurchases = (orderData ?? []).map((o) => ({
-            id: `order-${o.id}`,
-            eventTitle: o.event?.title || "Unknown Event",
-            date: o.event?.date || o.paid_at || o.created_at,
-            price: (o.unit_price_cents ?? 0) * (o.quantity ?? 1) / 100,
-            quantity: o.quantity ?? 1,
-            status: "confirmed" as const,
-            fileUrl: null,
-          }));
-
-          setPurchases([...primaryPurchases, ...resalePurchases]);
-
-          setSales(
-            (saleData ?? []).map((s) => ({
-              id: s.id,
-              eventTitle: s.event?.title || "Unknown Event",
-              date: s.event?.date || s.created_at,
-              salePrice: s.selling_price,
-              status: s.status,
-              // updated_at is set when status flips to 'sold' — best proxy for when
-              // the sale actually happened, since tickets has no dedicated sold_at.
-              soldAt: s.status === "sold" ? s.updated_at ?? null : null,
-            }))
-          );
-        }
+        setSales(
+          (saleData ?? []).map((s) => ({
+            id: s.id,
+            eventTitle: s.event?.title || "Unknown Event",
+            date: s.event?.date || s.created_at,
+            salePrice: s.selling_price,
+            status: s.status,
+            soldAt: s.status === "sold" ? s.updated_at ?? null : null,
+          })),
+        );
       } catch (error) {
         console.error("Error fetching user data:", error);
       } finally {
@@ -200,6 +184,44 @@ const Profile = () => {
     };
   }, [user, authLoading]);
 
+  const handleSavePassword = async () => {
+    if (newPassword.length < 12) {
+      toast({
+        title: fr ? "Mot de passe trop court" : "Password too short",
+        description: fr ? "Au moins 12 caractères." : "Must be at least 12 characters.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast({
+        title: fr ? "Les mots de passe ne correspondent pas" : "Passwords do not match",
+        description: fr ? "Vérifiez la confirmation." : "Check the confirmation field.",
+        variant: "destructive",
+      });
+      return;
+    }
+    try {
+      setSavingPassword(true);
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw error;
+      setNewPassword("");
+      setConfirmPassword("");
+      toast({
+        title: fr ? "Mot de passe mis à jour" : "Password updated",
+        description: fr ? "Votre mot de passe a été changé." : "Your password has been changed.",
+      });
+    } catch (error) {
+      toast({
+        title: t("toast.error"),
+        description: error instanceof Error ? error.message : "Failed to update password",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingPassword(false);
+    }
+  };
+
   if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-background flex flex-col">
@@ -207,9 +229,7 @@ const Profile = () => {
         <main className="py-16 flex-1 flex items-center justify-center">
           <div className="text-center">
             <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mx-auto mb-3" />
-            <p className="text-sm text-muted-foreground">
-              {t("profile.loadingProfile")}
-            </p>
+            <p className="text-sm text-muted-foreground">{t("profile.loadingProfile")}</p>
           </div>
         </main>
         <Footer />
@@ -219,77 +239,40 @@ const Profile = () => {
 
   if (!user) return null;
 
-  // Split upcoming vs past
-  const now = new Date();
-  const upcomingPurchases = purchases.filter((p) => new Date(p.date) >= now);
-  const pastPurchases = purchases.filter((p) => new Date(p.date) < now);
-
-  // Show active listings first, then sold; hide cancelled from the main view
-  const activeListings = sales.filter((s) => s.status === "available");
-  const soldListings = sales.filter((s) => s.status === "sold");
-  const visibleSales = [...activeListings, ...soldListings];
-
-  const formatDate = (s: string) =>
-    new Date(s).toLocaleDateString(dateLocale, {
-      weekday: "short",
-      day: "numeric",
-      month: "long",
-    });
-
-  const initials = (userData.name || "")
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((n) => n[0]?.toUpperCase())
-    .join("") || "?";
+  const initials =
+    (userData.name || "")
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((n) => n[0]?.toUpperCase())
+      .join("") || "?";
   const firstName = userData.name.split(" ")[0] || "";
 
-  // ─── Revolut-style analytics ────────────────────────────────────────────────
-  // Seller perspective: how much did the user earn this month vs last month.
-  // Earnings = sale price minus the 5% platform commission.
-  const SELLER_COMMISSION = 0.05;
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  // ── Unified transaction feed (purchases + sales), newest first ──────────────
+  const txRows: TxRow[] = [
+    ...purchases.map<TxRow>((p) => ({
+      id: `p-${p.id}`,
+      kind: "purchase",
+      title: p.eventTitle,
+      date: p.soldAt || p.date,
+      amount: p.price,
+      status: p.status,
+    })),
+    ...sales
+      .filter((s) => s.status === "sold")
+      .map<TxRow>((s) => ({
+        id: `s-${s.id}`,
+        kind: "sale",
+        title: s.eventTitle,
+        date: s.soldAt || s.date,
+        amount: s.salePrice,
+        status: s.status,
+      })),
+  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-  const allSoldSales = sales.filter((s) => s.status === "sold");
-  const soldThisMonth = allSoldSales.filter(
-    (s) => s.soldAt && new Date(s.soldAt) >= monthStart
-  );
-  const soldLastMonth = allSoldSales.filter(
-    (s) =>
-      s.soldAt &&
-      new Date(s.soldAt) >= lastMonthStart &&
-      new Date(s.soldAt) < monthStart
-  );
-
-  const earnedThisMonth = soldThisMonth.reduce(
-    (sum, s) => sum + s.salePrice * (1 - SELLER_COMMISSION),
-    0
-  );
-  const earnedLastMonth = soldLastMonth.reduce(
-    (sum, s) => sum + s.salePrice * (1 - SELLER_COMMISSION),
-    0
-  );
-  const earningsChange: number | null =
-    earnedLastMonth > 0
-      ? Math.round(((earnedThisMonth - earnedLastMonth) / earnedLastMonth) * 100)
-      : null;
-
-  const ticketsCountChange: number | null =
-    soldLastMonth.length > 0
-      ? Math.round(
-          ((soldThisMonth.length - soldLastMonth.length) / soldLastMonth.length) *
-            100
-        )
-      : null;
-
-  const lifetimeEarnings = allSoldSales.reduce(
-    (sum, s) => sum + s.salePrice * (1 - SELLER_COMMISSION),
-    0
-  );
-
-  // Only show the analytics row if the user has at least one completed sale.
-  const showAnalytics = allSoldSales.length > 0;
+  const totalSpent = purchases.reduce((sum, p) => sum + (p.price || 0), 0);
+  const totalSold = sales.filter((s) => s.status === "sold").length;
+  const activeListings = sales.filter((s) => s.status === "available").length;
 
   const formatEuros = (n: number) =>
     new Intl.NumberFormat(dateLocale, {
@@ -297,29 +280,15 @@ const Profile = () => {
       currency: "EUR",
       maximumFractionDigits: n % 1 === 0 ? 0 : 2,
     }).format(n);
-
-  const ChangePill = ({ value }: { value: number | null }) => {
-    if (value === null) return null;
-    const isUp = value >= 0;
-    const Icon = isUp ? TrendingUp : TrendingDown;
-    return (
-      <span
-        className={`inline-flex items-center gap-1 text-[11px] font-semibold ${
-          isUp ? "text-green-600" : "text-red-600"
-        }`}
-      >
-        <Icon className="w-3 h-3" />
-        {isUp ? "+" : ""}
-        {value}% {language === "fr" ? "vs mois dernier" : "vs last month"}
-      </span>
-    );
-  };
+  const formatDate = (s: string) =>
+    new Date(s).toLocaleDateString(dateLocale, { day: "numeric", month: "short", year: "numeric" });
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      <SEOHead titleKey="nav.profile" descriptionKey="settings.description" />
       <Header />
       <main className="flex-1 pb-16">
-        {/* Hero band — compact identity, no overlap with content below */}
+        {/* Identity hero */}
         <div className="relative overflow-hidden bg-gradient-hero text-white">
           <div
             className="absolute inset-0 opacity-30"
@@ -341,364 +310,255 @@ const Profile = () => {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-[11px] md:text-xs font-semibold uppercase tracking-[0.18em] text-white/70">
-                  {userData.campus || "TicketSafe"}
+                  {userData.campus || "Ticket Safe"}
                 </p>
                 <h1 className="text-2xl md:text-3xl font-bold mt-0.5 leading-tight">
                   {t("profile.hello", { name: firstName })}
                 </h1>
-                <p className="text-sm text-white/75 mt-0.5 truncate">
-                  {userData.email}
-                </p>
+                <p className="text-sm text-white/75 mt-0.5 truncate">{userData.email}</p>
               </div>
-              <Button
-                size="sm"
-                onClick={() => navigate("/sell")}
-                className="hidden sm:inline-flex gap-1.5 bg-white text-primary hover:bg-white/90 font-semibold shadow flex-shrink-0"
-              >
-                <Plus className="w-4 h-4" />
-                {t("profile.sellATicket")}
-              </Button>
             </div>
-
-            {/* Mobile-only Sell CTA (full width below the name block) */}
-            <Button
-              size="sm"
-              onClick={() => navigate("/sell")}
-              className="sm:hidden mt-5 w-full gap-1.5 bg-white text-primary hover:bg-white/90 font-semibold shadow"
-            >
-              <Plus className="w-4 h-4" />
-              {t("profile.sellATicket")}
-            </Button>
           </div>
         </div>
 
-        <div className="container mx-auto px-4 max-w-3xl mt-8">
-          {/* ANALYTICS — only shown when the user has at least one completed sale */}
-          {showAnalytics && (
-            <section className="mb-10 animate-in fade-in slide-in-from-bottom-2 duration-500">
-              <h2 className="sr-only">Your sales at a glance</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {/* Card 1 — Earned this month */}
-                <Card className="border-border hover:shadow-md transition-shadow">
-                  <CardContent className="p-5">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
-                        <Banknote className="w-5 h-5 text-primary" />
-                      </div>
-                    </div>
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                      {language === "fr" ? "Gagné ce mois" : "Earned this month"}
-                    </p>
-                    <p className="text-2xl md:text-3xl font-bold mt-1 leading-tight tabular-nums">
-                      {formatEuros(earnedThisMonth)}
-                    </p>
-                    <div className="mt-1.5 min-h-[16px]">
-                      <ChangePill value={earningsChange} />
-                    </div>
-                  </CardContent>
-                </Card>
+        <div className="container mx-auto px-4 max-w-3xl mt-8 space-y-8">
+          {/* At-a-glance stats */}
+          <div className="grid grid-cols-3 gap-3">
+            <Card className="border-border">
+              <CardContent className="p-4 text-center">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  {fr ? "Acheté" : "Purchases"}
+                </p>
+                <p className="text-xl md:text-2xl font-black mt-1 tabular-nums">{purchases.length}</p>
+              </CardContent>
+            </Card>
+            <Card className="border-border">
+              <CardContent className="p-4 text-center">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  {fr ? "Vendu" : "Sold"}
+                </p>
+                <p className="text-xl md:text-2xl font-black mt-1 tabular-nums">{totalSold}</p>
+              </CardContent>
+            </Card>
+            <Card className="border-border">
+              <CardContent className="p-4 text-center">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  {fr ? "Annonces" : "Listed"}
+                </p>
+                <p className="text-xl md:text-2xl font-black mt-1 tabular-nums">{activeListings}</p>
+              </CardContent>
+            </Card>
+          </div>
 
-                {/* Card 2 — Tickets sold this month */}
-                <Card className="border-border hover:shadow-md transition-shadow">
-                  <CardContent className="p-5">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="w-9 h-9 rounded-xl bg-secondary/10 flex items-center justify-center">
-                        <Ticket className="w-5 h-5 text-secondary" />
-                      </div>
-                    </div>
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                      {language === "fr" ? "Billets vendus" : "Tickets sold"}
-                    </p>
-                    <p className="text-2xl md:text-3xl font-bold mt-1 leading-tight tabular-nums">
-                      {soldThisMonth.length}
-                    </p>
-                    <div className="mt-1.5 min-h-[16px]">
-                      <ChangePill value={ticketsCountChange} />
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Card 3 — All-time earnings */}
-                <Card className="border-border hover:shadow-md transition-shadow">
-                  <CardContent className="p-5">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="w-9 h-9 rounded-xl bg-accent/10 flex items-center justify-center">
-                        <Wallet className="w-5 h-5 text-accent" />
-                      </div>
-                    </div>
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                      {language === "fr" ? "Total cumulé" : "All-time earnings"}
-                    </p>
-                    <p className="text-2xl md:text-3xl font-bold mt-1 leading-tight tabular-nums">
-                      {formatEuros(lifetimeEarnings)}
-                    </p>
-                    <div className="mt-1.5 min-h-[16px]">
-                      <p className="text-[11px] text-muted-foreground">
-                        {allSoldSales.length}{" "}
-                        {language === "fr"
-                          ? allSoldSales.length === 1
-                            ? "vente"
-                            : "ventes"
-                          : allSoldSales.length === 1
-                          ? "sale"
-                          : "sales"}
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </section>
-          )}
-
-          {/* MES BILLETS */}
-          <section className="mb-10 animate-in fade-in slide-in-from-bottom-2 duration-500">
-            <div className="flex items-center justify-between mb-4 px-1">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
-                  <Ticket className="w-5 h-5 text-primary" />
+          {/* Personal information */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <User className="w-5 h-5 text-primary" />
+                {fr ? "Informations personnelles" : "Personal information"}
+              </CardTitle>
+              <CardDescription>
+                {fr ? "Votre identité vérifiée sur Ticket Safe" : "Your verified identity on Ticket Safe"}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                  {fr ? "Nom complet" : "Full name"}
+                </Label>
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/40 border border-border">
+                  <User className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                  <span className="text-sm font-medium truncate">{userData.name || "—"}</span>
                 </div>
-                <h2 className="text-lg md:text-xl font-bold">
-                  {t("profile.myTickets")}
-                </h2>
               </div>
-              {upcomingPurchases.length > 0 && (
-                <span className="text-xs font-semibold text-primary bg-primary/10 px-2.5 py-1 rounded-full">
-                  {upcomingPurchases.length} {language === "fr" ? "à venir" : "upcoming"}
-                </span>
+              <div className="space-y-2">
+                <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                  {fr ? "Adresse email" : "Email address"}
+                </Label>
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/40 border border-border">
+                  <Mail className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                  <span className="text-sm font-medium truncate">{userData.email || "—"}</span>
+                </div>
+              </div>
+              {userData.campus && (
+                <div className="space-y-2">
+                  <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                    {fr ? "Campus" : "Campus"}
+                  </Label>
+                  <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/40 border border-border">
+                    <GraduationCap className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                    <span className="text-sm font-medium truncate">{userData.campus}</span>
+                  </div>
+                </div>
               )}
-            </div>
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/5 border border-primary/15">
+                <ShieldCheck className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  <span className="font-semibold text-foreground">
+                    {fr ? "Verrouillé pour votre sécurité." : "Locked for your security."}
+                  </span>{" "}
+                  {fr
+                    ? "Le nom et l'email vérifient acheteurs et vendeurs. Pour les changer, écrivez à "
+                    : "Your name and email verify buyers and sellers. To change them, contact "}
+                  <a href="mailto:support@ticket-safe.eu" className="text-primary font-medium hover:underline">
+                    support@ticket-safe.eu
+                  </a>
+                  .
+                </p>
+              </div>
+            </CardContent>
+          </Card>
 
-            {upcomingPurchases.length === 0 ? (
-              <Card className="border-dashed bg-gradient-card">
-                <CardContent className="p-10 text-center">
+          {/* Security — password */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Lock className="w-5 h-5 text-primary" />
+                {fr ? "Mot de passe" : "Password"}
+              </CardTitle>
+              <CardDescription>
+                {fr ? "Réinitialisez votre mot de passe" : "Reset your account password"}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="new-password">{fr ? "Nouveau mot de passe" : "New password"}</Label>
+                <Input
+                  id="new-password"
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder={fr ? "Au moins 12 caractères" : "At least 12 characters"}
+                />
+                {newPassword && (
+                  <span className={`text-xs ${newPassword.length >= 12 ? "text-green-600" : "text-muted-foreground"}`}>
+                    {newPassword.length >= 12 ? "✓ " : "○ "}
+                    {fr ? "Au moins 12 caractères" : "At least 12 characters"}
+                  </span>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="confirm-password">{fr ? "Confirmer le mot de passe" : "Confirm password"}</Label>
+                <Input
+                  id="confirm-password"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder={fr ? "Retapez le mot de passe" : "Re-enter the password"}
+                />
+              </div>
+              {newPassword && confirmPassword && newPassword !== confirmPassword && (
+                <div className="flex items-center gap-2 text-sm text-destructive">
+                  <AlertCircle className="w-4 h-4" />
+                  {fr ? "Les mots de passe ne correspondent pas" : "Passwords do not match"}
+                </div>
+              )}
+              <Button onClick={handleSavePassword} disabled={savingPassword || !newPassword} className="w-full">
+                <Save className="w-4 h-4 mr-2" />
+                {savingPassword
+                  ? fr ? "Enregistrement…" : "Saving…"
+                  : fr ? "Mettre à jour le mot de passe" : "Update password"}
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Transactions */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Banknote className="w-5 h-5 text-primary" />
+                {fr ? "Transactions" : "Transactions"}
+              </CardTitle>
+              <CardDescription>
+                {fr
+                  ? "Vos achats et ventes sur Ticket Safe"
+                  : "Your purchases and sales on Ticket Safe"}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {totalSpent > 0 && (
+                <p className="text-xs text-muted-foreground mb-4">
+                  {fr ? "Total dépensé : " : "Total spent: "}
+                  <span className="font-bold text-foreground">{formatEuros(totalSpent)}</span>
+                </p>
+              )}
+              {txRows.length === 0 ? (
+                <div className="text-center py-8">
                   <div className="mx-auto w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
-                    <Sparkles className="w-5 h-5 text-primary" />
+                    <ShoppingBag className="w-5 h-5 text-primary" />
                   </div>
                   <p className="text-sm text-muted-foreground mb-5">
-                    {t("profile.noUpcomingTickets")}
+                    {fr ? "Aucune transaction pour l'instant." : "No transactions yet."}
                   </p>
-                  <Button
-                    variant="hero"
-                    size="sm"
-                    onClick={() => navigate("/marketplace")}
-                    className="gap-1.5"
-                  >
+                  <Button variant="hero" size="sm" onClick={() => navigate("/marketplace")} className="gap-1.5">
                     <ShoppingBag className="w-4 h-4" />
                     {t("profile.browseEvents")}
                   </Button>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-3">
-                {upcomingPurchases.map((p) => (
-                  <Card
-                    key={p.id}
-                    className="group relative overflow-hidden hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 border-border"
-                  >
-                    {/* Brand accent bar */}
-                    <span className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-hero" aria-hidden="true" />
-                    <CardContent className="p-4 pl-5 flex items-center justify-between gap-4">
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <div className="hidden sm:flex w-10 h-10 rounded-lg bg-primary/10 items-center justify-center flex-shrink-0">
-                          <CalendarIcon className="w-4 h-4 text-primary" />
+                </div>
+              ) : (
+                <div className="divide-y divide-border">
+                  {txRows.map((tx) => {
+                    const isPurchase = tx.kind === "purchase";
+                    return (
+                      <div key={tx.id} className="flex items-center gap-3 py-3">
+                        <div
+                          className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                            isPurchase ? "bg-primary/10" : "bg-green-500/10"
+                          }`}
+                        >
+                          {isPurchase ? (
+                            <ArrowDownLeft className="w-4 h-4 text-primary" />
+                          ) : (
+                            <ArrowUpRight className="w-4 h-4 text-green-600" />
+                          )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold truncate group-hover:text-primary transition-colors">
-                            {p.eventTitle}
-                          </h3>
-                          <p className="text-sm text-muted-foreground mt-0.5">
-                            <span className="font-medium text-foreground/80">{formatDate(p.date)}</span>
+                          <p className="text-sm font-semibold truncate">{tx.title}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {isPurchase ? (fr ? "Achat" : "Purchase") : (fr ? "Vente" : "Sale")}
                             <span className="mx-1.5">·</span>
-                            <span className="font-bold text-primary">
-                              {p.price > 0 ? `${p.price}€` : "Free"}
-                            </span>
+                            {formatDate(tx.date)}
                           </p>
                         </div>
-                      </div>
-                      {p.fileUrl ? (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          asChild
-                          className="flex-shrink-0 group-hover:border-primary group-hover:text-primary"
+                        <span
+                          className={`text-sm font-bold tabular-nums flex-shrink-0 ${
+                            isPurchase ? "text-foreground" : "text-green-600"
+                          }`}
                         >
-                          <a
-                            href={p.fileUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="gap-1.5"
-                          >
-                            <ExternalLink className="w-3.5 h-3.5" />
-                            {t("profile.viewTicket")}
-                          </a>
-                        </Button>
-                      ) : (
-                        <span className="text-xs text-muted-foreground flex-shrink-0 italic">
-                          {t("profile.ticketByEmail")}
+                          {isPurchase ? "−" : "+"}
+                          {formatEuros(tx.amount)}
                         </span>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </section>
-
-          {/* MES VENTES */}
-          <section className="mb-10 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-100">
-            <div className="flex items-center justify-between mb-4 px-1">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-secondary/10 flex items-center justify-center">
-                  <Tag className="w-5 h-5 text-secondary" />
+                      </div>
+                    );
+                  })}
                 </div>
-                <h2 className="text-lg md:text-xl font-bold">
-                  {t("profile.mySales")}
-                </h2>
-              </div>
-              {sales.length > 0 && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => navigate("/settings/listings")}
-                  className="gap-1.5 text-xs h-8"
+              )}
+
+              {/* Deep links to the full hubs */}
+              <div className="grid grid-cols-2 gap-3 mt-5 pt-5 border-t border-border">
+                <button
+                  onClick={() => navigate("/my-tickets")}
+                  className="flex items-center justify-between gap-2 px-3.5 h-11 rounded-lg border border-border hover:border-primary/40 hover:bg-muted/40 transition-colors text-sm font-semibold"
                 >
-                  <Settings className="w-3.5 h-3.5" />
-                  {t("profile.manageListings")}
-                </Button>
-              )}
-            </div>
-
-            {visibleSales.length === 0 ? (
-              <Card className="border-dashed bg-gradient-card">
-                <CardContent className="p-10 text-center">
-                  <div className="mx-auto w-12 h-12 rounded-2xl bg-secondary/10 flex items-center justify-center mb-4">
-                    <Tag className="w-5 h-5 text-secondary" />
-                  </div>
-                  <p className="text-sm text-muted-foreground mb-5">
-                    {t("profile.noSalesYet")}
-                  </p>
-                  <Button
-                    variant="hero"
-                    size="sm"
-                    onClick={() => navigate("/sell")}
-                    className="gap-1.5"
-                  >
-                    <Plus className="w-4 h-4" />
-                    {t("profile.sellATicket")}
-                  </Button>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-3">
-                {visibleSales.slice(0, 5).map((s) => {
-                  const isSold = s.status === "sold";
-                  return (
-                    <Card
-                      key={s.id}
-                      className="group relative overflow-hidden hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 border-border"
-                    >
-                      <span
-                        className={`absolute left-0 top-0 bottom-0 w-1 ${
-                          isSold ? "bg-green-500" : "bg-amber-400"
-                        }`}
-                        aria-hidden="true"
-                      />
-                      <CardContent className="p-4 pl-5 flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-3 flex-1 min-w-0">
-                          <div
-                            className={`hidden sm:flex w-10 h-10 rounded-lg items-center justify-center flex-shrink-0 ${
-                              isSold ? "bg-green-500/10" : "bg-amber-400/10"
-                            }`}
-                          >
-                            <Tag
-                              className={`w-4 h-4 ${
-                                isSold ? "text-green-600" : "text-amber-600"
-                              }`}
-                            />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold truncate">
-                              {s.eventTitle}
-                            </h3>
-                            <p className="text-sm text-muted-foreground mt-0.5">
-                              {isSold
-                                ? t("profile.soldFor", { price: s.salePrice })
-                                : t("profile.listedAt", { price: s.salePrice })}
-                            </p>
-                          </div>
-                        </div>
-                        {isSold ? (
-                          <Badge className="bg-green-500/15 text-green-700 hover:bg-green-500/15 border-green-300 flex-shrink-0 font-semibold">
-                            {t("profile.sold")}
-                          </Badge>
-                        ) : (
-                          <Badge
-                            variant="outline"
-                            className="text-amber-700 border-amber-300 bg-amber-50 flex-shrink-0 font-semibold"
-                          >
-                            {t("profile.awaitingBuyer")}
-                          </Badge>
-                        )}
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-                {visibleSales.length > 5 && (
-                  <div className="text-center pt-1">
-                    <Button
-                      variant="link"
-                      size="sm"
-                      onClick={() => navigate("/settings/listings")}
-                    >
-                      {t("profile.viewAll")} ({visibleSales.length})
-                    </Button>
-                  </div>
-                )}
+                  <span className="inline-flex items-center gap-2">
+                    <Ticket className="w-4 h-4 text-primary" />
+                    {t("profile.myTickets")}
+                  </span>
+                  <ArrowRight className="w-4 h-4 text-muted-foreground" />
+                </button>
+                <button
+                  onClick={() => navigate("/settings/listings")}
+                  className="flex items-center justify-between gap-2 px-3.5 h-11 rounded-lg border border-border hover:border-primary/40 hover:bg-muted/40 transition-colors text-sm font-semibold"
+                >
+                  <span className="inline-flex items-center gap-2">
+                    <Tag className="w-4 h-4 text-primary" />
+                    {fr ? "Mon portefeuille" : "My Wallet"}
+                  </span>
+                  <ArrowRight className="w-4 h-4 text-muted-foreground" />
+                </button>
               </div>
-            )}
-          </section>
-
-          {/* HISTORIQUE */}
-          {pastPurchases.length > 0 && (
-            <section className="animate-in fade-in slide-in-from-bottom-2 duration-500 delay-200">
-              <button
-                onClick={() => setHistoryOpen(!historyOpen)}
-                className="w-full flex items-center justify-between gap-2 px-4 py-3 rounded-xl bg-muted/40 hover:bg-muted/70 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                aria-expanded={historyOpen}
-              >
-                <span className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-                  <HistoryIcon className="w-4 h-4" />
-                  {t("profile.historyToggle", { count: pastPurchases.length })}
-                </span>
-                {historyOpen ? (
-                  <ChevronUp className="w-4 h-4 text-muted-foreground" />
-                ) : (
-                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                )}
-              </button>
-              {historyOpen && (
-                <div className="mt-3 space-y-1 animate-in fade-in slide-in-from-top-1 duration-200">
-                  {pastPurchases.map((p) => (
-                    <div
-                      key={p.id}
-                      className="flex items-center justify-between py-2 px-4 text-sm rounded-lg hover:bg-muted/40 transition-colors"
-                    >
-                      <span className="text-muted-foreground truncate flex-1">
-                        {p.eventTitle}
-                      </span>
-                      <span className="text-xs text-muted-foreground/80 whitespace-nowrap ml-3 font-mono">
-                        {new Date(p.date).toLocaleDateString(dateLocale, {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        })}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
-          )}
+            </CardContent>
+          </Card>
         </div>
       </main>
       <Footer />
