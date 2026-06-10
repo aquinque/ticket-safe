@@ -55,16 +55,20 @@ export interface OrderEmailData {
 }
 
 // ── Palette ──────────────────────────────────────────────────────────────
-// Only one brand colour. Everything else is the slate scale.
-const BRAND       = "#3a5fe6";
-const BRAND_DEEP  = "#2a47c4";  // pressed / border, slightly darker
+// One brand blue + its tints, used to give the recap card its identity.
+const BRAND        = "#3a5fe6";
+const BRAND_DEEP   = "#2a47c4";  // CTA border / pressed
+const BRAND_TINT   = "#eef1ff";  // recap card background (very subtle brand)
+const BRAND_BORDER = "#c9d3f5";  // recap card border (slightly darker tint)
+const BRAND_LABEL  = "#3a5fe6";  // labels inside the recap card
 
-const TEXT        = "#111418";  // headings, primary values
-const TEXT_2      = "#2c3138";  // body text
-const TEXT_MUTED  = "#525a66";  // labels, secondary
-const TEXT_FAINT  = "#8a93a1";  // footer disclaimer
-const HAIR        = "#e5e7ec";  // section separators
-const PAGE_BG     = "#f3f4f7";  // soft slate page wrap
+const TEXT         = "#111418";  // headings, primary values
+const TEXT_2       = "#2c3138";  // body text
+const TEXT_MUTED   = "#525a66";  // labels, secondary
+const TEXT_FAINT   = "#8a93a1";  // footer disclaimer
+const HAIR         = "#e5e7ec";  // section separators
+const HAIR_BRAND   = "#d8defb";  // hairline inside the recap card
+const PAGE_BG      = "#f3f4f7";  // soft slate page wrap
 
 const FONT = `-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif`;
 
@@ -96,14 +100,18 @@ export function generateConfirmationEmail(d: OrderEmailData): string {
   @media only screen and (max-width: 600px) {
     .e-outer    { padding: 18px 10px !important; }
     .e-card     { border-radius: 12px !important; }
-    .e-pad      { padding: 24px 22px !important; }
-    .e-title    { font-size: 22px !important; line-height: 1.22 !important; }
-    .e-body     { font-size: 15.5px !important; line-height: 1.6 !important; }
-    .e-row td   { font-size: 14.5px !important; padding: 11px 0 !important; }
-    .e-row .l   { width: 38% !important; }
-    .e-total td { padding: 13px 0 !important; }
-    .e-cta a    { display: block !important; padding: 15px 0 !important; }
-    .e-foot     { padding: 22px 22px 26px !important; }
+    .e-pad        { padding: 24px 22px !important; }
+    .e-title      { font-size: 22px !important; line-height: 1.22 !important; }
+    .e-body       { font-size: 15.5px !important; line-height: 1.6 !important; }
+    .e-row td     { font-size: 14.5px !important; padding: 11px 0 !important; }
+    .e-row .l     { width: 38% !important; }
+    .e-total td   { padding: 13px 0 !important; }
+    .e-cta a      { display: block !important; padding: 15px 0 !important; }
+    .e-foot       { padding: 22px 22px 26px !important; }
+    .e-recap-pad  { padding: 22px 20px 20px !important; }
+    .e-event-name { font-size: 17px !important; }
+    .e-event-meta { font-size: 14px !important; }
+    .e-total-v    { font-size: 20px !important; }
   }
   /* Dark-mode-friendly: stop Outlook/Gmail inversion making the card grey */
   [data-ogsc] .e-card,
@@ -171,43 +179,60 @@ export function generateConfirmationEmail(d: OrderEmailData): string {
             </td>
           </tr>
 
-          <!-- ─── Event details ─── -->
+          <!-- ─── RECAP CARD ─── A single brand-tinted box that holds
+               the entire booking summary. Visually the centrepiece of
+               the email: event info on top, ticket info below, a single
+               brand-coloured hairline separating the two zones. -->
           <tr>
-            <td class="e-pad" style="padding:32px 32px 0;">
-              <div style="height:1px;background:${HAIR};line-height:1px;font-size:1px;">&nbsp;</div>
-            </td>
-          </tr>
-          <tr>
-            <td class="e-pad" style="padding:20px 32px 4px;">
-              <h2 style="margin:0 0 14px;font-family:${FONT};font-size:13px;font-weight:600;color:${TEXT};letter-spacing:0;">
-                Event details
-              </h2>
-              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" class="e-row">
-                ${row("Event",     esc(d.eventName))}
-                ${row("Date",      esc(d.eventDate))}
-                ${row("Time",      esc(d.eventTime))}
-                ${row("Location",  esc(d.eventLocation))}
-              </table>
-            </td>
-          </tr>
+            <td class="e-pad" style="padding:24px 32px 4px;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" class="e-recap" style="background:${BRAND_TINT};border:1px solid ${BRAND_BORDER};border-radius:14px;">
+                <tr>
+                  <td class="e-recap-pad" style="padding:24px 24px 22px;">
 
-          <!-- ─── Order summary ─── -->
-          <tr>
-            <td class="e-pad" style="padding:24px 32px 0;">
-              <div style="height:1px;background:${HAIR};line-height:1px;font-size:1px;">&nbsp;</div>
-            </td>
-          </tr>
-          <tr>
-            <td class="e-pad" style="padding:20px 32px 4px;">
-              <h2 style="margin:0 0 14px;font-family:${FONT};font-size:13px;font-weight:600;color:${TEXT};letter-spacing:0;">
-                Order summary
-              </h2>
-              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" class="e-row">
-                ${row("Ticket type",    esc(d.ticketType))}
-                ${row("Quantity",       String(d.quantity))}
-                ${rowTotal("Total paid", esc(d.pricePaid))}
-                ${row("Order number",   esc(d.orderNumber), { mono: true })}
-                ${row("Payment status", esc(d.paymentStatus))}
+                    <!-- Header label inside the box -->
+                    <div style="font-family:${FONT};font-size:11.5px;font-weight:700;letter-spacing:0.10em;color:${BRAND};margin-bottom:14px;text-transform:uppercase;">
+                      Booking summary
+                    </div>
+
+                    <!-- Event zone: name (bold) + meta lines -->
+                    <div class="e-event-name" style="font-family:${FONT};font-size:18px;line-height:1.3;font-weight:700;color:${TEXT};letter-spacing:-0.015em;margin-bottom:10px;">
+                      ${esc(d.eventName)}
+                    </div>
+                    <div class="e-event-meta" style="font-family:${FONT};font-size:14.5px;line-height:1.55;color:${TEXT_2};font-weight:500;">
+                      ${esc(d.eventDate)}${d.eventTime ? `, ${esc(d.eventTime)}` : ""}
+                    </div>
+                    <div class="e-event-meta" style="font-family:${FONT};font-size:14.5px;line-height:1.55;color:${TEXT_2};font-weight:500;">
+                      ${esc(d.eventLocation)}
+                    </div>
+
+                    <!-- Brand-tinted hairline between zones -->
+                    <div style="height:1px;background:${HAIR_BRAND};line-height:1px;font-size:1px;margin:18px 0;">&nbsp;</div>
+
+                    <!-- Ticket zone: rows -->
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" class="e-row">
+                      ${recapRow("Ticket type",    esc(d.ticketType))}
+                      ${recapRow("Quantity",       String(d.quantity))}
+                      ${recapRow("Order number",   esc(d.orderNumber), { mono: true })}
+                      ${recapRow("Payment status", esc(d.paymentStatus))}
+                    </table>
+
+                    <!-- Brand-tinted hairline before total -->
+                    <div style="height:1px;background:${HAIR_BRAND};line-height:1px;font-size:1px;margin:16px 0;">&nbsp;</div>
+
+                    <!-- Total — the most prominent line inside the box -->
+                    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+                      <tr>
+                        <td style="font-family:${FONT};font-size:13px;font-weight:600;color:${BRAND_LABEL};letter-spacing:0.02em;text-transform:uppercase;vertical-align:middle;">
+                          Total paid
+                        </td>
+                        <td align="right" class="e-total-v" style="font-family:${FONT};font-size:22px;font-weight:800;color:${BRAND};letter-spacing:-0.02em;vertical-align:middle;">
+                          ${esc(d.pricePaid)}
+                        </td>
+                      </tr>
+                    </table>
+
+                  </td>
+                </tr>
               </table>
             </td>
           </tr>
@@ -293,5 +318,18 @@ function rowTotal(label: string, value: string): string {
   return `<tr class="e-total">
     <td class="l" style="padding:14px 0;width:42%;color:${TEXT_MUTED};font-family:${FONT};font-size:14.5px;font-weight:500;vertical-align:middle;">${esc(label)}</td>
     <td style="padding:14px 0;color:${BRAND};font-family:${FONT};font-size:17px;font-weight:700;text-align:right;vertical-align:middle;letter-spacing:-0.01em;">${value}</td>
+  </tr>`;
+}
+
+/**
+ * Row helper for the brand-tinted recap card. Same shape as row() but
+ * sized slightly tighter and uses muted labels that sit well on the
+ * BRAND_TINT background.
+ */
+function recapRow(label: string, value: string, opts: { mono?: boolean } = {}): string {
+  const valueFamily = opts.mono ? "ui-monospace,Menlo,Consolas,monospace" : FONT;
+  return `<tr>
+    <td class="l" style="padding:7px 0;width:42%;color:${TEXT_MUTED};font-family:${FONT};font-size:14px;font-weight:500;vertical-align:top;">${esc(label)}</td>
+    <td style="padding:7px 0;color:${TEXT};font-family:${valueFamily};font-size:14.5px;font-weight:600;text-align:right;vertical-align:top;">${value}</td>
   </tr>`;
 }
