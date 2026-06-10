@@ -1,24 +1,32 @@
 /**
- * generateConfirmationEmail(orderData) — Shotgun-style confirmation
+ * generateConfirmationEmail(orderData)
  *
- * Design language is deliberately bold and event-first, like the emails
- * Shotgun / Dice ship after a primary sale:
- *   - Brand-coloured hero takes the top third of the card
- *   - Event name is the visual focus (36 px, tight letter-spacing)
- *   - "You're going to" overline sets the anticipation
- *   - Date / time / location sit on the hero as white type
- *   - Body is intentionally short: confirmation + how to use the PDF
- *   - Order summary is a clean two-column table, no decoration
- *   - Strong full-width CTA in brand colour
+ * Built from scratch (no carry-over from previous attempts). The design
+ * goal: a transactional email that reads as real correspondence from a
+ * ticketing platform — like a confirmation from Stripe, Airbnb or Dice.
+ * Premium comes from TYPOGRAPHY + SPACING, not from decoration.
  *
- * Brand palette pulled from ticket-safe.eu (the live identity):
- *   #4153E0 → #2A3BB5     logo gradient (favicon.svg)
- *   #3a5fe6                meta theme-color
- *   #1f2da3                deep variant for the CTA border
+ * Rules we live by here:
+ *   1. No gradients. The brand presence is a single 4 px coloured strip
+ *      at the top of the card + the wordmark + accents on the total
+ *      and the CTA.
+ *   2. No ALL CAPS overlines. Sentence case throughout.
+ *   3. No "section cards" with tinted backgrounds. Hairlines separate
+ *      sections; everything else is white.
+ *   4. One brand colour, applied where it carries information (wordmark,
+ *      Total paid value, CTA button). Everything else is the slate scale.
+ *   5. Generous vertical rhythm. We trust whitespace to do the work.
  *
- * Mobile-first: viewport meta + a single @media query collapses padding
- * and shrinks the title. Inline CSS on every node + table layout so
- * Outlook / Gmail desktop render the same as Apple Mail iOS.
+ * Brand colour
+ *   Pulled from ticket-safe.eu live identity:
+ *     #3a5fe6 — site meta theme-color
+ *   This is the only accent colour the template uses.
+ *
+ * Attachments
+ *   This file builds ONLY the HTML body of the email. The two PDFs
+ *   (ticket.pdf + order-summary.pdf) are produced by ticketPdfServer.ts
+ *   and orderSummaryPdf.ts respectively, and attached by
+ *   sendTicketConfirmationEmail.ts. NONE of those files are touched here.
  */
 
 export interface OrderEmailData {
@@ -46,19 +54,17 @@ export interface OrderEmailData {
   myTicketsUrl?: string;
 }
 
-// ── Real live brand palette ──
-const BRAND        = "#3a5fe6";   // theme-color fallback
-const BRAND_START  = "#4153E0";   // logo gradient start
-const BRAND_END    = "#2A3BB5";   // logo gradient end
-const BRAND_DEEP   = "#1f2da3";   // CTA border / pressed
-const BRAND_TINT   = "#eef1ff";   // very light brand tint for accents
+// ── Palette ──────────────────────────────────────────────────────────────
+// Only one brand colour. Everything else is the slate scale.
+const BRAND       = "#3a5fe6";
+const BRAND_DEEP  = "#2a47c4";  // pressed / border, slightly darker
 
-const INK          = "#0a0f1f";   // near-black for headings
-const INK_2        = "#1f2937";   // slate-800
-const MUTED        = "#4b5563";   // slate-600
-const FAINT        = "#9ca3af";   // slate-400
-const HAIR         = "#e5e7eb";   // slate-200
-const BG_PAGE      = "#eef0f4";   // soft slate page wrap
+const TEXT        = "#111418";  // headings, primary values
+const TEXT_2      = "#2c3138";  // body text
+const TEXT_MUTED  = "#525a66";  // labels, secondary
+const TEXT_FAINT  = "#8a93a1";  // footer disclaimer
+const HAIR        = "#e5e7ec";  // section separators
+const PAGE_BG     = "#f3f4f7";  // soft slate page wrap
 
 const FONT = `-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif`;
 
@@ -85,99 +91,119 @@ export function generateConfirmationEmail(d: OrderEmailData): string {
 <meta name="supported-color-schemes" content="light only">
 <title>Your TicketSafe ticket is confirmed</title>
 <style>
+  /* Mobile refinements. Honoured by Apple Mail iOS, Gmail iOS, Outlook iOS.
+     Clients that strip <style> still get a fluid layout from the inline CSS. */
   @media only screen and (max-width: 600px) {
-    .ts-wrap     { padding: 14px 12px !important; }
-    .ts-card     { border-radius: 14px !important; }
-    .ts-hero     { padding: 32px 24px 36px !important; }
-    .ts-event    { font-size: 28px !important; line-height: 1.08 !important; }
-    .ts-overline { font-size: 10px !important; }
-    .ts-meta     { font-size: 14px !important; }
-    .ts-pad      { padding: 26px 22px !important; }
-    .ts-body     { font-size: 15px !important; line-height: 1.6 !important; }
-    .ts-row td   { font-size: 14px !important; padding: 12px 14px !important; }
-    .ts-total td { font-size: 14px !important; }
-    .ts-total-v  { font-size: 20px !important; }
-    .ts-cta a    { display: block !important; padding: 16px 0 !important; font-size: 14px !important; }
-    .ts-foot     { padding: 22px 22px 26px !important; }
+    .e-outer    { padding: 18px 10px !important; }
+    .e-card     { border-radius: 12px !important; }
+    .e-pad      { padding: 24px 22px !important; }
+    .e-title    { font-size: 22px !important; line-height: 1.22 !important; }
+    .e-body     { font-size: 15.5px !important; line-height: 1.6 !important; }
+    .e-row td   { font-size: 14.5px !important; padding: 11px 0 !important; }
+    .e-row .l   { width: 38% !important; }
+    .e-total td { padding: 13px 0 !important; }
+    .e-cta a    { display: block !important; padding: 15px 0 !important; }
+    .e-foot     { padding: 22px 22px 26px !important; }
   }
-  [data-ogsc] .ts-card, [data-ogsb] .ts-card { background: #ffffff !important; color: ${INK} !important; }
+  /* Dark-mode-friendly: stop Outlook/Gmail inversion making the card grey */
+  [data-ogsc] .e-card,
+  [data-ogsb] .e-card { background-color: #ffffff !important; color: ${TEXT} !important; }
 </style>
 </head>
-<body style="margin:0;padding:0;background:${BG_PAGE};font-family:${FONT};color:${INK};-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;">
-  <!-- Preheader (inbox preview) -->
-  <div style="display:none;visibility:hidden;opacity:0;height:0;width:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:${BG_PAGE};">
+<body style="margin:0;padding:0;background:${PAGE_BG};font-family:${FONT};color:${TEXT};-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;">
+
+  <!-- Pre-header (inbox preview). Hidden in the body, shown beside the subject. -->
+  <div style="display:none;visibility:hidden;opacity:0;height:0;width:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:${PAGE_BG};">
     Your ticket and order summary are attached.
   </div>
 
-  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:${BG_PAGE};">
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:${PAGE_BG};">
     <tr>
-      <td align="center" class="ts-wrap" style="padding:36px 16px;">
+      <td align="center" class="e-outer" style="padding:36px 16px;">
 
         <!--[if mso]><table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600"><tr><td><![endif]-->
-        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" class="ts-card" style="max-width:600px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 8px 30px rgba(31,45,163,0.10);">
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" class="e-card" style="max-width:600px;width:100%;background:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 4px 14px rgba(15,23,42,0.05);">
 
-          <!-- ─── HERO: event-first, big and bold ─── -->
+          <!-- Brand accent strip: a single 4 px brand-coloured band at the
+               very top of the card. Carries the brand without dominating. -->
           <tr>
-            <td bgcolor="${BRAND_END}" class="ts-hero" style="background:${BRAND_END};background-image:linear-gradient(180deg,${BRAND_START} 0%,${BRAND_END} 100%);padding:44px 36px 44px;">
+            <td bgcolor="${BRAND}" style="background:${BRAND};line-height:0;font-size:0;">&nbsp;</td>
+          </tr>
 
-              <!-- Wordmark row -->
-              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom:42px;">
-                <tr>
-                  <td style="vertical-align:middle;">
-                    <table role="presentation" cellpadding="0" cellspacing="0" border="0">
-                      <tr>
-                        <td bgcolor="rgba(255,255,255,0.16)" style="background:rgba(255,255,255,0.16);border-radius:8px;width:34px;height:34px;text-align:center;font-family:${FONT};font-size:14px;font-weight:800;color:#ffffff;letter-spacing:-0.03em;line-height:34px;mso-line-height-rule:exactly;">TS</td>
-                        <td style="padding-left:12px;vertical-align:middle;font-family:${FONT};font-size:15px;font-weight:700;color:#ffffff;letter-spacing:-0.01em;">TicketSafe</td>
-                      </tr>
-                    </table>
-                  </td>
-                  <td align="right" style="vertical-align:middle;font-family:${FONT};font-size:11px;font-weight:600;color:rgba(255,255,255,0.68);letter-spacing:0.18em;text-transform:uppercase;">
-                    Order confirmed
-                  </td>
-                </tr>
-              </table>
-
-              <!-- Anticipation overline -->
-              <div class="ts-overline" style="font-family:${FONT};font-size:11px;font-weight:700;letter-spacing:0.22em;color:rgba(255,255,255,0.78);text-transform:uppercase;margin-bottom:14px;">
-                You're going to
+          <!-- Logo: centered text wordmark, brand colour.
+               No image dependency: if external assets are blocked the
+               wordmark still renders perfectly. -->
+          <tr>
+            <td align="center" class="e-pad" style="padding:32px 32px 8px;">
+              <div style="font-family:${FONT};font-size:18px;font-weight:700;color:${BRAND};letter-spacing:-0.015em;">
+                TicketSafe
               </div>
-
-              <!-- Event title — the visual focal point -->
-              <h1 class="ts-event" style="margin:0 0 22px;font-family:${FONT};font-size:34px;line-height:1.05;font-weight:800;color:#ffffff;letter-spacing:-0.025em;">
-                ${esc(d.eventName)}
-              </h1>
-
-              <!-- Meta — date · time · location -->
-              <div class="ts-meta" style="font-family:${FONT};font-size:15px;line-height:1.55;color:rgba(255,255,255,0.92);font-weight:500;">
-                ${esc(d.eventDate)}${d.eventTime ? ` &middot; ${esc(d.eventTime)}` : ""}
-              </div>
-              ${d.eventLocation ? `<div class="ts-meta" style="font-family:${FONT};font-size:15px;line-height:1.55;color:rgba(255,255,255,0.92);font-weight:500;">${esc(d.eventLocation)}</div>` : ""}
             </td>
           </tr>
 
-          <!-- ─── BODY — short, focused ─── -->
+          <!-- Title block -->
           <tr>
-            <td class="ts-pad" style="padding:32px 36px 4px;font-family:${FONT};">
-              <p class="ts-body" style="margin:0 0 14px;font-size:16px;line-height:1.65;color:${INK_2};">
+            <td class="e-pad" style="padding:18px 32px 8px;">
+              <div style="font-family:${FONT};font-size:13px;font-weight:500;color:${TEXT_MUTED};margin-bottom:8px;">
+                Order confirmed
+              </div>
+              <h1 class="e-title" style="margin:0;font-family:${FONT};font-size:24px;line-height:1.25;font-weight:700;color:${TEXT};letter-spacing:-0.015em;">
+                Your ticket is confirmed
+              </h1>
+            </td>
+          </tr>
+
+          <!-- Body copy -->
+          <tr>
+            <td class="e-pad" style="padding:20px 32px 4px;">
+              <p class="e-body" style="margin:0 0 16px;font-family:${FONT};font-size:16px;line-height:1.65;color:${TEXT_2};">
                 Hi ${esc(d.buyerFirstName)},
               </p>
-              <p class="ts-body" style="margin:0 0 14px;font-size:16px;line-height:1.65;color:${INK_2};">
-                Your ticket is confirmed. You'll find it attached as a PDF — keep it on your phone and present the QR code at the entrance.
+              <p class="e-body" style="margin:0 0 16px;font-family:${FONT};font-size:16px;line-height:1.65;color:${TEXT_2};">
+                Thanks for your purchase. Your payment has been successfully processed, and your ticket for ${esc(d.eventName)} is confirmed.
               </p>
-              <p class="ts-body" style="margin:0;font-size:16px;line-height:1.65;color:${INK_2};">
-                Your order summary is attached for your records.
+              <p class="e-body" style="margin:0 0 16px;font-family:${FONT};font-size:16px;line-height:1.65;color:${TEXT_2};">
+                Your ticket is attached to this email as a PDF. Please keep it accessible on your phone and present the QR code at the entrance.
+              </p>
+              <p class="e-body" style="margin:0;font-family:${FONT};font-size:16px;line-height:1.65;color:${TEXT_2};">
+                We've also attached your order summary for your records.
               </p>
             </td>
           </tr>
 
-          <!-- ─── ORDER SUMMARY ─── -->
+          <!-- ─── Event details ─── -->
           <tr>
-            <td class="ts-pad" style="padding:24px 36px 6px;">
-              <div style="font-family:${FONT};font-size:11px;font-weight:700;letter-spacing:0.22em;color:${MUTED};text-transform:uppercase;margin-bottom:14px;">
+            <td class="e-pad" style="padding:32px 32px 0;">
+              <div style="height:1px;background:${HAIR};line-height:1px;font-size:1px;">&nbsp;</div>
+            </td>
+          </tr>
+          <tr>
+            <td class="e-pad" style="padding:20px 32px 4px;">
+              <h2 style="margin:0 0 14px;font-family:${FONT};font-size:13px;font-weight:600;color:${TEXT};letter-spacing:0;">
+                Event details
+              </h2>
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" class="e-row">
+                ${row("Event",     esc(d.eventName))}
+                ${row("Date",      esc(d.eventDate))}
+                ${row("Time",      esc(d.eventTime))}
+                ${row("Location",  esc(d.eventLocation))}
+              </table>
+            </td>
+          </tr>
+
+          <!-- ─── Order summary ─── -->
+          <tr>
+            <td class="e-pad" style="padding:24px 32px 0;">
+              <div style="height:1px;background:${HAIR};line-height:1px;font-size:1px;">&nbsp;</div>
+            </td>
+          </tr>
+          <tr>
+            <td class="e-pad" style="padding:20px 32px 4px;">
+              <h2 style="margin:0 0 14px;font-family:${FONT};font-size:13px;font-weight:600;color:${TEXT};letter-spacing:0;">
                 Order summary
-              </div>
-              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" class="ts-row" style="border-top:1px solid ${HAIR};">
-                ${row("Ticket",         esc(d.ticketType))}
+              </h2>
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" class="e-row">
+                ${row("Ticket type",    esc(d.ticketType))}
                 ${row("Quantity",       String(d.quantity))}
                 ${rowTotal("Total paid", esc(d.pricePaid))}
                 ${row("Order number",   esc(d.orderNumber), { mono: true })}
@@ -186,50 +212,54 @@ export function generateConfirmationEmail(d: OrderEmailData): string {
             </td>
           </tr>
 
-          <!-- ─── CTA — full-width brand button ─── -->
+          <!-- CTA -->
           <tr>
-            <td class="ts-pad ts-cta" style="padding:30px 36px 8px;">
+            <td align="center" class="e-pad e-cta" style="padding:28px 32px 8px;">
               <!--[if mso]>
-              <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${esc(myTicketsUrl)}" style="height:52px;v-text-anchor:middle;width:528px;" arcsize="14%" stroke="f" fillcolor="${BRAND_END}">
+              <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${esc(myTicketsUrl)}" style="height:48px;v-text-anchor:middle;width:220px;" arcsize="17%" stroke="f" fillcolor="${BRAND}">
                 <w:anchorlock/>
-                <center style="color:#ffffff;font-family:${FONT};font-size:15px;font-weight:700;letter-spacing:0.02em;">OPEN MY TICKET</center>
+                <center style="color:#ffffff;font-family:${FONT};font-size:15px;font-weight:600;">Open my ticket</center>
               </v:roundrect>
               <![endif]-->
               <!--[if !mso]><!-- -->
               <a href="${esc(myTicketsUrl)}" target="_blank"
-                 style="display:block;width:100%;box-sizing:border-box;padding:16px 0;font-family:${FONT};font-size:15px;font-weight:700;color:#ffffff;text-decoration:none;background:${BRAND_END};background-image:linear-gradient(180deg,${BRAND_START} 0%,${BRAND_END} 100%);border-radius:10px;text-align:center;letter-spacing:0.02em;border:1px solid ${BRAND_DEEP};">
-                OPEN MY TICKET
+                 style="display:inline-block;padding:14px 36px;font-family:${FONT};font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;background:${BRAND};border-radius:8px;letter-spacing:0;border:1px solid ${BRAND_DEEP};">
+                Open my ticket
               </a>
               <!--<![endif]-->
             </td>
           </tr>
 
-          <!-- ─── IMPORTANT INFORMATION ─── -->
+          <!-- ─── Important information ─── -->
           <tr>
-            <td class="ts-pad" style="padding:30px 36px 6px;">
-              <div style="font-family:${FONT};font-size:11px;font-weight:700;letter-spacing:0.22em;color:${MUTED};text-transform:uppercase;margin-bottom:12px;">
+            <td class="e-pad" style="padding:24px 32px 0;">
+              <div style="height:1px;background:${HAIR};line-height:1px;font-size:1px;">&nbsp;</div>
+            </td>
+          </tr>
+          <tr>
+            <td class="e-pad" style="padding:20px 32px 8px;">
+              <h2 style="margin:0 0 10px;font-family:${FONT};font-size:13px;font-weight:600;color:${TEXT};letter-spacing:0;">
                 Important information
-              </div>
-              <p style="margin:0;font-family:${FONT};font-size:14px;line-height:1.7;color:${MUTED};">
+              </h2>
+              <p style="margin:0;font-family:${FONT};font-size:14.5px;line-height:1.7;color:${TEXT_MUTED};">
                 Please keep your ticket safe. Your QR code is valid for one entry only and should not be shared. A valid ID may be required at the entrance. Screenshots or duplicated tickets may be refused.
               </p>
             </td>
           </tr>
 
-          <!-- ─── FOOTER ─── -->
+          <!-- ─── Footer ─── -->
           <tr>
-            <td class="ts-foot" style="padding:28px 36px 36px;border-top:1px solid ${HAIR};margin-top:18px;">
+            <td class="e-foot" style="padding:24px 32px 32px;border-top:1px solid ${HAIR};margin-top:18px;">
               <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
                 <tr>
-                  <td style="font-family:${FONT};font-size:13px;color:${MUTED};line-height:1.6;">
-                    <div style="font-weight:700;color:${BRAND};letter-spacing:-0.01em;margin-bottom:4px;">Powered by TicketSafe</div>
-                    <a href="${esc(websiteUrl)}" style="color:${MUTED};text-decoration:none;">ticket-safe.eu</a>
-                    &nbsp;·&nbsp;
-                    <a href="mailto:${esc(supportEmail)}" style="color:${MUTED};text-decoration:none;">${esc(supportEmail)}</a>
+                  <td style="font-family:${FONT};font-size:13.5px;color:${TEXT_MUTED};line-height:1.65;">
+                    <div style="font-weight:600;color:${BRAND};margin-bottom:6px;letter-spacing:-0.01em;">Powered by TicketSafe</div>
+                    <a href="${esc(websiteUrl)}" style="color:${TEXT_MUTED};text-decoration:none;">ticket-safe.eu</a><br>
+                    <span style="color:${TEXT_MUTED};">Support: </span><a href="mailto:${esc(supportEmail)}" style="color:${TEXT_MUTED};text-decoration:underline;">${esc(supportEmail)}</a>
                   </td>
                 </tr>
                 <tr>
-                  <td style="padding-top:12px;font-family:${FONT};font-size:12px;color:${FAINT};line-height:1.5;">
+                  <td style="padding-top:14px;font-family:${FONT};font-size:12px;color:${TEXT_FAINT};line-height:1.5;">
                     This is an automated confirmation email.
                   </td>
                 </tr>
@@ -248,20 +278,20 @@ export function generateConfirmationEmail(d: OrderEmailData): string {
 }
 
 // ──────────────────────────────────────────────────────────────────────────
-//  Small helpers
+//  Row helpers — label left, value right, hairline-separated
 // ──────────────────────────────────────────────────────────────────────────
 
 function row(label: string, value: string, opts: { mono?: boolean } = {}): string {
   const valueFamily = opts.mono ? "ui-monospace,Menlo,Consolas,monospace" : FONT;
   return `<tr>
-    <td style="padding:14px 18px;width:44%;color:${MUTED};font-family:${FONT};font-size:13px;font-weight:500;vertical-align:middle;border-bottom:1px solid ${HAIR};">${esc(label)}</td>
-    <td style="padding:14px 18px;color:${INK};font-family:${valueFamily};font-size:14px;font-weight:600;text-align:right;vertical-align:middle;border-bottom:1px solid ${HAIR};">${value}</td>
+    <td class="l" style="padding:12px 0;width:42%;color:${TEXT_MUTED};font-family:${FONT};font-size:14.5px;font-weight:500;vertical-align:top;">${esc(label)}</td>
+    <td style="padding:12px 0;color:${TEXT};font-family:${valueFamily};font-size:15px;font-weight:600;text-align:right;vertical-align:top;">${value}</td>
   </tr>`;
 }
 
 function rowTotal(label: string, value: string): string {
-  return `<tr class="ts-total">
-    <td style="padding:18px 18px;color:${MUTED};font-family:${FONT};font-size:13px;font-weight:600;vertical-align:middle;border-bottom:1px solid ${HAIR};letter-spacing:0.02em;text-transform:uppercase;">${esc(label)}</td>
-    <td class="ts-total-v" style="padding:18px 18px;color:${BRAND};font-family:${FONT};font-size:22px;font-weight:800;text-align:right;vertical-align:middle;border-bottom:1px solid ${HAIR};letter-spacing:-0.02em;">${value}</td>
+  return `<tr class="e-total">
+    <td class="l" style="padding:14px 0;width:42%;color:${TEXT_MUTED};font-family:${FONT};font-size:14.5px;font-weight:500;vertical-align:middle;">${esc(label)}</td>
+    <td style="padding:14px 0;color:${BRAND};font-family:${FONT};font-size:17px;font-weight:700;text-align:right;vertical-align:middle;letter-spacing:-0.01em;">${value}</td>
   </tr>`;
 }
