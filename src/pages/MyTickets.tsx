@@ -401,6 +401,28 @@ const MyTickets = () => {
                             if (!order?.event || !qrUrls[t.id]) return;
                             setPdfPending(t.id);
                             try {
+                              // Compute per-ticket price from the order
+                              // total. Falls back to "—" if either piece
+                              // is missing.
+                              const perTicketEuros =
+                                order.total_cents > 0 && tickets.length > 0
+                                  ? (order.total_cents / 100 / tickets.length)
+                                  : null;
+                              const pricePaid =
+                                perTicketEuros != null
+                                  ? `${perTicketEuros.toFixed(2)}€`
+                                  : "—";
+                              // Status mapping: ticket.status "valid"
+                              // -> "Valid", scanned -> "Used", refunded/
+                              // cancelled -> "Cancelled".
+                              const statusMap: Record<string, "Valid" | "Used" | "Cancelled"> = {
+                                valid: "Valid",
+                                scanned: "Used",
+                                refunded: "Cancelled",
+                                cancelled: "Cancelled",
+                              };
+                              const status = statusMap[t.status] ?? "Valid";
+
                               await downloadTicketPdf({
                                 eventTitle: order.event.title,
                                 eventDate: order.event.date,
@@ -414,6 +436,15 @@ const MyTickets = () => {
                                 ticketIndex: i + 1,
                                 ticketTotal: tickets.length,
                                 qrSvgUrl: qrUrls[t.id],
+                                pricePaid,
+                                // Wires the new generator to use a real
+                                // verify URL (the scanner will hit it and
+                                // call validate-event-ticket). The QR
+                                // payload here drives the rendered QR; the
+                                // server-side qr_token JWT is unaffected.
+                                qrToken: `https://ticket-safe.eu/verify/${t.id}`,
+                                organizerName: "ESCP Students' Union",
+                                status,
                               });
                               toast.success("Ticket downloaded.");
                             } catch (err) {

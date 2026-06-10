@@ -1,133 +1,268 @@
 /**
- * Generates a downloadable PDF ticket. Style is inspired by Xceed / Dice:
- *   • Brand-blue header strip with event title, date, location, tier badge.
- *   • Event logo (top-right) if available — falls back to a brand monogram.
- *   • Holder block + ticket reference in the middle.
- *   • Large QR code centred for door scanning.
- *   • Quiet Ticket Safe footer.
+ * generateTicketPDF — premium event ticket PDF generator for Ticket Safe.
  *
- * jsPDF is loaded dynamically so its ~200KB bundle only hits buyers who
- * actually press "Download". Same for the QR rasterisation pipeline — we
- * already have the QR as an SVG blob URL, we just need to repaint it onto
- * a canvas and hand the PNG data to jsPDF.
+ * The design language is Ticketmaster/Shotgun mixed with the Ticket Safe
+ * brand identity: deep brand blue + light blue gradient as the hero,
+ * white content sections with a sharp typographic hierarchy, a
+ * perforation strip between the hero and the body, and a generously
+ * padded QR card sized for door scanning at handheld distance.
+ *
+ * Layout (A4 portrait, 210 × 297 mm):
+ *
+ *   ┌─ HEADER BAND (white, 14mm) ───────────────────┐
+ *   │ TICKET SAFE              OFFICIAL EVENT TICKET│
+ *   ├─ HERO (90mm) ─────────────────────────────────┤
+ *   │ ░░ event image (full bleed) or brand gradient │
+ *   │   + dark vertical gradient overlay on bottom  │
+ *   │                                                │
+ *   │ EVENT NAME (28pt bold, white)                  │
+ *   │ Date · Time · Location                         │
+ *   │ [VALID] [VIP]                                  │
+ *   ├─ PERFORATION (8mm) ────────────────────────────┤
+ *   │ ⊗ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ⊗ │
+ *   ├─ INFO GRID (52mm, white) ──────────────────────┤
+ *   │ HOLDER             ORGANIZER                   │
+ *   │ Achille Quinquenel ESCP Students' Union        │
+ *   │                                                 │
+ *   │ TICKET TYPE        PRICE PAID                  │
+ *   │ Early Bird         €18.00                      │
+ *   │                                                 │
+ *   │ TICKET NUMBER                                  │
+ *   │ TS-ESC-000184                                  │
+ *   ├─ QR CARD (85mm, soft bg) ──────────────────────┤
+ *   │   ┌───────────────┐                            │
+ *   │   │  [QR 65×65mm] │                            │
+ *   │   └───────────────┘                            │
+ *   │   Scan at entrance                             │
+ *   │   #TS-ESC-000184                               │
+ *   ├─ FOOTER (28mm, white) ─────────────────────────┤
+ *   │ This ticket is personal and valid for one     │
+ *   │ entry only. Screenshots or duplicates may be   │
+ *   │ refused.                                       │
+ *   │ Powered by TICKET SAFE — ticket-safe.eu       │
+ *   └────────────────────────────────────────────────┘
+ *
+ * Heights add up to 277 mm, leaving 20 mm of breathing room at the bottom.
+ *
+ * Both jsPDF and qrcode are loaded dynamically from esm.sh on the first
+ * generation, so non-buyers never pay the bundle cost and a build never
+ * fails on a missing transitive dep.
  */
 
-export interface TicketPdfInput {
-  eventTitle: string;
-  eventDate: string;          // ISO
-  eventLocation: string | null;
-  eventLogoUrl: string | null;
-  tierName: string | null;
-  holderName: string;
-  holderEmail: string | null;
-  ticketId: string;
-  orderId: string;
-  ticketIndex: number;        // 1-based
-  ticketTotal: number;
-  qrSvgUrl: string;           // blob: URL pointing at the SVG returned by event-ticket-qr
-}
-
-// RGB tuples for the brand palette. Kept as plain triplets so we can pass
-// each channel explicitly to jsPDF (spreading a tuple into setDrawColor /
-// setFillColor / setTextColor trips TypeScript's overload resolution in
-// strict mode and tanks the build).
-const BRAND_R = 0,    BRAND_G = 51,  BRAND_B = 153;   // #003399
-const LIGHT_R = 0,    LIGHT_G = 102, LIGHT_B = 204;   // #0066cc
-const INK_R = 30,     INK_G = 41,   INK_B = 59;       // slate-800
-const MUTED_R = 100,  MUTED_G = 116, MUTED_B = 139;   // slate-500
-const FAINT_R = 148,  FAINT_G = 163, FAINT_B = 184;   // slate-400
+// ──────────────────────────────────────────────────────────────────────────
+//  PUBLIC INTERFACE
+// ──────────────────────────────────────────────────────────────────────────
 
 /**
- * Repaint an SVG blob URL onto a canvas at high resolution and return a PNG
- * data URL. jsPDF can embed PNGs directly; SVG support is patchy across
- * browsers, so the canvas-bounce is the safe path.
+ * Data the PDF needs. Every field maps to a piece of the ticket layout.
+ * Optional fields fall back to sensible defaults (Valid status, omitted
+ * email, single-ticket order).
  */
-async function svgUrlToPngDataUrl(svgUrl: string, size = 1200): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => {
-      const canvas = document.createElement("canvas");
-      canvas.width = size;
-      canvas.height = size;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return reject(new Error("Canvas 2D unavailable"));
-      // Crucial for QR readability: kill image smoothing so each black
-      // module renders as a hard-edged square instead of an anti-aliased
-      // blob. Phone cameras read sharp QR modules dramatically better
-      // than blurry ones. With smoothing on, scanning fails ~30% of the
-      // time at typical handheld distances.
-      ctx.imageSmoothingEnabled = false;
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, size, size);
-      ctx.drawImage(img, 0, 0, size, size);
-      resolve(canvas.toDataURL("image/png"));
-    };
-    img.onerror = () => reject(new Error("Failed to load QR SVG"));
-    img.src = svgUrl;
+export interface TicketData {
+  // ─── Event ───────────────────────────────────────────────────────────
+  eventName: string;
+  /** ISO 8601 OR a pre-formatted string. The renderer prefers ISO so it
+   *  can split the date and time and format both consistently. */
+  eventDate: string;
+  /** Optional explicit time; if omitted we parse it from eventDate. */
+  eventTime?: string;
+  eventLocation: string;
+  /** Optional banner image URL. When set, fills the hero behind the title;
+   *  when missing, the hero falls back to the brand gradient. */
+  eventImageUrl?: string | null;
+  /** Display name of the association running the event. */
+  organizerName: string;
+
+  // ─── Buyer ───────────────────────────────────────────────────────────
+  buyerFirstName: string;
+  buyerLastName: string;
+  buyerEmail?: string | null;
+
+  // ─── Ticket ──────────────────────────────────────────────────────────
+  /** Free-text — "Early Bird", "Regular", "VIP", "Staff", "Guest List", … */
+  ticketType: string;
+  /** Pre-formatted price string ("18.00€"). The caller controls currency
+   *  + format so we don't try to guess locale here. */
+  pricePaid: string;
+  /** Display ID printed on the ticket — short and human-quotable. */
+  ticketId: string;
+  /** The payload encoded inside the QR. Can be the raw token, OR a full
+   *  verify URL like https://ticket-safe.eu/verify/<token>. The scanner
+   *  decides how to interpret it. */
+  qrToken: string;
+  /** Lifecycle marker. "Valid" by default. */
+  status?: "Valid" | "Used" | "Cancelled";
+
+  // ─── Optional multi-ticket markers ───────────────────────────────────
+  /** 1-based index when this is part of a multi-ticket order. */
+  ticketIndex?: number;
+  /** Total tickets in the same order. */
+  ticketTotal?: number;
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+//  PALETTE & LAYOUT CONSTANTS
+// ──────────────────────────────────────────────────────────────────────────
+
+// RGB triplets (jsPDF wants three explicit channels, not a spread tuple —
+// strict-mode TS trips on the latter).
+const C_BRAND     = { r: 0,   g: 51,  b: 153 }; // #003399 — Ticket Safe deep navy
+const C_LIGHT     = { r: 0,   g: 102, b: 204 }; // #0066cc — gradient end
+const C_DARK_NAVY = { r: 0,   g: 31,  b: 92  }; // pill bg over the gradient
+const C_INK       = { r: 15,  g: 23,  b: 42  }; // slate-900 — body text
+const C_MUTED     = { r: 100, g: 116, b: 139 }; // slate-500 — labels
+const C_FAINT     = { r: 148, g: 163, b: 184 }; // slate-400 — separators
+const C_BG_SOFT   = { r: 248, g: 250, b: 252 }; // slate-50 — QR card bg
+const C_STATUS = {
+  Valid:     { bg: { r: 220, g: 234, b: 255 }, fg: C_BRAND }, // blue-100 / brand
+  Used:      { bg: { r: 226, g: 232, b: 240 }, fg: { r: 71,  g: 85,  b: 105 } }, // slate
+  Cancelled: { bg: { r: 254, g: 226, b: 226 }, fg: { r: 153, g: 27,  b: 27  } }, // red-100 / red-900
+} as const;
+
+// A4 + margins
+const A4_W      = 210;
+const A4_H      = 297;
+const MARGIN_X  = 14;
+const CONTENT_W = A4_W - 2 * MARGIN_X;
+
+// Section heights (mm) — sum to 277 mm, leaving 20 mm at the page bottom
+const H_HEADER = 14;
+const H_HERO   = 90;
+const H_PERF   = 8;
+const H_INFO   = 52;
+const H_QR     = 85;
+const H_FOOTER = 28;
+
+// Pre-computed Y positions for each section
+const Y_HEADER = 0;
+const Y_HERO   = Y_HEADER + H_HEADER;
+const Y_PERF   = Y_HERO   + H_HERO;
+const Y_INFO   = Y_PERF   + H_PERF;
+const Y_QR     = Y_INFO   + H_INFO;
+const Y_FOOTER = Y_QR     + H_QR;
+
+// ──────────────────────────────────────────────────────────────────────────
+//  IMAGE / QR HELPERS
+// ──────────────────────────────────────────────────────────────────────────
+
+/**
+ * Render the QR for `payload` straight to a PNG data URL. Loaded from
+ * esm.sh on demand so the QRcode lib never ships in the main bundle.
+ *
+ * Settings tuned for handheld door-scan:
+ *   - level "L"    — low ECC, fewer modules per char → bigger modules
+ *   - margin 4     — recommended quiet zone for fast camera detection
+ *   - width 1200   — high-resolution PNG so the embed stays crisp on print
+ */
+async function generateQrPng(payload: string): Promise<string> {
+  const mod = await import(/* @vite-ignore */ "https://esm.sh/qrcode@1.5.4");
+  const QRCode = (mod as { default?: { toDataURL: (s: string, o: Record<string, unknown>) => Promise<string> } })
+    .default
+    ?? (mod as unknown as { toDataURL: (s: string, o: Record<string, unknown>) => Promise<string> });
+  return QRCode.toDataURL(payload, {
+    type: "image/png",
+    errorCorrectionLevel: "L",
+    margin: 4,
+    width: 1200,
+    color: { dark: "#000000", light: "#FFFFFF" },
   });
 }
 
 /**
- * Load a remote image (org/event logo) and return it as a PNG data URL sized
- * to `maxDim`. CORS-tolerant: if the image can't be fetched it returns null
- * and the caller falls back to a brand monogram.
+ * Load a remote image, optionally darken its bottom half so white overlay
+ * text reads cleanly, and return it as a PNG data URL. CORS-tolerant:
+ * returns null on failure and the caller falls back to a pure gradient.
  */
-async function imageUrlToPngDataUrl(
+async function loadHeroBanner(
   url: string,
-  maxDim = 400,
-): Promise<{ dataUrl: string; width: number; height: number } | null> {
+  outW = 1400,
+  outH = 720,
+  darkenBottom = true,
+): Promise<string | null> {
   return new Promise((resolve) => {
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.onload = () => {
-      const ratio = img.width / img.height;
-      const w = ratio >= 1 ? maxDim : maxDim * ratio;
-      const h = ratio >= 1 ? maxDim / ratio : maxDim;
       const canvas = document.createElement("canvas");
-      canvas.width = Math.round(w);
-      canvas.height = Math.round(h);
+      canvas.width = outW;
+      canvas.height = outH;
       const ctx = canvas.getContext("2d");
       if (!ctx) return resolve(null);
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      resolve({
-        dataUrl: canvas.toDataURL("image/png"),
-        width: canvas.width,
-        height: canvas.height,
-      });
+      // Cover-fit the image
+      const srcRatio = img.width / img.height;
+      const dstRatio = outW / outH;
+      let sx = 0;
+      let sy = 0;
+      let sw = img.width;
+      let sh = img.height;
+      if (srcRatio > dstRatio) {
+        sw = img.height * dstRatio;
+        sx = (img.width - sw) / 2;
+      } else {
+        sh = img.width / dstRatio;
+        sy = (img.height - sh) / 2;
+      }
+      ctx.drawImage(img, sx, sy, sw, sh, 0, 0, outW, outH);
+      // Dark gradient overlay (transparent → 65% black) to seat text
+      if (darkenBottom) {
+        const g = ctx.createLinearGradient(0, 0, 0, outH);
+        g.addColorStop(0,    "rgba(0,0,0,0.20)");
+        g.addColorStop(0.45, "rgba(0,0,0,0.45)");
+        g.addColorStop(1,    "rgba(0,0,0,0.75)");
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, outW, outH);
+      }
+      resolve(canvas.toDataURL("image/png"));
     };
     img.onerror = () => resolve(null);
     img.src = url;
   });
 }
 
-function formatEventDate(iso: string): { day: string; time: string } {
-  const d = new Date(iso);
-  return {
-    day: d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }),
-    time: d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
-  };
+// ──────────────────────────────────────────────────────────────────────────
+//  FORMATTERS
+// ──────────────────────────────────────────────────────────────────────────
+
+function formatDateTime(input: { eventDate: string; eventTime?: string }): { dateLine: string; timeLine: string } {
+  // If the caller passed an ISO date, parse it. Otherwise assume the string
+  // is already display-formatted and pass it straight through.
+  const d = new Date(input.eventDate);
+  const isISO = !isNaN(d.getTime());
+  if (!isISO) {
+    return {
+      dateLine: input.eventDate,
+      timeLine: input.eventTime ?? "",
+    };
+  }
+  const dateLine = d.toLocaleDateString("en-GB", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+  const timeLine =
+    input.eventTime ??
+    d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  return { dateLine, timeLine };
 }
 
-/**
- * Build a filesystem-safe filename from an event title. We strip everything
- * outside the ASCII allowlist — that automatically removes accents (after
- * NFKD normalisation splits them into combining marks) without needing a
- * combining-mark Unicode range that some bundlers re-encode and break.
- */
 function safeFilename(input: string): string {
-  return input
-    .normalize("NFKD")
-    .replace(/[^a-zA-Z0-9 _-]+/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "")
-    .toLowerCase()
-    .slice(0, 60) || "ticket";
+  return (
+    input
+      .normalize("NFKD")
+      .replace(/[^a-zA-Z0-9 _-]+/g, "")
+      .replace(/\s+/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "")
+      .toLowerCase()
+      .slice(0, 60) || "ticket"
+  );
 }
 
-// Minimal jsPDF surface we actually call. Lets us declare a typed handle on
-// the CDN module without pulling jsPDF into the lockfile.
+// ──────────────────────────────────────────────────────────────────────────
+//  jsPDF TYPED SHIM
+// ──────────────────────────────────────────────────────────────────────────
+
 interface JsPDFLike {
   setFillColor(r: number, g: number, b: number): void;
   setTextColor(r: number, g: number, b: number): void;
@@ -148,213 +283,407 @@ interface JsPDFLike {
 }
 type JsPDFCtor = new (opts: { unit: string; format: string; orientation: string }) => JsPDFLike;
 
-export async function downloadTicketPdf(input: TicketPdfInput): Promise<void> {
-  // Lazy-load jsPDF from esm.sh at runtime. Keeps it out of the bundle
-  // entirely (no install step, no lockfile churn, no build failure on a
-  // missing transitive dep) and only buyers who press Download pay the
-  // network round-trip. The /* @vite-ignore */ comment tells Vite not to
-  // try to pre-resolve the URL at build time.
+// ──────────────────────────────────────────────────────────────────────────
+//  RENDERER
+// ──────────────────────────────────────────────────────────────────────────
+
+/**
+ * Main entry point. Generates the PDF and triggers a browser download.
+ *
+ * @example
+ *   await generateTicketPDF({
+ *     eventName: "ESCP Opening Party",
+ *     eventDate: "2026-09-19T22:30:00.000Z",
+ *     eventLocation: "Le Duplex, Paris",
+ *     buyerFirstName: "Achille",
+ *     buyerLastName: "Quinquenel",
+ *     ticketType: "Early Bird",
+ *     pricePaid: "18.00€",
+ *     ticketId: "TS-ESC-000184",
+ *     qrToken: "https://ticket-safe.eu/verify/unique-secure-token",
+ *     organizerName: "ESCP Students' Union",
+ *     status: "Valid",
+ *   });
+ */
+export async function generateTicketPDF(data: TicketData): Promise<void> {
   const mod = await import(/* @vite-ignore */ "https://esm.sh/jspdf@2.5.2");
-  const JsPDF: JsPDFCtor = (mod as { jsPDF?: JsPDFCtor; default?: JsPDFCtor }).jsPDF
+  const JsPDF: JsPDFCtor =
+    (mod as { jsPDF?: JsPDFCtor; default?: JsPDFCtor }).jsPDF
     ?? (mod as { default: JsPDFCtor }).default;
   const pdf = new JsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
-  const pageW = 210;
-  const pageH = 297;
 
-  // ── HEADER: brand gradient simulated with horizontal slices ──
-  // jsPDF has no gradient primitive, so we paint 80 thin rects from BRAND_BLUE
-  // to BRAND_LIGHT to fake a linear-gradient(135°, ...). 80 slices reads as
-  // smooth on every printer we care about.
-  const headerH = 70;
+  // ── 1. HEADER BAND ───────────────────────────────────────────────────
+  // White band with the brand wordmark left and "OFFICIAL EVENT TICKET"
+  // right. A thin brand-blue underline visually separates it from the hero.
+  pdf.setFillColor(255, 255, 255);
+  pdf.rect(0, Y_HEADER, A4_W, H_HEADER, "F");
+
+  pdf.setTextColor(C_BRAND.r, C_BRAND.g, C_BRAND.b);
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(11);
+  pdf.text("TICKET SAFE", MARGIN_X, Y_HEADER + 8.5, { charSpace: 1.2 });
+
+  pdf.setTextColor(C_MUTED.r, C_MUTED.g, C_MUTED.b);
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(8);
+  pdf.text("OFFICIAL EVENT TICKET", A4_W - MARGIN_X, Y_HEADER + 8.5, {
+    align: "right",
+    charSpace: 1.1,
+  });
+
+  // Thin brand underline at the very bottom of the header band
+  pdf.setDrawColor(C_BRAND.r, C_BRAND.g, C_BRAND.b);
+  pdf.setLineWidth(0.6);
+  pdf.line(MARGIN_X, Y_HEADER + H_HEADER - 0.5, A4_W - MARGIN_X, Y_HEADER + H_HEADER - 0.5);
+
+  // ── 2. HERO ──────────────────────────────────────────────────────────
+  // Base layer: brand-blue gradient, painted as 80 horizontal slices.
+  // jsPDF has no native linear-gradient primitive; 80 slices interpolated
+  // between BRAND and LIGHT reads as smooth on any decent printer.
   const slices = 80;
   for (let i = 0; i < slices; i++) {
     const t = i / (slices - 1);
-    const r = Math.round(BRAND_R + (LIGHT_R - BRAND_R) * t);
-    const g = Math.round(BRAND_G + (LIGHT_G - BRAND_G) * t);
-    const b = Math.round(BRAND_B + (LIGHT_B - BRAND_B) * t);
+    const r = Math.round(C_BRAND.r + (C_LIGHT.r - C_BRAND.r) * t);
+    const g = Math.round(C_BRAND.g + (C_LIGHT.g - C_BRAND.g) * t);
+    const b = Math.round(C_BRAND.b + (C_LIGHT.b - C_BRAND.b) * t);
     pdf.setFillColor(r, g, b);
-    pdf.rect(0, (i * headerH) / slices, pageW, headerH / slices + 0.5, "F");
+    pdf.rect(0, Y_HERO + (i * H_HERO) / slices, A4_W, H_HERO / slices + 0.5, "F");
   }
 
-  // Brand strip at the very top
-  pdf.setTextColor(255, 255, 255);
-  pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(8);
-  pdf.text("TICKET SAFE", 16, 12, { charSpace: 0.8 });
-
-  if (input.ticketTotal > 1) {
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(8);
-    pdf.text(
-      `TICKET ${input.ticketIndex} OF ${input.ticketTotal}`,
-      pageW - 16,
-      12,
-      { align: "right", charSpace: 0.8 },
-    );
-  }
-
-  // Event logo top-right (if any)
-  const titleStartX = 16;
-  if (input.eventLogoUrl) {
-    const logo = await imageUrlToPngDataUrl(input.eventLogoUrl, 240);
-    if (logo) {
-      const targetW = 22;
-      const targetH = (logo.height / logo.width) * targetW;
-      pdf.addImage(logo.dataUrl, "PNG", pageW - 16 - targetW, 18, targetW, targetH);
+  // Optional banner image on top, already pre-darkened on its bottom half
+  // so the title text reads. If the image fails to load, we just keep the
+  // gradient — which is plenty premium on its own.
+  if (data.eventImageUrl) {
+    const banner = await loadHeroBanner(data.eventImageUrl);
+    if (banner) {
+      pdf.addImage(banner, "PNG", 0, Y_HERO, A4_W, H_HERO);
     }
   }
 
-  // Event title
-  pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(22);
-  const titleLines = pdf.splitTextToSize(input.eventTitle, pageW - 56);
-  pdf.text(titleLines.slice(0, 2), titleStartX, 30);
+  // Hero text — all on the bottom half of the hero so it sits on the
+  // dark gradient overlay (or the deepest part of the brand gradient
+  // when there's no image)
+  const heroTextY = Y_HERO + 50;
+  pdf.setTextColor(255, 255, 255);
 
-  // Date + location
-  const { day, time } = formatEventDate(input.eventDate);
-  pdf.setFont("helvetica", "normal");
-  pdf.setFontSize(10);
-  pdf.text(`${day} · ${time}`, titleStartX, 50);
-  if (input.eventLocation) {
-    pdf.setFontSize(10);
-    pdf.text(input.eventLocation, titleStartX, 56);
-  }
-
-  // Tier pill at the bottom of the header — solid darker overlay for contrast
-  if (input.tierName) {
-    const pillX = titleStartX;
-    const pillY = 62;
-    const label = input.tierName.toUpperCase();
+  // Multi-ticket marker, e.g. "TICKET 2 OF 3"
+  if (data.ticketIndex && data.ticketTotal && data.ticketTotal > 1) {
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(8);
-    const labelW = pdf.getTextWidth(label) + 6;
-    pdf.setFillColor(0, 31, 92);
-    pdf.roundedRect(pillX, pillY, labelW, 6, 3, 3, "F");
-    pdf.setTextColor(255, 255, 255);
-    pdf.text(label, pillX + 3, pillY + 4.2, { charSpace: 0.5 });
+    pdf.text(
+      `TICKET ${data.ticketIndex} OF ${data.ticketTotal}`,
+      MARGIN_X,
+      heroTextY - 8,
+      { charSpace: 1.2 },
+    );
   }
 
-  // ── PERFORATION LINE ──
-  pdf.setDrawColor(FAINT_R, FAINT_G, FAINT_B);
-  pdf.setLineDashPattern([1.5, 1.5], 0);
-  pdf.line(8, headerH + 6, pageW - 8, headerH + 6);
-  pdf.setLineDashPattern([], 0);
-  // Small notches at both ends of the line for that "tear strip" look
-  pdf.setFillColor(255, 255, 255);
-  pdf.circle(8, headerH + 6, 2.5, "F");
-  pdf.circle(pageW - 8, headerH + 6, 2.5, "F");
-
-  // ── BODY: holder + reference ──
-  const bodyY = headerH + 18;
-  pdf.setTextColor(MUTED_R, MUTED_G, MUTED_B);
+  // Event title (28pt bold, auto-wrapped to 2 lines)
   pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(7);
-  pdf.text("HOLDER", 16, bodyY, { charSpace: 0.8 });
-  pdf.setTextColor(INK_R, INK_G, INK_B);
-  pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(16);
-  pdf.text(input.holderName || "—", 16, bodyY + 7);
+  pdf.setFontSize(28);
+  const titleLines = pdf.splitTextToSize(data.eventName, CONTENT_W).slice(0, 2);
+  pdf.text(titleLines, MARGIN_X, heroTextY);
 
-  if (input.holderEmail) {
-    pdf.setTextColor(MUTED_R, MUTED_G, MUTED_B);
-    pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(9);
-    pdf.text(input.holderEmail, 16, bodyY + 13);
-  }
-
-  // Reference column (right side)
-  pdf.setTextColor(MUTED_R, MUTED_G, MUTED_B);
-  pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(7);
-  pdf.text("REFERENCE", pageW - 16, bodyY, { align: "right", charSpace: 0.8 });
-  pdf.setTextColor(INK_R, INK_G, INK_B);
-  pdf.setFont("courier", "normal");
-  pdf.setFontSize(9);
-  pdf.text(
-    `Order ${input.orderId.slice(0, 8).toUpperCase()}`,
-    pageW - 16,
-    bodyY + 6,
-    { align: "right" },
-  );
-  pdf.text(
-    `Ticket ${input.ticketId.slice(0, 8).toUpperCase()}`,
-    pageW - 16,
-    bodyY + 11,
-    { align: "right" },
-  );
-
-  // ── QR BLOCK ──
-  const qrSize = 80;
-  const qrX = (pageW - qrSize) / 2;
-  const qrY = bodyY + 28;
-  // White card behind QR with subtle border
-  pdf.setFillColor(255, 255, 255);
-  pdf.setDrawColor(FAINT_R, FAINT_G, FAINT_B);
-  pdf.setLineWidth(0.4);
-  pdf.roundedRect(qrX - 6, qrY - 6, qrSize + 12, qrSize + 24, 4, 4, "FD");
-
-  try {
-    const qrPng = await svgUrlToPngDataUrl(input.qrSvgUrl, 900);
-    pdf.addImage(qrPng, "PNG", qrX, qrY, qrSize, qrSize);
-  } catch {
-    pdf.setTextColor(MUTED_R, MUTED_G, MUTED_B);
-    pdf.setFont("helvetica", "normal");
-    pdf.setFontSize(10);
-    pdf.text("QR unavailable", pageW / 2, qrY + qrSize / 2, { align: "center" });
-  }
-
-  // QR caption
-  pdf.setTextColor(INK_R, INK_G, INK_B);
-  pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(9);
-  pdf.text("Scan at the door", pageW / 2, qrY + qrSize + 9, { align: "center" });
-  pdf.setTextColor(MUTED_R, MUTED_G, MUTED_B);
+  // Date + location (one line, dot-separated)
+  const { dateLine, timeLine } = formatDateTime({ eventDate: data.eventDate, eventTime: data.eventTime });
+  const metaParts = [dateLine, timeLine, data.eventLocation].filter((s) => s && s.length > 0);
   pdf.setFont("helvetica", "normal");
-  pdf.setFontSize(8);
-  pdf.text(
-    "Nominative · single-use · keep your name and ID matching",
-    pageW / 2,
-    qrY + qrSize + 14,
-    { align: "center" },
-  );
+  pdf.setFontSize(11);
+  const metaY = heroTextY + (titleLines.length === 2 ? 16 : 8);
+  pdf.text(metaParts.join(" · "), MARGIN_X, metaY);
 
-  // ── FINE PRINT ──
-  const fineY = qrY + qrSize + 30;
-  pdf.setDrawColor(FAINT_R, FAINT_G, FAINT_B);
-  pdf.setLineWidth(0.2);
-  pdf.line(16, fineY, pageW - 16, fineY);
-
-  pdf.setTextColor(MUTED_R, MUTED_G, MUTED_B);
-  pdf.setFont("helvetica", "normal");
-  pdf.setFontSize(7.5);
-  const fineText = [
-    "This ticket is personal and non-transferable unless resold through Ticket Safe's marketplace.",
-    "Lost or screenshot duplicates will be detected and refused at the door — the first scan wins.",
-    "Doors may close before the official end time. Carry photo ID for age-restricted events.",
-  ];
-  fineText.forEach((line, i) => {
-    pdf.text(line, 16, fineY + 5 + i * 4);
+  // Status + Tier pills row, bottom-left of hero
+  const pillY = Y_HERO + H_HERO - 11;
+  let pillX = MARGIN_X;
+  pillX = drawPill(pdf, pillX, pillY, (data.status ?? "Valid").toUpperCase(), {
+    bg: C_STATUS[data.status ?? "Valid"].bg,
+    fg: C_STATUS[data.status ?? "Valid"].fg,
+  });
+  pillX = drawPill(pdf, pillX + 3, pillY, data.ticketType.toUpperCase(), {
+    bg: C_DARK_NAVY,
+    fg: { r: 255, g: 255, b: 255 },
   });
 
-  // ── FOOTER ──
-  pdf.setDrawColor(FAINT_R, FAINT_G, FAINT_B);
-  pdf.setLineWidth(0.2);
-  pdf.line(16, pageH - 18, pageW - 16, pageH - 18);
+  // ── 3. PERFORATION ───────────────────────────────────────────────────
+  const perfMidY = Y_PERF + H_PERF / 2;
+  pdf.setDrawColor(C_FAINT.r, C_FAINT.g, C_FAINT.b);
+  pdf.setLineWidth(0.35);
+  pdf.setLineDashPattern([1.8, 1.6], 0);
+  pdf.line(8, perfMidY, A4_W - 8, perfMidY);
+  pdf.setLineDashPattern([], 0);
+  // Two white half-disc notches at the page edges, giving the "tear strip"
+  // look without us actually cutting the canvas
+  pdf.setFillColor(255, 255, 255);
+  pdf.circle(0, perfMidY, 3.5, "F");
+  pdf.circle(A4_W, perfMidY, 3.5, "F");
 
-  pdf.setTextColor(BRAND_R, BRAND_G, BRAND_B);
+  // ── 4. INFO GRID ─────────────────────────────────────────────────────
+  // Two-column grid with three rows of label/value pairs. The label is a
+  // tracked 7pt uppercase muted-grey caption; the value is a 13pt INK
+  // bold for the headline ones and 11pt regular for secondaries.
+  const colLeftX = MARGIN_X;
+  const colRightX = MARGIN_X + CONTENT_W / 2 + 2;
+  let rowY = Y_INFO + 11;
+
+  // Row 1 — Holder | Organizer
+  drawLabel(pdf, "HOLDER", colLeftX, rowY);
+  drawValue(pdf, `${data.buyerFirstName} ${data.buyerLastName}`.trim(), colLeftX, rowY + 5.5, { size: 13, weight: "bold" });
+  if (data.buyerEmail) {
+    drawValueMuted(pdf, data.buyerEmail, colLeftX, rowY + 11);
+  }
+
+  drawLabel(pdf, "ORGANIZER", colRightX, rowY);
+  drawValue(pdf, data.organizerName, colRightX, rowY + 5.5, { size: 13, weight: "bold" });
+
+  rowY += 18;
+
+  // Row 2 — Ticket Type | Price Paid
+  drawLabel(pdf, "TICKET TYPE", colLeftX, rowY);
+  drawValue(pdf, data.ticketType, colLeftX, rowY + 5.5, { size: 12, weight: "bold" });
+
+  drawLabel(pdf, "PRICE PAID", colRightX, rowY);
+  // Price gets the brand colour so the buyer's eye lands on it instantly
+  pdf.setTextColor(C_BRAND.r, C_BRAND.g, C_BRAND.b);
   pdf.setFont("helvetica", "bold");
-  pdf.setFontSize(8);
-  pdf.text("TICKET SAFE", 16, pageH - 11, { charSpace: 0.8 });
+  pdf.setFontSize(13);
+  pdf.text(data.pricePaid, colRightX, rowY + 5.5);
 
-  pdf.setTextColor(MUTED_R, MUTED_G, MUTED_B);
+  rowY += 14;
+
+  // Row 3 — Ticket Number (single column, full width)
+  drawLabel(pdf, "TICKET NUMBER", colLeftX, rowY);
+  pdf.setTextColor(C_INK.r, C_INK.g, C_INK.b);
+  pdf.setFont("courier", "normal");
+  pdf.setFontSize(12);
+  pdf.text(data.ticketId, colLeftX, rowY + 5.5);
+
+  // ── 5. QR CARD ───────────────────────────────────────────────────────
+  // Soft-grey background panel that the QR card sits on. Visually breaks
+  // the QR section from the body and adds a "this is the actionable bit"
+  // emphasis without using any colour.
+  pdf.setFillColor(C_BG_SOFT.r, C_BG_SOFT.g, C_BG_SOFT.b);
+  pdf.rect(0, Y_QR, A4_W, H_QR, "F");
+
+  const qrSize = 65;
+  const qrX = (A4_W - qrSize) / 2;
+  const qrY = Y_QR + 10;
+
+  // White card around the QR with a thin slate border
+  pdf.setFillColor(255, 255, 255);
+  pdf.setDrawColor(C_FAINT.r, C_FAINT.g, C_FAINT.b);
+  pdf.setLineWidth(0.4);
+  pdf.roundedRect(qrX - 5, qrY - 5, qrSize + 10, qrSize + 10, 3, 3, "FD");
+
+  try {
+    const qrPng = await generateQrPng(data.qrToken);
+    pdf.addImage(qrPng, "PNG", qrX, qrY, qrSize, qrSize);
+  } catch {
+    pdf.setTextColor(C_MUTED.r, C_MUTED.g, C_MUTED.b);
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(10);
+    pdf.text("QR unavailable", A4_W / 2, qrY + qrSize / 2, { align: "center" });
+  }
+
+  // Caption — "Scan at entrance" + ticket ID in monospace
+  pdf.setTextColor(C_INK.r, C_INK.g, C_INK.b);
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(11);
+  pdf.text("Scan at entrance", A4_W / 2, qrY + qrSize + 10, { align: "center" });
+
+  pdf.setTextColor(C_MUTED.r, C_MUTED.g, C_MUTED.b);
+  pdf.setFont("courier", "normal");
+  pdf.setFontSize(9);
+  pdf.text(`#${data.ticketId}`, A4_W / 2, qrY + qrSize + 15.5, { align: "center" });
+
+  // ── 6. FOOTER ────────────────────────────────────────────────────────
+  pdf.setFillColor(255, 255, 255);
+  pdf.rect(0, Y_FOOTER, A4_W, H_FOOTER, "F");
+
+  // Hairline separator
+  pdf.setDrawColor(C_FAINT.r, C_FAINT.g, C_FAINT.b);
+  pdf.setLineWidth(0.2);
+  pdf.line(MARGIN_X, Y_FOOTER, A4_W - MARGIN_X, Y_FOOTER);
+
+  // Security notice (3 short lines, fits without wrapping at 7.5pt)
+  pdf.setTextColor(C_MUTED.r, C_MUTED.g, C_MUTED.b);
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(7.5);
-  pdf.text("ticket-safe.eu · contact@ticket-safe.eu", pageW - 16, pageH - 11, { align: "right" });
+  const noticeLines = [
+    "This ticket is personal and valid for one entry only.",
+    "Screenshots or duplicate copies may be refused at the door.",
+    "Photo ID may be required for age-restricted events.",
+  ];
+  noticeLines.forEach((line, i) => {
+    pdf.text(line, MARGIN_X, Y_FOOTER + 6 + i * 3.6, {});
+  });
 
-  // ── SAVE ──
-  const fname =
-    `ticket-${safeFilename(input.eventTitle)}` +
-    (input.ticketTotal > 1 ? `-${input.ticketIndex}of${input.ticketTotal}` : "") +
-    ".pdf";
-  pdf.save(fname);
+  // Brand strip at the bottom of the footer
+  const brandStripY = A4_H - 6;
+  pdf.setTextColor(C_BRAND.r, C_BRAND.g, C_BRAND.b);
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(8);
+  pdf.text("POWERED BY TICKET SAFE", MARGIN_X, brandStripY, { charSpace: 1.2 });
+
+  pdf.setTextColor(C_MUTED.r, C_MUTED.g, C_MUTED.b);
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(7.5);
+  pdf.text("ticket-safe.eu", A4_W - MARGIN_X, brandStripY, { align: "right" });
+
+  // ── SAVE ─────────────────────────────────────────────────────────────
+  const suffix =
+    data.ticketIndex && data.ticketTotal && data.ticketTotal > 1
+      ? `-${data.ticketIndex}of${data.ticketTotal}`
+      : "";
+  pdf.save(`ticket-${safeFilename(data.eventName)}${suffix}.pdf`);
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+//  SMALL HELPERS  (label / value / pill)
+// ──────────────────────────────────────────────────────────────────────────
+
+function drawLabel(pdf: JsPDFLike, text: string, x: number, y: number) {
+  pdf.setTextColor(C_MUTED.r, C_MUTED.g, C_MUTED.b);
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(7);
+  pdf.text(text, x, y, { charSpace: 1.0 });
+}
+function drawValue(
+  pdf: JsPDFLike,
+  text: string,
+  x: number,
+  y: number,
+  opts: { size: number; weight: "bold" | "normal" },
+) {
+  pdf.setTextColor(C_INK.r, C_INK.g, C_INK.b);
+  pdf.setFont("helvetica", opts.weight);
+  pdf.setFontSize(opts.size);
+  pdf.text(text, x, y);
+}
+function drawValueMuted(pdf: JsPDFLike, text: string, x: number, y: number) {
+  pdf.setTextColor(C_MUTED.r, C_MUTED.g, C_MUTED.b);
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(9);
+  pdf.text(text, x, y);
+}
+
+/**
+ * Draws a rounded "pill" badge with custom bg + fg and returns the X
+ * coordinate just past the pill, so the caller can chain pills horizontally.
+ */
+function drawPill(
+  pdf: JsPDFLike,
+  x: number,
+  y: number,
+  label: string,
+  colour: { bg: { r: number; g: number; b: number }; fg: { r: number; g: number; b: number } },
+): number {
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(8);
+  const padX = 3;
+  const padY = 1.5;
+  const w = pdf.getTextWidth(label) + padX * 2;
+  const h = 5.5;
+  pdf.setFillColor(colour.bg.r, colour.bg.g, colour.bg.b);
+  pdf.roundedRect(x, y, w, h, h / 2, h / 2, "F");
+  pdf.setTextColor(colour.fg.r, colour.fg.g, colour.fg.b);
+  pdf.text(label, x + padX, y + h - padY, { charSpace: 0.6 });
+  return x + w;
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+//  BACKWARD-COMPAT WRAPPER
+// ──────────────────────────────────────────────────────────────────────────
+
+/**
+ * The old call site uses this name + an older payload shape (pre-QR-token,
+ * accepted an SVG blob URL). Keep it working by mapping into the new
+ * generateTicketPDF, so MyTickets.tsx doesn't have to change immediately.
+ *
+ * @deprecated Prefer generateTicketPDF(TicketData) for new code.
+ */
+export interface TicketPdfInput {
+  eventTitle: string;
+  eventDate: string;
+  eventLocation: string | null;
+  eventLogoUrl: string | null;
+  tierName: string | null;
+  holderName: string;
+  holderEmail: string | null;
+  ticketId: string;
+  orderId: string;
+  ticketIndex: number;
+  ticketTotal: number;
+  /** A blob: URL pointing at a pre-rendered SVG OR a raw token that
+   *  the new renderer will encode itself. */
+  qrSvgUrl: string;
+  /** Optional new fields the caller may already know. */
+  qrToken?: string;
+  pricePaid?: string;
+  organizerName?: string;
+  status?: "Valid" | "Used" | "Cancelled";
+}
+
+export async function downloadTicketPdf(input: TicketPdfInput): Promise<void> {
+  // Split "First Last" into the two new fields. Falls back gracefully on
+  // single-word names.
+  const parts = input.holderName.trim().split(/\s+/);
+  const buyerFirstName = parts[0] ?? "";
+  const buyerLastName  = parts.slice(1).join(" ");
+
+  // When the legacy caller has only the SVG blob URL, fall back to a
+  // verify-URL payload built from the short ticket ID. The QR scanner
+  // already knows how to interpret either shape (token or URL).
+  const qrToken =
+    input.qrToken
+    ?? (input.qrSvgUrl.startsWith("blob:") ? `https://ticket-safe.eu/verify/${input.ticketId}` : input.qrSvgUrl);
+
+  await generateTicketPDF({
+    eventName: input.eventTitle,
+    eventDate: input.eventDate,
+    eventLocation: input.eventLocation ?? "",
+    eventImageUrl: null, // legacy callers don't have the banner URL
+    organizerName: input.organizerName ?? "Ticket Safe",
+    buyerFirstName,
+    buyerLastName,
+    buyerEmail: input.holderEmail,
+    ticketType: input.tierName ?? "Standard",
+    pricePaid: input.pricePaid ?? "—",
+    ticketId: input.ticketId.slice(0, 12).toUpperCase(),
+    qrToken,
+    status: input.status ?? "Valid",
+    ticketIndex: input.ticketIndex,
+    ticketTotal: input.ticketTotal,
+  });
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+//  EXAMPLE — handy for quick previews and tests
+// ──────────────────────────────────────────────────────────────────────────
+
+/**
+ * Fake-data payload that exercises every field of the layout. Call:
+ *
+ *   import { generateExampleTicket } from "@/lib/ticketPdf";
+ *   await generateExampleTicket();
+ *
+ * …from a dev console to download a fully-populated demo PDF.
+ */
+export const EXAMPLE_TICKET: TicketData = {
+  eventName: "ESCP Opening Party",
+  eventDate: "2026-09-19T22:30:00.000Z",
+  eventLocation: "Le Duplex, Paris",
+  eventImageUrl: null,
+  organizerName: "ESCP Students' Union",
+  buyerFirstName: "Achille",
+  buyerLastName: "Quinquenel",
+  buyerEmail: "achille@edu.escp.eu",
+  ticketType: "Early Bird",
+  pricePaid: "18.00€",
+  ticketId: "TS-ESC-000184",
+  qrToken: "https://ticket-safe.eu/verify/unique-secure-token-here",
+  status: "Valid",
+};
+
+export async function generateExampleTicket(): Promise<void> {
+  await generateTicketPDF(EXAMPLE_TICKET);
 }
