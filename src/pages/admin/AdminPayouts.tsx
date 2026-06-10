@@ -132,7 +132,9 @@ const AdminPayouts = () => {
     if (isAdmin) load();
   }, [isAdmin]);
 
-  const exportBatch = async () => {
+  // format "sheet" → clean human-readable .txt for manual bank entry (default);
+  // format "xml" → pain.001 SEPA file for banks that support bulk upload.
+  const exportBatch = async (format: "sheet" | "xml" = "sheet") => {
     if (pending.length === 0) return;
     setExporting(true);
     try {
@@ -152,7 +154,7 @@ const AdminPayouts = () => {
           "Content-Type": "application/json",
           apikey,
         },
-        body: JSON.stringify({ include_studio: true, include_resale: true }),
+        body: JSON.stringify({ include_studio: true, include_resale: true, format }),
       });
       if (!res.ok) {
         const ct = res.headers.get("content-type") ?? "";
@@ -175,12 +177,16 @@ const AdminPayouts = () => {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${batchId}.xml`;
+      a.download = `${batchId}.${format === "xml" ? "xml" : "txt"}`;
       document.body.appendChild(a);
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-      toast.success(`Batch ${batchId} exported · upload it in your bank now`);
+      toast.success(
+        format === "xml"
+          ? `Batch ${batchId} XML exported · upload it to your bank`
+          : `Transfer sheet ${batchId} downloaded · make the transfers in your bank, then click “Mark sent”`,
+      );
       load();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Export failed");
@@ -468,7 +474,7 @@ const AdminPayouts = () => {
               <div>
                 <h2 className="text-lg font-black">Pay out the queue</h2>
                 <p className="text-sm text-muted-foreground mt-0.5">
-                  Two paths: the green button uses the Revolut Business API end-to-end (you only approve the SCA in your phone). The grey button generates a pain.001.001.03 XML you upload manually to any SEPA bank — fallback for non-Revolut accounts.
+                  <strong>Transfer sheet</strong> downloads a clean, readable list (beneficiary · IBAN · amount · reference) you type into your bank one by one — the manual path for now. <strong>SEPA XML</strong> is the same batch as a pain.001 file for banks that support bulk upload. <strong>Send via Revolut</strong> (green) will do it all automatically once Revolut Business is enabled — you'd just approve one SCA on your phone.
                 </p>
               </div>
               <div className="flex flex-col sm:flex-row gap-2">
@@ -481,12 +487,22 @@ const AdminPayouts = () => {
                   Send via Revolut ({pending.length})
                 </button>
                 <button
-                  onClick={exportBatch}
+                  onClick={() => exportBatch("sheet")}
                   disabled={exporting || sending || pending.length === 0}
                   className="inline-flex items-center justify-center gap-2 min-h-[44px] px-5 rounded-lg font-bold bg-muted hover:bg-muted/80 border border-border disabled:opacity-60 shrink-0"
+                  title="Clean, readable list of beneficiary · IBAN · amount · reference to type into your bank"
                 >
-                  {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-                  Export XML ({pending.length})
+                  {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+                  Transfer sheet ({pending.length})
+                </button>
+                <button
+                  onClick={() => exportBatch("xml")}
+                  disabled={exporting || sending || pending.length === 0}
+                  className="inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-lg font-semibold text-sm bg-muted/60 hover:bg-muted border border-border disabled:opacity-60 shrink-0"
+                  title="pain.001 SEPA XML — for banks that support bulk transfer upload"
+                >
+                  <Download className="w-4 h-4" />
+                  SEPA XML
                 </button>
                 <button
                   onClick={refresh}
