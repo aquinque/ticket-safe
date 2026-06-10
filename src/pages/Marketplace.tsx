@@ -175,7 +175,7 @@ export default function Marketplace() {
                 </span>
               </div>
               <div className="text-2xl md:text-3xl font-bold tabular-nums tracking-tight">€0</div>
-              <div className="text-[11px] text-muted-foreground mt-0.5">5% shown upfront, always</div>
+              <div className="text-[11px] text-muted-foreground mt-0.5">6% shown upfront, always</div>
             </div>
           </div>
 

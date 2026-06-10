@@ -404,7 +404,7 @@ const RefundPolicy = () => {
                     </p>
                     <ul className="list-disc pl-6 space-y-2">
                       <li>You receive 100% of the ticket price</li>
-                      <li>You receive 100% of the platform fee (5%)</li>
+                      <li>You receive 100% of the platform fee (6%)</li>
                       <li>No refund processing fees are charged</li>
                     </ul>
 

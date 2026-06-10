@@ -90,8 +90,8 @@ const faqs = [
     a: "Yes, as long as no one has bought it yet. Once a sale is in progress, cancelling may incur a small penalty to protect the buyer.",
   },
   {
-    q: "What is the 5% fee?",
-    a: "Buyers pay 5% on top of the ticket price, sellers have 5% deducted. The fee covers payment processing, ticket authentication and buyer protection.",
+    q: "What are the fees?",
+    a: "Buyers pay 6% on top of the ticket price; sellers have 5% deducted when they withdraw. The fee covers payment processing, ticket authentication and buyer protection.",
   },
   {
     q: "What if the event is cancelled?",
@@ -259,7 +259,7 @@ const HowItWorks = () => {
                 Simple, fair pricing
               </h2>
               <p className="text-sm md:text-base text-muted-foreground">
-                Both sides pay 5%. Nothing else, no hidden costs.
+                Buyers pay 6%, sellers 5%. Nothing else, no hidden costs.
               </p>
             </div>
 
@@ -274,8 +274,8 @@ const HowItWorks = () => {
                     <span className="font-semibold">€50.00</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Buyer fee (+5%)</span>
-                    <span className="font-semibold text-primary">+€2.50</span>
+                    <span className="text-muted-foreground">Buyer fee (+6%)</span>
+                    <span className="font-semibold text-primary">+€3.00</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Seller commission (−5%)</span>
@@ -285,7 +285,7 @@ const HowItWorks = () => {
                 <div className="mt-4 pt-4 border-t border-border space-y-2 text-sm">
                   <div className="flex justify-between font-bold">
                     <span>Buyer pays</span>
-                    <span className="text-base">€52.50</span>
+                    <span className="text-base">€53.00</span>
                   </div>
                   <div className="flex justify-between font-bold text-primary">
                     <span>Seller receives</span>
@@ -295,7 +295,7 @@ const HowItWorks = () => {
               </div>
               <div className="grid grid-cols-3 divide-x divide-border">
                 <div className="p-4 md:p-5 text-center">
-                  <div className="text-xl md:text-2xl font-black text-primary mb-0.5">5%</div>
+                  <div className="text-xl md:text-2xl font-black text-primary mb-0.5">6%</div>
                   <div className="text-[10px] md:text-xs text-muted-foreground leading-tight">
                     Buyer fee
                   </div>

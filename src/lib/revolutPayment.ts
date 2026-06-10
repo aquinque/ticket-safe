@@ -61,13 +61,13 @@ export const createRevolutPayout = async (
 };
 
 /**
- * Calculate platform fee and seller payout.
- * - Buyer pays 5% on top of the listing price.
- * - Seller pays 5% deducted from the listing price.
+ * Calculate platform fee and seller payout (resale).
+ * - Buyer pays 6% on top of the listing price.
+ * - Seller pays 5% deducted at withdrawal.
  */
 export const calculatePaymentBreakdown = (ticketPrice: number, quantity: number) => {
   const subtotal = ticketPrice * quantity;
-  const buyerFee = Math.round(subtotal * 100 * 0.05) / 100;
+  const buyerFee = Math.round(subtotal * 100 * 0.06) / 100;
   const totalAmount = subtotal + buyerFee;
   const sellerCommission = Math.round(subtotal * 100 * 0.05) / 100;
   const sellerPayout = subtotal - sellerCommission;

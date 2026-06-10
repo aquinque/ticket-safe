@@ -1,17 +1,17 @@
 /**
  * stripe-create-checkout — resale marketplace (Deno)
  *
- * Fee model (mirrors Studio):
- *   Buyer pays the seller's listing price + 5% service fee at checkout.
- *   The 5% is taken immediately into transactions.fee_amount.
- *   The 8% Ticket Safe fee on the seller is applied LATER, when the
+ * Fee model (resale):
+ *   Buyer pays the seller's listing price + 6% service fee at checkout.
+ *   The 6% is taken immediately into transactions.fee_amount.
+ *   The 5% Ticket Safe fee on the seller is applied LATER, when the
  *   seller requests a payout via request-seller-payout.
  *
  *   Per €10 listing:
- *     buyer pays              €10.50
- *     buyer fee (5%)          €0.50  → Ticket Safe immediately
+ *     buyer pays              €10.60
+ *     buyer fee (6%)          €0.60  → Ticket Safe immediately
  *     seller balance          €10.00 (gross they see in their listings page)
- *     on withdrawal of €10 → 8% = €0.80 deducted, €9.20 wired to IBAN
+ *     on withdrawal of €10 → 5% = €0.50 deducted, €9.50 wired to IBAN
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -22,8 +22,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const BUYER_FEE_PERCENT = 5;
-const SELLER_FEE_PERCENT = 8;
+const BUYER_FEE_PERCENT = 6;
+const SELLER_FEE_PERCENT = 5;
 // 30 min: matches the Stripe Checkout Session expiry below (Stripe's minimum is
 // 30 min, so the reservation is held exactly as long as the payment window).
 const RESERVATION_TTL_MS = 30 * 60 * 1000;
@@ -102,7 +102,7 @@ serve(async (req) => {
     const rawUnitPrice = negotiatedPrice ?? listing.selling_price;
     const unitPrice = Math.min(Math.max(MIN_UNIT_PRICE_EUR, Number(rawUnitPrice) || 0), MAX_UNIT_PRICE_EUR);
 
-    // New fee math: 5% on top for the buyer; 8% deferred to seller payout.
+    // Fee math: 6% on top for the buyer; 5% deferred to seller payout.
     const subtotalCents = Math.round(unitPrice * 100) * qty;
     const buyerFeeCents = Math.round(subtotalCents * (BUYER_FEE_PERCENT / 100));
     const totalCents = subtotalCents + buyerFeeCents;     // what the buyer pays

@@ -379,7 +379,7 @@ const EventTicketsMarketplace = () => {
                             <p className="text-4xl font-bold text-primary">€{price.toFixed(2)}</p>
                             <div className="mt-2 text-xs text-muted-foreground space-y-0.5">
                               <div className="flex items-center justify-center gap-1">
-                                <span>+5% fee = <strong className="text-foreground">€{breakdown.buyerTotalEuros.toFixed(2)} total</strong></span>
+                                <span>+6% fee = <strong className="text-foreground">€{breakdown.buyerTotalEuros.toFixed(2)} total</strong></span>
                                 <a
                                   href="/how-it-works#pricing"
                                   className="inline-flex text-muted-foreground hover:text-primary"

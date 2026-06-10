@@ -150,7 +150,7 @@ const TermsConditions = () => {
                       <li>You enter into a binding contract with the seller</li>
                       <li>Payment is processed securely through our payment partner (Revolut/Stripe)</li>
                       <li>Funds are held in escrow until ticket transfer is confirmed</li>
-                      <li>You agree to pay the ticket price plus a 5% platform fee</li>
+                      <li>You agree to pay the ticket price plus a 6% platform fee</li>
                     </ul>
 
                     <h3 className="font-semibold text-foreground text-lg mt-4">4.2 Ticket Authenticity</h3>
@@ -215,7 +215,7 @@ const TermsConditions = () => {
 
                     <h3 className="font-semibold text-foreground text-lg mt-4">5.4 Payment & Fees</h3>
                     <ul className="list-disc pl-6 space-y-2">
-                      <li>You receive 100% of the ticket sale price (buyer pays the 5% platform fee)</li>
+                      <li>Buyers pay a 6% service fee on top of your price; a 5% Ticket Safe fee is deducted from your balance when you withdraw</li>
                       <li>Payments are processed within 24-48 hours after successful transfer</li>
                       <li>You are responsible for any applicable taxes on your sales</li>
                       <li>Chargebacks or fraudulent activity may result in withheld payments</li>
@@ -234,7 +234,7 @@ const TermsConditions = () => {
                   <div className="space-y-3 text-muted-foreground">
                     <h3 className="font-semibold text-foreground text-lg">6.1 Platform Fees</h3>
                     <ul className="list-disc pl-6 space-y-2">
-                      <li>Buyers pay a 5% platform fee on top of the ticket price</li>
+                      <li>Buyers pay a 6% platform fee on top of the ticket price (resale); a 5% fee applies to the seller at withdrawal</li>
                       <li>All fees are clearly displayed before purchase confirmation</li>
                       <li>Fees are non-refundable except in cases of platform error</li>
                     </ul>

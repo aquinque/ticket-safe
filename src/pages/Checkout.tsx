@@ -23,7 +23,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { getEventImage } from "@/lib/eventImages";
 
-const PLATFORM_FEE_PERCENT = 5;
+const PLATFORM_FEE_PERCENT = 6;
 
 interface ListingData {
   id: string;

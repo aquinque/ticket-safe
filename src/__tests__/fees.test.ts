@@ -11,8 +11,9 @@ import {
   calcBreakdown,
 } from "../lib/fees";
 
+// Resale model: buyer +6% at checkout, seller -5% at withdrawal.
 describe("fee constants", () => {
-  it("buyer fee rate is 5%", () => expect(BUYER_FEE_RATE).toBe(0.05));
+  it("buyer fee rate is 6%", () => expect(BUYER_FEE_RATE).toBe(0.06));
   it("seller commission rate is 5%", () => expect(SELLER_COMMISSION_RATE).toBe(0.05));
 });
 
@@ -29,15 +30,15 @@ describe("currency conversion", () => {
 });
 
 describe("buyer fee calculations", () => {
-  it("5% buyer fee on €50 = 250 cents", () => {
-    expect(calcBuyerFeeCents(5000)).toBe(250);
+  it("6% buyer fee on €50 = 300 cents", () => {
+    expect(calcBuyerFeeCents(5000)).toBe(300);
   });
-  it("buyer total on €50 = 5250 cents", () => {
-    expect(calcBuyerTotalCents(5000)).toBe(5250);
+  it("buyer total on €50 = 5300 cents", () => {
+    expect(calcBuyerTotalCents(5000)).toBe(5300);
   });
   it("handles fractional cent rounding (e.g. €33 ticket)", () => {
-    const fee = calcBuyerFeeCents(3300); // 33 * 5% = 1.65 → 165 cents
-    expect(fee).toBe(165);
+    const fee = calcBuyerFeeCents(3300); // 33 * 6% = 1.98 → 198 cents
+    expect(fee).toBe(198);
   });
 });
 
@@ -60,14 +61,14 @@ describe("calcBreakdown", () => {
   it("€50 ticket × 1 gives correct breakdown", () => {
     const b = calcBreakdown(50, 1);
     expect(b.listPriceCents).toBe(5000);
-    expect(b.buyerFeeCents).toBe(250);
-    expect(b.buyerTotalCents).toBe(5250);
+    expect(b.buyerFeeCents).toBe(300);
+    expect(b.buyerTotalCents).toBe(5300);
     expect(b.sellerCommissionCents).toBe(250);
     expect(b.sellerPayoutCents).toBe(4750);
     // Euro helpers
     expect(b.listPriceEuros).toBe(50);
-    expect(b.buyerFeeEuros).toBe(2.5);
-    expect(b.buyerTotalEuros).toBe(52.5);
+    expect(b.buyerFeeEuros).toBe(3);
+    expect(b.buyerTotalEuros).toBe(53);
     expect(b.sellerCommissionEuros).toBe(2.5);
     expect(b.sellerPayoutEuros).toBe(47.5);
   });
@@ -75,7 +76,7 @@ describe("calcBreakdown", () => {
   it("€25 ticket × 2 = €50 list price", () => {
     const b = calcBreakdown(25, 2);
     expect(b.listPriceCents).toBe(5000);
-    expect(b.buyerTotalEuros).toBe(52.5);
+    expect(b.buyerTotalEuros).toBe(53);
     expect(b.sellerPayoutEuros).toBe(47.5);
   });
 

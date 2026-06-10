@@ -114,7 +114,7 @@ const MyListings = () => {
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortOption>("newest");
 
-  // Resale-seller earnings (gross of 8% Ticket Safe withdrawal fee).
+  // Resale-seller earnings (gross of 5% Ticket Safe withdrawal fee).
   const [earnings, setEarnings] = useState<{
     net_earned_cents: number;
     claimed_cents: number;
@@ -350,14 +350,10 @@ const MyListings = () => {
             </Button>
           </div>
 
-          {/* ===== Earnings & Payout — Xceed/Shotgun-style. The "balance" you
-              see here is the gross of every completed resale sale (minus the
-              5% buyer fee Ticket Safe already took at checkout). The 8%
-              Ticket Safe fee is applied LATER, when you click "Get paid". */}
           {/* ===== Wallet — your resale earnings (Vinted-style). Always shown so
               you see your balance even before your first sale. The balance is
-              the price of every completed resale (the 5% buyer fee was already
-              taken at checkout); Ticket Safe takes 8% when you withdraw. ===== */}
+              the price of every completed resale (the 6% buyer fee was already
+              taken at checkout); Ticket Safe takes 5% when you withdraw. ===== */}
           <section className="mb-6">
             <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-card p-5 md:p-6">
               <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -399,8 +395,8 @@ const MyListings = () => {
               </div>
               <p className="text-[11px] text-muted-foreground mt-3">
                 {earnings && earnings.available_cents > 0
-                  ? "Tap “Get paid”, type your IBAN — we wire the SEPA within 2-3 business days. Ticket Safe takes 8% at withdrawal."
-                  : "Your earnings land here automatically when your resale listings sell. Ticket Safe takes 8% at withdrawal — no KYC."}
+                  ? "Tap “Get paid”, type your IBAN — we wire the SEPA within 2-3 business days. Ticket Safe takes 5% at withdrawal."
+                  : "Your earnings land here automatically when your resale listings sell. Ticket Safe takes 5% at withdrawal — no KYC."}
               </p>
             </div>
           </section>
@@ -763,7 +759,7 @@ const MyListings = () => {
 
 // ────────────────────────────────────────────────────────────────────────────
 // SellerPayoutModal — mirror of the Studio PayoutModal but wired to
-// request-seller-payout. No KYC, just an IBAN + amount. The 8% Ticket Safe
+// request-seller-payout. No KYC, just an IBAN + amount. The 5% Ticket Safe
 // fee is computed live and subtracted from the gross at submit.
 // ────────────────────────────────────────────────────────────────────────────
 const SellerPayoutModal = ({
@@ -821,7 +817,7 @@ const SellerPayoutModal = ({
     onSubmitted();
   };
 
-  const feeCents = amountValid && cents > 0 ? Math.round(cents * 0.08) : 0;
+  const feeCents = amountValid && cents > 0 ? Math.round(cents * 0.05) : 0;
   const netCents = cents - feeCents;
 
   return (
@@ -853,8 +849,8 @@ const SellerPayoutModal = ({
 
           <div className="rounded-xl border border-border bg-muted/40 p-4 text-xs leading-relaxed text-muted-foreground">
             <div className="font-bold text-foreground mb-1.5 text-[11px] uppercase tracking-wider">Fee breakdown</div>
-            Buyers pay a <strong className="text-foreground">5% service fee</strong> on top at checkout (already deducted upstream).
-            Ticket Safe takes another <strong className="text-foreground">8%</strong> when you withdraw — net wired to your IBAN.
+            Buyers pay a <strong className="text-foreground">6% service fee</strong> on top at checkout (already deducted upstream).
+            Ticket Safe takes another <strong className="text-foreground">5%</strong> when you withdraw — net wired to your IBAN.
           </div>
 
           {!loadedDefaults ? (
@@ -890,7 +886,7 @@ const SellerPayoutModal = ({
                     <span>€{(cents / 100).toFixed(2)}</span>
                   </div>
                   <div className="flex items-center justify-between text-muted-foreground">
-                    <span>Ticket Safe fee (8%)</span>
+                    <span>Ticket Safe fee (5%)</span>
                     <span>−€{(feeCents / 100).toFixed(2)}</span>
                   </div>
                   <div className="flex items-center justify-between font-black text-foreground text-base border-t border-primary/20 pt-1.5 mt-1.5">
@@ -904,7 +900,7 @@ const SellerPayoutModal = ({
                 {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : (<><ArrowRight className="w-4 h-4" />Request €{(netCents / 100).toFixed(2)} net</>)}
               </button>
               <p className="text-[11px] text-muted-foreground text-center">
-                Ticket Safe deducts 8% at withdrawal. Net wired to your IBAN within 2-3 business days. No KYC required.
+                Ticket Safe deducts 5% at withdrawal. Net wired to your IBAN within 2-3 business days. No KYC required.
               </p>
             </>
           )}

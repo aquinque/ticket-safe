@@ -176,7 +176,7 @@ const BuyTicket = () => {
                   </div>
 
                   <div className="flex items-baseline justify-between">
-                    <span className="text-muted-foreground text-sm">Platform fee (5%)</span>
+                    <span className="text-muted-foreground text-sm">Platform fee (6%)</span>
                     <span className="text-sm font-medium">
                       €{platformFee.toFixed(2)}
                     </span>
