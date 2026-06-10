@@ -40,8 +40,8 @@
     "sellTickets": "Sell Tickets",
     "browseEvents": "Browse Events",
     "sellMyTickets": "Sell My Tickets",
-    "verifiedStudentsTitle": "ESCP Students Only",
-    "verifiedStudentsDesc": "Currently open to verified ESCP students. Other schools coming soon.",
+    "verifiedStudentsTitle": "Your School's Students Only",
+    "verifiedStudentsDesc": "Currently open to verified students from your school. ESCP first — other schools coming soon.",
     "securePaymentsTitle": "Secure Payments",
     "securePaymentsDesc": "Protected transactions with trusted payment processing",
     "fastMatchingTitle": "Fast Matching",
@@ -360,7 +360,7 @@
       "description": "List your tickets for sale and connect with verified student buyers"
     },
     "title": "Marketplace",
-    "subtitle": "Browse tickets from verified ESCP students",
+    "subtitle": "Browse tickets from verified students at your school",
     "toggleAvailable": "Available now",
     "toggleAll": "All upcoming events",
     "toggleAllTooltip": "Includes events with no tickets currently for sale.",
@@ -383,8 +383,8 @@
     "buyerGuaranteeDesc": "Full refund if the ticket is invalid or the event is cancelled, including the platform fee.",
     "stripe": "Powered by Stripe",
     "stripeDesc": "Payments processed by Stripe — your card details never reach us.",
-    "verifiedStudents": "Verified ESCP Students",
-    "verifiedStudentsDesc": "Only verified ESCP students can buy or sell."
+    "verifiedStudents": "Verified students",
+    "verifiedStudentsDesc": "Only verified students from your school can buy or sell."
   },
   "notFound": {
     "title": "404",

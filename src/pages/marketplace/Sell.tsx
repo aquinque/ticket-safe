@@ -656,13 +656,6 @@ const Sell = () => {
   const hasPriceSet =
     parseFloat(formData.sellingPrice) > 0 &&
     isFinite(parseFloat(formData.sellingPrice));
-  const stepIndex = !hasEvent
-    ? 0
-    : !hasVerifiedQr
-    ? 1
-    : !hasPriceSet
-    ? 2
-    : 3;
   const steps = studioTicket
     ? [
         { label: "Set price", done: hasPriceSet },
@@ -674,6 +667,10 @@ const Sell = () => {
         { label: "Price", done: hasPriceSet },
         { label: "Publish", done: false },
       ];
+  // First not-yet-done step = where the user currently is. Used by both the
+  // desktop hero stepper and the mobile bottom process bar.
+  const firstUndone = steps.findIndex((s) => !s.done);
+  const activeStep = firstUndone === -1 ? steps.length - 1 : firstUndone;
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -712,10 +709,11 @@ const Sell = () => {
               : "Verify your ticket with its QR code and list it in under a minute."}
           </p>
 
-          {/* Stepper */}
-          <div className="flex items-center gap-2 md:gap-3 overflow-x-auto -mx-1 px-1 pb-1">
+          {/* Stepper — desktop only; on phones the process lives in the sticky
+              bottom bar so the interface fits the screen. */}
+          <div className="hidden lg:flex items-center gap-2 md:gap-3 overflow-x-auto -mx-1 px-1 pb-1">
             {steps.map((s, i) => {
-              const isActive = i === stepIndex;
+              const isActive = i === activeStep;
               const isDone = s.done;
               return (
                 <div key={s.label} className="flex items-center gap-2 md:gap-3 flex-shrink-0">
@@ -1288,46 +1286,82 @@ const Sell = () => {
         </div>
       </main>
 
-      {/* ===== Sticky mobile CTA — appears once a price is set =====
-          Mirrors the buy-flow sticky bar on EventPublic. Total payout +
-          Publish button always reachable, no need to scroll back up. */}
-      {hasPriceSet && canSubmit && (
-        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/95 backdrop-blur-md shadow-[0_-4px_24px_rgba(0,0,0,0.06)] px-4 py-3 animate-in slide-in-from-bottom-2 duration-300">
-          <div className="container mx-auto max-w-4xl flex items-center gap-3">
-            <div className="flex-1 min-w-0">
-              <div className="text-[11px] font-medium text-muted-foreground">
-                You receive
+      {/* ===== Sticky mobile process bar =====
+          On phones the whole "post your ticket" process lives at the bottom of
+          the screen: a compact stepper that's always visible while filling the
+          form, and that turns into the Publish CTA once a price is set. Keeps
+          the interface perfectly fit for mobile (no scrolling back up). */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/95 backdrop-blur-md shadow-[0_-4px_24px_rgba(0,0,0,0.08)] px-4 pt-2.5 pb-3">
+        <div className="container mx-auto max-w-4xl">
+          {/* Compact progress: numbered chip per step + connecting bar */}
+          <div className="flex items-center gap-1.5 mb-2.5">
+            {steps.map((s, i) => (
+              <div key={s.label} className="flex items-center gap-1.5 flex-1 last:flex-none">
+                <span
+                  className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-bold flex-shrink-0 transition-colors ${
+                    s.done
+                      ? "bg-primary text-white"
+                      : i === activeStep
+                      ? "bg-primary/15 text-primary ring-1 ring-primary/40"
+                      : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  {s.done ? "✓" : i + 1}
+                </span>
+                {i < steps.length - 1 && (
+                  <span className={`flex-1 h-0.5 rounded ${s.done ? "bg-primary" : "bg-muted"}`} aria-hidden />
+                )}
               </div>
-              {(() => {
-                const price = parseFloat(formData.sellingPrice);
-                const qty = parseInt(formData.quantity, 10) || 1;
-                const bd = calcBreakdown(price, qty);
-                return (
-                  <div className="text-lg font-semibold tabular-nums tracking-tight text-primary leading-tight">
-                    €{bd.sellerPayoutEuros.toFixed(2)}
-                  </div>
-                );
-              })()}
-            </div>
-            <Button
-              variant="hero"
-              size="lg"
-              className="flex-shrink-0 h-11 px-5 text-sm font-semibold"
-              disabled={!canSubmit || isSubmitting}
-              onClick={handleSubmit}
-            >
-              {isSubmitting ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <>
-                  Publish
-                  <ArrowRight className="w-4 h-4 ml-1" />
-                </>
-              )}
-            </Button>
+            ))}
           </div>
+
+          {hasPriceSet && canSubmit ? (
+            <div className="flex items-center gap-3 animate-in fade-in duration-300">
+              <div className="flex-1 min-w-0">
+                <div className="text-[11px] font-medium text-muted-foreground">You receive</div>
+                {(() => {
+                  const price = parseFloat(formData.sellingPrice);
+                  const qty = parseInt(formData.quantity, 10) || 1;
+                  const bd = calcBreakdown(price, qty);
+                  return (
+                    <div className="text-lg font-semibold tabular-nums tracking-tight text-primary leading-tight">
+                      €{bd.sellerPayoutEuros.toFixed(2)}
+                    </div>
+                  );
+                })()}
+              </div>
+              <Button
+                variant="hero"
+                size="lg"
+                className="flex-shrink-0 h-11 px-5 text-sm font-semibold"
+                disabled={!canSubmit || isSubmitting}
+                onClick={handleSubmit}
+              >
+                {isSubmitting ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <>
+                    Publish
+                    <ArrowRight className="w-4 h-4 ml-1" />
+                  </>
+                )}
+              </Button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-sm min-w-0">
+                <span className="text-muted-foreground">
+                  Step {activeStep + 1} of {steps.length} ·{" "}
+                </span>
+                <span className="font-semibold text-foreground">{steps[activeStep]?.label}</span>
+              </div>
+              <span className="text-[11px] font-medium text-muted-foreground flex-shrink-0">
+                {steps.filter((s) => s.done).length}/{steps.length} done
+              </span>
+            </div>
+          )}
         </div>
-      )}
+      </div>
 
       <Footer />
     </div>

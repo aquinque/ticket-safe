@@ -23,7 +23,7 @@ const buyerSteps = [
     step: "01",
     icon: Search,
     title: "Find a ticket",
-    body: "Browse the marketplace, filter by event and price. Every listing comes from a verified ESCP student.",
+    body: "Browse the marketplace, filter by event and price. Every listing comes from a verified student at your school.",
   },
   {
     step: "02",
@@ -75,7 +75,7 @@ const sellerSteps = [
 const faqs = [
   {
     q: "How are students verified?",
-    a: "Sign-up requires a university email. Only verified ESCP students can list or buy on the resale marketplace.",
+    a: "Sign-up requires a university email. Only verified students from your school can list or buy on the resale marketplace.",
   },
   {
     q: "What if the QR turns out to be invalid?",
@@ -396,7 +396,7 @@ const HowItWorks = () => {
                     Ready to buy or sell safely?
                   </h3>
                   <p className="text-white/85 text-sm md:text-base max-w-lg leading-relaxed">
-                    Join hundreds of ESCP students already using the resale marketplace.
+                    Join hundreds of students from your school already using the resale marketplace.
                   </p>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-2.5">

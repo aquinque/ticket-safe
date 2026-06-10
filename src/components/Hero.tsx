@@ -21,7 +21,7 @@ const trustPoints = [
   },
   {
     icon: GraduationCap,
-    title: "ESCP students only",
+    title: "Your school's students only",
     desc: "Every account is verified at sign-up with a university email. No scalpers, no bots — just your campus.",
     tint: "bg-accent/10",
     iconColor: "text-accent",

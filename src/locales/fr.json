@@ -40,8 +40,8 @@
     "sellTickets": "Vendre des billets",
     "browseEvents": "Parcourir les événements",
     "sellMyTickets": "Vendre mes billets",
-    "verifiedStudentsTitle": "Étudiants ESCP uniquement",
-    "verifiedStudentsDesc": "Actuellement ouvert aux étudiants ESCP vérifiés. Autres écoles bientôt disponibles.",
+    "verifiedStudentsTitle": "Étudiants de votre école uniquement",
+    "verifiedStudentsDesc": "Actuellement ouvert aux étudiants vérifiés de votre école. ESCP d'abord — autres écoles bientôt disponibles.",
     "securePaymentsTitle": "Paiements sécurisés",
     "securePaymentsDesc": "Transactions protégées avec un traitement des paiements de confiance",
     "fastMatchingTitle": "Correspondance rapide",
@@ -360,7 +360,7 @@
       "description": "Listez vos billets à vendre et connectez-vous avec des acheteurs étudiants vérifiés"
     },
     "title": "Marketplace",
-    "subtitle": "Parcourez les billets des étudiants ESCP vérifiés",
+    "subtitle": "Parcourez les billets des étudiants vérifiés de votre école",
     "toggleAvailable": "Disponibles maintenant",
     "toggleAll": "Tous les événements",
     "toggleAllTooltip": "Inclut les événements sans billets actuellement en vente.",
@@ -383,8 +383,8 @@
     "buyerGuaranteeDesc": "Remboursement complet si le billet est invalide ou l'événement annulé, frais de plateforme inclus.",
     "stripe": "Propulsé par Stripe",
     "stripeDesc": "Paiements traités par Stripe — vos coordonnées bancaires ne nous parviennent jamais.",
-    "verifiedStudents": "Étudiants ESCP vérifiés",
-    "verifiedStudentsDesc": "Seuls les étudiants ESCP vérifiés peuvent acheter ou vendre."
+    "verifiedStudents": "Étudiants vérifiés",
+    "verifiedStudentsDesc": "Seuls les étudiants vérifiés de votre école peuvent acheter ou vendre."
   },
   "notFound": {
     "title": "404",

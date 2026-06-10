@@ -328,7 +328,7 @@ const About = () => {
                     Find your next event in one place.
                   </h3>
                   <p className="text-white/85 text-sm md:text-base max-w-lg leading-relaxed">
-                    Verified ESCP students, real organizers, automatic QR delivery.
+                    Verified students from your school, real organizers, automatic QR delivery.
                   </p>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-2.5">

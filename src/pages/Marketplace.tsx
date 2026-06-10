@@ -29,9 +29,7 @@ import {
   ShieldCheck,
   ShoppingBag,
   Tag,
-  Ticket,
   Users,
-  Zap,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import {
@@ -42,19 +40,6 @@ import {
 import { isTonight, matchesDateFilter, type DateFilterId } from "@/lib/dateFilters";
 
 type ViewMode = "available" | "all";
-
-/**
- * Renders a big stat as "1.2k+" / "12k+" / plain number. Keeps the hero strip
- * readable when counts climb into the thousands without leaving "1248" naked.
- */
-function formatStat(n: number): string {
-  if (n >= 1000) {
-    const k = n / 1000;
-    return `${k >= 10 ? k.toFixed(0) : k.toFixed(1)}k+`;
-  }
-  if (n >= 100) return `${Math.floor(n / 10) * 10}+`;
-  return String(n);
-}
 
 const DATE_FILTERS = [
   { id: "all-dates", labelKey: "Any date" },
@@ -124,59 +109,7 @@ export default function Marketplace() {
         <div className="container mx-auto px-4 max-w-7xl">
           {/* Page header */}
           <div className="mb-6 text-center">
-            <h1 className="text-4xl md:text-5xl font-bold mb-3">{t('marketplace.title')}</h1>
-            <p className="text-lg text-muted-foreground">{t('marketplace.subtitle')}</p>
-          </div>
-
-          {/* ===== Hero stats strip — 4 trust-building numbers ===== */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-8">
-            <div className="bg-card border border-border rounded-2xl px-4 py-4 md:px-5 md:py-5 hover:shadow-sm transition-shadow">
-              <div className="flex items-center gap-2 mb-1.5">
-                <Ticket className="w-4 h-4 text-primary" />
-                <span className="text-[10px] md:text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Tickets sold
-                </span>
-              </div>
-              <div className="text-2xl md:text-3xl font-bold tabular-nums tracking-tight">
-                {stats ? formatStat(stats.lifetimeSold) : "—"}
-              </div>
-              <div className="text-[11px] text-muted-foreground mt-0.5">All-time on Ticket Safe</div>
-            </div>
-
-            <div className="bg-card border border-border rounded-2xl px-4 py-4 md:px-5 md:py-5 hover:shadow-sm transition-shadow">
-              <div className="flex items-center gap-2 mb-1.5">
-                <Tag className="w-4 h-4 text-primary" />
-                <span className="text-[10px] md:text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Available now
-                </span>
-              </div>
-              <div className="text-2xl md:text-3xl font-bold tabular-nums tracking-tight">
-                {stats ? formatStat(stats.activeListings) : "—"}
-              </div>
-              <div className="text-[11px] text-muted-foreground mt-0.5">Live listings right now</div>
-            </div>
-
-            <div className="bg-card border border-border rounded-2xl px-4 py-4 md:px-5 md:py-5 hover:shadow-sm transition-shadow">
-              <div className="flex items-center gap-2 mb-1.5">
-                <Zap className="w-4 h-4 text-primary" />
-                <span className="text-[10px] md:text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  QR delivery
-                </span>
-              </div>
-              <div className="text-2xl md:text-3xl font-bold tabular-nums tracking-tight">100%</div>
-              <div className="text-[11px] text-muted-foreground mt-0.5">Instant after payment</div>
-            </div>
-
-            <div className="bg-card border border-border rounded-2xl px-4 py-4 md:px-5 md:py-5 hover:shadow-sm transition-shadow">
-              <div className="flex items-center gap-2 mb-1.5">
-                <ShieldCheck className="w-4 h-4 text-primary" />
-                <span className="text-[10px] md:text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Hidden fees
-                </span>
-              </div>
-              <div className="text-2xl md:text-3xl font-bold tabular-nums tracking-tight">€0</div>
-              <div className="text-[11px] text-muted-foreground mt-0.5">6% shown upfront, always</div>
-            </div>
+            <h1 className="text-4xl md:text-5xl font-bold">{t('marketplace.title')}</h1>
           </div>
 
           {/* View toggle */}

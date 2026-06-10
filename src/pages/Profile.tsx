@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useI18n } from "@/contexts/I18nContext";
 import { toast } from "@/hooks/use-toast";
 import { SEOHead } from "@/components/SEOHead";
@@ -19,7 +20,8 @@ import {
   Save,
   AlertCircle,
   ShieldCheck,
-  GraduationCap,
+  Building2,
+  MapPin,
   Ticket,
   Tag,
   ArrowRight,
@@ -58,14 +60,18 @@ interface TxRow {
   status: string;
 }
 
+/** Campuses where the school operates — used in the profile + at signup. */
+const CAMPUSES = ["Paris", "London", "Madrid", "Berlin", "Turin"] as const;
+
 const Profile = () => {
-  const [userData, setUserData] = useState({ name: "", email: "", campus: "" });
+  const [userData, setUserData] = useState({ name: "", email: "", school: "", campus: "" });
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
   const [loading, setLoading] = useState(true);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [savingPassword, setSavingPassword] = useState(false);
+  const [savingCampus, setSavingCampus] = useState(false);
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { language, t } = useI18n();
@@ -102,7 +108,8 @@ const Profile = () => {
             setUserData({
               name: user.user_metadata?.full_name || user.email?.split("@")[0] || "User",
               email: user.email || "",
-              campus: user.user_metadata?.university || "",
+              school: (user.user_metadata?.university as string) || "",
+              campus: (user.user_metadata?.campus as string) || "",
             });
             setPurchases([]);
             setSales([]);
@@ -136,7 +143,8 @@ const Profile = () => {
         setUserData({
           name: profile.full_name || user.email?.split("@")[0] || "User",
           email: profile.email || user.email || "",
-          campus: profile.university || "",
+          school: profile.university || "",
+          campus: profile.campus || "",
         });
 
         const resalePurchases: Purchase[] = (purchaseData ?? []).map((p) => ({
@@ -219,6 +227,30 @@ const Profile = () => {
       });
     } finally {
       setSavingPassword(false);
+    }
+  };
+
+  const handleSaveCampus = async (campus: string) => {
+    if (!user || campus === userData.campus) return;
+    const previous = userData.campus;
+    setUserData((d) => ({ ...d, campus }));
+    try {
+      setSavingCampus(true);
+      const { error } = await supabase.from("profiles").update({ campus }).eq("id", user.id);
+      if (error) throw error;
+      toast({
+        title: fr ? "Campus mis à jour" : "Campus updated",
+        description: campus,
+      });
+    } catch (error) {
+      setUserData((d) => ({ ...d, campus: previous }));
+      toast({
+        title: t("toast.error"),
+        description: error instanceof Error ? error.message : "Failed to update campus",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingCampus(false);
     }
   };
 
@@ -310,7 +342,7 @@ const Profile = () => {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-[11px] md:text-xs font-semibold uppercase tracking-[0.18em] text-white/70">
-                  {userData.campus || "Ticket Safe"}
+                  {[userData.school, userData.campus].filter(Boolean).join(" · ") || "Ticket Safe"}
                 </p>
                 <h1 className="text-2xl md:text-3xl font-bold mt-0.5 leading-tight">
                   {t("profile.hello", { name: firstName })}
@@ -380,17 +412,41 @@ const Profile = () => {
                   <span className="text-sm font-medium truncate">{userData.email || "—"}</span>
                 </div>
               </div>
-              {userData.campus && (
+              {userData.school && (
                 <div className="space-y-2">
                   <Label className="text-xs uppercase tracking-wider text-muted-foreground">
-                    {fr ? "Campus" : "Campus"}
+                    {fr ? "École" : "School"}
                   </Label>
                   <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/40 border border-border">
-                    <GraduationCap className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                    <span className="text-sm font-medium truncate">{userData.campus}</span>
+                    <Building2 className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                    <span className="text-sm font-medium truncate">{userData.school}</span>
                   </div>
                 </div>
               )}
+              <div className="space-y-2">
+                <Label className="text-xs uppercase tracking-wider text-muted-foreground">
+                  Campus
+                </Label>
+                <Select
+                  value={userData.campus || undefined}
+                  onValueChange={handleSaveCampus}
+                  disabled={savingCampus}
+                >
+                  <SelectTrigger className="h-auto py-3 bg-muted/40">
+                    <span className="flex items-center gap-3">
+                      <MapPin className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                      <SelectValue placeholder={fr ? "Choisissez votre campus" : "Choose your campus"} />
+                    </span>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CAMPUSES.map((c) => (
+                      <SelectItem key={c} value={c}>
+                        {c}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="flex items-start gap-2 p-3 rounded-lg bg-primary/5 border border-primary/15">
                 <ShieldCheck className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
                 <p className="text-xs text-muted-foreground leading-relaxed">

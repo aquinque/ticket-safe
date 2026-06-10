@@ -7,8 +7,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2, Mail, Lock, User, CheckCircle2, XCircle, Eye, EyeOff } from "lucide-react";
+import { Loader2, Mail, Lock, User, CheckCircle2, XCircle, Eye, EyeOff, Building2, MapPin } from "lucide-react";
 import { z } from "zod";
 import { useAuth } from "@/hooks/useAuth";
 import { authRedirect } from "@/lib/siteUrl";
@@ -21,6 +22,12 @@ const passwordSchema = z.string()
   .regex(/[0-9]/, 'Must contain number')
   .regex(/[^A-Za-z0-9]/, 'Must contain special character');
 
+// Schools open on Ticket Safe. ESCP is the pilot; more are coming.
+const SCHOOLS = [
+  { value: "ESCP Business School", label: "ESCP Business School", available: true },
+];
+const CAMPUSES = ["Paris", "London", "Madrid", "Berlin", "Turin"];
+
 const Auth = () => {
   const [searchParams] = useSearchParams();
   const mode = searchParams.get('mode');
@@ -29,6 +36,8 @@ const Auth = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [school, setSchool] = useState("ESCP Business School");
+  const [campus, setCampus] = useState("");
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [pendingConfirmEmail, setPendingConfirmEmail] = useState<string | null>(null);
@@ -216,6 +225,18 @@ const Auth = () => {
           return;
         }
 
+        if (!school) {
+          toast.error("Please choose your school");
+          setLoading(false);
+          return;
+        }
+
+        if (!campus || !CAMPUSES.includes(campus)) {
+          toast.error("Please choose your campus");
+          setLoading(false);
+          return;
+        }
+
         const passwordValidation = passwordSchema.safeParse(password);
         if (!passwordValidation.success) {
           const errors = passwordValidation.error.errors.map(e => e.message);
@@ -224,7 +245,7 @@ const Auth = () => {
           return;
         }
 
-        const detectedUniversity = "ESCP Business School";
+        const detectedUniversity = school;
 
         // Server-side validation via Edge Function
         const { data: validationData, error: validationError } = await supabase.functions.invoke(
@@ -244,27 +265,8 @@ const Auth = () => {
           return;
         }
 
-        // Auto-detect campus from ESCP email
-        let detectedCampus = "";
-        const emailLower = email.toLowerCase();
-        
-        if (emailLower.includes("escp")) {
-          // Try to detect campus from email domain or patterns
-          if (emailLower.includes("paris") || emailLower.includes(".fr")) {
-            detectedCampus = "Paris";
-          } else if (emailLower.includes("berlin") || emailLower.includes(".de")) {
-            detectedCampus = "Berlin";
-          } else if (emailLower.includes("london") || emailLower.includes(".uk")) {
-            detectedCampus = "London";
-          } else if (emailLower.includes("madrid") || emailLower.includes(".es")) {
-            detectedCampus = "Madrid";
-          } else if (emailLower.includes("turin") || emailLower.includes("torino") || emailLower.includes(".it")) {
-            detectedCampus = "Turin";
-          } else {
-            // Default to Paris for ESCP emails without clear campus indicator
-            detectedCampus = "Paris";
-          }
-        }
+        // The user explicitly picks their campus at signup (see the form below).
+        const detectedCampus = campus;
 
         const { data, error } = await supabase.auth.signUp({
           email: email.trim(),
@@ -416,6 +418,45 @@ const Auth = () => {
                     onChange={(e) => setFullName(e.target.value)}
                     required={!isLogin}
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label>
+                    <Building2 className="w-4 h-4 inline mr-2" />
+                    School
+                  </Label>
+                  <Select value={school} onValueChange={setSchool}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose your school" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SCHOOLS.map((s) => (
+                        <SelectItem key={s.value} value={s.value} disabled={!s.available}>
+                          {s.label}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value="__coming_soon" disabled>
+                        More schools coming soon…
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>
+                    <MapPin className="w-4 h-4 inline mr-2" />
+                    Campus
+                  </Label>
+                  <Select value={campus || undefined} onValueChange={setCampus}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose your campus" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CAMPUSES.map((c) => (
+                        <SelectItem key={c} value={c}>
+                          {c}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </>
             )}
