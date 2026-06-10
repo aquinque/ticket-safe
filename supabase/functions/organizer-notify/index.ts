@@ -27,12 +27,13 @@ const cors = {
 // Shared Ticket Safe admin inbox for routine messages.
 const ADMIN_EMAIL = "ticketsafe.friendly@gmail.com";
 
-// Two specific high-priority admin tasks Achille and Adrien want in their
-// personal inboxes so they act on them immediately:
-//   - a new Studio application landing
-//   - a new resale ticket pending review (lives in submit-listing)
-// Anything else routes to ADMIN_EMAIL above.
+// A new Studio application must land in the shared Ticket Safe inbox (the one
+// the team actually monitors) AND ring on Achille's + Adrien's phones so they
+// act immediately. The shared inbox is listed first so it's the primary
+// recipient; set it as a VIP / enable high-priority notifications on the phone
+// to get the urgent ring.
 const STUDIO_APPLICATION_RECIPIENTS = [
+  "ticketsafe.friendly@gmail.com",
   "achille.quinquenel@edu.escp.eu",
   "adrien.menard@edu.escp.eu",
 ];
@@ -84,8 +85,15 @@ async function sendEmail(
   subject: string,
   html: string,
   replyTo?: string,
+  highPriority = false,
 ): Promise<{ ok: boolean; status: number; body: unknown }> {
   const recipients = Array.isArray(to) ? to : [to];
+  // High-importance headers so Gmail / Apple Mail flag the message as urgent
+  // (and, with the inbox set as a VIP, push a priority notification to the
+  // phone). Standard RFC + Microsoft + Resend-friendly header set.
+  const priorityHeaders = highPriority
+    ? { "X-Priority": "1 (Highest)", "X-MSMail-Priority": "High", Importance: "high" }
+    : undefined;
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
@@ -94,6 +102,7 @@ async function sendEmail(
       to: recipients,
       subject,
       html,
+      ...(priorityHeaders ? { headers: priorityHeaders } : {}),
       ...(replyTo ? { reply_to: replyTo } : {}),
     }),
   });
@@ -169,7 +178,7 @@ serve(async (req) => {
   // ── Build + send email ───────────────────────────────────────────────────
   try {
     if (kind === "new_application") {
-      const subject = `New Studio application: ${org.name}`;
+      const subject = `[URGENT] New Studio application — ${org.name} — action needed`;
       const fmtDate = (iso: string | null) =>
         iso ? new Date(iso).toLocaleString("en-GB", { dateStyle: "long", timeStyle: "short" }) : "—";
       const html = shell(
@@ -211,7 +220,7 @@ serve(async (req) => {
           <p style="margin:24px 0 8px;text-align:center">${ctaButton("Review in admin queue", `${SITE_URL}/admin/organizers`)}</p>
         `,
       );
-      const r = await sendEmail(resendKey, STUDIO_APPLICATION_RECIPIENTS, subject, html, org.contact_email);
+      const r = await sendEmail(resendKey, STUDIO_APPLICATION_RECIPIENTS, subject, html, org.contact_email, true);
       if (!r.ok) console.error("[organizer-notify] admin send failed:", r.status, r.body);
       return json({ ok: r.ok, kind, to: STUDIO_APPLICATION_RECIPIENTS });
     }

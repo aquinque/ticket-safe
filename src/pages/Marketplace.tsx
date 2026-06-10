@@ -91,9 +91,10 @@ export default function Marketplace() {
   });
 
   const handleNotify = () => {
-    toast.success("Got it! We'll email you when tickets are listed.", {
-      description: "Coming soon — ticket alerts are in beta.",
-    });
+    // Ticket alerts are per-event. Send the user to the catalog so they can
+    // open the event they care about and tap "Notify me" there.
+    toast.info("Open the event you're after and tap \"Notify me\" — we'll email you when a ticket is listed.");
+    setView("all");
   };
 
   return (

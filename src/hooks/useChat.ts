@@ -320,6 +320,22 @@ export function useChatRoom(conversationId: string | null) {
             ? `Accepted the offer of €${offer.price.toFixed(2)}`
             : `Declined the offer of €${offer.price.toFixed(2)}`,
         });
+
+        // Fire-and-forget: email the proposer that their offer was answered.
+        // notify-new-message resolves the recipient as the *other* party, so
+        // sending with senderId = current user notifies the proposer.
+        supabase.auth.getSession().then(({ data }) => {
+          const token = data.session?.access_token;
+          if (!token) return;
+          fetch(
+            `${import.meta.env.VITE_SUPABASE_URL ?? "https://lgmnatfvdzzjzyxlenry.supabase.co"}/functions/v1/notify-new-message`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+              body: JSON.stringify({ conversationId, senderId: user.id }),
+            }
+          ).catch(() => {});
+        });
       }
     },
     [user, conversationId, offers]

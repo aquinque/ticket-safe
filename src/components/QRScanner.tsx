@@ -67,7 +67,6 @@ export function QRScanner({ onScan, onClose }: QRScannerProps) {
           (decodedText: string) => {
             if (done) return;
             done = true;
-            console.log("[QRScanner] scan success →", decodedText);
             stopScanner();
             onScanRef.current(decodedText);
           },
@@ -99,7 +98,6 @@ export function QRScanner({ onScan, onClose }: QRScannerProps) {
       done = true;
       stopScanner();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleClose = () => {

@@ -46,3 +46,13 @@ verify_jwt = false
 # Cancel event + refund all paid orders (organizer-only, Stripe refunds).
 [functions.cancel-event]
 verify_jwt = false
+
+# Ticket availability alerts — invoked by a DB trigger (pg_net) when a resale
+# ticket goes live. Emails users who tapped "Notify me" for that event.
+[functions.notify-ticket-alerts]
+verify_jwt = false
+
+# New-event alerts — invoked by a DB trigger (pg_net) when an event is
+# published. Emails users who follow the organizer.
+[functions.notify-event-followers]
+verify_jwt = false

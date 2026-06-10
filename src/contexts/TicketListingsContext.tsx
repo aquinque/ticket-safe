@@ -53,6 +53,31 @@ export const LISTINGS_QUERY_KEY = ["marketplace-listings"] as const;
 // Fetch helper
 // ---------------------------------------------------------------------------
 
+// Shape of the joined tickets row returned by the select below. Supabase's
+// generated types model embedded relations awkwardly, so we describe the row
+// explicitly here instead of leaning on `any`.
+interface RawListingRow {
+  id: string;
+  event_id: string;
+  seller_id: string;
+  selling_price: number;
+  quantity: number;
+  notes: string | null;
+  qr_verified: boolean | null;
+  created_at: string;
+  event: {
+    id: string;
+    title: string;
+    date: string;
+    location: string;
+    category: string;
+    university: string;
+    campus: string | null;
+    base_price: number | null;
+  } | null;
+  seller: { full_name: string } | null;
+}
+
 async function fetchAvailableListings(): Promise<TicketListing[]> {
   const { data, error } = await supabase
     .from("tickets")
@@ -88,19 +113,9 @@ async function fetchAvailableListings(): Promise<TicketListing[]> {
 
   if (error) throw error;
 
-  return ((data as any[]) ?? []).map((row: any) => {
-    const ev = row.event as {
-      id: string;
-      title: string;
-      date: string;
-      location: string;
-      category: string;
-      university: string;
-      campus: string | null;
-      base_price: number | null;
-    } | null;
-
-    const seller = row.seller as { full_name: string } | null;
+  return (((data ?? []) as unknown) as RawListingRow[]).map((row) => {
+    const ev = row.event;
+    const seller = row.seller;
 
     const eventData: EventData = {
       id: ev?.id ?? row.event_id,

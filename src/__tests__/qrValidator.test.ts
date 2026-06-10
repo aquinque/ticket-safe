@@ -113,16 +113,9 @@ describe("parseQRPayload — type detection", () => {
 // ---------------------------------------------------------------------------
 
 describe("decodeQRFromImage", () => {
-  it("throws when BarcodeDetector is not available", async () => {
-    // Make sure BarcodeDetector is NOT defined in the test env
-    const { decodeQRFromImage } = await import("../lib/qrValidator");
-
-    const fakeFile = new File(["data"], "qr.png", { type: "image/png" });
-    await expect(decodeQRFromImage(fakeFile)).rejects.toThrow(
-      /not supported in your browser/i
-    );
-  });
-
+  // Note: the happy path (actually decoding a QR) can't run under jsdom —
+  // html5-qrcode needs a real canvas/image decoder. These tests cover the
+  // synchronous input guards that run before any scan is attempted.
   it("throws on unsupported file type", async () => {
     const { decodeQRFromImage } = await import("../lib/qrValidator");
     const badFile = new File(["data"], "ticket.pdf", {

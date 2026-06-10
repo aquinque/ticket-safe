@@ -71,6 +71,8 @@ const EventPublic = () => {
   const [buying, setBuying] = useState(false);
   const [maxPerBuyer, setMaxPerBuyer] = useState<number | null>(null);
   const [attendees, setAttendees] = useState<{ first_name: string; last_name: string; email: string }[]>([]);
+  const [following, setFollowing] = useState(false);
+  const [followBusy, setFollowBusy] = useState(false);
 
   // Keep the attendees array sized to the current quantity. When quantity grows,
   // we add empty slots; when it shrinks, we trim. The first slot auto-fills from
@@ -182,6 +184,62 @@ const EventPublic = () => {
       supabase.removeChannel(ch);
     };
   }, [event?.id, load]);
+
+  // Whether the signed-in user already follows this event's organizer.
+  useEffect(() => {
+    const orgId = event?.organizer?.id;
+    if (!user || !orgId) {
+      setFollowing(false);
+      return;
+    }
+    let active = true;
+    // organizer_follows isn't in the generated Supabase types yet.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase as any)
+      .from("organizer_follows")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("organizer_id", orgId)
+      .maybeSingle()
+      .then(({ data }: { data: { id: string } | null }) => {
+        if (active) setFollowing(!!data);
+      });
+    return () => {
+      active = false;
+    };
+  }, [user, event?.organizer?.id]);
+
+  const handleToggleFollow = async () => {
+    const orgId = event?.organizer?.id;
+    if (!user) {
+      navigate(`/auth?next=/e/${slug}`);
+      return;
+    }
+    if (!orgId) return;
+    setFollowBusy(true);
+    if (following) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase as any)
+        .from("organizer_follows")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("organizer_id", orgId);
+      setFollowing(false);
+      toast.success("Unfollowed.");
+    } else {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase as any)
+        .from("organizer_follows")
+        .insert({ user_id: user.id, organizer_id: orgId });
+      if (!error || error.code === "23505") {
+        setFollowing(true);
+        toast.success("Following — we'll email you when they publish a new event.");
+      } else {
+        toast.error("Could not follow. Please try again.");
+      }
+    }
+    setFollowBusy(false);
+  };
 
   const handleBuy = async () => {
     if (!selectedTier) return;
@@ -773,7 +831,34 @@ const EventPublic = () => {
                     </a>
                   )}
                 </div>
+                <button
+                  type="button"
+                  onClick={handleToggleFollow}
+                  disabled={followBusy}
+                  className={`flex-shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-60 ${
+                    following
+                      ? "bg-muted text-foreground hover:bg-muted/70"
+                      : "text-white hover:shadow-md"
+                  }`}
+                  style={following ? undefined : { background: primary }}
+                  aria-pressed={following}
+                >
+                  {following ? (
+                    <>
+                      <Check className="w-4 h-4" />
+                      Following
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-4 h-4" />
+                      Follow
+                    </>
+                  )}
+                </button>
               </div>
+              <p className="mt-3 text-[11px] text-muted-foreground">
+                Follow to get an email whenever {event.organizer.name} publishes a new event.
+              </p>
             </section>
           )}
 

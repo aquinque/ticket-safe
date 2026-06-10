@@ -89,9 +89,6 @@ export const CookieConsent = () => {
         analytics_storage: 'granted',
       });
     }
-
-    // Handle other cookie categories as needed
-    console.log('Cookie preferences applied:', prefs);
   };
 
   if (!showBanner) {
@@ -292,6 +289,6 @@ export const CookieConsent = () => {
 // Type declaration for window.gtag
 declare global {
   interface Window {
-    gtag?: (...args: any[]) => void;
+    gtag?: (...args: unknown[]) => void;
   }
 }

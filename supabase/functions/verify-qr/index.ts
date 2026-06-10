@@ -117,6 +117,34 @@ Deno.serve(async (req) => {
 
     console.log("[verify-qr] checking", { len: raw.length, isJWT: JWT_RE.test(raw), eventId });
 
+    // ── 2b. Event timing check (applies to ALL ticket types) ───────────────
+    // Mirrors submit-listing step 5: a ticket for an event that has already
+    // taken place (with a 6h grace after the end time) can never be resold,
+    // whatever the QR type — including opaque external tickets we otherwise
+    // can't introspect. This is what turns a confusing "invalid format" into a
+    // clear "this event has already taken place" the moment the seller picks a
+    // past event.
+    if (eventId) {
+      const { data: evRow } = await supabase
+        .from("events")
+        .select("date, ends_at, is_active")
+        .eq("id", eventId)
+        .maybeSingle();
+      if (evRow) {
+        if (evRow.is_active === false) {
+          return json({ status: "expired", message: "This event is no longer active — tickets can't be resold." });
+        }
+        const startMs = evRow.date ? new Date(evRow.date).getTime() : NaN;
+        if (!Number.isNaN(startMs)) {
+          const endsAtMs = evRow.ends_at ? new Date(evRow.ends_at).getTime() : startMs + 8 * 60 * 60 * 1000;
+          const graceMs = 6 * 60 * 60 * 1000; // 6h grace after the event ends
+          if (Date.now() > endsAtMs + graceMs) {
+            return json({ status: "expired", message: "This event has already taken place — tickets can't be resold." });
+          }
+        }
+      }
+    }
+
     // ── 3. Deduplication ───────────────────────────────────────────────────
     // Cancelled listings are excluded so the seller can relist the same ticket.
     const qrHash = await sha256hex(raw);

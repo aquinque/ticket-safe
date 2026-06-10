@@ -46,7 +46,6 @@ const ResetPassword = () => {
 
     const resolve = (valid: boolean) => {
       if (cancelled) return;
-      console.log("[reset-password] session valid:", valid);
       setIsValidToken(valid);
       if (!valid) {
         toast.error("This reset link has expired or is invalid. Please request a new one.");
@@ -109,8 +108,6 @@ const ResetPassword = () => {
     e.preventDefault();
     setSubmitError(null);
 
-    console.log("[reset-password] submit clicked");
-
     // Inline validation
     const validation = passwordSchema.safeParse(newPassword);
     if (!validation.success) {
@@ -135,13 +132,11 @@ const ResetPassword = () => {
         return;
       }
 
-      console.log("[reset-password] calling updateUser with new password…");
-      const { data, error } = await supabase.auth.updateUser({ password: newPassword });
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) {
         console.error("[reset-password] updateUser error:", error);
         throw error;
       }
-      console.log("[reset-password] updateUser ok, user:", data.user?.id);
 
       toast.success("Password updated successfully!");
       setSuccess(true);

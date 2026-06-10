@@ -47,6 +47,7 @@ const EventTicketsMarketplace = () => {
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [notifying, setNotifying] = useState(false);
 
   useEffect(() => {
     if (!eventId) return;
@@ -87,6 +88,30 @@ const EventTicketsMarketplace = () => {
 
   const handleBuyTicket = (listingId: string) => {
     navigate(`/checkout?listing_id=${listingId}`);
+  };
+
+  const handleNotifyMe = async () => {
+    if (!user) {
+      navigate(`/auth?next=${encodeURIComponent(window.location.pathname + window.location.search)}`);
+      return;
+    }
+    if (!eventId) return;
+    setNotifying(true);
+    // ticket_alerts isn't in the generated Supabase types yet.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error } = await (supabase as any)
+      .from("ticket_alerts")
+      .insert({ user_id: user.id, event_id: eventId });
+    setNotifying(false);
+    if (error) {
+      if (error.code === "23505") {
+        toast.success("You're already on the list — we'll email you when a ticket is listed.");
+      } else {
+        toast.error("Could not set up the alert. Please try again.");
+      }
+      return;
+    }
+    toast.success("Done! We'll email you the moment a ticket is listed for this event.");
   };
 
   const handleMakeOffer = async (listing: Listing) => {
@@ -231,8 +256,8 @@ const EventTicketsMarketplace = () => {
                   <ShoppingCart className="w-4 h-4 mr-2" />
                   List your ticket
                 </Button>
-                <Button variant="outline" onClick={() => toast.success("Got it! We'll email you when a ticket is listed for this event.", { description: "Coming soon — ticket alerts are in beta." })} aria-label="Get notified when a ticket is listed">
-                  Notify me
+                <Button variant="outline" onClick={handleNotifyMe} disabled={notifying} aria-label="Get notified when a ticket is listed">
+                  {notifying ? "Setting up…" : "Notify me"}
                 </Button>
               </div>
             </div>

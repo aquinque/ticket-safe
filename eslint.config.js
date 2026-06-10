@@ -5,7 +5,11 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist"] },
+  // This config targets the Vite/React frontend. Deno edge functions
+  // (supabase/functions) and Node build scripts run on different runtimes with
+  // their own globals/parsers, so they're linted by their own toolchains, not
+  // this browser-oriented config.
+  { ignores: ["dist", "supabase/functions/**", "scripts/**"] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],

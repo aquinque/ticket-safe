@@ -374,7 +374,6 @@ const Sell = () => {
     setExtractedText(null);
     setQrDecoding(true);
     const isPDF = file.type === "application/pdf";
-    console.log("[Sell] file upload received:", file.name, file.size, file.type);
     try {
       // Run QR decode and text extraction in parallel
       const [decoded, text] = await Promise.all([
@@ -384,11 +383,9 @@ const Sell = () => {
 
       if (text) {
         setExtractedText(text);
-        console.log("[Sell] extracted text:", text.length, "chars →", text.slice(0, 80).replace(/\s+/g, " "));
       }
 
       if (decoded) {
-        console.log("[Sell] decode success:", decoded.slice(0, 80));
         setQrText(decoded);
         toast.success("Ticket accepted");
       } else {
@@ -416,6 +413,18 @@ const Sell = () => {
     if (!selectedEvent || !user) {
       toast.error("Please select an event");
       return;
+    }
+
+    // Past-event guard — mirrors the server's 6h-grace expiry rule so a ticket
+    // for an event that already happened is rejected with a clear reason.
+    const evStartMs = selectedEvent.date ? new Date(selectedEvent.date).getTime() : NaN;
+    if (!Number.isNaN(evStartMs)) {
+      const evEnds = (selectedEvent as { ends_at?: string | null }).ends_at;
+      const evEndsMs = evEnds ? new Date(evEnds).getTime() : evStartMs + 8 * 60 * 60 * 1000;
+      if (Date.now() > evEndsMs + 6 * 60 * 60 * 1000) {
+        toast.error("This event has already taken place — tickets can't be resold.");
+        return;
+      }
     }
 
     const price = parseFloat(formData.sellingPrice);
@@ -512,11 +521,6 @@ const Sell = () => {
         fileName,
         fileMimeType,
       };
-      console.log("[Sell] submitting to submit-listing:", {
-        ...payload,
-        qrText: qrText.length > 60 ? qrText.slice(0, 60) + "…" : qrText,
-      });
-
       const res = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/submit-listing`,
         {
@@ -623,8 +627,21 @@ const Sell = () => {
   // Sell form
   // ---------------------------------------------------------------------------
 
+  // Block listing for events that have already taken place (mirrors the
+  // server's 6h-grace expiry rule) so the seller gets instant, clear feedback
+  // instead of a confusing QR error after upload.
+  const eventIsPast = (() => {
+    if (!selectedEvent?.date) return false;
+    const startMs = new Date(selectedEvent.date).getTime();
+    if (Number.isNaN(startMs)) return false;
+    const endsAt = (selectedEvent as { ends_at?: string | null }).ends_at;
+    const endsAtMs = endsAt ? new Date(endsAt).getTime() : startMs + 8 * 60 * 60 * 1000;
+    return Date.now() > endsAtMs + 6 * 60 * 60 * 1000;
+  })();
+
   const canSubmit =
     !!selectedEvent &&
+    !eventIsPast &&
     !!formData.sellingPrice &&
     isQRTextValid(qrText) &&
     !isSubmitting;
@@ -859,6 +876,15 @@ const Sell = () => {
                           </p>
                         </AlertDescription>
                       </Alert>
+                      {eventIsPast && (
+                        <Alert variant="destructive" className="mt-3">
+                          <AlertTriangle className="w-4 h-4" />
+                          <AlertDescription>
+                            <span className="font-medium">This event has already taken place.</span>{" "}
+                            Tickets for past events can't be resold on Ticket Safe.
+                          </AlertDescription>
+                        </Alert>
+                      )}
                     </>
                   )}
                 </CardContent>

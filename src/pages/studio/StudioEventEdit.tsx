@@ -1004,7 +1004,7 @@ const EventDetailsEditor = ({
       }
 
       // Check slug uniqueness if it changed
-      let finalSlug = slug;
+      const finalSlug = slug;
       if (finalSlug !== event.slug) {
         const { data: clash } = await supabase
           .from("events")

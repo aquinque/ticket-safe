@@ -31,7 +31,10 @@ export function useUnreadMessages() {
     const countUnread = async () => {
       const lastSeen = getLastSeen();
 
-      // Get conversations where this user is participant
+      // Get conversations where this user is participant.
+      // `conversations`/`messages` aren't in the generated Supabase types yet
+      // (run `supabase gen types` to remove these casts) — escape-hatch for now.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: convs } = await (supabase as any)
         .from("conversations")
         .select("id")
@@ -45,6 +48,7 @@ export function useUnreadMessages() {
       const convIds = (convs as { id: string }[]).map((c) => c.id);
       convIdsRef.current = convIds;
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { count } = await (supabase as any)
         .from("messages")
         .select("id", { count: "exact", head: true })

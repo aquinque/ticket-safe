@@ -6,6 +6,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import { CookieConsent } from "@/components/CookieConsent";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import ScrollToTop from "@/components/ScrollToTop";
+import ProtectedAdminRoute from "@/components/ProtectedAdminRoute";
 
 // Eager: landing + 404 + auth (most likely first-paint targets)
 import Home from "./pages/Home";
@@ -122,7 +123,7 @@ const App = () => (
         <Route path="/how-it-works" element={<HowItWorks />} />
         <Route path="/how-it-works/tickets" element={<HowItWorksTickets />} />
         <Route path="/organizer/scan" element={<OrganizerScan />} />
-        <Route path="/admin/review" element={<ReviewTickets />} />
+        <Route path="/admin/review" element={<ProtectedAdminRoute><ReviewTickets /></ProtectedAdminRoute>} />
         <Route path="/stripe-return" element={<StripeReturn />} />
         <Route path="/checkout/success" element={<CheckoutSuccess />} />
         <Route path="/checkout/cancel" element={<CheckoutCancel />} />
@@ -139,9 +140,9 @@ const App = () => (
         <Route path="/e/:slug" element={<EventPublic />} />
         <Route path="/my-tickets" element={<MyTicketsHub />} />
         <Route path="/my-tickets/:orderId" element={<MyTickets />} />
-        <Route path="/admin/organizers" element={<AdminOrganizers />} />
-        <Route path="/admin/payouts" element={<AdminPayouts />} />
-        <Route path="/admin/debug" element={<AdminDebug />} />
+        <Route path="/admin/organizers" element={<ProtectedAdminRoute><AdminOrganizers /></ProtectedAdminRoute>} />
+        <Route path="/admin/payouts" element={<ProtectedAdminRoute><AdminPayouts /></ProtectedAdminRoute>} />
+        <Route path="/admin/debug" element={<ProtectedAdminRoute><AdminDebug /></ProtectedAdminRoute>} />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />
       </Routes>
