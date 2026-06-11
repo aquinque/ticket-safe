@@ -260,7 +260,12 @@ const EventPublic = () => {
     }
     setBuying(true);
     try {
-      const { data, error } = await supabase.functions.invoke("studio-create-checkout", {
+      // Payment provider switch: default Stripe; use Revolut only when the URL
+      // carries ?pay=revolut, so we can test Revolut end-to-end without touching
+      // real buyers. Flip the default once Revolut is verified in production.
+      const useRevolut = new URLSearchParams(window.location.search).get("pay") === "revolut";
+      const checkoutFn = useRevolut ? "revolut-create-checkout" : "studio-create-checkout";
+      const { data, error } = await supabase.functions.invoke(checkoutFn, {
         body: { tier_id: selectedTier, quantity: qty, attendees },
       });
       if (error || !data?.url) {
