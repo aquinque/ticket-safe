@@ -260,12 +260,10 @@ const EventPublic = () => {
     }
     setBuying(true);
     try {
-      // Payment provider switch: default Stripe; use Revolut only when the URL
-      // carries ?pay=revolut, so we can test Revolut end-to-end without touching
-      // real buyers. Flip the default once Revolut is verified in production.
-      const useRevolut = new URLSearchParams(window.location.search).get("pay") === "revolut";
-      const checkoutFn = useRevolut ? "revolut-create-checkout" : "studio-create-checkout";
-      const { data, error } = await supabase.functions.invoke(checkoutFn, {
+      // Revolut is the payment provider now. studio-create-checkout (Stripe)
+      // stays deployed as a dormant fallback but is no longer called, so the two
+      // never run together.
+      const { data, error } = await supabase.functions.invoke("revolut-create-checkout", {
         body: { tier_id: selectedTier, quantity: qty, attendees },
       });
       if (error || !data?.url) {
