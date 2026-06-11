@@ -246,8 +246,10 @@ const Checkout = () => {
         return;
       }
 
+      // Revolut is the payment provider now (Stripe set aside). Same response
+      // shape ({ checkout_url }), so only the endpoint changes.
       const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stripe-create-checkout`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/revolut-resale-checkout`,
         {
           method: "POST",
           headers: {
