@@ -45,7 +45,6 @@ const HowItWorks = lazy(() => import("./pages/HowItWorks"));
 const HowItWorksTickets = lazy(() => import("./pages/HowItWorksTickets"));
 const OrganizerScan = lazy(() => import("./pages/OrganizerScan"));
 const ReviewTickets = lazy(() => import("./pages/admin/ReviewTickets"));
-const StripeReturn = lazy(() => import("./pages/StripeReturn"));
 const CheckoutSuccess = lazy(() => import("./pages/CheckoutSuccess"));
 const CheckoutCancel = lazy(() => import("./pages/CheckoutCancel"));
 const GalaESCP = lazy(() => import("./pages/GalaESCP"));
@@ -124,7 +123,6 @@ const App = () => (
         <Route path="/how-it-works/tickets" element={<HowItWorksTickets />} />
         <Route path="/organizer/scan" element={<OrganizerScan />} />
         <Route path="/admin/review" element={<ProtectedAdminRoute><ReviewTickets /></ProtectedAdminRoute>} />
-        <Route path="/stripe-return" element={<StripeReturn />} />
         <Route path="/checkout/success" element={<CheckoutSuccess />} />
         <Route path="/checkout/cancel" element={<CheckoutCancel />} />
         <Route path="/gala-escp" element={<GalaESCP />} />
