@@ -265,11 +265,21 @@ const EventPublic = () => {
       });
       if (error || !data?.url) {
         console.error("[event-public] checkout error:", error, data);
-        toast.error(
-          (data as { error?: string })?.error ??
-            error?.message ??
-            "Could not start the checkout. Please try again.",
-        );
+        // supabase.functions.invoke hides the function's error body on a non-2xx
+        // (you just get "Edge Function returned a non-2xx status code"). The real
+        // reason — per-buyer limit, sold out, etc. — lives in error.context, so
+        // read it and show THAT instead of the cryptic generic message.
+        let msg = (data as { error?: string })?.error;
+        const ctx = (error as { context?: Response } | null)?.context;
+        if (!msg && ctx && typeof ctx.json === "function") {
+          try {
+            const bodyJson = await ctx.clone().json();
+            if (bodyJson?.error) msg = bodyJson.error as string;
+          } catch {
+            /* body wasn't JSON — fall through to the generic message */
+          }
+        }
+        toast.error(msg ?? error?.message ?? "Could not start the checkout. Please try again.");
         return;
       }
       window.location.href = data.url as string;
