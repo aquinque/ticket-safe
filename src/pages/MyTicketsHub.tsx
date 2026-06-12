@@ -82,7 +82,7 @@ const MyTicketsHub = () => {
             `id, status, quantity, total_cents, paid_at, created_at, event_id,
              event:events(title, date, location, slug, banner_url, primary_color),
              tier:event_tiers(name),
-             tickets:event_tickets(id, status, scanned_at, holder_first_name, holder_last_name)`,
+             tickets:event_tickets(id, buyer_id, status, scanned_at, holder_first_name, holder_last_name)`,
           )
           .eq("buyer_id", user.id)
           // Fetch paid + refunded so studioOrderIds below covers the user's own
@@ -250,6 +250,7 @@ const MyTicketsHub = () => {
             tickets:
               | {
                   id: string;
+                  buyer_id: string | null;
                   status: string;
                   scanned_at: string | null;
                   holder_first_name: string | null;
@@ -260,7 +261,12 @@ const MyTicketsHub = () => {
         ) => {
           const ev = Array.isArray(row.event) ? row.event[0] : row.event;
           const tier = Array.isArray(row.tier) ? row.tier[0] : row.tier;
-          const tix = row.tickets ?? [];
+          // Only count the tickets that still belong to THIS order's buyer.
+          // After a Studio-resale, the new buyer's fresh ticket is inserted
+          // under the seller's original order_id — filtering by buyer_id keeps
+          // it out of the seller's card so a fully-resold order reads as
+          // "Resold" instead of staying active.
+          const tix = (row.tickets ?? []).filter((t) => t.buyer_id === user.id);
           const attendees = tix
             .map((t) => [t.holder_first_name, t.holder_last_name].filter(Boolean).join(" ").trim())
             .filter(Boolean);
