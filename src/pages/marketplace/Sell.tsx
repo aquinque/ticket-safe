@@ -177,6 +177,11 @@ const Sell = () => {
   const [myEvents, setMyEvents] = useState<{ event: Event; count: number }[]>([]);
   const [myEventsLoading, setMyEventsLoading] = useState(false);
 
+  // When the seller owns tickets for the chosen event, the manual QR-upload
+  // flow is hidden (a ticket they hold is trusted). They can still reveal it
+  // for a ticket bought elsewhere via this toggle.
+  const [showExternal, setShowExternal] = useState(false);
+
   // Guard: redirect unauthenticated users
   useEffect(() => {
     if (!authLoading && !user) {
@@ -308,6 +313,11 @@ const Sell = () => {
       cancelled = true;
     };
   }, [user, studioTicket]);
+
+  // Reset the "bought elsewhere" toggle whenever the chosen event changes.
+  useEffect(() => {
+    setShowExternal(false);
+  }, [selectedEvent?.id]);
 
   // Studio-resale path: fetch the ticket, validate ownership, prefill state.
   useEffect(() => {
@@ -840,6 +850,14 @@ const Sell = () => {
     isQRTextValid(qrText) &&
     !isSubmitting;
 
+  // The seller owns real tickets for the chosen event → steer them to "Your
+  // tickets" and hide the manual QR-upload / price / publish until they pick a
+  // ticket (→ Studio fast-path) or explicitly choose the "bought elsewhere"
+  // path. A ticket they already hold is trusted, so no QR check is needed.
+  const ownedForEvent = !!selectedEvent && !studioTicket && myTickets.length > 0;
+  const loadingOwned = !!selectedEvent && !studioTicket && myTicketsLoading;
+  const showExternalFlow = !studioTicket && !loadingOwned && (!ownedForEvent || showExternal);
+
   // Compute progress for the stepper. For Studio resales the event + QR are
   // already verified by definition, so the user only has to do "price" → "publish".
   const hasEvent = !!selectedEvent;
@@ -1270,8 +1288,8 @@ const Sell = () => {
                     Your tickets
                   </CardTitle>
                   <CardDescription>
-                    Your tickets for this event. Click to resell one in seconds. For a ticket
-                    bought elsewhere, use the option below.
+                    Your tickets for this event. Click one to resell it in seconds — no QR check
+                    needed, we already know it's legit.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -1315,12 +1333,22 @@ const Sell = () => {
                       ))}
                     </div>
                   )}
+                  {ownedForEvent && !showExternal && (
+                    <button
+                      type="button"
+                      onClick={() => setShowExternal(true)}
+                      className="mt-3 text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
+                    >
+                      Selling a ticket you bought elsewhere? Add it manually.
+                    </button>
+                  )}
                 </CardContent>
               </Card>
               )}
 
-              {/* QR Code — skipped for trusted Studio resales */}
-              {!studioTicket && (
+              {/* QR Code — only for tickets bought elsewhere; hidden when the
+                  seller owns real tickets for the selected event. */}
+              {showExternalFlow && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -1470,7 +1498,8 @@ const Sell = () => {
               </Card>
               )}
 
-              {/* Pricing */}
+              {/* Pricing — shown in Studio mode or the external (QR) flow. */}
+              {(studioTicket || showExternalFlow) && (
               <Card>
                 <CardHeader>
                   <CardTitle>Set your price</CardTitle>
@@ -1556,6 +1585,7 @@ const Sell = () => {
                   </div>
                 </CardContent>
               </Card>
+              )}
             </div>
 
             {/* ---- Sidebar ---- */}
@@ -1564,7 +1594,7 @@ const Sell = () => {
                   "You receive €X" is the answer to the only question the
                   seller cares about. Big tabular-nums number in brand blue,
                   the breakdown lives below it as a quiet ledger. */}
-              {(() => {
+              {(studioTicket || showExternalFlow) && (() => {
                 const price = parseFloat(formData.sellingPrice);
                 const qty = parseInt(formData.quantity, 10) || 1;
                 const hasPrice = isFinite(price) && price > 0;
@@ -1662,6 +1692,7 @@ const Sell = () => {
           the screen: a compact stepper that's always visible while filling the
           form, and that turns into the Publish CTA once a price is set. Keeps
           the interface perfectly fit for mobile (no scrolling back up). */}
+      {(studioTicket || showExternalFlow) && (
       <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/95 backdrop-blur-md shadow-[0_-4px_24px_rgba(0,0,0,0.08)] px-4 pt-2.5 pb-3">
         <div className="container mx-auto max-w-4xl">
           {/* Compact progress: numbered chip per step + connecting bar */}
@@ -1733,6 +1764,7 @@ const Sell = () => {
           )}
         </div>
       </div>
+      )}
 
       <Footer />
     </div>

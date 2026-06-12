@@ -41,6 +41,8 @@ interface OrderCard {
   attendees: string[];
   sellableTicketId: string | null;
   isResale: boolean;
+  /** True when the user obtained this ticket through a resale purchase. */
+  isResold: boolean;
 }
 
 const MyTicketsHub = () => {
@@ -157,6 +159,7 @@ const MyTicketsHub = () => {
             attendees: [],
             sellableTicketId: null,
             isResale: true,
+            isResold: true,
           };
         },
       );
@@ -215,6 +218,7 @@ const MyTicketsHub = () => {
           attendees,
           sellableTicketId: sellable?.id ?? null,
           isResale: false,
+          isResold: true,
         };
       });
 
@@ -279,6 +283,7 @@ const MyTicketsHub = () => {
             attendees,
             sellableTicketId: sellable?.id ?? null,
             isResale: false,
+            isResold: false,
           };
         },
       );
@@ -469,6 +474,14 @@ const TicketCard = ({
             status={allRefunded ? "refunded" : allScanned ? "used" : order.status === "paid" ? "ready" : order.status}
           />
         </div>
+        {order.isResold && (
+          <div className="mb-1.5">
+            <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-violet-700 bg-violet-100 px-2 py-0.5 rounded-full">
+              <Tag className="w-3 h-3" />
+              Resold ticket
+            </span>
+          </div>
+        )}
         <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1 mb-2">
           {dateObj && (
             <span className="inline-flex items-center gap-1">
