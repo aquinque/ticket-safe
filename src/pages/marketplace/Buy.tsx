@@ -49,6 +49,7 @@ import { SEOHead } from "@/components/SEOHead";
 import { useTicketListings, TicketListing } from "@/contexts/TicketListingsContext";
 import { useAuth } from "@/hooks/useAuth";
 import { getOrCreateConversation } from "@/hooks/useChat";
+import { calcBreakdown } from "@/lib/fees";
 import { toast } from "sonner";
 
 // ---------------------------------------------------------------------------
@@ -440,8 +441,9 @@ const Buy = () => {
                                 <div className="flex-1 min-w-0">
                                   <div className="flex flex-wrap items-center gap-2 mb-1">
                                     <span className="font-semibold text-lg">
-                                      €{ticket.sellingPrice.toFixed(2)}
+                                      €{calcBreakdown(ticket.sellingPrice, 1).buyerTotalEuros.toFixed(2)}
                                     </span>
+                                    <span className="text-[10px] text-muted-foreground -ml-1">all-in</span>
                                     <Badge variant="outline">
                                       {ticket.quantity} available
                                     </Badge>

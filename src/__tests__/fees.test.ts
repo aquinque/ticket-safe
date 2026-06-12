@@ -58,19 +58,27 @@ describe("seller commission calculations", () => {
 });
 
 describe("calcBreakdown", () => {
-  it("€50 ticket × 1 gives correct breakdown", () => {
+  it("€50 ticket × 1 applies the 7% high-value buyer fee", () => {
     const b = calcBreakdown(50, 1);
     expect(b.listPriceCents).toBe(5000);
-    expect(b.buyerFeeCents).toBe(300);
-    expect(b.buyerTotalCents).toBe(5300);
+    expect(b.buyerFeeCents).toBe(350);
+    expect(b.buyerTotalCents).toBe(5350);
     expect(b.sellerCommissionCents).toBe(250);
     expect(b.sellerPayoutCents).toBe(4750);
     // Euro helpers
     expect(b.listPriceEuros).toBe(50);
-    expect(b.buyerFeeEuros).toBe(3);
-    expect(b.buyerTotalEuros).toBe(53);
+    expect(b.buyerFeeEuros).toBe(3.5);
+    expect(b.buyerTotalEuros).toBe(53.5);
     expect(b.sellerCommissionEuros).toBe(2.5);
     expect(b.sellerPayoutEuros).toBe(47.5);
+  });
+
+  it("buyer fee steps up from 6% to 7% at €50 (by unit price)", () => {
+    expect(calcBreakdown(49, 1).buyerFeeCents).toBe(294); // 4900 × 6%
+    expect(calcBreakdown(50, 1).buyerFeeCents).toBe(350); // 5000 × 7%
+    expect(calcBreakdown(60, 1).buyerFeeCents).toBe(420); // 6000 × 7%
+    // Tier is on the UNIT price: €25 × 2 stays at 6% even though the line is €50.
+    expect(calcBreakdown(25, 2).buyerFeeCents).toBe(300); // 5000 × 6%
   });
 
   it("€25 ticket × 2 = €50 list price", () => {

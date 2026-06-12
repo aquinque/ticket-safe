@@ -10,7 +10,15 @@
  */
 
 export const BUYER_FEE_RATE = 0.06;
+/** Higher buyer fee for higher-value tickets (unit price >= threshold). */
+export const BUYER_FEE_RATE_HIGH = 0.07;
+/** Unit price (per ticket, EUR) at/above which the higher buyer fee applies. */
+export const HIGH_VALUE_THRESHOLD_EUR = 50;
 export const SELLER_COMMISSION_RATE = 0.05;
+
+/** Buyer fee rate for a given unit (per-ticket) price in euros. */
+export const buyerFeeRateFor = (unitPriceEuros: number): number =>
+  unitPriceEuros >= HIGH_VALUE_THRESHOLD_EUR ? BUYER_FEE_RATE_HIGH : BUYER_FEE_RATE;
 
 /** Convert euros (possibly fractional) to integer cents, rounding half-up. */
 export const toCents = (euros: number): number => Math.round(euros * 100);
@@ -90,7 +98,8 @@ export const evaluateFairPrice = (
 
 export const calcBreakdown = (priceEuros: number, quantity: number = 1): FeeBreakdown => {
   const listPriceCents = toCents(priceEuros * quantity);
-  const buyerFeeCents = calcBuyerFeeCents(listPriceCents);
+  // Buyer fee tier is based on the UNIT price (per ticket), not the line total.
+  const buyerFeeCents = Math.round(listPriceCents * buyerFeeRateFor(priceEuros));
   const buyerTotalCents = listPriceCents + buyerFeeCents;
   const sellerCommissionCents = calcSellerCommissionCents(listPriceCents);
   const sellerPayoutCents = listPriceCents - sellerCommissionCents;

@@ -23,8 +23,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { getEventImage } from "@/lib/eventImages";
 import { SellerTrust } from "@/components/SellerTrust";
-
-const PLATFORM_FEE_PERCENT = 6;
+import { calcBreakdown, buyerFeeRateFor } from "@/lib/fees";
 
 interface ListingData {
   id: string;
@@ -195,9 +194,12 @@ const Checkout = () => {
   const event = listing.event;
   const negotiatedPrice = offerPrice ?? agreedPrice;
   const unitPrice = negotiatedPrice ?? listing.selling_price;
-  const subtotal = unitPrice * listing.quantity;
-  const platformFee = Math.round(subtotal * PLATFORM_FEE_PERCENT) / 100;
-  const total = subtotal + platformFee;
+  // Tiered buyer fee (7% for unit prices >= €50, else 6%) — single source of truth.
+  const bd = calcBreakdown(unitPrice, listing.quantity);
+  const subtotal = bd.listPriceEuros;
+  const platformFee = bd.buyerFeeEuros;
+  const total = bd.buyerTotalEuros;
+  const feePercent = Math.round(buyerFeeRateFor(unitPrice) * 100);
 
   const formattedDate = new Date(event.date).toLocaleDateString(
     language === "fr" ? "fr-FR" : "en-US",
@@ -342,7 +344,7 @@ const Checkout = () => {
                   <span>€{subtotal.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Service fee ({PLATFORM_FEE_PERCENT}%)</span>
+                  <span className="text-muted-foreground">Service fee ({feePercent}%)</span>
                   <span>€{platformFee.toFixed(2)}</span>
                 </div>
                 {listing.notes && (
