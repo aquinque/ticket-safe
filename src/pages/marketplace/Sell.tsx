@@ -171,6 +171,13 @@ const Sell = () => {
   const [myTickets, setMyTickets] = useState<OwnedTicket[]>([]);
   const [myTicketsLoading, setMyTicketsLoading] = useState(false);
 
+  // Is the chosen event a Ticket Safe Studio event (sold here, scanned with our
+  // signed QRs)? Detected via the presence of event_tiers. For Studio events the
+  // ONLY legit tickets are the ones we issued — so a seller who doesn't own one
+  // must NOT be able to upload an external file. External events are unaffected.
+  const [isStudioEvent, setIsStudioEvent] = useState(false);
+  const [studioCheckLoading, setStudioCheckLoading] = useState(false);
+
   // "Vos événements" — distinct events the user owns eligible tickets for.
   // Shown in the search dropdown the moment it's focused (before typing) so the
   // seller can pick their own event in one click.
@@ -253,6 +260,33 @@ const Sell = () => {
       cancelled = true;
     };
   }, [user, studioTicket, selectedEvent]);
+
+  // Detect whether the chosen event is a Studio event (has event_tiers). Used to
+  // block the external-upload path for Studio events when the seller owns no
+  // ticket — external events keep the upload flow untouched.
+  useEffect(() => {
+    const evId = selectedEvent?.id;
+    if (!evId || studioTicket) {
+      setIsStudioEvent(false);
+      setStudioCheckLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setStudioCheckLoading(true);
+    (async () => {
+      const { count, error } = await supabase
+        .from("event_tiers")
+        .select("id", { count: "exact", head: true })
+        .eq("event_id", evId);
+      if (cancelled) return;
+      if (error) console.error("[sell] studio-event check error:", error);
+      setIsStudioEvent((count ?? 0) > 0);
+      setStudioCheckLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedEvent?.id, studioTicket]);
 
   // Load the distinct events the user owns eligible tickets for (for the
   // "Vos événements" quick-pick in the search dropdown). Runs once per user.
@@ -856,7 +890,13 @@ const Sell = () => {
   // path. A ticket they already hold is trusted, so no QR check is needed.
   const ownedForEvent = !!selectedEvent && !studioTicket && myTickets.length > 0;
   const loadingOwned = !!selectedEvent && !studioTicket && myTicketsLoading;
-  const showExternalFlow = !studioTicket && !loadingOwned && (!ownedForEvent || showExternal);
+  // Studio event + the seller owns no ticket for it → block listing entirely
+  // (no external upload). Only Ticket Safe Studio tickets are legit here.
+  const studioBlocked =
+    isStudioEvent && !studioTicket && !ownedForEvent && !loadingOwned && !studioCheckLoading;
+  // External upload path: never for Studio events (their door scans our QRs).
+  const showExternalFlow =
+    !studioTicket && !loadingOwned && !studioCheckLoading && !isStudioEvent && (!ownedForEvent || showExternal);
 
   // Compute progress for the stepper. For Studio resales the event + QR are
   // already verified by definition, so the user only has to do "price" → "publish".
@@ -1299,9 +1339,29 @@ const Sell = () => {
                       Loading your tickets…
                     </div>
                   ) : myTickets.length === 0 ? (
-                    <div className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground text-center">
-                      You have no resellable tickets for this event.
-                    </div>
+                    isStudioEvent ? (
+                      <div className="rounded-lg border border-dashed border-amber-300 bg-amber-50/60 dark:bg-amber-950/20 p-4 text-sm text-center">
+                        <p className="font-semibold text-amber-800 dark:text-amber-300">
+                          This is a Ticket Safe Studio event
+                        </p>
+                        <p className="text-muted-foreground mt-1">
+                          You can only resell a ticket you bought through Ticket Safe — and you don't
+                          have one for this event, so it can't be listed here.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => navigate("/tickets")}
+                          className="inline-flex items-center gap-1 mt-3 text-xs font-bold text-primary hover:gap-2 transition-all"
+                        >
+                          Find tickets for this event
+                          <ArrowRight className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground text-center">
+                        You have no resellable tickets for this event.
+                      </div>
+                    )
                   ) : (
                     <div className="space-y-2">
                       {myTickets.map((t) => (
@@ -1333,7 +1393,7 @@ const Sell = () => {
                       ))}
                     </div>
                   )}
-                  {ownedForEvent && !showExternal && (
+                  {ownedForEvent && !showExternal && !isStudioEvent && (
                     <button
                       type="button"
                       onClick={() => setShowExternal(true)}
