@@ -55,6 +55,8 @@ import {
   Zap,
   ArrowRight,
   Ticket,
+  Calendar,
+  MapPin,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Event } from "@/integrations/supabase/types/events";
@@ -112,6 +114,9 @@ const Sell = () => {
     id: string;
     event_id: string;
     qr_token: string;
+    tierName: string | null;
+    facePriceEuros: number | null;
+    status: string;
   } | null>(null);
   const [studioLoading, setStudioLoading] = useState(false);
 
@@ -314,6 +319,7 @@ const Sell = () => {
         const { data: tk, error } = await supabase
           .from("event_tickets")
           .select(`id, event_id, qr_token, status, buyer_id,
+                   tier:event_tiers(name, price_cents),
                    event:events(id, title, description, date, location, category, university, campus, image_url, is_active, base_price, created_at, updated_at)`)
           .eq("id", studioTicketParam)
           .maybeSingle();
@@ -354,14 +360,30 @@ const Sell = () => {
           navigate("/my-tickets");
           return;
         }
-        setStudioTicket({ id: tk.id, event_id: tk.event_id, qr_token: tk.qr_token });
+        const tier = (Array.isArray(tk.tier) ? tk.tier[0] : tk.tier) as
+          | { name?: string; price_cents?: number }
+          | null;
+        const facePriceEuros =
+          tier?.price_cents != null
+            ? Number(tier.price_cents) / 100
+            : ev.base_price != null
+              ? Number(ev.base_price)
+              : null;
+        setStudioTicket({
+          id: tk.id,
+          event_id: tk.event_id,
+          qr_token: tk.qr_token,
+          tierName: tier?.name ?? null,
+          facePriceEuros,
+          status: tk.status,
+        });
         setSelectedEvent(ev);
         setEventSearch(ev.title);
         setFormData((prev) => ({
           ...prev,
           eventId: ev.id,
           quantity: "1",
-          sellingPrice: ev.base_price ? String(ev.base_price) : prev.sellingPrice,
+          sellingPrice: facePriceEuros != null ? String(facePriceEuros) : prev.sellingPrice,
         }));
         setQrText(tk.qr_token);
       } catch (err) {
@@ -497,9 +519,9 @@ const Sell = () => {
       setShowSuggestions(false);
       setShowStubForm(false);
       setStubDate("");
-      toast.success("Événement créé. Les détails seront complétés par un administrateur.");
+      toast.success("Event created. The details will be completed by an administrator.");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erreur lors de la création de l'événement.");
+      toast.error(err instanceof Error ? err.message : "Error creating the event.");
     } finally {
       setIsCreatingStub(false);
     }
@@ -728,34 +750,64 @@ const Sell = () => {
         <SEOHead titleKey="marketplace.sell.title" descriptionKey="marketplace.sell.description" />
         <Header />
         <main className="flex-1 flex items-center justify-center py-16">
-          <div className="container mx-auto px-4 max-w-lg text-center">
-            <>
-                <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <ShieldCheck className="w-10 h-10 text-primary" />
+          <div className="container mx-auto px-4 max-w-md text-center">
+            {/* Animated check — the moment lands with motion, not a static badge. */}
+            <div className="relative w-20 h-20 mx-auto mb-6 animate-in zoom-in-50 duration-500 ease-out">
+              <div className="absolute inset-0 rounded-full bg-emerald-100 animate-pulse" />
+              <div className="absolute inset-2 rounded-full bg-emerald-500 text-white flex items-center justify-center shadow-lg">
+                <CheckCircle2 className="w-9 h-9" strokeWidth={2.5} />
+              </div>
+            </div>
+            <h1 className="text-2xl md:text-3xl font-bold mb-2">
+              {studioTicket ? "Your ticket is now listed!" : "Ticket submitted for review!"}
+            </h1>
+            <p className="text-sm text-muted-foreground mb-6 max-w-sm mx-auto">
+              {studioTicket
+                ? "Your ticket has been listed for sale. We'll invalidate your QR and issue a new one in the buyer's name the moment it sells."
+                : "Your ticket is pending admin approval. It will appear in the marketplace once verified."}
+            </p>
+
+            {/* Recap card — turns a plain message into a real confirmation. */}
+            {selectedEvent && (
+              <div className="rounded-2xl bg-card border border-border shadow-sm p-5 mb-6 text-left animate-in fade-in slide-in-from-bottom-2 duration-300">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-bold truncate">{selectedEvent.title}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {new Date(selectedEvent.date).toLocaleDateString(dateLocale, { day: "numeric", month: "long", year: "numeric" })}
+                      {selectedEvent.location ? ` · ${selectedEvent.location}` : ""}
+                    </p>
+                  </div>
+                  {parseFloat(formData.sellingPrice) > 0 && (
+                    <div className="text-right shrink-0">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Listed at</p>
+                      <p className="text-lg font-bold text-primary tabular-nums">
+                        €{parseFloat(formData.sellingPrice).toFixed(2)}
+                      </p>
+                    </div>
+                  )}
                 </div>
-                <h1 className="text-3xl font-bold mb-4">
-                  {studioTicket ? "Live on the marketplace!" : "Ticket submitted for review!"}
-                </h1>
-                <p className="text-muted-foreground mb-8">
-                  {studioTicket
-                    ? "Your Studio ticket is now visible to buyers. We'll invalidate your QR and issue a new one in the buyer's name the moment it sells."
-                    : "Your ticket is pending admin approval. It will appear in the marketplace once verified."}
-                </p>
-              </>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button variant="hero" asChild>
-                <Link to="/marketplace/buy">
-                  <ExternalLink className="w-4 h-4 mr-2" />
-                  View Marketplace
+                {studioTicket && (
+                  <div className="mt-3 pt-3 border-t border-border inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    Live on the marketplace
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="flex flex-col sm:flex-row gap-3 justify-center">
+              <Button variant="hero" asChild className="h-11">
+                <Link to="/settings/listings">
+                  View my listings
+                  <ArrowRight className="w-4 h-4 ml-1" />
                 </Link>
               </Button>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setCreatedListingId(null);
-                }}
-              >
-                List Another Ticket
+              <Button variant="outline" asChild className="h-11">
+                <Link to="/marketplace/buy">
+                  <ExternalLink className="w-4 h-4 mr-2" />
+                  View marketplace
+                </Link>
               </Button>
             </div>
           </div>
@@ -896,27 +948,84 @@ const Sell = () => {
             {/* ---- Main form ---- */}
             <div className="lg:col-span-2 space-y-6">
               {studioTicket && selectedEvent && (
-                <Card className="border-primary/30 bg-primary/5">
-                  <CardContent className="pt-6">
-                    <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-primary text-primary-foreground flex items-center justify-center shrink-0">
-                        <Zap className="w-5 h-5" />
+                <Card className="overflow-hidden border-primary/20 shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-300">
+                  {/* Brand header strip — turns the form into a real ticket. */}
+                  <div
+                    className="px-5 py-3 flex items-center gap-2 text-white"
+                    style={{ background: "linear-gradient(135deg, hsl(220 100% 30%), hsl(210 100% 45%))" }}
+                  >
+                    <Zap className="w-4 h-4" />
+                    <span className="text-[11px] font-bold uppercase tracking-wider">
+                      Instant resale · verified ticket
+                    </span>
+                    <span className="ml-auto inline-flex items-center gap-1 text-[11px] font-bold bg-white/20 px-2 py-0.5 rounded-full">
+                      <CheckCircle2 className="w-3 h-3" />
+                      {studioTicket.status === "valid" ? "Valid" : studioTicket.status}
+                    </span>
+                  </div>
+                  <CardContent className="p-5 space-y-4">
+                    <div>
+                      <h2 className="text-lg font-bold leading-tight">{selectedEvent.title}</h2>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {selectedEvent.university}
+                        {selectedEvent.campus ? ` · ${selectedEvent.campus}` : ""}
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                          <Calendar className="w-4 h-4 text-primary" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Date</p>
+                          <p className="text-sm font-medium truncate">
+                            {new Date(selectedEvent.date).toLocaleDateString(dateLocale, { weekday: "short", day: "numeric", month: "long" })}
+                          </p>
+                        </div>
                       </div>
-                      <div className="min-w-0">
-                        <p className="text-xs font-bold uppercase tracking-wider text-primary mb-1">
-                          Instant resale · Studio ticket
-                        </p>
-                        <p className="text-sm font-bold text-foreground truncate">
-                          {selectedEvent.title}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {new Date(selectedEvent.date).toLocaleDateString(dateLocale, { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
-                          {selectedEvent.location ? ` · ${selectedEvent.location}` : ""}
-                        </p>
-                        <p className="text-xs text-foreground/80 mt-2">
-                          Your QR stays valid until someone buys it. The moment payment goes through, we invalidate yours and issue a fresh one in the buyer's name — no upload needed.
-                        </p>
+
+                      {selectedEvent.location && (
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                            <MapPin className="w-4 h-4 text-primary" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Location</p>
+                            <p className="text-sm font-medium truncate">{selectedEvent.location}</p>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                          <Ticket className="w-4 h-4 text-primary" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Ticket type</p>
+                          <p className="text-sm font-medium truncate">{studioTicket.tierName ?? "Standard"}</p>
+                        </div>
                       </div>
+
+                      {studioTicket.facePriceEuros != null && (
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0 text-primary font-bold text-sm">
+                            €
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Paid originally</p>
+                            <p className="text-sm font-medium truncate">€{studioTicket.facePriceEuros.toFixed(2)}</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex items-start gap-2 text-xs text-muted-foreground bg-muted/40 rounded-lg p-3">
+                      <ShieldCheck className="w-4 h-4 text-green-600 shrink-0 mt-0.5" />
+                      <span>
+                        Your QR stays valid until it sells. The moment payment goes through, we
+                        invalidate yours and issue a fresh one in the buyer's name — nothing else to do.
+                      </span>
                     </div>
                   </CardContent>
                 </Card>
@@ -937,7 +1046,7 @@ const Sell = () => {
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
                         <Input
                           id="eventSearch"
-                          placeholder="Gala ESCP, BDE soirée, Intercampus…"
+                          placeholder="Gala ESCP, BDE party, Intercampus…"
                           value={selectedEvent ? selectedEvent.title : eventSearch}
                           onChange={(e) => {
                             if (selectedEvent) {
@@ -976,12 +1085,12 @@ const Sell = () => {
                             myEventsLoading ? (
                               <div className="px-4 py-3 flex items-center gap-2 text-sm text-muted-foreground">
                                 <Loader2 className="w-4 h-4 animate-spin" />
-                                Chargement de vos événements…
+                                Loading your events…
                               </div>
                             ) : myEvents.length > 0 ? (
                               <>
                                 <div className="px-3 pt-2.5 pb-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                                  Vos événements
+                                  Your events
                                 </div>
                                 {myEvents.map(({ event: ev, count }) => (
                                   <button
@@ -1000,17 +1109,17 @@ const Sell = () => {
                                       {ev.date &&
                                         new Date(ev.date).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
                                       {ev.location && ` · ${ev.location}`}
-                                      {` · ${count} billet${count > 1 ? "s" : ""}`}
+                                      {` · ${count} ticket${count > 1 ? "s" : ""}`}
                                     </p>
                                   </button>
                                 ))}
                                 <div className="px-3 py-2 text-[11px] text-muted-foreground border-t">
-                                  Ou tapez pour chercher un autre événement…
+                                  Or type to search another event…
                                 </div>
                               </>
                             ) : (
                               <div className="px-4 py-3 text-sm text-muted-foreground text-center">
-                                Tapez le nom de votre événement pour le rechercher.
+                                Type your event name to search.
                               </div>
                             )
                           ) : searchResults.length > 0 ? (
@@ -1043,7 +1152,7 @@ const Sell = () => {
                           ) : eventSearch.length >= 2 && !searchLoading ? (
                             <div className="px-4 py-3">
                               <p className="text-sm text-muted-foreground text-center mb-3">
-                                Aucun résultat pour &quot;{eventSearch}&quot;
+                                No results for &quot;{eventSearch}&quot;
                               </p>
                               {!showStubForm ? (
                                 <button
@@ -1052,22 +1161,22 @@ const Sell = () => {
                                   onClick={() => setShowStubForm(true)}
                                 >
                                   <CalendarPlus className="w-4 h-4 shrink-0" />
-                                  Mon événement n&apos;est pas listé — le créer
+                                  My event isn&apos;t listed — create it
                                 </button>
                               ) : (
                                 <div className="space-y-3 p-3 rounded border bg-muted/30">
                                   <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                                    Créer un événement
+                                    Create an event
                                   </p>
                                   <Input
                                     value={eventSearch}
                                     onChange={(e) => setEventSearch(e.target.value)}
-                                    placeholder="Nom de l'événement"
+                                    placeholder="Event name"
                                     className="text-sm"
                                   />
                                   <div>
                                     <Label htmlFor="stubDate" className="text-xs text-muted-foreground">
-                                      Date de l&apos;événement
+                                      Event date
                                     </Label>
                                     <Input
                                       id="stubDate"
@@ -1088,8 +1197,8 @@ const Sell = () => {
                                       onClick={handleCreateStub}
                                     >
                                       {isCreatingStub ? (
-                                        <><Loader2 className="w-3 h-3 mr-1 animate-spin" />Création…</>
-                                      ) : "Confirmer"}
+                                        <><Loader2 className="w-3 h-3 mr-1 animate-spin" />Creating…</>
+                                      ) : "Confirm"}
                                     </Button>
                                     <Button
                                       type="button"
@@ -1097,7 +1206,7 @@ const Sell = () => {
                                       variant="outline"
                                       onClick={() => setShowStubForm(false)}
                                     >
-                                      Annuler
+                                      Cancel
                                     </Button>
                                   </div>
                                 </div>
@@ -1108,7 +1217,7 @@ const Sell = () => {
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Tapez au moins 2 caractères pour voir les suggestions.
+                      Type at least 2 characters to see suggestions.
                     </p>
                   </div>
 
@@ -1158,22 +1267,22 @@ const Sell = () => {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Ticket className="w-5 h-5" />
-                    Vos billets
+                    Your tickets
                   </CardTitle>
                   <CardDescription>
-                    Vos billets pour cet événement. Cliquez pour en revendre un en quelques
-                    secondes. Pour un billet acheté ailleurs, utilisez l'option ci-dessous.
+                    Your tickets for this event. Click to resell one in seconds. For a ticket
+                    bought elsewhere, use the option below.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   {myTicketsLoading ? (
                     <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      Chargement de vos billets…
+                      Loading your tickets…
                     </div>
                   ) : myTickets.length === 0 ? (
                     <div className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground text-center">
-                      Vous n'avez aucun billet revendable pour cet événement.
+                      You have no resellable tickets for this event.
                     </div>
                   ) : (
                     <div className="space-y-2">
@@ -1185,11 +1294,11 @@ const Sell = () => {
                           <div className="min-w-0">
                             <p className="text-sm font-medium truncate flex items-center gap-1.5">
                               <ShieldCheck className="w-4 h-4 text-green-600 shrink-0" />
-                              {t.tierName ?? "Billet vérifié Ticket Safe"}
+                              {t.tierName ?? "Ticket Safe verified ticket"}
                             </p>
                             {t.facePriceEuros != null && (
                               <p className="text-xs text-muted-foreground mt-0.5">
-                                Prix initial €{t.facePriceEuros.toFixed(2)}
+                                Original price €{t.facePriceEuros.toFixed(2)}
                               </p>
                             )}
                           </div>
@@ -1199,7 +1308,7 @@ const Sell = () => {
                             className="shrink-0"
                             onClick={() => navigate(`/marketplace/sell?studio_ticket=${t.id}`)}
                           >
-                            Revendre ce billet
+                            Resell this ticket
                             <ArrowRight className="w-4 h-4 ml-1" />
                           </Button>
                         </div>
@@ -1364,47 +1473,69 @@ const Sell = () => {
               {/* Pricing */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Pricing & Quantity</CardTitle>
+                  <CardTitle>Set your price</CardTitle>
+                  <CardDescription>Choose how much you want to sell your ticket for.</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className={studioTicket ? "" : "grid grid-cols-1 md:grid-cols-2 gap-4"}>
                     <div>
                       <Label htmlFor="sellingPrice">
-                        Selling price (€)
+                        Resale price
                         <span className="text-destructive ml-1">*</span>
                       </Label>
-                      <Input
-                        id="sellingPrice"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        placeholder="0.00"
-                        value={formData.sellingPrice}
-                        onChange={(e) =>
-                          setFormData({ ...formData, sellingPrice: e.target.value })
-                        }
-                        disabled={!selectedEvent}
-                      />
+                      <div className="relative mt-1.5">
+                        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-lg font-semibold text-muted-foreground pointer-events-none">
+                          €
+                        </span>
+                        <Input
+                          id="sellingPrice"
+                          type="number"
+                          inputMode="decimal"
+                          step="0.01"
+                          min="0"
+                          placeholder="0.00"
+                          value={formData.sellingPrice}
+                          onChange={(e) =>
+                            setFormData({ ...formData, sellingPrice: e.target.value })
+                          }
+                          disabled={!selectedEvent}
+                          className="pl-8 h-12 text-lg font-semibold"
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1.5">
+                        Set a fair price to increase your chances of reselling.
+                        {studioTicket?.facePriceEuros != null && (
+                          <>
+                            {" "}Originally paid{" "}
+                            <span className="font-medium text-foreground">
+                              €{studioTicket.facePriceEuros.toFixed(2)}
+                            </span>
+                            .
+                          </>
+                        )}
+                      </p>
                     </div>
 
-                    <div>
-                      <Label htmlFor="quantity">Number of tickets</Label>
-                      <Select
-                        value={formData.quantity}
-                        onValueChange={(v) => setFormData({ ...formData, quantity: v })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
-                            <SelectItem key={n} value={n.toString()}>
-                              {n}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                    {!studioTicket && (
+                      <div>
+                        <Label htmlFor="quantity">Number of tickets</Label>
+                        <Select
+                          value={formData.quantity}
+                          onValueChange={(v) => setFormData({ ...formData, quantity: v })}
+                        >
+                          <SelectTrigger className="mt-1.5">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+                              <SelectItem key={n} value={n.toString()}>
+                                {n}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                   </div>
 
                   <div>
