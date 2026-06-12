@@ -33,6 +33,8 @@ export interface TicketListing {
   university: string;
   /** campus name, e.g. "Paris", "London" — null for multi-campus events */
   campus: string | null;
+  /** Original ticket face value (event base price), if known — for fair-price UI. */
+  basePrice: number | null;
 }
 
 interface TicketListingsContextType {
@@ -147,6 +149,7 @@ async function fetchAvailableListings(): Promise<TicketListing[]> {
       qrHash: "", // never expose the real hash to clients
       university: ev?.university ?? "",
       campus: ev?.campus ?? null,
+      basePrice: ev?.base_price ?? null,
     };
   });
 }

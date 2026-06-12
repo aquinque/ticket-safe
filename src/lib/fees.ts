@@ -56,6 +56,38 @@ export interface FeeBreakdown {
  * Calculate the full fee breakdown for a ticket at `priceEuros` per ticket
  * for `quantity` tickets.
  */
+/**
+ * Fair-price assessment for a resale listing vs the ticket's face value.
+ * Returns null when no face value is known (so callers can render nothing).
+ */
+export interface FairPrice {
+  faceValue: number;
+  /** Signed % difference vs face value (negative = cheaper than face). */
+  deltaPct: number;
+  tone: "good" | "fair" | "high";
+  label: string;
+}
+
+export const evaluateFairPrice = (
+  sellingPrice: number,
+  faceValue: number | null | undefined,
+): FairPrice | null => {
+  if (faceValue == null || !isFinite(faceValue) || faceValue <= 0) return null;
+  const deltaPct = Math.round(((sellingPrice - faceValue) / faceValue) * 100);
+  if (deltaPct <= 0) {
+    return {
+      faceValue,
+      deltaPct,
+      tone: "good",
+      label: deltaPct === 0 ? "At face value" : `${Math.abs(deltaPct)}% below face value`,
+    };
+  }
+  if (deltaPct <= 10) {
+    return { faceValue, deltaPct, tone: "fair", label: "Fair price" };
+  }
+  return { faceValue, deltaPct, tone: "high", label: `${deltaPct}% above face value` };
+};
+
 export const calcBreakdown = (priceEuros: number, quantity: number = 1): FeeBreakdown => {
   const listPriceCents = toCents(priceEuros * quantity);
   const buyerFeeCents = calcBuyerFeeCents(listPriceCents);

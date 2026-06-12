@@ -22,11 +22,14 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { getEventImage } from "@/lib/eventImages";
+import { FairPriceBadge } from "@/components/FairPriceBadge";
+import { SellerTrust } from "@/components/SellerTrust";
 
 const PLATFORM_FEE_PERCENT = 6;
 
 interface ListingData {
   id: string;
+  seller_id: string;
   selling_price: number;
   quantity: number;
   notes: string | null;
@@ -38,6 +41,7 @@ interface ListingData {
     location: string | null;
     category: string;
     image_url: string | null;
+    base_price: number | null;
   } | null;
 }
 
@@ -81,7 +85,7 @@ const Checkout = () => {
       const { data, error } = await supabase
         .from("tickets")
         .select(
-          "id, selling_price, quantity, notes, status, seller:profiles(full_name), event:events(id, title, date, location, category, image_url)"
+          "id, seller_id, selling_price, quantity, notes, status, seller:profiles(full_name), event:events(id, title, date, location, category, image_url, base_price)"
         )
         .eq("id", listingId)
         .not("status", "in", "(sold,cancelled)")
@@ -312,6 +316,17 @@ const Checkout = () => {
                 </div>
               </div>
 
+              {/* Seller trust + how the resale price compares to face value */}
+              <SellerTrust
+                sellerId={listing.seller_id}
+                fallbackName={listing.seller?.full_name ?? undefined}
+              />
+              {event.base_price != null && (
+                <div>
+                  <FairPriceBadge sellingPrice={unitPrice} faceValue={event.base_price} />
+                </div>
+              )}
+
               <Separator />
 
               {/* Order summary */}
@@ -336,12 +351,6 @@ const Checkout = () => {
                   <span className="text-muted-foreground">Service fee ({PLATFORM_FEE_PERCENT}%)</span>
                   <span>€{platformFee.toFixed(2)}</span>
                 </div>
-                {listing.seller?.full_name && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Sold by</span>
-                    <span>{listing.seller.full_name}</span>
-                  </div>
-                )}
                 {listing.notes && (
                   <p className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-md">
                     {listing.notes}

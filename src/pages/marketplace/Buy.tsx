@@ -43,9 +43,14 @@ import {
   ChevronLeft,
   ChevronRight,
   GraduationCap,
+  MessageSquare,
 } from "lucide-react";
 import { SEOHead } from "@/components/SEOHead";
 import { useTicketListings, TicketListing } from "@/contexts/TicketListingsContext";
+import { useAuth } from "@/hooks/useAuth";
+import { getOrCreateConversation } from "@/hooks/useChat";
+import { FairPriceBadge } from "@/components/FairPriceBadge";
+import { toast } from "sonner";
 
 // ---------------------------------------------------------------------------
 // Pagination
@@ -80,7 +85,26 @@ function campusColor(campus: string | null): string {
 
 const Buy = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { listings, isLoading } = useTicketListings();
+
+  // Start (or resume) a negotiation chat with the seller for this listing.
+  const handleMakeOffer = async (ticket: TicketListing) => {
+    if (!user) {
+      navigate(`/auth?next=${encodeURIComponent(window.location.pathname + window.location.search)}`);
+      return;
+    }
+    if (user.id === ticket.sellerId) {
+      toast.error("You can't make an offer on your own ticket.");
+      return;
+    }
+    try {
+      const convId = await getOrCreateConversation(ticket.id, user.id, ticket.sellerId);
+      navigate(`/messages/${convId}`);
+    } catch {
+      toast.error("Couldn't start the conversation. Please try again.");
+    }
+  };
 
   const [searchQuery, setSearchQuery] = useState("");
   const [priceRange, setPriceRange] = useState("all");
@@ -412,13 +436,17 @@ const Buy = () => {
                             {group.tickets.map((ticket) => (
                               <div
                                 key={ticket.id}
-                                className="flex items-center justify-between p-4 bg-muted/50 rounded-lg"
+                                className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-muted/50 rounded-lg"
                               >
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-3 mb-1">
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex flex-wrap items-center gap-2 mb-1">
                                     <span className="font-semibold text-lg">
                                       €{ticket.sellingPrice.toFixed(2)}
                                     </span>
+                                    <FairPriceBadge
+                                      sellingPrice={ticket.sellingPrice}
+                                      faceValue={ticket.basePrice}
+                                    />
                                     <Badge variant="outline">
                                       {ticket.quantity} available
                                     </Badge>
@@ -434,19 +462,29 @@ const Buy = () => {
                                       {ticket.description}
                                     </p>
                                   )}
-                                  <p className="text-xs text-muted-foreground mt-1">
-                                    Sold by {ticket.sellerName}
+                                  <p className="text-xs text-muted-foreground mt-1 inline-flex items-center gap-1">
+                                    <GraduationCap className="w-3 h-3" />
+                                    Verified ESCP student · escrow-protected payment
                                   </p>
                                 </div>
-                                <Button
-                                  variant="hero"
-                                  onClick={() =>
-                                    navigate(`/checkout?listing_id=${ticket.id}`)
-                                  }
-                                  className="ml-4"
-                                >
-                                  Buy
-                                </Button>
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <Button
+                                    variant="outline"
+                                    onClick={() => handleMakeOffer(ticket)}
+                                    className="border-primary/40 text-primary hover:bg-primary/5"
+                                  >
+                                    <MessageSquare className="w-4 h-4 mr-1.5" />
+                                    Make an offer
+                                  </Button>
+                                  <Button
+                                    variant="hero"
+                                    onClick={() =>
+                                      navigate(`/checkout?listing_id=${ticket.id}`)
+                                    }
+                                  >
+                                    Buy
+                                  </Button>
+                                </div>
                               </div>
                             ))}
                           </div>
