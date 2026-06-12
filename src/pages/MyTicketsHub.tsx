@@ -38,6 +38,7 @@ interface OrderCard {
   ticket_count: number;
   scanned_count: number;
   refunded_count: number;
+  transferred_count: number;
   attendees: string[];
   sellableTicketId: string | null;
   isResale: boolean;
@@ -156,6 +157,7 @@ const MyTicketsHub = () => {
             ticket_count: row.quantity ?? 1,
             scanned_count: 0,
             refunded_count: 0,
+            transferred_count: 0,
             attendees: [],
             sellableTicketId: null,
             isResale: true,
@@ -215,6 +217,7 @@ const MyTicketsHub = () => {
           ticket_count: rows.length,
           scanned_count: rows.filter((t) => t.scanned_at != null).length,
           refunded_count: 0,
+          transferred_count: 0,
           attendees,
           sellableTicketId: sellable?.id ?? null,
           isResale: false,
@@ -280,6 +283,7 @@ const MyTicketsHub = () => {
             ticket_count: tix.length,
             scanned_count: tix.filter((t) => t.scanned_at != null).length,
             refunded_count: tix.filter((t) => t.status === "refunded" || t.status === "cancelled").length,
+            transferred_count: tix.filter((t) => t.status === "transferred").length,
             attendees,
             sellableTicketId: sellable?.id ?? null,
             isResale: false,
@@ -318,7 +322,8 @@ const MyTicketsHub = () => {
     if (o.ticket_count === 0) return true; // resale card with no event_tickets — treat as available
     const allUsed = o.scanned_count >= o.ticket_count;
     const allRefunded = o.refunded_count >= o.ticket_count;
-    return !allUsed && !allRefunded;
+    const allTransferred = o.transferred_count >= o.ticket_count;
+    return !allUsed && !allRefunded && !allTransferred;
   };
   const available = orders.filter(isAvailable);
   const pastOrUsed = orders.filter((o) => !isAvailable(o));
@@ -420,9 +425,10 @@ const TicketCard = ({
   const dateObj = order.event_date ? new Date(order.event_date) : null;
   const allRefunded = order.refunded_count > 0 && order.refunded_count === order.ticket_count;
   const allScanned = order.scanned_count === order.ticket_count && order.ticket_count > 0;
+  const allTransferred = order.transferred_count > 0 && order.transferred_count === order.ticket_count;
   const eventInFuture = dateObj ? dateObj.getTime() > Date.now() : false;
   const canResell =
-    !order.isResale && eventInFuture && !allScanned && !allRefunded && order.sellableTicketId != null;
+    !order.isResale && eventInFuture && !allScanned && !allRefunded && !allTransferred && order.sellableTicketId != null;
 
   const openOrder = () => {
     if (order.id.startsWith("resale-")) navigate(`/settings/purchases`);
@@ -471,7 +477,7 @@ const TicketCard = ({
             {order.event_title}
           </h3>
           <StatusBadge
-            status={allRefunded ? "refunded" : allScanned ? "used" : order.status === "paid" ? "ready" : order.status}
+            status={allRefunded ? "refunded" : allTransferred ? "resold" : allScanned ? "used" : order.status === "paid" ? "ready" : order.status}
           />
         </div>
         {order.isResold && (
@@ -538,6 +544,7 @@ const StatusBadge = ({ status }: { status: string }) => {
     ready: { label: "Ready", Icon: CheckCircle2, cls: "bg-emerald-100 text-emerald-700" },
     used: { label: "Used", Icon: CheckCircle2, cls: "bg-blue-100 text-blue-700" },
     refunded: { label: "Refunded", Icon: XCircle, cls: "bg-red-100 text-red-700" },
+    resold: { label: "Resold", Icon: CheckCircle2, cls: "bg-violet-100 text-violet-700" },
     paid: { label: "Paid", Icon: CheckCircle2, cls: "bg-emerald-100 text-emerald-700" },
     pending: { label: "Pending", Icon: Clock, cls: "bg-amber-100 text-amber-700" },
   };

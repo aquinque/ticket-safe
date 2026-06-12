@@ -4,7 +4,6 @@ import {
   Search,
   Calendar,
   MapPin,
-  Users,
   Ticket,
   ArrowRight,
   Sparkles,
@@ -729,7 +728,6 @@ const EventCard = ({ event }: { event: Event }) => {
   const Icon = event.icon;
   const hasCapacity = event.capacity > 0;
   const soldPct = hasCapacity ? Math.round((event.sold / event.capacity) * 100) : 0;
-  const left = Math.max(0, event.capacity - event.sold);
   const days = daysUntil(event.date);
   const isSellingFast = hasCapacity && soldPct >= 70 && soldPct < 100;
   const soldOut = hasCapacity && soldPct >= 100;
@@ -809,27 +807,14 @@ const EventCard = ({ event }: { event: Event }) => {
           </div>
         </div>
 
-        {/* Progress bar */}
-        {hasCapacity && !soldOut && (
+        {/* Scarcity nudge only — buyers don't see exact stock (Studio-only).
+            Shown when fewer than 30% of the original tickets remain. */}
+        {hasCapacity && !soldOut && soldPct >= 70 && (
           <div className="mb-4">
-            <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-              <div
-                className="h-full rounded-full transition-all"
-                style={{
-                  width: `${soldPct}%`,
-                  background: isSellingFast
-                    ? "linear-gradient(90deg, hsl(20 95% 55%), hsl(0 90% 60%))"
-                    : "var(--gradient-accent)",
-                }}
-              />
-            </div>
-            <div className="flex items-center justify-between text-[10px] font-semibold text-muted-foreground mt-1.5">
-              <span className="inline-flex items-center gap-1">
-                <Users className="w-3 h-3" />
-                {left} left
-              </span>
-              <span>{soldPct}% sold</span>
-            </div>
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-amber-700">
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+              Few tickets remaining
+            </span>
           </div>
         )}
 

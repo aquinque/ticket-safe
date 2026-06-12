@@ -511,10 +511,10 @@ const EventPublic = () => {
                   const isSelected = selectedTier === t.tier_id;
                   const soldOut = t.available_qty <= 0;
                   const locked = soldOut;
-                  const lowStock = !soldOut && t.available_qty <= 5;
-                  const soldPct = t.total_qty > 0 ? t.sold_qty / t.total_qty : 0;
-                  const sellingFast = !soldOut && !lowStock && soldPct >= 0.7;
-                  const urgent = lowStock || sellingFast;
+                  // Buyers never see exact stock counts (that's Studio-only).
+                  // We only surface a scarcity nudge when fewer than 30% of the
+                  // original tickets remain.
+                  const fewLeft = !soldOut && t.total_qty > 0 && t.available_qty / t.total_qty < 0.3;
                   return (
                     <button
                       key={t.tier_id}
@@ -559,31 +559,18 @@ const EventPublic = () => {
                             {t.description}
                           </div>
                         )}
-                        <div className="mt-2.5">
-                          <div className={`text-[11px] font-semibold inline-flex items-center gap-1.5 mb-1.5 ${urgent ? "text-amber-700" : "text-muted-foreground"}`}>
-                            {urgent && (
-                              <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                        {(soldOut || fewLeft) && (
+                          <div className="mt-2.5">
+                            {soldOut ? (
+                              <span className="text-[11px] font-semibold text-muted-foreground">Sold out</span>
+                            ) : (
+                              <span className="text-[11px] font-semibold inline-flex items-center gap-1.5 text-amber-700">
+                                <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                                Few tickets remaining
+                              </span>
                             )}
-                            {soldOut
-                              ? "Sold out"
-                              : lowStock
-                              ? `Only ${t.available_qty} left`
-                              : sellingFast
-                              ? "Selling fast"
-                              : `${t.available_qty} ${t.available_qty === 1 ? "ticket" : "tickets"} available`}
                           </div>
-                          {!soldOut && t.total_qty > 0 && (
-                            <div className="h-1.5 w-full max-w-[190px] rounded-full bg-muted overflow-hidden">
-                              <div
-                                className="h-full rounded-full transition-all duration-500"
-                                style={{
-                                  width: `${Math.min(100, Math.max(6, soldPct * 100))}%`,
-                                  background: urgent ? "#f59e0b" : primary,
-                                }}
-                              />
-                            </div>
-                          )}
-                        </div>
+                        )}
                       </div>
                       <div className="text-right shrink-0">
                         <div className="text-2xl md:text-3xl font-black tracking-tight" style={{ color: locked ? "currentColor" : primary }}>
