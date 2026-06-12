@@ -932,7 +932,7 @@ const EventPublic = () => {
 
       {/* ===== Sticky mobile checkout bar — sober, matching the main panel ===== */}
       {selected && (
-        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/95 backdrop-blur-md shadow-[0_-4px_24px_rgba(0,0,0,0.06)] px-4 py-3 animate-in slide-in-from-bottom-2 duration-300">
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/95 backdrop-blur-md shadow-[0_-4px_24px_rgba(0,0,0,0.06)] px-4 pt-3 pb-[calc(0.75rem_+_env(safe-area-inset-bottom))] animate-in slide-in-from-bottom-2 duration-300">
           <div className="container mx-auto max-w-4xl flex items-center gap-3">
             <div className="flex-1 min-w-0">
               <div className="text-[11px] font-medium text-muted-foreground truncate">

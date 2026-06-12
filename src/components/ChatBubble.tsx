@@ -93,7 +93,7 @@ const ChatBubble = () => {
 
       {/* Popup panel */}
       {open && (
-        <div className="fixed bottom-24 right-6 z-[9999] w-80 max-h-[420px] bg-background border border-border rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-4 fade-in duration-200">
+        <div className="fixed bottom-24 right-4 sm:right-6 z-[9999] w-80 max-w-[calc(100vw-2rem)] max-h-[420px] bg-background border border-border rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-4 fade-in duration-200">
           {/* Header */}
           <div className="px-4 py-3 border-b border-border flex items-center justify-between bg-muted/30">
             <h3 className="font-semibold text-sm">Messages</h3>
