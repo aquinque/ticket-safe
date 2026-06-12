@@ -166,6 +166,12 @@ const Sell = () => {
   const [myTickets, setMyTickets] = useState<OwnedTicket[]>([]);
   const [myTicketsLoading, setMyTicketsLoading] = useState(false);
 
+  // "Vos événements" — distinct events the user owns eligible tickets for.
+  // Shown in the search dropdown the moment it's focused (before typing) so the
+  // seller can pick their own event in one click.
+  const [myEvents, setMyEvents] = useState<{ event: Event; count: number }[]>([]);
+  const [myEventsLoading, setMyEventsLoading] = useState(false);
+
   // Guard: redirect unauthenticated users
   useEffect(() => {
     if (!authLoading && !user) {
@@ -237,6 +243,66 @@ const Sell = () => {
       cancelled = true;
     };
   }, [user, studioTicket, selectedEvent]);
+
+  // Load the distinct events the user owns eligible tickets for (for the
+  // "Vos événements" quick-pick in the search dropdown). Runs once per user.
+  useEffect(() => {
+    if (!user || studioTicket) {
+      setMyEvents([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setMyEventsLoading(true);
+      try {
+        const [{ data: owned, error: ownedErr }, { data: listed }] = await Promise.all([
+          supabase
+            .from("event_tickets")
+            .select(
+              "id, event_id, status, scanned_at, event:events(id, title, description, date, location, category, university, campus, image_url, is_active, base_price, created_at, updated_at)",
+            )
+            .eq("buyer_id", user.id)
+            .eq("status", "valid")
+            .is("scanned_at", null),
+          supabase
+            .from("tickets")
+            .select("studio_ticket_id, status")
+            .eq("seller_id", user.id)
+            .in("status", ["available", "reserved", "sold"])
+            .not("studio_ticket_id", "is", null),
+        ]);
+        if (cancelled) return;
+        if (ownedErr) {
+          console.error("[sell] my events fetch error:", ownedErr);
+          setMyEvents([]);
+          return;
+        }
+        const alreadyListed = new Set(
+          ((listed ?? []) as unknown as { studio_ticket_id: string }[]).map((l) => l.studio_ticket_id),
+        );
+        const byEvent = new Map<string, { event: Event; count: number }>();
+        for (const r of (owned ?? []) as unknown as Record<string, unknown>[]) {
+          if (alreadyListed.has(String(r.id))) continue;
+          const ev = (Array.isArray(r.event) ? r.event[0] : r.event) as unknown as Event | null;
+          if (!ev?.id) continue;
+          const existing = byEvent.get(ev.id);
+          if (existing) existing.count += 1;
+          else byEvent.set(ev.id, { event: ev, count: 1 });
+        }
+        setMyEvents(Array.from(byEvent.values()));
+      } catch (err) {
+        if (!cancelled) {
+          console.error("[sell] my events unexpected error:", err);
+          setMyEvents([]);
+        }
+      } finally {
+        if (!cancelled) setMyEventsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user, studioTicket]);
 
   // Studio-resale path: fetch the ticket, validate ownership, prefill state.
   useEffect(() => {
@@ -881,9 +947,7 @@ const Sell = () => {
                             setEventSearch(e.target.value);
                             setShowSuggestions(true);
                           }}
-                          onFocus={() => {
-                            if (eventSearch.length >= 2) setShowSuggestions(true);
-                          }}
+                          onFocus={() => setShowSuggestions(true)}
                           className="pl-9 pr-8"
                           autoComplete="off"
                         />
@@ -908,7 +972,48 @@ const Sell = () => {
                       {/* Suggestions dropdown */}
                       {showSuggestions && !selectedEvent && (
                         <div className="absolute z-50 w-full mt-1 bg-background border rounded-md shadow-md overflow-hidden max-h-64 overflow-y-auto">
-                          {searchResults.length > 0 ? (
+                          {eventSearch.length < 2 ? (
+                            myEventsLoading ? (
+                              <div className="px-4 py-3 flex items-center gap-2 text-sm text-muted-foreground">
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                Chargement de vos événements…
+                              </div>
+                            ) : myEvents.length > 0 ? (
+                              <>
+                                <div className="px-3 pt-2.5 pb-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                                  Vos événements
+                                </div>
+                                {myEvents.map(({ event: ev, count }) => (
+                                  <button
+                                    key={ev.id}
+                                    type="button"
+                                    className="w-full text-left px-4 py-3 hover:bg-muted/60 transition-colors border-b last:border-b-0"
+                                    onClick={() => {
+                                      setSelectedEvent(ev);
+                                      setEventSearch(ev.title);
+                                      setFormData((prev) => ({ ...prev, eventId: ev.id, sellingPrice: "" }));
+                                      setShowSuggestions(false);
+                                    }}
+                                  >
+                                    <p className="font-medium text-sm leading-none mb-1">{ev.title}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {ev.date &&
+                                        new Date(ev.date).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
+                                      {ev.location && ` · ${ev.location}`}
+                                      {` · ${count} billet${count > 1 ? "s" : ""}`}
+                                    </p>
+                                  </button>
+                                ))}
+                                <div className="px-3 py-2 text-[11px] text-muted-foreground border-t">
+                                  Ou tapez pour chercher un autre événement…
+                                </div>
+                              </>
+                            ) : (
+                              <div className="px-4 py-3 text-sm text-muted-foreground text-center">
+                                Tapez le nom de votre événement pour le rechercher.
+                              </div>
+                            )
+                          ) : searchResults.length > 0 ? (
                             searchResults.map((ev) => (
                               <button
                                 key={ev.id}
