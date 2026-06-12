@@ -54,6 +54,7 @@ import {
   CalendarPlus,
   Zap,
   ArrowRight,
+  Ticket,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Event } from "@/integrations/supabase/types/events";
@@ -157,12 +158,85 @@ const Sell = () => {
     notes: "",
   });
 
+  // "Vos billets" — the real tickets the signed-in user owns for the selected
+  // event. Surfaced first so the seller can resell one in a single click (no QR
+  // upload). Only eligible tickets: owned by the user, valid, not scanned, and
+  // not already listed for resale.
+  type OwnedTicket = { id: string; tierName: string | null; facePriceEuros: number | null };
+  const [myTickets, setMyTickets] = useState<OwnedTicket[]>([]);
+  const [myTicketsLoading, setMyTicketsLoading] = useState(false);
+
   // Guard: redirect unauthenticated users
   useEffect(() => {
     if (!authLoading && !user) {
       navigate(`/auth?next=${encodeURIComponent("/marketplace/sell" + (studioTicketParam ? `?studio_ticket=${studioTicketParam}` : ""))}`);
     }
   }, [user, authLoading, navigate, studioTicketParam]);
+
+  // Load the user's own eligible tickets for the selected event. Runs whenever
+  // the chosen event changes (and never in the Studio fast-path, where the
+  // ticket is already locked in via the ?studio_ticket= deep link).
+  useEffect(() => {
+    const evId = selectedEvent?.id;
+    if (!user || studioTicket || !evId) {
+      setMyTickets([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setMyTicketsLoading(true);
+      try {
+        const [{ data: owned, error: ownedErr }, { data: listed }] = await Promise.all([
+          // Tickets the user genuinely owns for this event (RLS: buyer_id = me).
+          supabase
+            .from("event_tickets")
+            .select("id, status, scanned_at, tier:event_tiers(name, price_cents)")
+            .eq("buyer_id", user.id)
+            .eq("event_id", evId)
+            .eq("status", "valid")
+            .is("scanned_at", null),
+          // Listings the user already created — to exclude tickets already
+          // listed for resale (available/reserved) or already sold.
+          supabase
+            .from("tickets")
+            .select("studio_ticket_id, status")
+            .eq("seller_id", user.id)
+            .in("status", ["available", "reserved", "sold"])
+            .not("studio_ticket_id", "is", null),
+        ]);
+        if (cancelled) return;
+        if (ownedErr) {
+          console.error("[sell] owned tickets fetch error:", ownedErr);
+          setMyTickets([]);
+          return;
+        }
+        const alreadyListed = new Set(
+          ((listed ?? []) as unknown as { studio_ticket_id: string }[]).map((l) => l.studio_ticket_id),
+        );
+        const rows: OwnedTicket[] = ((owned ?? []) as unknown as Record<string, unknown>[])
+          .filter((r) => !alreadyListed.has(String(r.id)))
+          .map((r) => {
+            const tier = (Array.isArray(r.tier) ? r.tier[0] : r.tier) as Record<string, unknown> | null;
+            return {
+              id: String(r.id),
+              tierName: (tier?.name as string | null) ?? null,
+              facePriceEuros: tier?.price_cents != null ? Number(tier.price_cents) / 100 : null,
+            };
+          });
+        setMyTickets(rows);
+      } catch (err) {
+        if (!cancelled) {
+          console.error("[sell] owned tickets unexpected error:", err);
+          setMyTickets([]);
+        }
+      } finally {
+        if (!cancelled) setMyTicketsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user, studioTicket, selectedEvent]);
 
   // Studio-resale path: fetch the ticket, validate ownership, prefill state.
   useEffect(() => {
@@ -965,6 +1039,67 @@ const Sell = () => {
                         </Alert>
                       )}
                     </>
+                  )}
+                </CardContent>
+              </Card>
+              )}
+
+              {/* ===== Vos billets — real tickets the user owns for this event =====
+                  Shown first, right after the event is picked, so the seller can
+                  resell a genuine ticket in one click. Reuses the existing Studio
+                  fast-path (?studio_ticket=) — no new submit/payment/QR logic. */}
+              {!studioTicket && selectedEvent && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Ticket className="w-5 h-5" />
+                    Vos billets
+                  </CardTitle>
+                  <CardDescription>
+                    Vos billets pour cet événement. Cliquez pour en revendre un en quelques
+                    secondes. Pour un billet acheté ailleurs, utilisez l'option ci-dessous.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {myTicketsLoading ? (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Chargement de vos billets…
+                    </div>
+                  ) : myTickets.length === 0 ? (
+                    <div className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground text-center">
+                      Vous n'avez aucun billet revendable pour cet événement.
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {myTickets.map((t) => (
+                        <div
+                          key={t.id}
+                          className="flex items-center justify-between gap-3 rounded-lg border border-border p-3 hover:border-primary/40 transition-colors"
+                        >
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium truncate flex items-center gap-1.5">
+                              <ShieldCheck className="w-4 h-4 text-green-600 shrink-0" />
+                              {t.tierName ?? "Billet vérifié Ticket Safe"}
+                            </p>
+                            {t.facePriceEuros != null && (
+                              <p className="text-xs text-muted-foreground mt-0.5">
+                                Prix initial €{t.facePriceEuros.toFixed(2)}
+                              </p>
+                            )}
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="hero"
+                            className="shrink-0"
+                            onClick={() => navigate(`/marketplace/sell?studio_ticket=${t.id}`)}
+                          >
+                            Revendre ce billet
+                            <ArrowRight className="w-4 h-4 ml-1" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </CardContent>
               </Card>

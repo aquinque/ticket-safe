@@ -203,7 +203,7 @@ const Checkout = () => {
 
   const isDev = import.meta.env.DEV;
 
-  // --- Dev: simulate purchase without Stripe ---
+  // --- Dev: simulate purchase without a real payment (skips Revolut) ---
   const handleSimulate = async () => {
     if (!user || !listingId) return;
     setIsProcessing(true);
@@ -231,7 +231,7 @@ const Checkout = () => {
     }
   };
 
-  // --- Stripe Checkout ---
+  // --- Revolut Checkout ---
   const handleCheckout = async () => {
     if (!user || !listingId) return;
     setIsProcessing(true);
@@ -374,7 +374,7 @@ const Checkout = () => {
                   {isProcessing ? (
                     <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                   ) : (
-                    "[DEV] Simulate Purchase — skip Stripe"
+                    "[DEV] Simulate Purchase — skip Revolut"
                   )}
                 </Button>
               ) : (
@@ -388,7 +388,7 @@ const Checkout = () => {
                   {isProcessing ? (
                     <>
                       <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                      Redirecting to Stripe…
+                      Redirecting to Revolut…
                     </>
                   ) : (
                     <>
@@ -401,7 +401,7 @@ const Checkout = () => {
 
               <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
                 <ShieldCheck className="w-3.5 h-3.5" />
-                {isDev ? "Dev mode — Stripe disabled" : "Secure payment powered by Stripe"}
+                {isDev ? "Dev mode — Revolut disabled" : "Secure payment powered by Revolut"}
               </div>
             </CardContent>
           </Card>
