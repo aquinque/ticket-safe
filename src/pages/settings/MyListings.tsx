@@ -29,6 +29,7 @@ import {
   ArrowUpDown,
   PencilLine,
   Trash2,
+  Sparkles,
   TrendingUp,
   CheckCircle2,
   Clock,
@@ -59,12 +60,21 @@ interface RawListing {
   notes: string | null;
   status: string;
   created_at: string;
+  boosted_until: string | null;
   event: EventInfo | null;
   qr_verified?: boolean;
 }
 
 type StatusFilter = "all" | "available" | "sold" | "reserved";
 type SortOption = "newest" | "oldest" | "price_high" | "price_low" | "active_first";
+
+// Featured-listing (boost) durations — prices must match the server
+// (revolut-boost-checkout BOOST_PRICES_CENTS).
+const BOOST_OPTIONS = [
+  { days: 3, price: "€0.99" },
+  { days: 7, price: "€1.99" },
+  { days: 30, price: "€4.99" },
+];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -147,6 +157,39 @@ const MyListings = () => {
   const [cancelId, setCancelId] = useState<string | null>(null);
   const [cancelLoading, setCancelLoading] = useState(false);
 
+  // Boost (featured listing) state
+  const [boostListingId, setBoostListingId] = useState<string | null>(null);
+  const [boostDays, setBoostDays] = useState(7);
+  const [boostLoading, setBoostLoading] = useState(false);
+
+  const handleBoost = async () => {
+    if (!boostListingId) return;
+    setBoostLoading(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) {
+        toast({ title: "Please log in again.", variant: "destructive" });
+        return;
+      }
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/revolut-boost-checkout`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ listingId: boostListingId, days: boostDays }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.checkout_url) {
+        toast({ title: data.error ?? "Could not start the boost checkout.", variant: "destructive" });
+        return;
+      }
+      window.location.href = data.checkout_url;
+    } catch {
+      toast({ title: "Network error. Please try again.", variant: "destructive" });
+    } finally {
+      setBoostLoading(false);
+    }
+  };
+
   // Redirect if not authenticated
   useEffect(() => {
     if (!authLoading && !user) {
@@ -162,7 +205,7 @@ const MyListings = () => {
     // 1. Fetch the seller's own tickets (simple query, no join)
     const { data: ticketRows, error: ticketsError } = await supabase
       .from("tickets")
-      .select("id, event_id, selling_price, quantity, notes, status, created_at")
+      .select("id, event_id, selling_price, quantity, notes, status, created_at, boosted_until")
       .eq("seller_id", user.id)
       .order("created_at", { ascending: false });
 
@@ -631,6 +674,20 @@ const MyListings = () => {
                                   <Trash2 className="w-3.5 h-3.5" />
                                   Cancel
                                 </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="gap-1.5 text-xs h-8 text-amber-700 border-amber-300 hover:bg-amber-50"
+                                  onClick={() => {
+                                    setBoostListingId(listing.id);
+                                    setBoostDays(7);
+                                  }}
+                                >
+                                  <Sparkles className="w-3.5 h-3.5" />
+                                  {listing.boosted_until && new Date(listing.boosted_until) > new Date()
+                                    ? "Boosted"
+                                    : "Boost"}
+                                </Button>
                               </div>
                             )}
                           </div>
@@ -651,6 +708,42 @@ const MyListings = () => {
           </div>
         </div>
       </main>
+
+      {/* Boost (featured listing) Dialog */}
+      <Dialog open={!!boostListingId} onOpenChange={(open) => !open && setBoostListingId(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-amber-500" />
+              Feature your listing
+            </DialogTitle>
+            <DialogDescription>
+              Featured listings appear at the top of the marketplace with a "Featured" badge — more
+              views, faster sale.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            {BOOST_OPTIONS.map((opt) => (
+              <button
+                key={opt.days}
+                type="button"
+                onClick={() => setBoostDays(opt.days)}
+                className={`w-full flex items-center justify-between rounded-lg border p-3 text-sm transition-colors ${
+                  boostDays === opt.days ? "border-primary bg-primary/5" : "border-border hover:border-primary/40"
+                }`}
+              >
+                <span className="font-medium">{opt.days} days featured</span>
+                <span className="font-bold">{opt.price}</span>
+              </button>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="hero" className="w-full" disabled={boostLoading} onClick={handleBoost}>
+              {boostLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Boost now — pay with Revolut"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Price Dialog */}
       <Dialog open={!!editingId} onOpenChange={(open) => !open && setEditingId(null)}>

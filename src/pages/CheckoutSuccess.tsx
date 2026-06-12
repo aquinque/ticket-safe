@@ -16,6 +16,7 @@ import { BackButton } from "@/components/BackButton";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, Sparkles, Mail, Ticket } from "lucide-react";
 import { SEOHead } from "@/components/SEOHead";
+import { supabase } from "@/integrations/supabase/client";
 
 /**
  * Fire a brand-blue confetti burst on mount. Loaded from esm.sh at runtime
@@ -70,6 +71,32 @@ const CheckoutSuccess = () => {
   const [searchParams] = useSearchParams();
   // session_id is available if needed for future order lookup
   const _sessionId = searchParams.get("session_id");
+  const boostId = searchParams.get("boost");
+  const isBoost = !!boostId;
+
+  // Returning from a boost payment → confirm it server-side (idempotent).
+  // Best-effort: if it doesn't land, the seller can re-open it from My listings.
+  useEffect(() => {
+    if (!boostId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData.session?.access_token;
+        if (!token || cancelled) return;
+        await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/revolut-boost-confirm`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ boostId }),
+        });
+      } catch {
+        /* best-effort */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [boostId]);
 
   useEffect(() => {
     // Skip celebration for prefers-reduced-motion users
@@ -102,47 +129,71 @@ const CheckoutSuccess = () => {
 
           <div className="text-[10px] md:text-xs font-bold uppercase tracking-[0.2em] text-primary mb-2 inline-flex items-center gap-1.5">
             <Sparkles className="w-3 h-3" />
-            Payment confirmed
+            {isBoost ? "Boost confirmed" : "Payment confirmed"}
           </div>
           <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-3">
-            You're in!
+            {isBoost ? "Your listing is featured!" : "You're in!"}
           </h1>
 
-          <p className="text-base md:text-lg text-foreground/85 mb-2">
-            Your ticket purchase is complete.
-          </p>
-          <p className="text-sm text-muted-foreground mb-8">
-            A receipt is on its way by email. Your tickets are already in your account.
-          </p>
+          {isBoost ? (
+            <p className="text-sm text-muted-foreground mb-8 max-w-sm mx-auto">
+              Your listing now appears at the top of the marketplace with a{" "}
+              <span className="font-semibold text-foreground">Featured</span> badge for the boost
+              period. Sit back — more buyers will see it.
+            </p>
+          ) : (
+            <>
+              <p className="text-base md:text-lg text-foreground/85 mb-2">
+                Your ticket purchase is complete.
+              </p>
+              <p className="text-sm text-muted-foreground mb-8">
+                A receipt is on its way by email. Your tickets are already in your account.
+              </p>
+            </>
+          )}
 
-          {/* Quick "what's next" tile */}
-          <div className="bg-card border border-border rounded-2xl p-5 md:p-6 mb-6 text-left shadow-sm">
-            <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-3">
-              What's next
+          {!isBoost && (
+            <div className="bg-card border border-border rounded-2xl p-5 md:p-6 mb-6 text-left shadow-sm">
+              <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-3">
+                What's next
+              </div>
+              <ul className="space-y-2.5 text-sm">
+                <li className="flex items-start gap-2.5">
+                  <Mail className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                  <span className="text-foreground/85">
+                    Check your inbox — your QR ticket is included as a scannable image and a PDF.
+                  </span>
+                </li>
+                <li className="flex items-start gap-2.5">
+                  <Ticket className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                  <span className="text-foreground/85">
+                    Open <span className="font-semibold">My tickets</span> anytime to re-display the QR at the door.
+                  </span>
+                </li>
+              </ul>
             </div>
-            <ul className="space-y-2.5 text-sm">
-              <li className="flex items-start gap-2.5">
-                <Mail className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                <span className="text-foreground/85">
-                  Check your inbox — your QR ticket is included as a scannable image and a PDF.
-                </span>
-              </li>
-              <li className="flex items-start gap-2.5">
-                <Ticket className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                <span className="text-foreground/85">
-                  Open <span className="font-semibold">My tickets</span> anytime to re-display the QR at the door.
-                </span>
-              </li>
-            </ul>
-          </div>
+          )}
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Button variant="hero" asChild className="h-11 text-base font-semibold">
-              <Link to="/my-tickets">Show my QR ticket</Link>
-            </Button>
-            <Button variant="outline" asChild className="h-11">
-              <Link to="/tickets">Browse more events</Link>
-            </Button>
+            {isBoost ? (
+              <>
+                <Button variant="hero" asChild className="h-11 text-base font-semibold">
+                  <Link to="/settings/listings">View my listings</Link>
+                </Button>
+                <Button variant="outline" asChild className="h-11">
+                  <Link to="/marketplace/buy">View marketplace</Link>
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="hero" asChild className="h-11 text-base font-semibold">
+                  <Link to="/my-tickets">Show my QR ticket</Link>
+                </Button>
+                <Button variant="outline" asChild className="h-11">
+                  <Link to="/tickets">Browse more events</Link>
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </main>

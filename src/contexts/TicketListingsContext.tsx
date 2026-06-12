@@ -35,6 +35,8 @@ export interface TicketListing {
   campus: string | null;
   /** Original ticket face value (event base price), if known — for fair-price UI. */
   basePrice: number | null;
+  /** ISO timestamp until which the listing is a paid "Featured" boost, or null. */
+  boostedUntil: string | null;
 }
 
 interface TicketListingsContextType {
@@ -67,6 +69,7 @@ interface RawListingRow {
   notes: string | null;
   qr_verified: boolean | null;
   created_at: string;
+  boosted_until: string | null;
   event: {
     id: string;
     title: string;
@@ -94,6 +97,7 @@ async function fetchAvailableListings(): Promise<TicketListing[]> {
       status,
       qr_verified,
       created_at,
+      boosted_until,
       event:events (
         id,
         title,
@@ -150,6 +154,7 @@ async function fetchAvailableListings(): Promise<TicketListing[]> {
       university: ev?.university ?? "",
       campus: ev?.campus ?? null,
       basePrice: ev?.base_price ?? null,
+      boostedUntil: row.boosted_until ?? null,
     };
   });
 }

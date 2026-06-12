@@ -44,6 +44,7 @@ import {
   ChevronRight,
   GraduationCap,
   MessageSquare,
+  Sparkles,
 } from "lucide-react";
 import { SEOHead } from "@/components/SEOHead";
 import { useTicketListings, TicketListing } from "@/contexts/TicketListingsContext";
@@ -78,6 +79,10 @@ function campusColor(campus: string | null): string {
   }
   return "bg-secondary text-secondary-foreground border-border";
 }
+
+/** A listing with an active paid boost (featured placement). */
+const isBoosted = (l: TicketListing): boolean =>
+  !!l.boostedUntil && new Date(l.boostedUntil).getTime() > Date.now();
 
 // ---------------------------------------------------------------------------
 // Component
@@ -154,7 +159,17 @@ const Buy = () => {
       }
       return acc;
     }, {})
-  ).sort((a, b) => new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime());
+  ).sort((a, b) => {
+    // Featured (paid-boost) events float to the top, then by date.
+    const ab = a.tickets.some(isBoosted) ? 1 : 0;
+    const bb = b.tickets.some(isBoosted) ? 1 : 0;
+    if (ab !== bb) return bb - ab;
+    return new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime();
+  });
+  // Within each event, featured listings come first.
+  eventGroups.forEach((g) =>
+    g.tickets.sort((a, b) => Number(isBoosted(b)) - Number(isBoosted(a))),
+  );
 
   // Unique universities and campuses for filter dropdowns
   const allUniversities = [
@@ -444,6 +459,12 @@ const Buy = () => {
                                       €{calcBreakdown(ticket.sellingPrice, 1).buyerTotalEuros.toFixed(2)}
                                     </span>
                                     <span className="text-[10px] text-muted-foreground -ml-1">all-in</span>
+                                    {isBoosted(ticket) && (
+                                      <Badge className="bg-amber-100 text-amber-800 border-amber-200">
+                                        <Sparkles className="w-3 h-3 mr-1" />
+                                        Featured
+                                      </Badge>
+                                    )}
                                     <Badge variant="outline">
                                       {ticket.quantity} available
                                     </Badge>
