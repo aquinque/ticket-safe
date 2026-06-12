@@ -49,7 +49,6 @@ import { SEOHead } from "@/components/SEOHead";
 import { useTicketListings, TicketListing } from "@/contexts/TicketListingsContext";
 import { useAuth } from "@/hooks/useAuth";
 import { getOrCreateConversation } from "@/hooks/useChat";
-import { FairPriceBadge } from "@/components/FairPriceBadge";
 import { toast } from "sonner";
 
 // ---------------------------------------------------------------------------
@@ -443,10 +442,6 @@ const Buy = () => {
                                     <span className="font-semibold text-lg">
                                       €{ticket.sellingPrice.toFixed(2)}
                                     </span>
-                                    <FairPriceBadge
-                                      sellingPrice={ticket.sellingPrice}
-                                      faceValue={ticket.basePrice}
-                                    />
                                     <Badge variant="outline">
                                       {ticket.quantity} available
                                     </Badge>

@@ -22,7 +22,6 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { getEventImage } from "@/lib/eventImages";
-import { FairPriceBadge } from "@/components/FairPriceBadge";
 import { SellerTrust } from "@/components/SellerTrust";
 
 const PLATFORM_FEE_PERCENT = 6;
@@ -316,16 +315,11 @@ const Checkout = () => {
                 </div>
               </div>
 
-              {/* Seller trust + how the resale price compares to face value */}
+              {/* Seller trust panel — name, verified student, sales, escrow. */}
               <SellerTrust
                 sellerId={listing.seller_id}
                 fallbackName={listing.seller?.full_name ?? undefined}
               />
-              {event.base_price != null && (
-                <div>
-                  <FairPriceBadge sellingPrice={unitPrice} faceValue={event.base_price} />
-                </div>
-              )}
 
               <Separator />
 
