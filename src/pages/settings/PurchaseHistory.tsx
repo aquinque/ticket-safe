@@ -217,7 +217,7 @@ const PurchaseHistory = () => {
                           <p className="font-semibold text-sm leading-snug truncate">{purchase.eventTitle}</p>
                         </div>
                         <div className="shrink-0 text-right">
-                          <p className="font-bold text-base leading-none">{Number(purchase.price).toFixed(2)}€</p>
+                          <p className="font-bold text-base leading-none tabular-nums">{Number(purchase.price).toFixed(2)}€</p>
                         </div>
                       </div>
 

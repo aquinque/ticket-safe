@@ -209,7 +209,7 @@ const EventsCatalog = () => {
                       </div>
                       {hasTickets && (
                         <div className="absolute top-3 left-3">
-                          <Badge variant="default" className="bg-green-600">
+                          <Badge variant="default" className="bg-primary text-primary-foreground">
                             {event.available_tickets} ticket{event.available_tickets !== 1 ? 's' : ''}
                           </Badge>
                         </div>

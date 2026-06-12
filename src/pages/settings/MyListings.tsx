@@ -648,7 +648,7 @@ const MyListings = () => {
                           {/* Price + actions */}
                           <div className="flex sm:flex-col items-center sm:items-end gap-3 sm:gap-2 flex-shrink-0">
                             <div className="text-right">
-                              <p className="text-2xl font-bold text-primary">
+                              <p className="text-2xl font-bold text-primary tabular-nums">
                                 €{(listing.selling_price ?? 0).toFixed(2)}
                               </p>
                               <p className="text-xs text-muted-foreground">per ticket</p>

@@ -283,7 +283,7 @@ const ChatRoom = () => {
             </div>
 
             {/* Input area */}
-            <CardContent className="p-3 border-t">
+            <CardContent className="p-3 border-t pb-[calc(0.75rem_+_env(safe-area-inset-bottom))]">
               {showOfferInput ? (
                 <div className="flex gap-2">
                   <div className="relative flex-1">

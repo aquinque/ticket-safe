@@ -10,6 +10,7 @@ import { Calendar, MapPin, Users, CreditCard, ShieldCheck, FileImage } from "luc
 import { SEOHead } from "@/components/SEOHead";
 import { useTicketListings } from "@/contexts/TicketListingsContext";
 import { calcBreakdown } from "@/lib/fees";
+import { getEventImage } from "@/lib/eventImages";
 
 const BuyTicket = () => {
   const { listingId } = useParams();
@@ -66,7 +67,7 @@ const BuyTicket = () => {
             {/* Event Image */}
             <div className="relative h-48 sm:h-64 md:h-auto rounded-xl overflow-hidden">
               <img
-                src={event.image}
+                src={getEventImage(event.image || undefined, event.category)}
                 alt={event.title}
                 className="w-full h-full object-cover"
               />
@@ -119,14 +120,14 @@ const BuyTicket = () => {
 
                 <div className="bg-muted/50 p-4 rounded-lg mb-6">
                   <h3 className="font-semibold mb-2">About this event</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
+                  <p className="text-sm text-muted-foreground leading-relaxed break-words">
                     {event.description}
                   </p>
 
                   {listing.description && (
                     <div className="mt-4 pt-4 border-t border-border">
                       <h4 className="font-semibold text-sm mb-1">Seller's note</h4>
-                      <p className="text-sm text-muted-foreground leading-relaxed">
+                      <p className="text-sm text-muted-foreground leading-relaxed break-words">
                         {listing.description}
                       </p>
                     </div>
