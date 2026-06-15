@@ -459,14 +459,27 @@ serve(async (req) => {
             .eq("id", listingId)
             .in("status", ["available", "reserved"]);
 
-          // ── Studio-resale QR transfer (deployed v30+) ────────────────────
+          // ── Studio-resale QR transfer ────────────────────────────────────
           // If this resale row was created from a Studio ticket the user
           // already owned, invalidate that QR (status='transferred') and
           // issue a fresh signed event_ticket row to the buyer so the door
           // scanner accepts the new owner and rejects the seller.
-          // The canonical implementation lives in the deployed function;
-          // this on-disk twin only stubs the hook so a future CLI deploy
-          // doesn't silently drop the behavior.
+          //
+          // Result is hoisted into `resaleXfer` so the email pipeline
+          // below can build a proper ticket.pdf for the new buyer instead
+          // of falling back to the seller's stale uploaded file_url.
+          let resaleXfer: {
+            newTicketId: string;
+            newQrToken: string;
+            oldTicketId: string;
+            eventId: string;
+            tierId: string;
+            orderId: string;
+            buyerFirstName: string;
+            buyerLastName: string;
+            buyerEmailHolder: string | null;
+          } | null = null;
+
           try {
             const buyerIdForXfer = session.metadata?.buyer_id ?? null;
             const { data: xferListing } = await supabase
@@ -497,19 +510,47 @@ serve(async (req) => {
                 const newQr = signed ?? crypto.randomUUID().replace(/-/g, "");
                 const fullName = ((buyerForXfer as { full_name?: string } | null)?.full_name ?? "").trim();
                 const parts = fullName.split(/\s+/).filter(Boolean);
-                await supabase.from("event_tickets").insert({
+                const buyerFirstName = parts[0] ?? "";
+                const buyerLastName  = parts.length > 1 ? parts.slice(1).join(" ") : "";
+                const buyerEmailHolder = (buyerForXfer as { email?: string } | null)?.email ?? null;
+                // Insert + capture the error. supabase-js does NOT throw on
+                // DB errors, so without this check a silent INSERT failure
+                // would still flip resaleXfer below — the buyer would get a
+                // gorgeous ticket.pdf with a QR token that has no row in
+                // event_tickets, and the scanner would reject them at the
+                // door. Mirror the same { error } check the primary branch
+                // does on its own INSERT.
+                const { error: insertErr } = await supabase.from("event_tickets").insert({
                   id: newTicketId,
                   order_id: oldTicket.order_id,
                   event_id: oldTicket.event_id,
                   tier_id: oldTicket.tier_id,
                   buyer_id: buyerIdForXfer,
                   qr_token: newQr,
-                  holder_first_name: parts[0] ?? null,
-                  holder_last_name: parts.length > 1 ? parts.slice(1).join(" ") : null,
-                  holder_email: (buyerForXfer as { email?: string } | null)?.email ?? null,
+                  holder_first_name: buyerFirstName || null,
+                  holder_last_name: buyerLastName || null,
+                  holder_email: buyerEmailHolder,
                   status: "valid",
                 });
-                console.log(`[resale-xfer] old=${oldTicket.id} new=${newTicketId} buyer=${buyerIdForXfer}`);
+                if (insertErr) {
+                  console.error("[resale-xfer] event_tickets INSERT failed; legacy fallback email will fire:", insertErr);
+                } else {
+                  console.log(`[resale-xfer] old=${oldTicket.id} new=${newTicketId} buyer=${buyerIdForXfer}`);
+
+                  // Hoist the result so the email block below can render the
+                  // proper ticket PDF + order summary for this resale.
+                  resaleXfer = {
+                    newTicketId,
+                    newQrToken: newQr,
+                    oldTicketId: oldTicket.id,
+                    eventId: oldTicket.event_id,
+                    tierId: oldTicket.tier_id,
+                    orderId: oldTicket.order_id,
+                    buyerFirstName,
+                    buyerLastName,
+                    buyerEmailHolder,
+                  };
+                }
               }
             }
           } catch (err) {
@@ -528,26 +569,142 @@ serve(async (req) => {
             const buyerName = buyerProfile?.full_name ?? buyerEmail?.split("@")[0] ?? "there";
             const resendKey = Deno.env.get("RESEND_API_KEY");
             console.log("[checkout.session.completed] buyer email:", buyerEmail, "resendKey set:", !!resendKey);
+
             if (resendKey && buyerEmail) {
-              const ev = ticketRow?.event as { title?: string; date?: string; location?: string } | null;
-              const eventTitle = ev?.title ?? "Event Ticket";
-              const eventDate = ev?.date
-                ? new Date(ev.date).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })
-                : "—";
-              const qty = session.metadata ? (parseInt(session.metadata.qty ?? "1") || 1) : 1;
-              const total = (session.amount_total ?? 0) / 100;
-              const emailRes = await fetch("https://api.resend.com/emails", {
-                method: "POST",
-                headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  from: "TicketSafe <noreply@ticket-safe.eu>",
-                  to: [buyerEmail],
-                  subject: `Your ticket for ${eventTitle} is confirmed!`,
-                  html: `<!DOCTYPE html>
+              // ── NEW PATH: Studio resale with a freshly issued event_ticket ──
+              // The resale-xfer block above invalidated the seller's QR and
+              // issued a new signed JWT for the buyer. Render the same premium
+              // ticket PDF + order summary PDF the primary buyers get, and
+              // dispatch via the shared sendTicketConfirmationEmail orchestrator.
+              if (resaleXfer) {
+                try {
+                  // Side queries: tier + event in parallel (both small).
+                  // Organiser is fetched after we know the organizer_id.
+                  const [tierQ, evRowQ] = await Promise.all([
+                    supabase
+                      .from("event_tiers")
+                      .select("name, price_cents")
+                      .eq("id", resaleXfer.tierId)
+                      .maybeSingle(),
+                    supabase
+                      .from("events")
+                      .select("title, date, location, organizer_id")
+                      .eq("id", resaleXfer.eventId)
+                      .maybeSingle(),
+                  ]);
+                  const tierName = (tierQ.data as { name?: string } | null)?.name ?? "Standard";
+                  const evRow = evRowQ.data as { title?: string; date?: string; location?: string; organizer_id?: string } | null;
+                  const organizerName = evRow?.organizer_id
+                    ? ((await supabase
+                        .from("organizer_profiles")
+                        .select("name")
+                        .eq("id", evRow.organizer_id)
+                        .maybeSingle()).data as { name?: string } | null)?.name ?? "Ticket Safe"
+                    : "Ticket Safe";
+
+                  const evTitle = evRow?.title ?? "Your event";
+                  const evDateOnly = evRow?.date
+                    ? new Date(evRow.date).toLocaleDateString("en-GB", {
+                        weekday: "long", day: "numeric", month: "long", year: "numeric",
+                      })
+                    : "—";
+                  const evTimeOnly = evRow?.date
+                    ? new Date(evRow.date).toLocaleTimeString("en-GB", {
+                        hour: "2-digit", minute: "2-digit",
+                      })
+                    : "—";
+                  const purchaseDate = new Date().toLocaleDateString("en-GB", {
+                    day: "numeric", month: "long", year: "numeric",
+                  });
+                  const totalEuros = (session.amount_total ?? 0) / 100;
+                  const totalPaidStr = `${totalEuros.toFixed(2)}€`;
+
+                  // One ticket per resale transaction. Build the same shape
+                  // generateTicketsPDFServer expects.
+                  const ticketsData: ServerTicketData[] = [{
+                    eventName:      evTitle,
+                    eventDate:      evRow?.date ?? evDateOnly,
+                    eventTime:      evTimeOnly,
+                    eventLocation:  evRow?.location ?? "",
+                    organizerName,
+                    buyerFirstName: resaleXfer.buyerFirstName,
+                    buyerLastName:  resaleXfer.buyerLastName,
+                    buyerEmail:     resaleXfer.buyerEmailHolder ?? buyerEmail,
+                    ticketType:     tierName,
+                    pricePaid:      totalPaidStr,
+                    ticketId:       resaleXfer.newTicketId.slice(0, 12).toUpperCase(),
+                    qrToken:        resaleXfer.newQrToken,
+                    status:         "Valid",
+                    ticketIndex:    1,
+                    ticketTotal:    1,
+                  }];
+
+                  const orderData: OrderSummaryData = {
+                    orderNumber:    transactionId.slice(0, 12).toUpperCase(),
+                    purchaseDate,
+                    buyerFirstName: resaleXfer.buyerFirstName,
+                    buyerLastName:  resaleXfer.buyerLastName,
+                    buyerEmail,
+                    eventName:      evTitle,
+                    eventDate:      evDateOnly,
+                    eventTime:      evTimeOnly,
+                    eventLocation:  evRow?.location ?? "",
+                    ticketType:     tierName,
+                    quantity:       1,
+                    unitPrice:      totalPaidStr,
+                    totalPaid:      totalPaidStr,
+                    paymentMethod:  "Card",
+                    paymentStatus:  "Paid",
+                    organizerName,
+                    ticketId:       resaleXfer.newTicketId.slice(0, 12).toUpperCase(),
+                    transactionId:  paymentIntentId ?? session.id,
+                  };
+
+                  let ticketPdfBytes = new Uint8Array();
+                  try {
+                    ticketPdfBytes = await generateTicketsPDFServer(ticketsData);
+                  } catch (err) {
+                    console.error("[resale] ticket PDF render failed:", err);
+                  }
+
+                  const result = await sendTicketConfirmationEmail({
+                    resendApiKey: resendKey,
+                    to: buyerEmail,
+                    order: orderData,
+                    ticketPdfBytes,
+                  });
+                  console.log(
+                    "[resale] confirmation email:",
+                    result.ok ? `ok id=${result.resendId}` : `error=${result.error}`,
+                  );
+                } catch (err) {
+                  console.error("[resale] new-pipeline email failed, no fallback fired:", err);
+                }
+              } else {
+                // ── LEGACY PATH: non-Studio resale (seller uploaded a file) ──
+                // Listing was created from a manually uploaded ticket image/PDF,
+                // not from a Studio event_ticket the user already owned. Fall
+                // back to the original simple email that links to the seller's
+                // uploaded file — there's no new QR to render here.
+                const ev = ticketRow?.event as { title?: string; date?: string; location?: string } | null;
+                const eventTitle = ev?.title ?? "Event Ticket";
+                const eventDate = ev?.date
+                  ? new Date(ev.date).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })
+                  : "—";
+                const qty = session.metadata ? (parseInt(session.metadata.qty ?? "1") || 1) : 1;
+                const total = (session.amount_total ?? 0) / 100;
+                const emailRes = await fetch("https://api.resend.com/emails", {
+                  method: "POST",
+                  headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    from: "TicketSafe <noreply@ticket-safe.eu>",
+                    to: [buyerEmail],
+                    subject: `Your ticket for ${eventTitle} is confirmed!`,
+                    html: `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8"></head>
 <body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
 <div style="max-width:560px;margin:32px auto;background:white;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.08)">
-  <div style="background:#6366f1;padding:24px 32px">
+  <div style="background:#3a5fe6;padding:24px 32px">
     <p style="margin:0;font-size:13px;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.08em">TicketSafe</p>
     <h1 style="margin:6px 0 0;font-size:22px;color:white;font-weight:600">Your ticket is confirmed!</h1>
   </div>
@@ -559,17 +716,18 @@ serve(async (req) => {
       <tr style="border-bottom:1px solid #f0f0f0"><td style="padding:10px 0;color:#888">Date</td><td style="padding:10px 0;color:#111">${eventDate}</td></tr>
       <tr style="border-bottom:1px solid #f0f0f0"><td style="padding:10px 0;color:#888">Location</td><td style="padding:10px 0;color:#111">${ev?.location ?? "—"}</td></tr>
       <tr style="border-bottom:1px solid #f0f0f0"><td style="padding:10px 0;color:#888">Quantity</td><td style="padding:10px 0;color:#111">${qty} ticket${qty > 1 ? "s" : ""}</td></tr>
-      <tr><td style="padding:10px 0;color:#888">Total paid</td><td style="padding:10px 0;color:#6366f1;font-weight:700;font-size:16px">€${total.toFixed(2)}</td></tr>
+      <tr><td style="padding:10px 0;color:#888">Total paid</td><td style="padding:10px 0;color:#3a5fe6;font-weight:700;font-size:16px">€${total.toFixed(2)}</td></tr>
     </table>
-    ${ticketRow?.file_url ? `<div style="background:#f0f0ff;border-radius:8px;padding:16px;margin-bottom:24px"><p style="margin:0 0 8px;font-size:13px;color:#6366f1;font-weight:600;text-transform:uppercase;letter-spacing:.06em">Your ticket file</p><a href="${ticketRow.file_url}" style="color:#6366f1;font-size:14px;text-decoration:none;font-weight:500">Download your ticket →</a></div>` : ""}
+    ${ticketRow?.file_url ? `<div style="background:#eef1ff;border-radius:8px;padding:16px;margin-bottom:24px"><p style="margin:0 0 8px;font-size:13px;color:#3a5fe6;font-weight:600;text-transform:uppercase;letter-spacing:.06em">Your ticket file</p><a href="${ticketRow.file_url}" style="color:#3a5fe6;font-size:14px;text-decoration:none;font-weight:500">Download your ticket →</a></div>` : ""}
     <p style="font-size:13px;color:#888;margin:0">This ticket is registered in your name. View it in <strong>My Purchases</strong> on TicketSafe.</p>
   </div>
   <div style="padding:16px 32px;background:#fafafa;border-top:1px solid #f0f0f0"><p style="margin:0;font-size:12px;color:#bbb;text-align:center">TicketSafe · Secure peer-to-peer ticket resale</p></div>
 </div></body></html>`,
-                }),
-              });
-              const emailBody = await emailRes.json().catch(() => ({}));
-              console.log("[checkout.session.completed] buyer Resend result:", emailRes.status, JSON.stringify(emailBody));
+                  }),
+                });
+                const emailBody = await emailRes.json().catch(() => ({}));
+                console.log("[checkout.session.completed] buyer Resend result (legacy fallback):", emailRes.status, JSON.stringify(emailBody));
+              }
             }
 
             // Send notification email to seller
