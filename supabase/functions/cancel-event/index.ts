@@ -10,17 +10,21 @@
  *      event's organizer.
  *   2. Flip events.status = 'cancelled' and set cancelled_at.
  *   3. For every paid event_orders row tied to this event:
- *        a. Issue a Stripe refund on the saved payment_intent_id
- *           (reverses the destination charge AND the platform fee).
+ *        a. Issue a refund through the correct provider:
+ *             • Revolut order (stripe_checkout_session_id starts with
+ *               "revolut:") → POST /orders/{id}/refund
+ *             • Stripe order (stripe_payment_intent_id non-null) →
+ *               stripe.refunds.create
  *        b. Mark the order status = 'refunded' with refunded_at.
- *        c. Mark every event_tickets row invalidated.
+ *        c. Set event_tickets.status = 'refunded' for every still-valid
+ *           ticket on the order (preserves scanned/transferred history).
  *        d. Send the buyer a refund-notification email via Resend.
  *   4. Email the organizer a summary.
  *   5. audit_log every step.
  *
  * Pending orders (Checkout still open) are NOT refunded — they are just
- * cancelled by Stripe when the session expires, and our webhook releases
- * the tier reservation.
+ * cancelled by the provider when the session expires, and the webhook
+ * releases the tier reservation.
  */
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -66,8 +70,11 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
+    const revolutSecret = Deno.env.get("REVOLUT_MERCHANT_SECRET_KEY");
+    const revolutBase = (Deno.env.get("REVOLUT_MERCHANT_BASE") ?? "https://merchant.revolut.com/api").replace(/\/+$/, "");
+    const revolutApiVersion = Deno.env.get("REVOLUT_API_VERSION") ?? "2024-09-01";
     const resendKey = Deno.env.get("RESEND_API_KEY");
-    if (!supabaseUrl || !supabaseKey || !stripeKey) return json({ error: "Server misconfigured." }, 500);
+    if (!supabaseUrl || !supabaseKey) return json({ error: "Server misconfigured." }, 500);
 
     const authHeader = req.headers.get("Authorization") ?? "";
     if (!authHeader.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
@@ -99,10 +106,69 @@ serve(async (req) => {
       return json({ error: "Only the event's organizer can cancel this event." }, 403);
     }
 
-    const stripe = new Stripe(stripeKey, {
+    const stripe = stripeKey ? new Stripe(stripeKey, {
       apiVersion: "2024-06-20",
       httpClient: Stripe.createFetchHttpClient(),
-    });
+    }) : null;
+
+    /**
+     * Refund a single paid order through the right provider.
+     * Returns { ok: true } on success, { ok: false, reason } on failure.
+     */
+    async function refundOrder(order: {
+      id: string;
+      total_cents: number;
+      currency: string;
+      stripe_payment_intent_id: string | null;
+      stripe_checkout_session_id: string | null;
+    }): Promise<{ ok: true } | { ok: false; reason: string }> {
+      // Revolut: stripe_checkout_session_id stores "revolut:<rev_order_id>"
+      const sid = order.stripe_checkout_session_id ?? "";
+      if (sid.startsWith("revolut:")) {
+        if (!revolutSecret) return { ok: false, reason: "REVOLUT_MERCHANT_SECRET_KEY missing" };
+        const revOrderId = sid.slice("revolut:".length);
+        try {
+          const res = await fetch(`${revolutBase}/orders/${revOrderId}/refund`, {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${revolutSecret}`,
+              "Revolut-Api-Version": revolutApiVersion,
+              "Content-Type": "application/json",
+              "Accept": "application/json",
+            },
+            body: JSON.stringify({
+              amount: order.total_cents,
+              currency: (order.currency || "EUR").toUpperCase(),
+              merchant_order_ext_ref: `ts_cancel_${order.id}`,
+            }),
+          });
+          if (!res.ok) {
+            const text = await res.text().catch(() => "");
+            return { ok: false, reason: `revolut_refund_${res.status}: ${text.slice(0, 200)}` };
+          }
+          return { ok: true };
+        } catch (err) {
+          return { ok: false, reason: `revolut_refund_throw: ${err instanceof Error ? err.message : String(err)}` };
+        }
+      }
+      // Stripe: direct charge on platform account
+      if (order.stripe_payment_intent_id && stripe) {
+        try {
+          await stripe.refunds.create({
+            payment_intent: order.stripe_payment_intent_id,
+            metadata: {
+              source: "event_cancellation",
+              order_id: order.id,
+              event_id: eventId,
+            },
+          });
+          return { ok: true };
+        } catch (err) {
+          return { ok: false, reason: err instanceof Error ? err.message : String(err) };
+        }
+      }
+      return { ok: false, reason: "No usable payment reference (neither revolut: session nor stripe payment_intent)" };
+    }
 
     // 1. Flip event status
     await supabase
@@ -173,7 +239,7 @@ serve(async (req) => {
     // transition that won its race is automatically included here.)
     const { data: orders } = await supabase
       .from("event_orders")
-      .select("id, buyer_email, total_cents, stripe_payment_intent_id, status")
+      .select("id, buyer_email, total_cents, currency, stripe_payment_intent_id, stripe_checkout_session_id, status")
       .eq("event_id", eventId)
       .eq("status", "paid");
 
@@ -182,67 +248,55 @@ serve(async (req) => {
     const failures: { order_id: string; reason: string }[] = [];
 
     for (const order of orders ?? []) {
-      if (!order.stripe_payment_intent_id) {
-        failures.push({ order_id: order.id, reason: "Missing payment_intent_id" });
+      const result = await refundOrder(order);
+      if (!result.ok) {
+        console.error("[cancel-event] refund failed for order", order.id, result.reason);
+        failures.push({ order_id: order.id, reason: result.reason });
         continue;
       }
-      try {
-        // refund_application_fee=true claws back the 5% platform fee too
-        await stripe.refunds.create({
-          payment_intent: order.stripe_payment_intent_id,
-          refund_application_fee: true,
-          reverse_transfer: true,
-          metadata: {
-            source: "event_cancellation",
-            order_id: order.id,
-            event_id: eventId,
-          },
-        });
 
-        await supabase
-          .from("event_orders")
-          .update({ status: "refunded", refunded_at: new Date().toISOString() })
-          .eq("id", order.id);
+      await supabase
+        .from("event_orders")
+        .update({ status: "refunded", refunded_at: new Date().toISOString() })
+        .eq("id", order.id);
 
-        // Invalidate any unscanned tickets
-        await supabase
-          .from("event_tickets")
-          .update({ scanned_at: new Date().toISOString(), scanned_by: user.id })
-          .eq("order_id", order.id)
-          .is("scanned_at", null);
+      // Mark every still-valid ticket as refunded. Scanned/transferred/already-
+      // refunded tickets are left alone so their history is preserved.
+      await supabase
+        .from("event_tickets")
+        .update({ status: "refunded" })
+        .eq("order_id", order.id)
+        .eq("status", "valid");
 
-        await supabase.rpc("audit_record", {
-          p_action: "event_order.refunded_cancellation",
-          p_target_kind: "event_order",
-          p_target_id: order.id,
-          p_meta: { event_id: eventId },
-          p_actor_id: user.id,
-        });
+      await supabase.rpc("audit_record", {
+        p_action: "event_order.refunded_cancellation",
+        p_target_kind: "event_order",
+        p_target_id: order.id,
+        p_meta: {
+          event_id: eventId,
+          provider: (order.stripe_checkout_session_id ?? "").startsWith("revolut:") ? "revolut" : "stripe",
+        },
+        p_actor_id: user.id,
+      });
 
-        refundedCount += 1;
-        refundedTotalCents += order.total_cents;
+      refundedCount += 1;
+      refundedTotalCents += order.total_cents;
 
-        // Notify the buyer
-        if (resendKey && order.buyer_email) {
-          fetch("https://api.resend.com/emails", {
-            method: "POST",
-            headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
-            body: JSON.stringify({
-              from: "Ticket Safe <noreply@ticket-safe.eu>",
-              to: [order.buyer_email],
-              subject: `${ev.title} cancelled — refund issued`,
-              html: buyerCancellationEmail({
-                evTitle: ev.title,
-                refundAmount: order.total_cents / 100,
-                reason,
-              }),
+      if (resendKey && order.buyer_email) {
+        fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            from: "Ticket Safe <noreply@ticket-safe.eu>",
+            to: [order.buyer_email],
+            subject: `${ev.title} cancelled — refund issued`,
+            html: buyerCancellationEmail({
+              evTitle: ev.title,
+              refundAmount: order.total_cents / 100,
+              reason,
             }),
-          }).catch((err) => console.warn("[cancel-event] buyer email failed:", err));
-        }
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        console.error("[cancel-event] refund failed for order", order.id, msg);
-        failures.push({ order_id: order.id, reason: msg });
+          }),
+        }).catch((err) => console.warn("[cancel-event] buyer email failed:", err));
       }
     }
 
