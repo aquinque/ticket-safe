@@ -17,8 +17,6 @@ import {
 } from "lucide-react";
 import { SEOHead } from "@/components/SEOHead";
 import { AnimatedNumber } from "@/components/AnimatedNumber";
-import { TrustBadge } from "@/components/TrustBadge";
-import { TicketStub } from "@/components/TicketStub";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -746,12 +744,13 @@ const EventPublic = () => {
                 </div>
               )}
 
-              {/* ===== Totals card — TicketStub-style transparent breakdown =====
-                  Same perforated visual language as the order-summary.pdf —
-                  the receipt the buyer will get attached to their email. The
-                  perforation strip + dotted line + font-mono numerics make
-                  the card read as a real ticket artifact. */}
-              <TicketStub perforation="top" className="mt-6" innerClassName="p-5 md:p-6">
+              {/* ===== Totals card — Xceed-style transparent breakdown =====
+                  The buyer should never feel like they got an unexpected
+                  charge at the end. Each line is itemised, the service fee
+                  is shown in EUR (not just "5%"), the total is the visual
+                  hero, and a tiny "Why a fee?" line explains where the
+                  money goes — built for trust, not for hiding numbers. */}
+              <div className="mt-6 rounded-2xl bg-card border border-border p-5 md:p-6 shadow-sm">
                 <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-4">
                   Order summary
                 </div>
@@ -763,7 +762,7 @@ const EventPublic = () => {
                       <span className="font-medium">{selected.name}</span>
                       <span className="text-muted-foreground"> × {qty}</span>
                     </span>
-                    <span className="font-mono tabular-nums font-medium text-foreground">
+                    <span className="tabular-nums font-medium text-foreground">
                       €{(totalCents / 100).toFixed(2)}
                     </span>
                   </div>
@@ -771,7 +770,7 @@ const EventPublic = () => {
                     <span className="text-muted-foreground">
                       Service fee <span className="text-muted-foreground/70">(5%)</span>
                     </span>
-                    <span className="font-mono tabular-nums font-medium text-foreground">
+                    <span className="tabular-nums font-medium text-foreground">
                       €{(feeCents / 100).toFixed(2)}
                     </span>
                   </div>
@@ -782,7 +781,7 @@ const EventPublic = () => {
                   <span className="text-base md:text-lg font-semibold tracking-tight text-foreground">
                     Total
                   </span>
-                  <span style={{ color: primary }} className="font-mono tabular-nums text-3xl md:text-4xl font-semibold tracking-tight leading-none">
+                  <span style={{ color: primary }} className="text-3xl md:text-4xl font-semibold tracking-tight leading-none">
                     <AnimatedNumber value={grandCents / 100} prefix="€" />
                   </span>
                 </div>
@@ -810,15 +809,17 @@ const EventPublic = () => {
                   )}
                 </button>
 
-                {/* Trust + fee explainer — unified TrustBadge vocabulary */}
-                <div className="mt-4 flex flex-col items-center gap-1.5">
-                  <TrustBadge variant="escrow" inline />
-                  <TrustBadge variant="refundable" inline />
-                  <p className="text-[10px] text-muted-foreground/70 text-center leading-relaxed px-2 mt-1">
+                {/* Trust + fee explainer */}
+                <div className="mt-4 space-y-2">
+                  <p className="text-[11px] text-muted-foreground text-center inline-flex items-center justify-center gap-1.5 w-full">
+                    <ShieldCheck className="w-3 h-3" />
+                    Secured by Stripe. Refundable if the event is cancelled.
+                  </p>
+                  <p className="text-[10px] text-muted-foreground/70 text-center leading-relaxed px-2">
                     The service fee covers secure payment processing, QR delivery, and platform operations.
                   </p>
                 </div>
-              </TicketStub>
+              </div>
             </section>
           )}
 
@@ -1006,51 +1007,6 @@ const EventPublic = () => {
           caret-color: #fff;
         }
       `}</style>
-
-      {/* ===== Sticky mobile buy bar — the highest-converting pattern in
-           mobile marketplace UX (Vinted, StubHub, Ticketmaster all ship it).
-           Renders once the user has picked a tier and only on small screens. */}
-      {selected && (
-        <div
-          className="fixed bottom-0 left-0 right-0 z-40 md:hidden border-t border-border bg-card/95 backdrop-blur px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
-          style={{ boxShadow: "0 -8px 30px hsl(220 100% 30% / 0.18)" }}
-        >
-          <div className="flex items-center gap-3">
-            <div className="flex-1 min-w-0">
-              <div className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground leading-none">
-                {selected.name} × {qty}
-              </div>
-              <div className="mt-0.5 flex items-baseline gap-1.5">
-                <span className="font-mono tabular-nums text-xl font-semibold text-foreground leading-none">
-                  €{(grandCents / 100).toFixed(2)}
-                </span>
-                <span className="text-[10px] text-muted-foreground truncate">Protection incluse</span>
-              </div>
-            </div>
-            <button
-              onClick={handleBuy}
-              disabled={buying}
-              className="shrink-0 inline-flex items-center gap-1.5 min-h-[44px] px-5 rounded-lg font-semibold text-white text-sm disabled:opacity-60 transition-all active:scale-[0.98]"
-              style={{
-                background: primary,
-                boxShadow: buying ? "none" : `0 4px 14px ${primary}30`,
-              }}
-            >
-              {buying ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  …
-                </>
-              ) : (
-                <>
-                  Continuer
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

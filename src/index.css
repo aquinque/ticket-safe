@@ -47,11 +47,17 @@ All colors MUST be HSL.
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
     
-    /* ESCP Gradients - Professional Blue Blends */
-    --gradient-hero: linear-gradient(135deg, hsl(220 100% 30%) 0%, hsl(215 95% 40%) 50%, hsl(210 100% 45%) 100%);
+    /* Brand surfaces — editorial deep navy.
+       Premium-but-peer north star: stop reading like a 3-stop SaaS template.
+       The hero is a deep navy field with a subtle top-right highlight glow
+       (radial); --gradient-accent and --gradient-purple-blue are downgraded
+       to subtle two-stop washes so they stop fighting each other. */
+    --gradient-hero:
+      radial-gradient(ellipse at 90% 5%, hsl(220 100% 55% / 0.22), transparent 55%),
+      linear-gradient(160deg, hsl(220 100% 14%) 0%, hsl(220 95% 22%) 100%);
     --gradient-card: linear-gradient(145deg, hsl(var(--card)) 0%, hsl(var(--background)) 100%);
-    --gradient-accent: linear-gradient(135deg, hsl(220 100% 30%) 0%, hsl(210 100% 45%) 100%);
-    --gradient-purple-blue: linear-gradient(135deg, hsl(215 95% 40%) 0%, hsl(220 100% 30%) 50%, hsl(210 100% 45%) 100%);
+    --gradient-accent: linear-gradient(135deg, hsl(220 100% 18%) 0%, hsl(220 90% 28%) 100%);
+    --gradient-purple-blue: linear-gradient(160deg, hsl(220 100% 16%) 0%, hsl(220 90% 24%) 100%);
     
     /* Professional Shadows - Deep Blue Glow */
     --shadow-soft: 0 2px 12px 0 hsl(220 100% 30% / 0.08);
