@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { CampusChip } from "@/components/CampusChip";
 import {
   Select,
   SelectContent,
@@ -60,26 +61,6 @@ import { toast } from "sonner";
 const PAGE_SIZE = 10;
 
 // ---------------------------------------------------------------------------
-// Campus colour map (ESCP Phase 1 + extensible)
-// ---------------------------------------------------------------------------
-
-const CAMPUS_COLORS: Record<string, string> = {
-  paris:  "bg-blue-100 text-blue-800 border-blue-200",
-  london: "bg-rose-100 text-rose-800 border-rose-200",
-  berlin: "bg-slate-100 text-slate-800 border-slate-200",
-  madrid: "bg-orange-100 text-orange-800 border-orange-200",
-  turin:  "bg-violet-100 text-violet-800 border-violet-200",
-};
-
-function campusColor(campus: string | null): string {
-  if (!campus) return "";
-  const key = campus.toLowerCase();
-  for (const [k, v] of Object.entries(CAMPUS_COLORS)) {
-    if (key.includes(k)) return v;
-  }
-  return "bg-secondary text-secondary-foreground border-border";
-}
-
 /** A listing with an active paid boost (featured placement). */
 const isBoosted = (l: TicketListing): boolean =>
   !!l.boostedUntil && new Date(l.boostedUntil).getTime() > Date.now();
@@ -409,12 +390,7 @@ const Buy = () => {
                               {group.eventCategory || "Event"}
                             </Badge>
                             {group.eventCampus && (
-                              <Badge
-                                variant="outline"
-                                className={`text-xs px-2 py-0.5 ${campusColor(group.eventCampus)}`}
-                              >
-                                {group.eventCampus}
-                              </Badge>
+                              <CampusChip campus={group.eventCampus} />
                             )}
                           </div>
                         </div>
