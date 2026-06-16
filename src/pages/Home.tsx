@@ -164,10 +164,13 @@ const Home = () => {
 
           {/* Two paths */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 md:gap-6 animate-slide-up">
-            {/* Path 1 — Buy event tickets */}
+            {/* Path 1 — Buy event tickets.
+                flex-col + mt-auto on the CTA pushes "Browse events" to the
+                bottom of the card, so the CTAs of both boxes line up even
+                when the descriptive paragraphs have different lengths. */}
             <Link
               to="/tickets"
-              className="group relative rounded-2xl md:rounded-3xl p-6 md:p-10 overflow-hidden text-white transition-all duration-300 active:scale-[0.99] md:hover:-translate-y-1 md:hover:shadow-hover"
+              className="group relative rounded-2xl md:rounded-3xl p-6 md:p-10 overflow-hidden text-white transition-all duration-300 active:scale-[0.99] md:hover:-translate-y-1 md:hover:shadow-hover flex flex-col"
               style={{ background: "var(--gradient-hero)" }}
             >
               {/* Glow accent */}
@@ -175,7 +178,7 @@ const Home = () => {
                 className="pointer-events-none absolute -top-20 -right-20 w-72 h-72 rounded-full opacity-40 blur-3xl group-hover:opacity-60 transition-opacity"
                 style={{ background: "radial-gradient(circle, hsl(210 100% 65%), transparent 70%)" }}
               />
-              <div className="relative">
+              <div className="relative flex flex-col flex-1">
                 <div className="inline-flex w-12 h-12 md:w-14 md:h-14 rounded-xl md:rounded-2xl bg-white/15 backdrop-blur items-center justify-center mb-4 md:mb-6 group-hover:scale-110 group-hover:bg-white/25 transition-all">
                   <Ticket className="w-6 h-6 md:w-7 md:h-7 text-white" />
                 </div>
@@ -189,23 +192,23 @@ const Home = () => {
                 <p className="text-sm md:text-base text-white/80 mb-5 md:mb-8 leading-relaxed max-w-sm">
                   All your campus events in one place. Tickets sold directly by student associations.
                 </p>
-                <div className="inline-flex items-center gap-2 font-bold text-white text-sm md:text-base group-hover:gap-3 transition-all">
+                <div className="mt-auto inline-flex items-center gap-2 font-bold text-white text-sm md:text-base group-hover:gap-3 transition-all">
                   Browse events
                   <ArrowRight className="w-4 h-4 md:w-5 md:h-5 group-hover:translate-x-1 transition-transform" />
                 </div>
               </div>
             </Link>
 
-            {/* Path 2 — Resale marketplace */}
+            {/* Path 2 — Resale marketplace. Same flex-col + mt-auto pattern. */}
             <Link
               to="/resale"
-              className="group relative rounded-2xl md:rounded-3xl p-6 md:p-10 overflow-hidden bg-card border border-border transition-all duration-300 active:scale-[0.99] md:hover:-translate-y-1 md:hover:shadow-hover hover:border-primary/30"
+              className="group relative rounded-2xl md:rounded-3xl p-6 md:p-10 overflow-hidden bg-card border border-border transition-all duration-300 active:scale-[0.99] md:hover:-translate-y-1 md:hover:shadow-hover hover:border-primary/30 flex flex-col"
             >
               <div
                 className="pointer-events-none absolute -top-20 -right-20 w-72 h-72 rounded-full opacity-30 blur-3xl group-hover:opacity-50 transition-opacity"
                 style={{ background: "radial-gradient(circle, hsl(221 100% 56% / 0.35), transparent 70%)" }}
               />
-              <div className="relative">
+              <div className="relative flex flex-col flex-1">
                 <div
                   className="inline-flex w-12 h-12 md:w-14 md:h-14 rounded-xl md:rounded-2xl items-center justify-center mb-4 md:mb-6 group-hover:scale-110 transition-transform"
                   style={{ background: "linear-gradient(135deg, hsl(220 100% 30%), hsl(210 100% 45%))" }}
@@ -221,7 +224,7 @@ const Home = () => {
                 <p className="text-sm md:text-base text-muted-foreground mb-5 md:mb-8 leading-relaxed max-w-sm">
                   Sold out? Find a ticket from another student. Got an extra? List it in two minutes and find a buyer fast.
                 </p>
-                <div className="inline-flex items-center gap-2 font-bold text-primary text-sm md:text-base group-hover:gap-3 transition-all">
+                <div className="mt-auto inline-flex items-center gap-2 font-bold text-primary text-sm md:text-base group-hover:gap-3 transition-all">
                   Go to marketplace
                   <ArrowRight className="w-4 h-4 md:w-5 md:h-5 group-hover:translate-x-1 transition-transform" />
                 </div>
