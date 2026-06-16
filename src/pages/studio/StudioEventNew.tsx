@@ -39,6 +39,11 @@ interface TierDraft {
   description: string;
   priceEuros: string;
   totalQty: string;
+  /** YYYY-MM-DDTHH:mm — empty string when no scheduled drop. */
+  salesStartAt: string;
+  salesEndAt: string;
+  /** Per-order cap; empty string falls back to the event-wide limit. */
+  maxPerOrder: string;
 }
 
 const initialTier = (): TierDraft => ({
@@ -46,6 +51,9 @@ const initialTier = (): TierDraft => ({
   description: "",
   priceEuros: "20",
   totalQty: "100",
+  salesStartAt: "",
+  salesEndAt: "",
+  maxPerOrder: "",
 });
 
 const StudioEventNew = () => {
@@ -59,9 +67,17 @@ const StudioEventNew = () => {
   const [endsAt, setEndsAt] = useState("");
   const [location, setLocation] = useState("");
   const [category, setCategory] = useState("party");
-  // Brand colour is fixed (colour customisation removed) — events always use
-  // the Ticket Safe blue; the banner photo is what makes each event distinct.
-  const primaryColor = "#003399";
+  // Brand color — defaults to the TicketSafe navy. Organizers can override
+  // per-event to match their gala/society visual identity. Saved to
+  // events.primary_color (already a column) and used on the public event page.
+  const [primaryColor, setPrimaryColor] = useState<string>(
+    organizer?.primary_color ?? "#003399",
+  );
+
+  useEffect(() => {
+    // Pre-fill with the organizer's brand color once it loads.
+    if (organizer?.primary_color) setPrimaryColor(organizer.primary_color);
+  }, [organizer?.primary_color]);
   const [limitEnabled, setLimitEnabled] = useState(true);
   const [maxPerBuyer, setMaxPerBuyer] = useState("1");
   const [bannerFile, setBannerFile] = useState<File | null>(null);
@@ -233,6 +249,9 @@ const StudioEventNew = () => {
         total_qty: Number(t.totalQty),
         sort_order: i,
         is_active: true,
+        sales_start_at: t.salesStartAt ? new Date(t.salesStartAt).toISOString() : null,
+        sales_end_at:   t.salesEndAt   ? new Date(t.salesEndAt).toISOString()   : null,
+        max_per_order:  t.maxPerOrder.trim() ? Math.max(1, Number(t.maxPerOrder)) : null,
       }));
       const { error: tErr } = await supabase.from("event_tiers").insert(tierRows);
       if (tErr) {
@@ -379,6 +398,34 @@ const StudioEventNew = () => {
                 maxLength={60}
               />
             </Field>
+            <Field label="Brand color" icon={Palette} hint="Used on the public event page header & CTA. Defaults to your organizer color.">
+              <div className="flex items-center gap-3">
+                <input
+                  type="color"
+                  value={primaryColor}
+                  onChange={(e) => setPrimaryColor(e.target.value)}
+                  className="w-14 h-11 rounded-lg border border-border bg-background cursor-pointer"
+                  aria-label="Pick brand color"
+                />
+                <input
+                  value={primaryColor}
+                  onChange={(e) => {
+                    const v = e.target.value.trim();
+                    if (/^#[0-9a-fA-F]{0,6}$/.test(v) || v === "") setPrimaryColor(v);
+                  }}
+                  className="ts-input font-mono w-32"
+                  placeholder="#003399"
+                  maxLength={7}
+                />
+                <button
+                  type="button"
+                  onClick={() => setPrimaryColor(organizer?.primary_color ?? "#003399")}
+                  className="text-xs font-bold text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Reset
+                </button>
+              </div>
+            </Field>
           </Section>
 
           {/* Tiers */}
@@ -457,6 +504,50 @@ const StudioEventNew = () => {
                     />
                   </div>
                 </div>
+
+                {/* Advanced — schedulable sales window + per-tier purchase cap.
+                    Hidden in a small disclosure so the basic flow stays clean. */}
+                <details className="mt-3 pt-3 border-t border-border group">
+                  <summary className="cursor-pointer list-none inline-flex items-center gap-1.5 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors select-none">
+                    <span className="inline-block transition-transform group-open:rotate-90">›</span>
+                    Advanced — schedule sales window & per-order cap
+                  </summary>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+                    <div>
+                      <label className="text-xs font-bold text-muted-foreground mb-1 block">Sales start (optional)</label>
+                      <input
+                        type="datetime-local"
+                        value={t.salesStartAt}
+                        onChange={(e) => updateTier(i, { salesStartAt: e.target.value })}
+                        className="ts-input"
+                      />
+                      <p className="text-[10px] text-muted-foreground mt-1">Tier hidden before this date.</p>
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-muted-foreground mb-1 block">Sales end (optional)</label>
+                      <input
+                        type="datetime-local"
+                        value={t.salesEndAt}
+                        onChange={(e) => updateTier(i, { salesEndAt: e.target.value })}
+                        className="ts-input"
+                      />
+                      <p className="text-[10px] text-muted-foreground mt-1">No purchases after this date.</p>
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-muted-foreground mb-1 block">Max per order</label>
+                      <input
+                        type="number"
+                        value={t.maxPerOrder}
+                        onChange={(e) => updateTier(i, { maxPerOrder: e.target.value })}
+                        className="ts-input"
+                        placeholder="No limit"
+                        min="1"
+                        max="50"
+                      />
+                      <p className="text-[10px] text-muted-foreground mt-1">e.g. "2" for VIP, leave blank otherwise.</p>
+                    </div>
+                  </div>
+                </details>
               </div>
             ))}
             <button

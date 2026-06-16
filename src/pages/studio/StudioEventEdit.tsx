@@ -35,6 +35,12 @@ import { ImageCropDialog } from "@/components/ImageCropDialog";
 import { BackButton } from "@/components/BackButton";
 import Footer from "@/components/Footer";
 import { SEOHead } from "@/components/SEOHead";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrganizer } from "@/hooks/useOrganizer";
 import { supabase } from "@/integrations/supabase/client";
@@ -55,6 +61,8 @@ interface EventRow {
   organizer_id: string;
   published_at: string | null;
   max_tickets_per_buyer: number | null;
+  og_image_url: string | null;
+  seo_description: string | null;
 }
 
 interface TierRow {
@@ -68,6 +76,9 @@ interface TierRow {
   reserved_qty: number;
   sort_order: number;
   is_active: boolean;
+  sales_start_at: string | null;
+  sales_end_at: string | null;
+  max_per_order: number | null;
 }
 
 interface OrderRow {
@@ -162,6 +173,12 @@ const StudioEventEdit = () => {
   const [saving, setSaving] = useState(false);
   // Track the "copied!" feedback on the share-link button. Resets after 2s.
   const [shareCopied, setShareCopied] = useState(false);
+
+  // Cancel-event modal state. Replaces the previous window.confirm/prompt
+  // chain — the actual refund call still hits the cancel-event edge function.
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [cancelConfirmText, setCancelConfirmText] = useState("");
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -262,26 +279,18 @@ const StudioEventEdit = () => {
 
   const unpublish = () => updateEventField({ status: "draft" });
 
-  const cancelEvent = async () => {
+  const openCancelDialog = () => {
+    setCancelReason("");
+    setCancelConfirmText("");
+    setCancelOpen(true);
+  };
+
+  const confirmCancel = async () => {
     if (!event) return;
-    const paidCount = orders.filter((o) => o.status === "paid").length;
-    const warning = paidCount > 0
-      ? `Are you sure you want to cancel this event?\n\nIt has ${paidCount} paid order${paidCount > 1 ? "s" : ""}. Cancelling will issue full refunds (including the 5% platform fee) to every buyer.`
-      : "Are you sure you want to cancel this event? Buyers will no longer see it.";
-    if (!window.confirm(warning)) return;
-
-    // Second, stronger confirmation — this is destructive and irreversible.
-    const finalWarning = paidCount > 0
-      ? `Are you REALLY sure? This cannot be undone.\n\nThe event will be removed, all ${paidCount} buyer${paidCount > 1 ? "s" : ""} refunded, and every ticket invalidated. You will lose everything.`
-      : "Are you REALLY sure? This cannot be undone — the event and all its tickets will be gone for good.";
-    if (!window.confirm(finalWarning)) return;
-
-    const reason = window.prompt("Reason for cancellation (shown to buyers in the refund email):") || "";
-
     setSaving(true);
     try {
       const { data, error } = await supabase.functions.invoke("cancel-event", {
-        body: { event_id: event.id, reason },
+        body: { event_id: event.id, reason: cancelReason.trim() },
       });
       if (error || !data?.ok) {
         toast.error((data as { error?: string })?.error ?? error?.message ?? "Could not cancel.");
@@ -294,6 +303,7 @@ const StudioEventEdit = () => {
           ? `Event cancelled. ${c} refund${c !== 1 ? "s" : ""} issued, ${failedCount} need manual review.`
           : `Event cancelled. ${c} buyer${c !== 1 ? "s" : ""} refunded.`,
       );
+      setCancelOpen(false);
       load();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Unexpected error.");
@@ -483,7 +493,7 @@ const StudioEventEdit = () => {
                 )}
                 {event.status !== "cancelled" && (
                   <button
-                    onClick={cancelEvent}
+                    onClick={openCancelDialog}
                     disabled={saving}
                     className="inline-flex items-center gap-1.5 px-4 min-h-[40px] rounded-lg font-bold text-sm bg-red-500/20 backdrop-blur border border-red-200/40 text-white hover:bg-red-500/30"
                     title="Cancel event and refund all buyers"
@@ -772,6 +782,11 @@ const StudioEventEdit = () => {
           {/* Per-buyer limit — editable at any status (only affects new purchases) */}
           <PerBuyerLimitControl event={event} onSaved={(patch) => setEvent({ ...event, ...patch })} />
 
+          {/* Social sharing — per-event OG image + meta description so the
+              link preview when a BDE drops the URL in WhatsApp / Instagram /
+              email reads as intentional rather than generic. */}
+          <SocialSharingControl event={event} onSaved={(patch) => setEvent({ ...event, ...patch })} />
+
           {/* Buyers — every order, with the named attendees that order issued */}
           <section className="bg-card border border-border rounded-2xl p-5 md:p-6">
             <div className="flex items-center justify-between mb-4 gap-3">
@@ -846,6 +861,98 @@ const StudioEventEdit = () => {
       </main>
 
       <Footer />
+
+      {/* Cancel-event confirmation dialog. Surfaces the real impact (buyer
+          count + total refund €) before the irreversible action, and gates
+          the action behind a typed "CANCEL" + a free-text reason that's
+          carried into every refund email. */}
+      <AlertDialog open={cancelOpen} onOpenChange={setCancelOpen}>
+        <AlertDialogContent className="max-w-lg">
+          {(() => {
+            const paid = orders.filter((o) => o.status === "paid");
+            const refundEuros = paid.reduce((s, o) => s + o.total_cents, 0) / 100;
+            const ready =
+              cancelReason.trim().length >= 5 && cancelConfirmText.trim().toUpperCase() === "CANCEL";
+            return (
+              <>
+                <AlertDialogTitle>Cancel "{event.title}"?</AlertDialogTitle>
+                <AlertDialogDescription asChild>
+                  <div className="space-y-3 text-sm text-foreground/85">
+                    <p>
+                      {paid.length > 0 ? (
+                        <>
+                          This will <strong>refund {paid.length} buyer{paid.length === 1 ? "" : "s"}</strong>{" "}
+                          a total of <strong>€{refundEuros.toFixed(2)}</strong> to their original
+                          payment method, invalidate every ticket, and mark the event as cancelled.
+                        </>
+                      ) : (
+                        <>The event will be hidden from the public marketplace. No buyers are affected (no paid orders).</>
+                      )}
+                    </p>
+                    <p className="text-destructive font-semibold">This cannot be undone.</p>
+                  </div>
+                </AlertDialogDescription>
+
+                <div className="mt-2 space-y-3">
+                  <div>
+                    <label className="text-xs font-bold text-muted-foreground mb-1.5 block">
+                      Reason (shown to buyers in the refund email)
+                    </label>
+                    <textarea
+                      value={cancelReason}
+                      onChange={(e) => setCancelReason(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm min-h-[80px]"
+                      placeholder="Venue cancelled at short notice — we're sorry."
+                      maxLength={500}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-muted-foreground mb-1.5 block">
+                      Type CANCEL to confirm
+                    </label>
+                    <input
+                      value={cancelConfirmText}
+                      onChange={(e) => setCancelConfirmText(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm font-mono"
+                      placeholder="CANCEL"
+                      autoComplete="off"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 mt-5 pt-4 border-t border-border">
+                  <button
+                    type="button"
+                    onClick={() => setCancelOpen(false)}
+                    disabled={saving}
+                    className="inline-flex items-center gap-1.5 px-4 min-h-[40px] rounded-lg text-sm font-bold bg-muted text-foreground hover:bg-muted/70 disabled:opacity-60"
+                  >
+                    Keep event
+                  </button>
+                  <button
+                    type="button"
+                    onClick={confirmCancel}
+                    disabled={!ready || saving}
+                    className="inline-flex items-center gap-1.5 px-4 min-h-[40px] rounded-lg text-sm font-bold bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-60"
+                  >
+                    {saving ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        Cancelling…
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Cancel & refund
+                      </>
+                    )}
+                  </button>
+                </div>
+              </>
+            );
+          })()}
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
@@ -926,6 +1033,162 @@ const PerBuyerLimitControl = ({
           Save
         </button>
       )}
+    </section>
+  );
+};
+
+/**
+ * Per-event OG image + meta description override. The link preview
+ * matters more than the page itself when a BDE drops the URL in
+ * WhatsApp / Instagram / email — this is what the recipient actually
+ * sees first.
+ *
+ * The image is uploaded to the same `event-banners` bucket the regular
+ * banner uses so storage policies stay homogeneous. We deliberately
+ * don't crop here: the banner already exists, this is a separate
+ * 1200×630-leaning image meant for social cards.
+ */
+const SocialSharingControl = ({
+  event,
+  onSaved,
+}: {
+  event: EventRow;
+  onSaved: (patch: Partial<EventRow>) => void;
+}) => {
+  const [seoDesc, setSeoDesc] = useState<string>(event.seo_description ?? "");
+  const [ogImage, setOgImage] = useState<string | null>(event.og_image_url ?? null);
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+
+  useEffect(() => {
+    setSeoDesc(event.seo_description ?? "");
+    setOgImage(event.og_image_url ?? null);
+  }, [event.seo_description, event.og_image_url]);
+
+  const dirty = seoDesc !== (event.seo_description ?? "") || ogImage !== (event.og_image_url ?? null);
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image must be under 5 MB.");
+      return;
+    }
+    setUploading(true);
+    try {
+      const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+      const path = `og/${event.id}-${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from("event-banners").upload(path, file, {
+        cacheControl: "3600",
+        upsert: true,
+        contentType: file.type || "image/jpeg",
+      });
+      if (upErr) {
+        toast.error(`Upload failed: ${upErr.message}`);
+        return;
+      }
+      const { data } = supabase.storage.from("event-banners").getPublicUrl(path);
+      setOgImage(data.publicUrl);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    const { error } = await supabase
+      .from("events")
+      .update({
+        seo_description: seoDesc.trim() || null,
+        og_image_url: ogImage,
+      })
+      .eq("id", event.id);
+    setSaving(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    onSaved({ seo_description: seoDesc.trim() || null, og_image_url: ogImage });
+    toast.success("Social sharing saved");
+  };
+
+  return (
+    <section className="bg-card border border-border rounded-2xl p-5 md:p-6 mb-6">
+      <details className="group">
+        <summary className="cursor-pointer list-none flex items-start gap-3 select-none">
+          <Share2 className="w-5 h-5 text-primary mt-0.5" />
+          <div className="flex-1">
+            <h2 className="text-lg font-bold leading-tight inline-flex items-center gap-2">
+              Social sharing
+              <span className="inline-block text-muted-foreground transition-transform group-open:rotate-90 text-sm">›</span>
+            </h2>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Customise the link preview when buyers share your event on WhatsApp / Instagram / email.
+              Falls back to the event banner + description if not set.
+            </p>
+          </div>
+        </summary>
+
+        <div className="space-y-4 mt-5">
+          <div>
+            <label className="text-xs font-bold text-muted-foreground mb-1.5 block">
+              Link preview image (1200 × 630 recommended)
+            </label>
+            {ogImage ? (
+              <div className="relative rounded-xl overflow-hidden border border-border max-w-sm">
+                <img src={ogImage} alt="OG preview" className="w-full aspect-[1.91/1] object-cover" />
+                <button
+                  type="button"
+                  onClick={() => setOgImage(null)}
+                  className="absolute top-2 right-2 px-2.5 py-1 rounded-lg bg-black/65 text-white text-[11px] font-bold hover:bg-black/80"
+                >
+                  Remove
+                </button>
+              </div>
+            ) : (
+              <label className="flex flex-col items-center justify-center aspect-[1.91/1] max-w-sm rounded-xl border-2 border-dashed border-border bg-muted/30 cursor-pointer hover:border-primary/50">
+                {uploading ? (
+                  <Loader2 className="w-7 h-7 text-muted-foreground animate-spin" />
+                ) : (
+                  <>
+                    <ImageIcon className="w-7 h-7 text-muted-foreground mb-1" />
+                    <span className="text-sm font-semibold text-muted-foreground">Upload OG image</span>
+                    <span className="text-[11px] text-muted-foreground mt-0.5">JPG / PNG · max 5 MB</span>
+                  </>
+                )}
+                <input type="file" accept="image/*" onChange={handleFile} className="hidden" />
+              </label>
+            )}
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-muted-foreground mb-1.5 block">
+              Meta description ({seoDesc.length}/160)
+            </label>
+            <textarea
+              value={seoDesc}
+              onChange={(e) => setSeoDesc(e.target.value.slice(0, 160))}
+              className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm min-h-[70px]"
+              placeholder="A one-night-only black-tie gala at Pavillon d'Armenonville — limited tickets."
+              maxLength={160}
+            />
+            <p className="text-[11px] text-muted-foreground mt-1">
+              Shown under the title on Google + social link previews. Keep it short & punchy.
+            </p>
+          </div>
+
+          {dirty && (
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="inline-flex items-center gap-1.5 px-4 min-h-[36px] rounded-lg text-sm font-bold bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-60"
+            >
+              {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+              Save
+            </button>
+          )}
+        </div>
+      </details>
     </section>
   );
 };
@@ -1317,6 +1580,19 @@ const StatusBadge = ({ status }: { status: string }) => {
   );
 };
 
+// Convert a Postgres timestamptz to the YYYY-MM-DDTHH:mm shape required by
+// <input type="datetime-local">. Returns "" when the value is null so the
+// input renders as empty (browser shows the placeholder).
+const toLocalInput = (iso: string | null): string => {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+const fromLocalInput = (s: string): string | null =>
+  s.trim() ? new Date(s).toISOString() : null;
+
 const TierEditor = ({
   tier,
   onChange,
@@ -1332,13 +1608,19 @@ const TierEditor = ({
     price_cents: tier.price_cents,
     total_qty: tier.total_qty,
     is_active: tier.is_active,
+    sales_start_at: toLocalInput(tier.sales_start_at),
+    sales_end_at: toLocalInput(tier.sales_end_at),
+    max_per_order: tier.max_per_order != null ? String(tier.max_per_order) : "",
   });
   const dirty =
     draft.name !== tier.name ||
     draft.description !== (tier.description ?? "") ||
     draft.price_cents !== tier.price_cents ||
     draft.total_qty !== tier.total_qty ||
-    draft.is_active !== tier.is_active;
+    draft.is_active !== tier.is_active ||
+    draft.sales_start_at !== toLocalInput(tier.sales_start_at) ||
+    draft.sales_end_at !== toLocalInput(tier.sales_end_at) ||
+    draft.max_per_order !== (tier.max_per_order != null ? String(tier.max_per_order) : "");
 
   const available = tier.total_qty - tier.sold_qty - tier.reserved_qty;
 
@@ -1392,7 +1674,51 @@ const TierEditor = ({
           />
         </div>
       </div>
-      <div className="flex items-center justify-between gap-3">
+      {/* Advanced — scheduled sales window + per-order cap.
+          Hidden in a disclosure so the basic editor stays uncluttered. */}
+      <details className="mt-3 pt-3 border-t border-border group">
+        <summary className="cursor-pointer list-none inline-flex items-center gap-1.5 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors select-none">
+          <span className="inline-block transition-transform group-open:rotate-90">›</span>
+          Advanced — schedule sales window & per-order cap
+        </summary>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
+          <div>
+            <label className="text-xs font-bold text-muted-foreground mb-1 block">Sales start (optional)</label>
+            <input
+              type="datetime-local"
+              value={draft.sales_start_at}
+              onChange={(e) => setDraft((d) => ({ ...d, sales_start_at: e.target.value }))}
+              className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm"
+            />
+            <p className="text-[10px] text-muted-foreground mt-1">Tier hidden before this date.</p>
+          </div>
+          <div>
+            <label className="text-xs font-bold text-muted-foreground mb-1 block">Sales end (optional)</label>
+            <input
+              type="datetime-local"
+              value={draft.sales_end_at}
+              onChange={(e) => setDraft((d) => ({ ...d, sales_end_at: e.target.value }))}
+              className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm"
+            />
+            <p className="text-[10px] text-muted-foreground mt-1">No purchases after this date.</p>
+          </div>
+          <div>
+            <label className="text-xs font-bold text-muted-foreground mb-1 block">Max per order</label>
+            <input
+              type="number"
+              value={draft.max_per_order}
+              onChange={(e) => setDraft((d) => ({ ...d, max_per_order: e.target.value }))}
+              className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm"
+              placeholder="No limit"
+              min="1"
+              max="50"
+            />
+            <p className="text-[10px] text-muted-foreground mt-1">e.g. "2" for VIP, leave blank otherwise.</p>
+          </div>
+        </div>
+      </details>
+
+      <div className="flex items-center justify-between gap-3 mt-3">
         <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer">
           <input
             type="checkbox"
@@ -1403,7 +1729,20 @@ const TierEditor = ({
         </label>
         {dirty && (
           <button
-            onClick={() => onChange(draft)}
+            onClick={() =>
+              onChange({
+                name: draft.name,
+                description: draft.description || null,
+                price_cents: draft.price_cents,
+                total_qty: draft.total_qty,
+                is_active: draft.is_active,
+                sales_start_at: fromLocalInput(draft.sales_start_at),
+                sales_end_at: fromLocalInput(draft.sales_end_at),
+                max_per_order: draft.max_per_order.trim()
+                  ? Math.max(1, Math.min(50, Number(draft.max_per_order)))
+                  : null,
+              })
+            }
             className="inline-flex items-center gap-1.5 px-3 min-h-[36px] rounded-lg text-sm font-bold bg-primary text-primary-foreground"
           >
             <Save className="w-3.5 h-3.5" />

@@ -34,6 +34,8 @@ interface PublicEvent {
   primary_color: string;
   banner_url: string | null;
   logo_url: string | null;
+  og_image_url: string | null;
+  seo_description: string | null;
   organizer_user_id?: string | null;
   organizer: {
     id: string;
@@ -108,7 +110,7 @@ const EventPublic = () => {
     const { data: ev } = await supabase
       .from("events")
       .select(
-        `id, title, description, date, ends_at, location, category, slug, status, primary_color, banner_url, logo_url, organizer_id, max_tickets_per_buyer,
+        `id, title, description, date, ends_at, location, category, slug, status, primary_color, banner_url, logo_url, og_image_url, seo_description, organizer_id, max_tickets_per_buyer,
          organizer:organizer_profiles!events_organizer_id_fkey(id, user_id, name, slug, logo_url, primary_color, website)`,
       )
       .eq("slug", slug)
@@ -345,15 +347,15 @@ const EventPublic = () => {
     >
       <SEOHead
         title={`${event.title} — ${event.organizer?.name ?? "Ticket Safe"}`}
-        description={event.description ?? `Tickets for ${event.title}`}
-        image={event.banner_url ?? event.organizer?.logo_url ?? null}
+        description={event.seo_description ?? event.description ?? `Tickets for ${event.title}`}
+        image={event.og_image_url ?? event.banner_url ?? event.organizer?.logo_url ?? null}
         type="event"
         url={`https://ticket-safe.eu/e/${event.slug}`}
         jsonLd={{
           "@context": "https://schema.org",
           "@type": "Event",
           name: event.title,
-          description: event.description ?? `Tickets for ${event.title}`,
+          description: event.seo_description ?? event.description ?? `Tickets for ${event.title}`,
           startDate: event.date,
           ...(event.ends_at ? { endDate: event.ends_at } : {}),
           eventStatus: "https://schema.org/EventScheduled",
@@ -361,7 +363,7 @@ const EventPublic = () => {
           location: event.location
             ? { "@type": "Place", name: event.location, address: event.location }
             : undefined,
-          image: event.banner_url ?? event.organizer?.logo_url ?? undefined,
+          image: event.og_image_url ?? event.banner_url ?? event.organizer?.logo_url ?? undefined,
           organizer: event.organizer?.name
             ? {
                 "@type": "Organization",
