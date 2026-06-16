@@ -150,10 +150,15 @@ const Auth = () => {
           return;
         }
 
-        // Check if account is locked
-        const { data: isLocked } = await supabase.rpc('check_account_lockout', {
-          user_email: email.trim()
-        });
+        // Check if account is locked (server-side guard; fail open so a guard
+        // outage never blocks a legitimate login).
+        let isLocked = false;
+        try {
+          const { data: lg } = await supabase.functions.invoke("login-guard", {
+            body: { action: "check", email: email.trim() },
+          });
+          isLocked = !!(lg as { locked?: boolean } | null)?.locked;
+        } catch { /* guard unavailable — proceed */ }
 
         if (isLocked) {
           toast.error("Account temporarily locked due to multiple failed login attempts. Please try again in 15 minutes.");
@@ -175,10 +180,12 @@ const Auth = () => {
             setLoading(false);
             return;
           }
-          // Increment failed login attempts
-          await supabase.rpc('increment_failed_login', {
-            user_email: email.trim()
-          });
+          // Increment failed login attempts (server-side guard).
+          try {
+            await supabase.functions.invoke("login-guard", {
+              body: { action: "fail", email: email.trim() },
+            });
+          } catch { /* ignore */ }
           toast.error("Invalid email or password.");
           setLoading(false);
           return;
@@ -197,10 +204,12 @@ const Auth = () => {
             return;
           }
 
-          // Reset failed login attempts on success
-          await supabase.rpc('reset_failed_login', {
-            user_email: email.trim()
-          });
+          // Reset failed login attempts on success (server-side guard).
+          try {
+            await supabase.functions.invoke("login-guard", {
+              body: { action: "success", email: email.trim() },
+            });
+          } catch { /* ignore */ }
 
           toast.success("Welcome back!");
           // Navigation handled by the useEffect watching user state
