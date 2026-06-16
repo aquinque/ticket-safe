@@ -825,7 +825,7 @@ const EventCard = ({ event }: { event: Event }) => {
         <div className="mt-auto flex items-center justify-between pt-3 border-t border-border">
           <div>
             <div className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">From</div>
-            <div className="text-xl font-semibold font-mono tabular-nums text-foreground leading-none">€{event.priceFrom}</div>
+            <div className="text-xl font-black text-foreground leading-none">€{event.priceFrom}</div>
             <div className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-medium text-muted-foreground">
               <ShieldCheck className="w-3 h-3 text-primary/70" />
               Protection TicketSafe incluse

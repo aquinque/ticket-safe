@@ -167,7 +167,7 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground antialiased font-sans;
+    @apply bg-background text-foreground antialiased;
     margin: 0;
     padding: 0;
     min-height: 100vh;
@@ -178,33 +178,25 @@ All colors MUST be HSL.
     min-height: 100vh;
   }
 
-  /* Typography hierarchy — Fraunces display on titles, Inter on body.
-     Display headings drop weight from font-bold to font-semibold because
-     Fraunces 600 already reads heavier than Inter 700 at the same size. */
+  /* Professional Typography Hierarchy */
   h1 {
-    @apply scroll-m-20 font-display text-4xl font-semibold tracking-tight lg:text-5xl;
+    @apply scroll-m-20 text-4xl font-bold tracking-tight lg:text-5xl;
   }
 
   h2 {
-    @apply scroll-m-20 font-display text-3xl font-semibold tracking-tight;
+    @apply scroll-m-20 text-3xl font-semibold tracking-tight;
   }
 
   h3 {
-    @apply scroll-m-20 font-display text-2xl font-semibold tracking-tight;
+    @apply scroll-m-20 text-2xl font-semibold tracking-tight;
   }
 
   h4 {
-    @apply scroll-m-20 font-display text-xl font-semibold tracking-tight;
+    @apply scroll-m-20 text-xl font-semibold tracking-tight;
   }
 
   p {
     @apply leading-7;
-  }
-
-  /* Tabular numerics everywhere prices, codes, dates appear — the order
-     summary PDF leans on this too. */
-  .tabular-nums {
-    font-variant-numeric: tabular-nums;
   }
 }
 
