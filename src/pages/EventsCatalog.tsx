@@ -83,9 +83,9 @@ const EventsCatalog = () => {
           <div className="mb-8">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h1 className="text-4xl font-bold mb-2">ESCP Events Catalog</h1>
+                <h1 className="text-4xl font-bold mb-2">Student Events Catalog</h1>
                 <p className="text-lg text-muted-foreground">
-                  Complete listing of all ESCP Campus Life events
+                  Complete listing of all student events
                 </p>
               </div>
               <Button

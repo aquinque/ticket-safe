@@ -269,8 +269,8 @@ const Tickets = () => {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <SEOHead
-        title="ESCP events — Ticket Safe"
-        description="Buy tickets to ESCP events across all campuses — Paris, Madrid, Turin, Berlin, London."
+        title="Student events — Ticket Safe"
+        description="Buy tickets to student events across all campuses — Paris, Madrid, Turin, Berlin, London."
       />
       <Header minimal />
 
@@ -299,11 +299,11 @@ const Tickets = () => {
                 Beta — Direct from campus
               </div>
               <h1 className="text-3xl md:text-6xl font-black tracking-tight leading-[1.05] mb-4 md:mb-5">
-                ESCP events,<br />
+                Student events,<br />
                 <span className="text-white/90">straight from the organizers.</span>
               </h1>
               <p className="text-sm md:text-lg text-white/80 max-w-xl mb-7 md:mb-8 leading-relaxed">
-                All ESCP events in one place — tickets sold directly by your campus societies.
+                All your school's events in one place — tickets sold directly by your campus societies.
               </p>
 
               {/* School */}
@@ -592,7 +592,7 @@ const Tickets = () => {
                   step: "01",
                   icon: MousePointerClick,
                   title: "Pick your event",
-                  body: "Browse ESCP events across the 5 campuses and open the one you want.",
+                  body: "Browse student events across the campuses and open the one you want.",
                 },
                 {
                   step: "02",
@@ -870,7 +870,7 @@ const EmptyState = ({
           : category !== "all"
           ? "No events in this category yet. Try another."
           : `Nothing on ${campus === "all" ? "any campus" : campus} right now — check back soon.`
-        : "ESCP organizers can create branded events with ticket tiers, secure QR delivery, and live sales — all in Ticket Safe Studio."}
+        : "Organizers can create branded events with ticket tiers, secure QR delivery, and live sales — all in Ticket Safe Studio."}
     </p>
     {!hasAnyEvent && (
       <Link

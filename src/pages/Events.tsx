@@ -36,7 +36,7 @@ const Events = () => {
                 onClick={() => navigate("/marketplace?view=all")}
                 className="text-primary underline underline-offset-4 hover:no-underline font-medium"
               >
-                Browse the full ESCP catalog
+                Browse the full event catalog
               </button>
               {" "}— no tickets required.
             </p>

@@ -22,7 +22,7 @@ const steps = [
     step: "01",
     icon: MousePointerClick,
     title: "Pick your event",
-    body: "Browse ESCP events across Paris, Madrid, Turin, Berlin and London. Use filters to narrow by campus, category or date.",
+    body: "Browse student events across Paris, Madrid, Turin, Berlin and London. Use filters to narrow by campus, category or date.",
   },
   {
     step: "02",
@@ -65,7 +65,7 @@ const trust = [
 const faqs = [
   {
     q: "How do I know an event is real?",
-    a: "Only verified ESCP societies (BDE, sports clubs, alumni associations) can list events. We check the organizer's identity and campus affiliation before they go live.",
+    a: "Only verified student societies (BDE, sports clubs, alumni associations) can list events. We check the organizer's identity and campus affiliation before they go live.",
   },
   {
     q: "What payment methods are accepted?",
@@ -90,7 +90,7 @@ const HowItWorksTickets = () => {
     <div className="min-h-screen bg-background flex flex-col">
       <SEOHead
         title="How buying tickets works — Ticket Safe"
-        description="How to buy student event tickets on Ticket Safe — direct from ESCP organizers, paid via Stripe, QR delivered instantly."
+        description="How to buy student event tickets on Ticket Safe — direct from event organizers, paid securely, QR delivered instantly."
       />
       <Header minimal />
 
@@ -279,7 +279,7 @@ const HowItWorksTickets = () => {
                     Ready to find your next event?
                   </h3>
                   <p className="text-white/85 text-sm md:text-base max-w-lg leading-relaxed">
-                    Browse upcoming ESCP events across all five campuses.
+                    Browse upcoming student events across all campuses.
                   </p>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-2.5">
