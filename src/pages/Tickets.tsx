@@ -32,7 +32,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { detectCampus } from "@/lib/campus";
 import { useAuth } from "@/hooks/useAuth";
 import { useRecommendations } from "@/hooks/useRecommendations";
-import { Sparkles } from "lucide-react";
 
 type Campus = "all" | "paris" | "madrid" | "turin" | "berlin" | "london";
 
