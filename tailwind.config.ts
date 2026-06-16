@@ -14,6 +14,14 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        // The web should sound like the order-summary.pdf:
+        // editorial display face for headlines, neutral grotesque for UI,
+        // monospace for prices / order ids / ticket numbers.
+        display: ['Fraunces', 'Georgia', 'serif'],
+        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        mono: ['JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",

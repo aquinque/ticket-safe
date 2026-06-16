@@ -22,6 +22,7 @@ import {
   QrCode,
   Loader2,
   PartyPopper,
+  ShieldCheck,
 } from "lucide-react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -737,9 +738,11 @@ const EventCard = ({ event }: { event: Event }) => {
       to={`/e/${event.slug}`}
       className="group flex flex-col rounded-2xl overflow-hidden bg-card border border-border hover:border-primary/30 hover:shadow-hover hover:-translate-y-1 transition-all duration-300"
     >
-      {/* Visual — the banner photo if there is one, otherwise the organizer
-          logo on a clean neutral card. No event colour wash. */}
-      <div className="relative aspect-[16/9] overflow-hidden bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900">
+      {/* Visual — banner photo if available, organizer logo on a navy-tinted
+          shell otherwise. One single fallback treatment so the grid reads as
+          one product (was: slate-100→slate-200, which made the grid look like
+          four different products). */}
+      <div className="relative aspect-[16/9] overflow-hidden bg-[hsl(220_100%_30%/0.06)] dark:bg-[hsl(220_60%_30%/0.18)]">
         {event.bannerUrl ? (
           <img src={event.bannerUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
         ) : event.logoUrl ? (
@@ -752,7 +755,7 @@ const EventCard = ({ event }: { event: Event }) => {
           </div>
         ) : (
           <div className="absolute inset-0 flex items-center justify-center">
-            <Icon className="w-14 h-14 text-slate-400 dark:text-slate-500 group-hover:scale-110 transition-transform duration-500" strokeWidth={1.5} />
+            <Icon className="w-14 h-14 text-primary/30 group-hover:scale-110 group-hover:text-primary/45 transition-all duration-500" strokeWidth={1.5} />
           </div>
         )}
 
@@ -822,7 +825,11 @@ const EventCard = ({ event }: { event: Event }) => {
         <div className="mt-auto flex items-center justify-between pt-3 border-t border-border">
           <div>
             <div className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">From</div>
-            <div className="text-xl font-black text-foreground leading-none">€{event.priceFrom}</div>
+            <div className="text-xl font-semibold font-mono tabular-nums text-foreground leading-none">€{event.priceFrom}</div>
+            <div className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-medium text-muted-foreground">
+              <ShieldCheck className="w-3 h-3 text-primary/70" />
+              Protection TicketSafe incluse
+            </div>
           </div>
           <div className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg font-bold text-sm transition-all ${
             soldOut
