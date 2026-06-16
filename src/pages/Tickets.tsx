@@ -182,7 +182,10 @@ async function fetchPublishedEvents(): Promise<Event[]> {
         bannerUrl: e.banner_url,
         logoUrl: e.logo_url ?? org?.logo_url ?? null,
       } satisfies Event;
-    });
+    })
+    // Hide past events. 12h grace so an event happening tonight stays visible
+    // through the night and only drops off the next day.
+    .filter((e) => new Date(e.date).getTime() >= Date.now() - 12 * 60 * 60 * 1000);
 }
 
 const categories: { id: Category; label: string }[] = [
