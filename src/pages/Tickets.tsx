@@ -296,10 +296,6 @@ const Tickets = () => {
               <div className="mb-5">
                 <BackButton />
               </div>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 backdrop-blur border border-white/20 text-[10px] md:text-xs font-semibold tracking-wider uppercase mb-4 md:mb-5">
-                <Sparkles className="w-3 h-3" />
-                Beta — Direct from campus
-              </div>
               <h1 className="text-3xl md:text-6xl font-black tracking-tight leading-[1.05] mb-4 md:mb-5">
                 Student events,<br />
                 <span className="text-white/90">straight from the organizers.</span>
