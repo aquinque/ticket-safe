@@ -45,6 +45,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { useOrganizer } from "@/hooks/useOrganizer";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import EventStatusBadge from "@/components/studio/EventStatusBadge";
+import EventPreviewCard from "@/components/studio/EventPreviewCard";
 
 interface EventRow {
   id: string;
@@ -433,8 +435,12 @@ const StudioEventEdit = () => {
           >
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
               <div className="min-w-0">
-                <div className="text-xs uppercase tracking-[0.18em] font-bold opacity-80 mb-1">
-                  {event.status === "published" ? "Live event" : "Draft"}
+                <div className="mb-2">
+                  <EventStatusBadge
+                    status={event.status}
+                    date={event.date}
+                    soldOut={totalCapacity > 0 && totalSold >= totalCapacity}
+                  />
                 </div>
                 <h1 className="text-2xl md:text-3xl font-black truncate">{event.title}</h1>
                 <div className="text-sm opacity-90 mt-2 flex items-center gap-3 flex-wrap">
@@ -536,6 +542,9 @@ const StudioEventEdit = () => {
             onSaved={(patch) => setEvent({ ...event, ...patch })}
             disabled={event.status !== "draft"}
             userId={user?.id ?? ""}
+            organizerName={organizer?.name}
+            organizerLogoUrl={organizer?.logo_url}
+            priceFromEuros={tiers.length ? Math.min(...tiers.map((t) => t.price_cents)) / 100 : null}
           />
 
           {/* ===== Share link box — only when the event is published =====
@@ -1217,11 +1226,17 @@ const EventDetailsEditor = ({
   onSaved,
   disabled,
   userId,
+  organizerName,
+  organizerLogoUrl,
+  priceFromEuros,
 }: {
   event: EventRow;
   onSaved: (patch: Partial<EventRow>) => void;
   disabled: boolean;
   userId: string;
+  organizerName?: string;
+  organizerLogoUrl?: string | null;
+  priceFromEuros?: number | null;
 }) => {
   const [open, setOpen] = useState(!disabled);
   const [title, setTitle] = useState(event.title);
@@ -1371,6 +1386,30 @@ const EventDetailsEditor = ({
 
       {open && (
         <div className="px-5 md:px-6 pb-6 space-y-4 border-t border-border pt-5">
+          {/* Live marketplace preview — what buyers see once published. Updates
+              as the organizer edits the fields below. */}
+          <div className="rounded-xl bg-muted/30 border border-border p-4">
+            <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3 inline-flex items-center gap-1.5">
+              <Eye className="w-3.5 h-3.5" /> Marketplace preview
+            </div>
+            <div className="max-w-sm">
+              <EventPreviewCard
+                title={title}
+                organizerName={organizerName}
+                organizerLogoUrl={organizerLogoUrl}
+                dateISO={date ? new Date(date).toISOString() : null}
+                location={location}
+                category={category}
+                bannerUrl={bannerPreview}
+                primaryColor={primaryColor}
+                priceFromEuros={priceFromEuros}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground mt-3">
+              This is how buyers will see your event once it's published.
+            </p>
+          </div>
+
           <Field label="Event title" icon={Type}>
             <input
               value={title}

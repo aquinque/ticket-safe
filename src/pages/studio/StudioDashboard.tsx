@@ -26,6 +26,7 @@ import { SEOHead } from "@/components/SEOHead";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrganizer } from "@/hooks/useOrganizer";
 import { supabase } from "@/integrations/supabase/client";
+import EventStatusBadge, { deriveEventStatusKind } from "@/components/studio/EventStatusBadge";
 
 interface StudioEvent {
   id: string;
@@ -39,6 +40,8 @@ interface StudioEvent {
   sold_count: number;
   total_capacity: number;
   revenue_cents: number;
+  /** Lowest tier price across the event, in cents. null when no tiers. */
+  price_from_cents: number | null;
 }
 
 interface Earnings {
@@ -59,6 +62,7 @@ const StudioDashboard = () => {
   const [loadingEvents, setLoadingEvents] = useState(true);
   const [earnings, setEarnings] = useState<Earnings | null>(null);
   const [payoutModalOpen, setPayoutModalOpen] = useState(false);
+  const [filter, setFilter] = useState<"all" | "live" | "draft" | "past">("all");
 
   useEffect(() => {
     if (!authLoading && !user) navigate("/auth?next=/studio");
@@ -100,7 +104,8 @@ const StudioDashboard = () => {
         .order("date", { ascending: false });
 
       const ids = (evRows ?? []).map((e: { id: string }) => e.id);
-      let tierAgg: Record<string, { sold: number; total: number; revenue: number }> = {};
+      type Agg = { sold: number; total: number; revenue: number; minPrice: number | null };
+      let tierAgg: Record<string, Agg> = {};
       if (ids.length) {
         const { data: tiers } = await supabase
           .from("event_tiers")
@@ -108,23 +113,25 @@ const StudioDashboard = () => {
           .in("event_id", ids);
         tierAgg = (tiers ?? []).reduce(
           (acc, t: { event_id: string; sold_qty: number; total_qty: number; price_cents: number }) => {
-            const cur = acc[t.event_id] ?? { sold: 0, total: 0, revenue: 0 };
+            const cur = acc[t.event_id] ?? { sold: 0, total: 0, revenue: 0, minPrice: null };
             cur.sold += t.sold_qty;
             cur.total += t.total_qty;
             cur.revenue += t.sold_qty * t.price_cents;
+            cur.minPrice = cur.minPrice == null ? t.price_cents : Math.min(cur.minPrice, t.price_cents);
             acc[t.event_id] = cur;
             return acc;
           },
-          {} as Record<string, { sold: number; total: number; revenue: number }>,
+          {} as Record<string, Agg>,
         );
       }
 
       setEvents(
         (evRows ?? []).map((e) => ({
-          ...(e as Omit<StudioEvent, "sold_count" | "total_capacity" | "revenue_cents">),
+          ...(e as Omit<StudioEvent, "sold_count" | "total_capacity" | "revenue_cents" | "price_from_cents">),
           sold_count: tierAgg[e.id]?.sold ?? 0,
           total_capacity: tierAgg[e.id]?.total ?? 0,
           revenue_cents: tierAgg[e.id]?.revenue ?? 0,
+          price_from_cents: tierAgg[e.id]?.minPrice ?? null,
         })),
       );
       setLoadingEvents(false);
@@ -293,7 +300,7 @@ const StudioDashboard = () => {
                     {organizer.name[0]?.toUpperCase() ?? "?"}
                   </div>
                 )}
-                <div>
+                <div className="min-w-0">
                   <div className="text-xs uppercase tracking-[0.18em] font-bold text-white/80">
                     Studio dashboard
                   </div>
@@ -307,6 +314,9 @@ const StudioDashboard = () => {
                       <Settings className="w-3.5 h-3.5" />
                     </Link>
                   </h1>
+                  <p className="text-sm text-white/85 mt-1 max-w-md">
+                    Create events, sell tickets, and get paid — all in one place.
+                  </p>
                 </div>
               </div>
               <Link
@@ -423,23 +433,94 @@ const StudioDashboard = () => {
 
         {/* ===== Events list ===== */}
         <section className="container mx-auto px-4 py-8 md:py-10 max-w-5xl">
-          <div className="flex items-center justify-between mb-5">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
             <h2 className="text-xl md:text-2xl font-bold">Your events</h2>
+            {events.length > 0 && (
+              <Link
+                to="/studio/events/new"
+                className="inline-flex items-center justify-center gap-1.5 px-4 min-h-[40px] rounded-xl font-bold text-sm bg-primary text-primary-foreground hover:bg-primary-hover transition-colors self-start sm:self-auto"
+              >
+                <Plus className="w-4 h-4" />
+                New event
+              </Link>
+            )}
           </div>
 
+          {/* Filter tabs — let organizers instantly slice by Live / Draft / Past */}
+          {!loadingEvents && events.length > 0 && (() => {
+            const now = Date.now();
+            const counts = {
+              all: events.length,
+              live: events.filter((e) => deriveEventStatusKind(e.status, e.date, e.sold_count >= e.total_capacity && e.total_capacity > 0) === "live").length,
+              draft: events.filter((e) => (e.status ?? "draft") === "draft").length,
+              past: events.filter((e) => new Date(e.date).getTime() < now).length,
+            };
+            const TABS: { key: typeof filter; label: string }[] = [
+              { key: "all", label: "All" },
+              { key: "live", label: "Live" },
+              { key: "draft", label: "Drafts" },
+              { key: "past", label: "Past" },
+            ];
+            return (
+              <div className="flex flex-wrap gap-2 mb-5">
+                {TABS.map((tab) => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => setFilter(tab.key)}
+                    className={`inline-flex items-center gap-1.5 px-3.5 min-h-[36px] rounded-full text-sm font-bold border transition-colors ${
+                      filter === tab.key
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-card text-muted-foreground border-border hover:border-primary/40 hover:text-foreground"
+                    }`}
+                  >
+                    {tab.label}
+                    <span
+                      className={`inline-flex items-center justify-center min-w-[20px] h-5 px-1 rounded-full text-[11px] font-black ${
+                        filter === tab.key ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {counts[tab.key]}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            );
+          })()}
+
           {loadingEvents ? (
-            <div className="flex justify-center py-12">
-              <Loader2 className="w-7 h-7 animate-spin text-primary" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {[0, 1, 2, 3].map((i) => (
+                <EventCardSkeleton key={i} />
+              ))}
             </div>
           ) : events.length === 0 ? (
             <EmptyEvents />
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {events.map((e) => (
-                <EventRow key={e.id} event={e} />
-              ))}
-            </div>
-          )}
+          ) : (() => {
+            const now = Date.now();
+            const filtered = events.filter((e) => {
+              if (filter === "all") return true;
+              if (filter === "past") return new Date(e.date).getTime() < now;
+              if (filter === "draft") return (e.status ?? "draft") === "draft";
+              if (filter === "live")
+                return deriveEventStatusKind(e.status, e.date, e.sold_count >= e.total_capacity && e.total_capacity > 0) === "live";
+              return true;
+            });
+            if (filtered.length === 0) {
+              return (
+                <div className="text-center py-12 bg-card border border-dashed border-border rounded-2xl">
+                  <p className="text-sm text-muted-foreground">No events in this view yet.</p>
+                </div>
+              );
+            }
+            return (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {filtered.map((e) => (
+                  <EventRow key={e.id} event={e} />
+                ))}
+              </div>
+            );
+          })()}
         </section>
       </main>
 
@@ -742,76 +823,132 @@ const StatCard = ({ icon: Icon, label, value }: { icon: typeof Calendar; label: 
   </div>
 );
 
-const EmptyEvents = () => (
-  <div className="text-center py-12 bg-card border border-dashed border-border rounded-2xl">
-    <div className="inline-flex w-12 h-12 rounded-xl bg-muted items-center justify-center mb-3">
-      <Calendar className="w-6 h-6 text-muted-foreground" />
+const EventCardSkeleton = () => (
+  <div className="bg-card border border-border rounded-2xl overflow-hidden">
+    <div className="h-28 bg-muted animate-pulse" />
+    <div className="p-4 space-y-3">
+      <div className="h-4 w-2/3 rounded bg-muted animate-pulse" />
+      <div className="h-3 w-1/2 rounded bg-muted animate-pulse" />
+      <div className="h-1.5 w-full rounded-full bg-muted animate-pulse" />
+      <div className="h-3 w-1/3 rounded bg-muted animate-pulse" />
     </div>
-    <h3 className="font-bold mb-1">No events yet</h3>
-    <p className="text-sm text-muted-foreground mb-4 max-w-sm mx-auto">
-      Create your first event and start selling tickets in minutes.
-    </p>
-    <Link
-      to="/studio/events/new"
-      className="inline-flex items-center justify-center gap-2 px-4 min-h-[40px] rounded-lg font-bold bg-primary text-primary-foreground hover:bg-primary-hover"
-    >
-      <Plus className="w-4 h-4" />
-      Create event
-    </Link>
+  </div>
+);
+
+const EmptyEvents = () => (
+  <div className="relative overflow-hidden text-center py-14 px-6 bg-card border border-border rounded-2xl shadow-soft">
+    <div
+      className="absolute inset-x-0 top-0 h-28 opacity-[0.07] pointer-events-none"
+      style={{ background: "var(--gradient-hero)" }}
+    />
+    <div className="relative">
+      <div
+        className="inline-flex w-16 h-16 rounded-2xl items-center justify-center mb-4 text-white shadow-card"
+        style={{ background: "var(--gradient-hero)" }}
+      >
+        <Calendar className="w-8 h-8" />
+      </div>
+      <h3 className="text-xl font-black mb-1.5">Create your first event</h3>
+      <p className="text-sm text-muted-foreground mb-6 max-w-md mx-auto">
+        Set up a branded listing, add your ticket types, and start selling in minutes — with
+        built-in resale, door scanning, and SEPA payouts.
+      </p>
+      <Link
+        to="/studio/events/new"
+        className="inline-flex items-center justify-center gap-2 px-6 min-h-[48px] rounded-xl font-bold bg-primary text-primary-foreground hover:bg-primary-hover shadow-soft hover:shadow-card transition-all"
+      >
+        <Plus className="w-4 h-4" />
+        Create your first event
+      </Link>
+      <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 mt-6 text-xs text-muted-foreground">
+        <span className="inline-flex items-center gap-1.5">
+          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+          No setup fee
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+          Live in minutes
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+          Get paid by SEPA
+        </span>
+      </div>
+    </div>
   </div>
 );
 
 const EventRow = ({ event }: { event: StudioEvent }) => {
   const soldPct = event.total_capacity > 0 ? Math.round((event.sold_count / event.total_capacity) * 100) : 0;
-  const statusColor =
-    event.status === "published"
-      ? "bg-green-100 text-green-700"
-      : event.status === "draft"
-      ? "bg-amber-100 text-amber-700"
-      : event.status === "cancelled"
-      ? "bg-red-100 text-red-700"
-      : "bg-muted text-muted-foreground";
+  const soldOut = event.total_capacity > 0 && event.sold_count >= event.total_capacity;
+  const accent = event.primary_color && /^#[0-9a-fA-F]{6}$/.test(event.primary_color) ? event.primary_color : null;
+  const priceFrom =
+    event.price_from_cents != null
+      ? event.price_from_cents <= 0
+        ? "Free"
+        : `From €${(event.price_from_cents / 100) % 1 === 0 ? (event.price_from_cents / 100).toFixed(0) : (event.price_from_cents / 100).toFixed(2)}`
+      : null;
 
   return (
     <Link
       to={`/studio/events/${event.id}`}
-      className="block bg-card border border-border rounded-2xl overflow-hidden hover:border-primary/30 hover:shadow-soft transition-all"
+      className="group block bg-card border border-border rounded-2xl overflow-hidden hover:border-primary/30 hover:shadow-hover hover:-translate-y-1 transition-all duration-300"
     >
-      <div className="h-24 relative" style={{ background: event.primary_color ?? "var(--gradient-hero)" }}>
+      <div
+        className="h-28 relative overflow-hidden"
+        style={{ background: accent ?? "var(--gradient-hero)" }}
+      >
         {event.banner_url && (
-          <img src={event.banner_url} alt="" className="w-full h-full object-cover" />
+          <img
+            src={event.banner_url}
+            alt=""
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          />
         )}
-        <span
-          className={`absolute top-3 right-3 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${statusColor}`}
-        >
-          {event.status ?? "draft"}
-        </span>
+        <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-black/0 to-black/10" />
+        <div className="absolute top-3 right-3">
+          <EventStatusBadge status={event.status} date={event.date} soldOut={soldOut} size="sm" />
+        </div>
+        {priceFrom && (
+          <span className="absolute bottom-3 left-3 inline-flex items-center rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-black text-foreground shadow-soft backdrop-blur">
+            {priceFrom}
+          </span>
+        )}
       </div>
       <div className="p-4">
-        <div className="font-bold text-base text-foreground mb-1 line-clamp-1">{event.title}</div>
+        <div className="font-bold text-base text-foreground mb-1 line-clamp-1 group-hover:text-primary transition-colors">
+          {event.title}
+        </div>
         <div className="text-xs text-muted-foreground flex items-center gap-1 mb-3">
-          <Calendar className="w-3 h-3" />
+          <Calendar className="w-3 h-3 shrink-0" />
           {new Date(event.date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
-          {event.location ? <> · {event.location}</> : null}
+          {event.location ? <span className="truncate"> · {event.location}</span> : null}
         </div>
         {event.total_capacity > 0 ? (
           <div className="mb-2">
             <div className="h-1.5 rounded-full bg-muted overflow-hidden">
-              <div className="h-full bg-primary rounded-full" style={{ width: `${Math.min(100, soldPct)}%` }} />
+              <div
+                className="h-full rounded-full transition-[width] duration-500"
+                style={{ width: `${Math.min(100, soldPct)}%`, background: accent ?? "hsl(var(--primary))" }}
+              />
             </div>
             <div className="flex justify-between mt-1.5 text-[11px] text-muted-foreground">
-              <span>
-                {event.sold_count}/{event.total_capacity} sold
+              <span className="font-semibold">
+                {event.sold_count}/{event.total_capacity} sold · {soldPct}%
               </span>
-              <span>€{(event.revenue_cents / 100).toFixed(0)}</span>
+              <span className="font-bold text-foreground">€{(event.revenue_cents / 100).toFixed(0)}</span>
             </div>
           </div>
         ) : (
-          <div className="text-xs text-muted-foreground mb-2">No tiers yet — add tiers to start selling.</div>
+          <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1.5 mb-2 inline-flex items-center gap-1.5">
+            <AlertCircle className="w-3.5 h-3.5" />
+            Add ticket types to start selling
+          </div>
         )}
         <div className="flex items-center justify-between pt-2 border-t border-border text-xs">
-          <span className="inline-flex items-center gap-1 text-muted-foreground">
-            <Eye className="w-3 h-3" /> View
+          <span className="inline-flex items-center gap-1 font-bold text-primary group-hover:gap-1.5 transition-all">
+            <Eye className="w-3 h-3" /> Manage
+            <ArrowRight className="w-3 h-3" />
           </span>
           {event.slug && event.status === "published" && (
             <a
@@ -819,9 +956,9 @@ const EventRow = ({ event }: { event: StudioEvent }) => {
               onClick={(ev) => ev.stopPropagation()}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-primary font-bold hover:underline"
+              className="inline-flex items-center gap-1 text-muted-foreground font-semibold hover:text-primary hover:underline"
             >
-              Open public page
+              Public page
               <ExternalLink className="w-3 h-3" />
             </a>
           )}
