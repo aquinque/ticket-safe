@@ -316,7 +316,10 @@ const StudioEventNew = () => {
         is_active: true,
         sales_start_at: t.salesStartAt ? new Date(t.salesStartAt).toISOString() : null,
         sales_end_at:   t.salesEndAt   ? new Date(t.salesEndAt).toISOString()   : null,
-        max_per_order:  t.maxPerOrder.trim() ? Math.max(1, Number(t.maxPerOrder)) : null,
+        // max_per_order is NOT NULL in the DB (default 10). When the organizer
+        // leaves the per-order cap blank, fall back to 10 — sending null would
+        // violate the not-null constraint and the whole tier insert fails.
+        max_per_order:  t.maxPerOrder.trim() ? Math.max(1, Number(t.maxPerOrder)) : 10,
       }));
       const { error: tErr } = await supabase.from("event_tiers").insert(tierRows);
       if (tErr) {
@@ -324,7 +327,28 @@ const StudioEventNew = () => {
         throw new Error("Event saved but tiers failed: " + tErr.message);
       }
 
-      toast.success("Event created. Add finishing touches and publish when ready.");
+      // Publish now that the tiers exist. We deliberately insert the event as a
+      // draft first and only flip it to published once its tiers are in place,
+      // so a tier failure can never leave a live event with nothing to buy.
+      const { error: pubErr } = await supabase
+        .from("events")
+        .update({ status: "published", published_at: new Date().toISOString() })
+        .eq("id", ev.id);
+      if (pubErr) {
+        console.warn("[studio-event-new] publish:", pubErr);
+        toast.success("Event created. Open it to publish to the marketplace.");
+        navigate(`/studio/events/${ev.id}`, { replace: true });
+        return;
+      }
+
+      // Best-effort: email the organizer that their event is live.
+      supabase.functions
+        .invoke("organizer-notify", {
+          body: { kind: "event_published", organizer_id: organizer.id, event_id: ev.id },
+        })
+        .catch((err) => console.warn("[studio-event-new] publish notify failed:", err));
+
+      toast.success("Event published — it's now live on the marketplace! 🎉");
       navigate(`/studio/events/${ev.id}`, { replace: true });
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Unexpected error.";
@@ -382,8 +406,8 @@ const StudioEventNew = () => {
             <div>
               <h1 className="text-2xl md:text-4xl font-black tracking-tight">Create a new event</h1>
               <p className="text-sm md:text-base text-muted-foreground mt-1 max-w-2xl">
-                Set the details, add your ticket types, and preview your listing. We'll save it as a
-                draft so you can publish to the marketplace whenever you're ready.
+                Set the details, add your ticket types, and preview your listing — then publish it
+                straight to the marketplace.
               </p>
             </div>
           </div>
@@ -731,7 +755,7 @@ const StudioEventNew = () => {
                 <StepCard
                   icon={Eye}
                   title="Review your listing"
-                  desc="Here's how your event will appear in the marketplace. Happy with it? Save it as a draft."
+                  desc="Here's how your event will appear in the marketplace. Happy with it? Publish it and it goes live instantly."
                 >
                   {/* Mobile preview (the sticky desktop one is hidden on small screens) */}
                   <div className="lg:hidden">
@@ -760,8 +784,8 @@ const StudioEventNew = () => {
                   <div className="flex items-start gap-2 px-4 py-3 rounded-xl bg-primary/5 border border-primary/15 text-sm text-foreground/80">
                     <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0 text-primary" />
                     <span>
-                      Your event is saved as a <strong>draft</strong>. Nothing goes live until you hit
-                      Publish on the next screen — so take your time.
+                      When you hit <strong>Publish</strong>, your event goes live on the marketplace
+                      right away. You can edit or unpublish it anytime from your dashboard.
                     </span>
                   </div>
 
@@ -819,8 +843,17 @@ const StudioEventNew = () => {
                     onClick={handleSubmit}
                     className="flex-1 inline-flex items-center justify-center gap-2 min-h-[48px] px-6 rounded-xl font-bold bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-60 shadow-soft hover:shadow-card transition-all"
                   >
-                    {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                    Save as draft
+                    {submitting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Publishing…
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-4 h-4" />
+                        Publish event
+                      </>
+                    )}
                   </button>
                 )}
               </div>

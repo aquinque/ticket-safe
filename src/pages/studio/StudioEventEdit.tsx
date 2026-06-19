@@ -1777,9 +1777,11 @@ const TierEditor = ({
                 is_active: draft.is_active,
                 sales_start_at: fromLocalInput(draft.sales_start_at),
                 sales_end_at: fromLocalInput(draft.sales_end_at),
+                // max_per_order is NOT NULL in the DB (default 10) — fall back to
+                // 10 when cleared rather than null, which would be rejected.
                 max_per_order: draft.max_per_order.trim()
                   ? Math.max(1, Math.min(50, Number(draft.max_per_order)))
-                  : null,
+                  : 10,
               })
             }
             className="inline-flex items-center gap-1.5 px-3 min-h-[36px] rounded-lg text-sm font-bold bg-primary text-primary-foreground"
