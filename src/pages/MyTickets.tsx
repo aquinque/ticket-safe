@@ -45,6 +45,12 @@ interface TicketRow {
   holder_first_name: string | null;
   holder_last_name: string | null;
   holder_email: string | null;
+  // External (imported) ticket fields. When source==='external' the buyer's
+  // entry artifact is the club's own code/file, not the platform JWT QR.
+  source?: "platform" | "external" | null;
+  external_code?: string | null;
+  external_file_url?: string | null;
+  external_provider?: string | null;
 }
 
 const MyTickets = () => {
@@ -77,7 +83,7 @@ const MyTickets = () => {
       // ticket lives under the SELLER's original order_id after transfer).
       const { data: tix } = await supabase
         .from("event_tickets")
-        .select("id, qr_token, scanned_at, status, holder_first_name, holder_last_name, holder_email, event_id, tier_id")
+        .select("id, qr_token, scanned_at, status, holder_first_name, holder_last_name, holder_email, event_id, tier_id, source, external_code, external_file_url, external_provider")
         .eq("order_id", orderId)
         .eq("buyer_id", user.id)
         .order("created_at", { ascending: true });
@@ -134,8 +140,21 @@ const MyTickets = () => {
         return;
       }
       const urls: Record<string, string> = {};
-      for (const t of tix ?? []) {
+      for (const t of (tix ?? []) as TicketRow[]) {
         try {
+          // External ticket with the club's own code → render THAT as the QR
+          // (it's what scans at the venue). No platform JWT involved.
+          if (t.source === "external" && t.external_code) {
+            const QR = await import("qrcode");
+            urls[t.id] = await QR.toDataURL(t.external_code, { errorCorrectionLevel: "M", margin: 2, width: 512 });
+            continue;
+          }
+          // External ticket delivered as a file → no inline QR; the card shows
+          // an "Open original ticket" button (signed URL via edge function).
+          if (t.source === "external" && t.external_file_url) {
+            continue;
+          }
+          // Native / manual tickets → the platform's signed QR as before.
           const res = await fetch(
             `${supabaseUrl}/functions/v1/event-ticket-qr?ticket_id=${t.id}`,
             { headers: { Authorization: `Bearer ${token}` } },
@@ -261,6 +280,11 @@ const MyTickets = () => {
                     .filter(Boolean)
                     .join(" ")
                     .trim();
+                // External ticket display flags. hasExtFile => the original
+                // club file is the entry artifact (shown as a button).
+                const isExternal = t.source === "external";
+                const hasExtFile = isExternal && !!t.external_file_url;
+                const showPlatformPdf = !isExternal || (!t.external_code && !t.external_file_url);
                 return (
                   <article
                     key={t.id}
@@ -351,27 +375,44 @@ const MyTickets = () => {
                         </div>
                       )}
 
-                      {/* QR — centred, white frame, pixelated rendering */}
-                      <div className="flex flex-col items-center mb-5">
-                        <div className="bg-white p-3 rounded-xl border border-border shadow-soft">
-                          {qrUrls[t.id] ? (
-                            <img
-                              src={qrUrls[t.id]}
-                              alt={`Ticket QR ${i + 1}`}
-                              className="w-64 h-64 md:w-72 md:h-72 block"
-                              style={{ imageRendering: "pixelated" }}
-                            />
-                          ) : (
-                            <div className="w-64 h-64 md:w-72 md:h-72 flex items-center justify-center text-muted-foreground text-xs">
-                              QR unavailable
+                      {/* QR — centred, white frame, pixelated rendering.
+                          For file-only external tickets there's no inline QR;
+                          the original file button below is the entry artifact. */}
+                      {!(hasExtFile && !qrUrls[t.id]) && (
+                        <div className="flex flex-col items-center mb-5">
+                          <div className="bg-white p-3 rounded-xl border border-border shadow-soft">
+                            {qrUrls[t.id] ? (
+                              <img
+                                src={qrUrls[t.id]}
+                                alt={`Ticket QR ${i + 1}`}
+                                className="w-64 h-64 md:w-72 md:h-72 block"
+                                style={{ imageRendering: "pixelated" }}
+                              />
+                            ) : (
+                              <div className="w-64 h-64 md:w-72 md:h-72 flex items-center justify-center text-muted-foreground text-xs">
+                                QR unavailable
+                              </div>
+                            )}
+                          </div>
+                          <div className="text-[11px] text-muted-foreground mt-2.5 inline-flex items-center gap-1.5">
+                            <ShieldCheck className="w-3 h-3" />
+                            {isExternal ? "Show this at the door" : "Single-use · checked at the door"}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Original partner/club ticket file — the real entry
+                          artifact for file-based external imports. */}
+                      {hasExtFile && (
+                        <div className="mb-5">
+                          <ExternalFileButton ticketId={t.id} />
+                          {t.external_provider && (
+                            <div className="text-[11px] text-muted-foreground mt-2 text-center">
+                              Provided via {t.external_provider}
                             </div>
                           )}
                         </div>
-                        <div className="text-[11px] text-muted-foreground mt-2.5 inline-flex items-center gap-1.5">
-                          <ShieldCheck className="w-3 h-3" />
-                          Single-use · checked at the door
-                        </div>
-                      </div>
+                      )}
 
                       {/* Status badges */}
                       {t.status === "scanned" && t.scanned_at && (
@@ -396,8 +437,10 @@ const MyTickets = () => {
                         </div>
                       )}
 
-                      {/* Download PDF — full-width brand-blue CTA */}
-                      {qrUrls[t.id] && order?.event && (
+                      {/* Download PDF — full-width brand-blue CTA. Hidden for
+                          external tickets whose entry artifact is the club's
+                          own code/file (the platform PDF isn't what scans). */}
+                      {showPlatformPdf && qrUrls[t.id] && order?.event && (
                         <button
                           type="button"
                           disabled={pdfPending === t.id}
@@ -484,6 +527,44 @@ const MyTickets = () => {
 
       <Footer />
     </div>
+  );
+};
+
+// Opens the ORIGINAL partner/club ticket file for an imported ticket. The
+// file lives in a private bucket, so we ask the external-ticket-file edge
+// function for a short-lived signed URL (it verifies the caller owns the
+// ticket) and open it in a new tab.
+const ExternalFileButton = ({ ticketId }: { ticketId: string }) => {
+  const [loading, setLoading] = useState(false);
+  const handleClick = async () => {
+    if (loading) return;
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("external-ticket-file", {
+        body: { ticket_id: ticketId },
+      });
+      const url = (data as { url?: string } | null)?.url;
+      if (error || !url) {
+        toast.error((data as { error?: string })?.error ?? error?.message ?? "Could not open your ticket.");
+        return;
+      }
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Network error.");
+    } finally {
+      setLoading(false);
+    }
+  };
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      disabled={loading}
+      className="w-full inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-lg font-semibold text-white text-sm bg-primary hover:shadow-md disabled:opacity-60 transition-all"
+    >
+      {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+      Open your entry ticket
+    </button>
   );
 };
 

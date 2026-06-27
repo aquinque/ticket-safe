@@ -47,6 +47,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import EventStatusBadge from "@/components/studio/EventStatusBadge";
 import EventPreviewCard from "@/components/studio/EventPreviewCard";
+import { ExternalTicketsSection } from "@/components/studio/ExternalTickets";
 
 interface EventRow {
   id: string;
@@ -81,6 +82,9 @@ interface TierRow {
   sales_start_at: string | null;
   sales_end_at: string | null;
   max_per_order: number | null;
+  // 'external' tiers are imported partner/club allocations — managed in the
+  // dedicated External tickets section, not the native tier editor below.
+  source: "platform" | "external" | null;
 }
 
 interface OrderRow {
@@ -772,11 +776,14 @@ const StudioEventEdit = () => {
               </button>
             </div>
 
-            {tiers.length === 0 ? (
+            {tiers.filter((t) => t.source !== "external").length === 0 ? (
               <p className="text-sm text-muted-foreground">No tiers yet. Add at least one before publishing.</p>
             ) : (
               <div className="space-y-3">
-                {tiers.map((t) => (
+                {/* External (imported) tiers are managed in the External tickets
+                    section below — exclude them here so their auto-synced
+                    capacity isn't edited by hand. */}
+                {tiers.filter((t) => t.source !== "external").map((t) => (
                   <TierEditor
                     key={t.id}
                     tier={t}
@@ -787,6 +794,14 @@ const StudioEventEdit = () => {
               </div>
             )}
           </section>
+
+          {/* External ticket import — partner/nightclub allocations resold via
+              Ticket Safe. Lives attached to this event. */}
+          <ExternalTicketsSection
+            eventId={event.id}
+            eventPublished={event.status === "published"}
+            onChanged={load}
+          />
 
           {/* Per-buyer limit — editable at any status (only affects new purchases) */}
           <PerBuyerLimitControl event={event} onSaved={(patch) => setEvent({ ...event, ...patch })} />
