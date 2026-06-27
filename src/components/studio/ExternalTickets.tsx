@@ -18,7 +18,6 @@ import {
   Building2,
   Upload,
   FileText,
-  Plus,
   Loader2,
   Check,
   Tag,

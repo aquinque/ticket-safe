@@ -145,8 +145,12 @@ const MyTickets = () => {
           // External ticket with the club's own code → render THAT as the QR
           // (it's what scans at the venue). No platform JWT involved.
           if (t.source === "external" && t.external_code) {
-            const QR = await import("qrcode");
-            urls[t.id] = await QR.toDataURL(t.external_code, { errorCorrectionLevel: "M", margin: 2, width: 512 });
+            // qrcode exposes toDataURL on .default under dynamic import — guard
+            // the same way src/lib/ticketPdf.ts does.
+            const mod = await import("qrcode");
+            const QRCode = (mod as { default?: { toDataURL: (s: string, o: Record<string, unknown>) => Promise<string> } }).default
+              ?? (mod as unknown as { toDataURL: (s: string, o: Record<string, unknown>) => Promise<string> });
+            urls[t.id] = await QRCode.toDataURL(t.external_code, { errorCorrectionLevel: "M", margin: 2, width: 512 });
             continue;
           }
           // External ticket delivered as a file → no inline QR; the card shows
