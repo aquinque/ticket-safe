@@ -139,39 +139,44 @@ const MyTickets = () => {
         setLoading(false);
         return;
       }
+      // Resolve every ticket's on-screen artifact IN PARALLEL. Previously this
+      // was a sequential await-loop, so a multi-ticket order paid one network
+      // round-trip per QR; Promise.all collapses that to a single wait.
+      const resolved = await Promise.all(
+        ((tix ?? []) as TicketRow[]).map(async (t): Promise<[string, string] | null> => {
+          try {
+            // External ticket with the club's own code → render THAT as the QR
+            // (it's what scans at the venue). No platform JWT involved.
+            if (t.source === "external" && t.external_code) {
+              // qrcode exposes toDataURL on .default under dynamic import —
+              // guard the same way src/lib/ticketPdf.ts does.
+              const mod = await import("qrcode");
+              const QRCode = (mod as { default?: { toDataURL: (s: string, o: Record<string, unknown>) => Promise<string> } }).default
+                ?? (mod as unknown as { toDataURL: (s: string, o: Record<string, unknown>) => Promise<string> });
+              return [t.id, await QRCode.toDataURL(t.external_code, { errorCorrectionLevel: "M", margin: 2, width: 512 })];
+            }
+            // External ticket delivered as a file → no inline QR; the card
+            // shows an "Open original ticket" button (signed URL via edge fn).
+            if (t.source === "external" && t.external_file_url) {
+              return null;
+            }
+            // Native / manual tickets → the platform's signed QR as before.
+            const res = await fetch(
+              `${supabaseUrl}/functions/v1/event-ticket-qr?ticket_id=${t.id}`,
+              { headers: { Authorization: `Bearer ${token}` } },
+            );
+            if (res.ok) {
+              const svg = await res.text();
+              return [t.id, URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }))];
+            }
+          } catch (e) {
+            console.warn("[my-tickets] qr fetch failed for", t.id, e);
+          }
+          return null;
+        }),
+      );
       const urls: Record<string, string> = {};
-      for (const t of (tix ?? []) as TicketRow[]) {
-        try {
-          // External ticket with the club's own code → render THAT as the QR
-          // (it's what scans at the venue). No platform JWT involved.
-          if (t.source === "external" && t.external_code) {
-            // qrcode exposes toDataURL on .default under dynamic import — guard
-            // the same way src/lib/ticketPdf.ts does.
-            const mod = await import("qrcode");
-            const QRCode = (mod as { default?: { toDataURL: (s: string, o: Record<string, unknown>) => Promise<string> } }).default
-              ?? (mod as unknown as { toDataURL: (s: string, o: Record<string, unknown>) => Promise<string> });
-            urls[t.id] = await QRCode.toDataURL(t.external_code, { errorCorrectionLevel: "M", margin: 2, width: 512 });
-            continue;
-          }
-          // External ticket delivered as a file → no inline QR; the card shows
-          // an "Open original ticket" button (signed URL via edge function).
-          if (t.source === "external" && t.external_file_url) {
-            continue;
-          }
-          // Native / manual tickets → the platform's signed QR as before.
-          const res = await fetch(
-            `${supabaseUrl}/functions/v1/event-ticket-qr?ticket_id=${t.id}`,
-            { headers: { Authorization: `Bearer ${token}` } },
-          );
-          if (res.ok) {
-            const svg = await res.text();
-            const blob = new Blob([svg], { type: "image/svg+xml" });
-            urls[t.id] = URL.createObjectURL(blob);
-          }
-        } catch (e) {
-          console.warn("[my-tickets] qr fetch failed for", t.id, e);
-        }
-      }
+      for (const entry of resolved) if (entry) urls[entry[0]] = entry[1];
       if (!cancelled) {
         setQrUrls(urls);
         setLoading(false);

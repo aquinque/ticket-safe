@@ -165,17 +165,39 @@ export function ExternalTicketsSection({
     setBusyTier(tier.id);
     const nextActive = !tier.is_active;
     // Flip the tier's sale state AND the matching allocations between
-    // draft<->available so drafts can never be sold and re-drafting hides
-    // only the still-unsold ones.
-    const { error: e1 } = await supabase.from("event_tiers").update({ is_active: nextActive }).eq("id", tier.id);
-    const { error: e2 } = await supabase
-      .from("external_ticket_inventory")
-      .update({ status: nextActive ? "available" : "draft" })
-      .eq("tier_id", tier.id)
-      .eq("status", nextActive ? "draft" : "available");
+    // draft<->available in ONE transaction via the RPC, so drafts can never be
+    // sold and re-drafting hides only the still-unsold ones. Falls back to two
+    // client writes if the external_set_tier_active migration isn't applied yet
+    // (PGRST202 = function not found), so this ships safely ahead of the DB.
+    const { error: rpcErr } = await supabase.rpc("external_set_tier_active", {
+      p_tier_id: tier.id,
+      p_active: nextActive,
+    });
+    let failed = rpcErr;
+    if (rpcErr && (rpcErr.code === "PGRST202" || /find the function|does not exist/i.test(rpcErr.message ?? ""))) {
+      const { error: e1 } = await supabase.from("event_tiers").update({ is_active: nextActive }).eq("id", tier.id);
+      const { error: e2 } = await supabase
+        .from("external_ticket_inventory")
+        .update({ status: nextActive ? "available" : "draft" })
+        .eq("tier_id", tier.id)
+        .eq("status", nextActive ? "draft" : "available");
+      failed = e1 ?? e2 ?? null;
+    }
     setBusyTier(null);
-    if (e1 || e2) toast.error((e1 ?? e2)?.message ?? "Could not update.");
-    else { toast.success(nextActive ? "Published — on sale." : "Moved to draft."); refresh(); }
+    if (failed) {
+      toast.error(failed.message ?? "Could not update.");
+      return;
+    }
+    if (!nextActive) {
+      toast.success("Moved to draft.");
+    } else if (!eventPublished) {
+      // The tier is on sale, but buyers can't see it until the EVENT itself is
+      // published — make that explicit so the organizer isn't left guessing.
+      toast.success("On sale — publish the event so buyers can see it.");
+    } else {
+      toast.success("Published — on sale.");
+    }
+    refresh();
   };
 
   const cancelUnsold = async (tier: ExtTier) => {
