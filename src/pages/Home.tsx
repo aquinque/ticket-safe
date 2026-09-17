@@ -164,42 +164,9 @@ const Home = () => {
 
           {/* Two paths */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 md:gap-6 animate-slide-up">
-            {/* Path 1 — Buy event tickets.
-                flex-col + mt-auto on the CTA pushes "Browse events" to the
-                bottom of the card, so the CTAs of both boxes line up even
-                when the descriptive paragraphs have different lengths. */}
-            <Link
-              to="/tickets"
-              className="group relative rounded-2xl md:rounded-3xl p-6 md:p-10 overflow-hidden text-white transition-all duration-300 active:scale-[0.99] md:hover:-translate-y-1 md:hover:shadow-hover flex flex-col"
-              style={{ background: "var(--gradient-hero)" }}
-            >
-              {/* Glow accent */}
-              <div
-                className="pointer-events-none absolute -top-20 -right-20 w-72 h-72 rounded-full opacity-40 blur-3xl group-hover:opacity-60 transition-opacity"
-                style={{ background: "radial-gradient(circle, hsl(210 100% 65%), transparent 70%)" }}
-              />
-              <div className="relative flex flex-col flex-1">
-                <div className="inline-flex w-12 h-12 md:w-14 md:h-14 rounded-xl md:rounded-2xl bg-white/15 backdrop-blur items-center justify-center mb-4 md:mb-6 group-hover:scale-110 group-hover:bg-white/25 transition-all">
-                  <Ticket className="w-6 h-6 md:w-7 md:h-7 text-white" />
-                </div>
-                <div className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.2em] font-bold text-white/80 mb-1.5 md:mb-2">
-                  <Sparkles className="w-3 h-3" />
-                  New
-                </div>
-                <h2 className="text-xl md:text-3xl font-black mb-2 md:mb-3 leading-tight">
-                  Buy event tickets
-                </h2>
-                <p className="text-sm md:text-base text-white/80 mb-5 md:mb-8 leading-relaxed max-w-sm">
-                  All your campus events in one place. Tickets sold directly by student associations.
-                </p>
-                <div className="mt-auto inline-flex items-center gap-2 font-bold text-white text-sm md:text-base group-hover:gap-3 transition-all">
-                  Browse events
-                  <ArrowRight className="w-4 h-4 md:w-5 md:h-5 group-hover:translate-x-1 transition-transform" />
-                </div>
-              </div>
-            </Link>
-
-            {/* Path 2 — Resale marketplace. Same flex-col + mt-auto pattern. */}
+            {/* Path 1 — Resale marketplace. Shown first, especially on mobile
+                where the grid stacks in DOM order. Same flex-col + mt-auto
+                pattern as the other card so both CTAs line up. */}
             <Link
               to="/resale"
               className="group relative rounded-2xl md:rounded-3xl p-6 md:p-10 overflow-hidden bg-card border border-border transition-all duration-300 active:scale-[0.99] md:hover:-translate-y-1 md:hover:shadow-hover hover:border-primary/30 flex flex-col"
@@ -226,6 +193,34 @@ const Home = () => {
                 </p>
                 <div className="mt-auto inline-flex items-center gap-2 font-bold text-primary text-sm md:text-base group-hover:gap-3 transition-all">
                   Go to marketplace
+                  <ArrowRight className="w-4 h-4 md:w-5 md:h-5 group-hover:translate-x-1 transition-transform" />
+                </div>
+              </div>
+            </Link>
+
+            {/* Path 2 — Buy event tickets. Same flex-col + mt-auto pattern. */}
+            <Link
+              to="/tickets"
+              className="group relative rounded-2xl md:rounded-3xl p-6 md:p-10 overflow-hidden text-white transition-all duration-300 active:scale-[0.99] md:hover:-translate-y-1 md:hover:shadow-hover flex flex-col"
+              style={{ background: "var(--gradient-hero)" }}
+            >
+              {/* Glow accent */}
+              <div
+                className="pointer-events-none absolute -top-20 -right-20 w-72 h-72 rounded-full opacity-40 blur-3xl group-hover:opacity-60 transition-opacity"
+                style={{ background: "radial-gradient(circle, hsl(210 100% 65%), transparent 70%)" }}
+              />
+              <div className="relative flex flex-col flex-1">
+                <div className="inline-flex w-12 h-12 md:w-14 md:h-14 rounded-xl md:rounded-2xl bg-white/15 backdrop-blur items-center justify-center mb-4 md:mb-6 group-hover:scale-110 group-hover:bg-white/25 transition-all">
+                  <Ticket className="w-6 h-6 md:w-7 md:h-7 text-white" />
+                </div>
+                <h2 className="text-xl md:text-3xl font-black mb-2 md:mb-3 leading-tight">
+                  Buy event tickets
+                </h2>
+                <p className="text-sm md:text-base text-white/80 mb-5 md:mb-8 leading-relaxed max-w-sm">
+                  All your campus events in one place. Tickets sold directly by student associations.
+                </p>
+                <div className="mt-auto inline-flex items-center gap-2 font-bold text-white text-sm md:text-base group-hover:gap-3 transition-all">
+                  Browse events
                   <ArrowRight className="w-4 h-4 md:w-5 md:h-5 group-hover:translate-x-1 transition-transform" />
                 </div>
               </div>
