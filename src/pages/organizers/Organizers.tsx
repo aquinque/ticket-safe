@@ -89,7 +89,7 @@ const Organizers = () => {
     <div className="min-h-screen flex flex-col bg-background">
       <SEOHead
         title="TicketSafe Studio — Sell your event tickets"
-        description="The ticketing platform for verified student organizers. Branded pages, secure QR ticketing, real-time dashboard."
+        description="The ticketing platform for event organizers. Branded pages, secure QR ticketing, real-time dashboard."
       />
 
       <Header minimal />
@@ -116,14 +116,14 @@ const Organizers = () => {
               </div>
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 backdrop-blur border border-white/20 text-[10px] md:text-xs font-semibold tracking-wider uppercase mb-4 md:mb-5">
                 <Sparkles className="w-3 h-3" />
-                <span className="leading-tight">TicketSafe Studio — Beta for EBS Paris</span>
+                <span className="leading-tight">TicketSafe Studio — for event organizers</span>
               </div>
               <h1 className="text-[28px] sm:text-3xl md:text-6xl font-black tracking-tight leading-[1.05] mb-4 md:mb-5">
                 Sell your event tickets,<br />
                 <span className="text-white/90">the safe way.</span>
               </h1>
               <p className="text-sm md:text-lg text-white/80 max-w-xl mb-6 md:mb-8 leading-relaxed">
-                Built for EBS Paris student societies. Branded event pages, ticket tiers, promo codes, real-time dashboard — and official resale built in for your buyers.
+                Built for event organizers. Branded event pages, ticket tiers, promo codes, real-time dashboard — and official resale built in for your buyers.
               </p>
 
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3">

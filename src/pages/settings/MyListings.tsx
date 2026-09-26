@@ -1053,7 +1053,7 @@ const SellerPayoutModal = ({
                           type="button"
                           onClick={() => downloadReceipt(p)}
                           disabled={downloadingId === p.id}
-                          title="Télécharger le justificatif de versement (PDF)"
+                          title="Download payment receipt (PDF)"
                           className="p-1.5 rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary/40 disabled:opacity-50"
                         >
                           {downloadingId === p.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
