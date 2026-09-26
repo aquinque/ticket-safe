@@ -17,6 +17,7 @@ import {
   QrCode,
   Settings,
   Repeat2,
+  Download,
 } from "lucide-react";
 import { toast } from "sonner";
 import Header from "@/components/Header";
@@ -26,6 +27,7 @@ import { SEOHead } from "@/components/SEOHead";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrganizer } from "@/hooks/useOrganizer";
 import { supabase } from "@/integrations/supabase/client";
+import { generatePayoutReceiptPDF } from "@/lib/payoutReceiptPdf";
 import EventStatusBadge, { deriveEventStatusKind } from "@/components/studio/EventStatusBadge";
 
 interface StudioEvent {
@@ -527,6 +529,7 @@ const StudioDashboard = () => {
       {payoutModalOpen && organizer && (
         <PayoutModal
           organizerId={organizer.id}
+          organizerName={organizer.name}
           available={earnings?.available_cents ?? 0}
           claimed={earnings?.claimed_cents ?? 0}
           netEarned={earnings?.net_earned_cents ?? 0}
@@ -550,8 +553,21 @@ const StudioDashboard = () => {
 // just take an IBAN, email the SEPA details to ops (Achille + Adrien), and
 // wire the funds from the Ticket Safe bank within 2-3 business days.
 // ────────────────────────────────────────────────────────────────────────────
+interface PayoutHistoryRow {
+  id: string;
+  amount_cents: number;
+  gross_cents: number | null;
+  fee_cents: number | null;
+  status: "requested" | "processing" | "sent" | "failed" | "cancelled";
+  iban_used: string;
+  iban_holder_used: string;
+  requested_at: string;
+  sent_at: string | null;
+}
+
 const PayoutModal = ({
   organizerId,
+  organizerName,
   available,
   claimed,
   netEarned,
@@ -559,6 +575,7 @@ const PayoutModal = ({
   onSubmitted,
 }: {
   organizerId: string;
+  organizerName: string;
   available: number;
   claimed: number;
   netEarned: number;
@@ -569,21 +586,46 @@ const PayoutModal = ({
   const [holder, setHolder] = useState("");
   const [amount, setAmount] = useState(((available || 0) / 100).toFixed(2));
   const [submitting, setSubmitting] = useState(false);
-  const [history, setHistory] = useState<{ id: string; amount_cents: number; status: string; iban_used: string; requested_at: string }[]>([]);
+  const [history, setHistory] = useState<PayoutHistoryRow[]>([]);
   const [loadedDefaults, setLoadedDefaults] = useState(false);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
       const [{ data: org }, { data: hist }] = await Promise.all([
         supabase.from("organizer_profiles").select("payout_iban, payout_iban_holder").eq("id", organizerId).maybeSingle(),
-        supabase.from("organizer_payouts").select("id, amount_cents, status, iban_used, requested_at").eq("organizer_id", organizerId).order("requested_at", { ascending: false }).limit(10),
+        supabase.from("organizer_payouts").select("id, amount_cents, gross_cents, fee_cents, status, iban_used, iban_holder_used, requested_at, sent_at").eq("organizer_id", organizerId).order("requested_at", { ascending: false }).limit(10),
       ]);
       if (org?.payout_iban) setIban((org.payout_iban as string).replace(/\s+/g, "").toUpperCase());
       if (org?.payout_iban_holder) setHolder(org.payout_iban_holder as string);
-      setHistory((hist as { id: string; amount_cents: number; status: string; iban_used: string; requested_at: string }[]) ?? []);
+      setHistory((hist as PayoutHistoryRow[]) ?? []);
       setLoadedDefaults(true);
     })();
   }, [organizerId]);
+
+  const downloadReceipt = async (p: PayoutHistoryRow) => {
+    setDownloadingId(p.id);
+    try {
+      const grossCents = p.gross_cents ?? p.amount_cents;
+      const feeCents = p.fee_cents ?? Math.max(grossCents - p.amount_cents, 0);
+      await generatePayoutReceiptPDF({
+        kind: "studio",
+        payoutId: p.id,
+        organizationName: organizerName,
+        beneficiaryName: p.iban_holder_used,
+        iban: p.iban_used,
+        grossCents,
+        feeCents,
+        feePercent: 8,
+        netCents: p.amount_cents,
+        sentAt: p.sent_at,
+        requestedAt: p.requested_at,
+        status: p.status,
+      });
+    } finally {
+      setDownloadingId(null);
+    }
+  };
 
   const cleanedIban = iban.replace(/\s+/g, "").toUpperCase();
   const ibanValid = /^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/.test(cleanedIban);
@@ -708,12 +750,25 @@ const PayoutModal = ({
               <h3 className="text-xs uppercase tracking-wider font-bold text-muted-foreground mb-2">Recent payouts</h3>
               <div className="space-y-2">
                 {history.map((p) => (
-                  <div key={p.id} className="flex items-center justify-between text-sm">
+                  <div key={p.id} className="flex items-center justify-between text-sm gap-2">
                     <div className="min-w-0">
                       <div className="font-semibold">€{(p.amount_cents / 100).toFixed(2)}</div>
                       <div className="text-[11px] text-muted-foreground truncate">{p.iban_used.slice(0, 4)} ··· {p.iban_used.slice(-4)} · {new Date(p.requested_at).toLocaleDateString("en-GB")}</div>
                     </div>
-                    <PayoutStatus status={p.status} />
+                    <div className="flex items-center gap-2 shrink-0">
+                      {p.status === "sent" && (
+                        <button
+                          type="button"
+                          onClick={() => downloadReceipt(p)}
+                          disabled={downloadingId === p.id}
+                          title="Télécharger le justificatif de versement (PDF)"
+                          className="p-1.5 rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary/40 disabled:opacity-50"
+                        >
+                          {downloadingId === p.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+                        </button>
+                      )}
+                      <PayoutStatus status={p.status} />
+                    </div>
                   </div>
                 ))}
               </div>
