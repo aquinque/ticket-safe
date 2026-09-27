@@ -18,6 +18,7 @@ import {
   Settings,
   Repeat2,
   Download,
+  History,
 } from "lucide-react";
 import { toast } from "sonner";
 import Header from "@/components/Header";
@@ -388,7 +389,7 @@ const StudioDashboard = () => {
             <h2 className="text-base md:text-lg font-bold">Everything in one place</h2>
             <span className="text-xs text-muted-foreground">Quick actions</span>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
             <QuickAction
               icon={Plus}
               label="New event"
@@ -424,6 +425,13 @@ const StudioDashboard = () => {
               }
             />
             <QuickAction
+              icon={History}
+              label="History"
+              hint="Past events & receipts"
+              to="/studio/history"
+              accent={organizer.primary_color}
+            />
+            <QuickAction
               icon={Repeat2}
               label="Resale"
               hint="Built-in for your buyers"
@@ -437,15 +445,26 @@ const StudioDashboard = () => {
         <section className="container mx-auto px-4 py-8 md:py-10 max-w-5xl">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
             <h2 className="text-xl md:text-2xl font-bold">Your events</h2>
-            {events.length > 0 && (
-              <Link
-                to="/studio/events/new"
-                className="inline-flex items-center justify-center gap-1.5 px-4 min-h-[40px] rounded-xl font-bold text-sm bg-primary text-primary-foreground hover:bg-primary-hover transition-colors self-start sm:self-auto"
-              >
-                <Plus className="w-4 h-4" />
-                New event
-              </Link>
-            )}
+            <div className="flex items-center gap-2 self-start sm:self-auto">
+              {events.length > 0 && (
+                <Link
+                  to="/studio/history"
+                  className="inline-flex items-center justify-center gap-1.5 px-4 min-h-[40px] rounded-xl font-bold text-sm border border-border text-foreground hover:bg-muted transition-colors"
+                >
+                  <History className="w-4 h-4" />
+                  Past events &amp; receipts
+                </Link>
+              )}
+              {events.length > 0 && (
+                <Link
+                  to="/studio/events/new"
+                  className="inline-flex items-center justify-center gap-1.5 px-4 min-h-[40px] rounded-xl font-bold text-sm bg-primary text-primary-foreground hover:bg-primary-hover transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  New event
+                </Link>
+              )}
+            </div>
           </div>
 
           {/* Filter tabs — let organizers instantly slice by Live / Draft / Past */}
@@ -616,7 +635,10 @@ const PayoutModal = ({
         iban: p.iban_used,
         grossCents,
         feeCents,
-        feePercent: 8,
+        // Historical payouts genuinely had an 8% fee deducted; new ones
+        // (fee_cents = 0) take no fee from organizers — derive the label
+        // from the actual amounts rather than assuming 8% for everything.
+        feePercent: grossCents > 0 ? Math.round((feeCents / grossCents) * 100) : 0,
         netCents: p.amount_cents,
         sentAt: p.sent_at,
         requestedAt: p.requested_at,
@@ -675,12 +697,10 @@ const PayoutModal = ({
             </div>
           </div>
 
-          {/* Fee breakdown */}
+          {/* How it works — plain, no fee framing: there is none to explain */}
           <div className="rounded-xl border border-border bg-muted/40 p-4 text-xs leading-relaxed text-muted-foreground">
-            <div className="font-bold text-foreground mb-1.5 text-[11px] uppercase tracking-wider">Fee breakdown</div>
-            Buyers pay a <strong className="text-foreground">5% service fee</strong> on top at checkout.{" "}
-            Your balance above shows the gross. Ticket Safe takes another{" "}
-            <strong className="text-foreground">8%</strong> when you withdraw — net wired to your IBAN.
+            Enter your IBAN and request a payout whenever you want. Ticket Safe wires the
+            full amount by SEPA transfer within 2-3 business days — no fees, no KYC.
           </div>
 
           {!loadedDefaults ? (
@@ -709,38 +729,16 @@ const PayoutModal = ({
                 {!amountValid && (<p className="text-xs text-amber-700 mt-1">Amount must be between €1.00 and €{(available / 100).toFixed(2)}.</p>)}
               </div>
 
-              {/* Live 8% breakdown */}
-              {amountValid && cents > 0 && (() => {
-                const feeCents = Math.round(cents * 0.08);
-                const netCents = cents - feeCents;
-                return (
-                  <div className="rounded-xl bg-primary/5 border border-primary/20 p-4 text-sm space-y-1.5">
-                    <div className="flex items-center justify-between text-muted-foreground">
-                      <span>Gross withdrawal</span>
-                      <span>€{(cents / 100).toFixed(2)}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-muted-foreground">
-                      <span>Ticket Safe fee (8%)</span>
-                      <span>−€{(feeCents / 100).toFixed(2)}</span>
-                    </div>
-                    <div className="flex items-center justify-between font-black text-foreground text-base border-t border-primary/20 pt-1.5 mt-1.5">
-                      <span>You will receive</span>
-                      <span className="text-primary">€{(netCents / 100).toFixed(2)}</span>
-                    </div>
-                  </div>
-                );
-              })()}
-
               <button onClick={submit} disabled={!canSubmit} className="w-full inline-flex items-center justify-center gap-2 min-h-[44px] rounded-lg font-bold bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-60">
                 {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : (
                   <>
                     <ArrowRight className="w-4 h-4" />
-                    Request €{(((cents || 0) - Math.round((cents || 0) * 0.08)) / 100).toFixed(2)} net
+                    Request €{((cents || 0) / 100).toFixed(2)}
                   </>
                 )}
               </button>
               <p className="text-[11px] text-muted-foreground text-center">
-                Ticket Safe deducts 8% at withdrawal. Net wired to your IBAN within 2-3 business days. No Stripe account, no SIREN, no KYC.
+                No Stripe account, no SIREN, no KYC — just your IBAN.
               </p>
             </>
           )}

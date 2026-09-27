@@ -19,8 +19,10 @@
  *   │                           │ IBAN : FR76 ···· 7890│
  *   ├─ AMOUNT TABLE ─────────────────────────────────────┤
  *   │ Gross amount requested        €500.00              │
- *   │ Ticket Safe service fee (8%)  −€40.00              │
- *   │ NET AMOUNT PAID                €460.00 (large,blue)│
+ *   │ Ticket Safe service fee (5%)  −€25.00  (resale only;│
+ *   │                                studio payouts have  │
+ *   │                                no Ticket Safe fee)  │
+ *   │ NET AMOUNT PAID                €475.00 (large,blue)│
  *   ├─ DETAILS ──────────────────────────────────────────┤
  *   │ Method : SEPA transfer                              │
  *   │ Payment date : 26 September 2026                    │
@@ -252,8 +254,13 @@ export async function generatePayoutReceiptPDF(data: PayoutReceiptData): Promise
     y += opts?.bold ? 9 : 7.5;
   };
 
-  rowVal("Gross amount requested", eur(data.grossCents), { muted: true });
-  rowVal(`Ticket Safe service fee (${data.feePercent}%)`, `- ${eur(data.feeCents)}`, { muted: true });
+  if (data.feeCents > 0) {
+    rowVal("Gross amount requested", eur(data.grossCents), { muted: true });
+    rowVal(`Ticket Safe service fee (${data.feePercent}%)`, `- ${eur(data.feeCents)}`, { muted: true });
+  } else {
+    rowVal("Amount requested", eur(data.grossCents), { muted: true });
+    rowVal("Ticket Safe fee", "None", { muted: true });
+  }
   pdf.setDrawColor(C_INK.r, C_INK.g, C_INK.b);
   pdf.setLineWidth(0.4);
   pdf.line(MARGIN_X, y - 4.5, A4_W - MARGIN_X, y - 4.5);

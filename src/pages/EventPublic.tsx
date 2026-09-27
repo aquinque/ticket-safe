@@ -19,9 +19,11 @@ import {
   Info,
   CreditCard,
   BadgeCheck,
+  X,
 } from "lucide-react";
 import { SEOHead } from "@/components/SEOHead";
 import { AnimatedNumber } from "@/components/AnimatedNumber";
+import { safeImageSrc } from "@/lib/safeImageUrl";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -38,6 +40,8 @@ interface PublicEvent {
   status: string;
   primary_color: string;
   banner_url: string | null;
+  banner_fit: "cover" | "contain";
+  gallery_urls: string[] | null;
   logo_url: string | null;
   og_image_url: string | null;
   seo_description: string | null;
@@ -66,6 +70,11 @@ interface TierAvailability {
   is_active: boolean;
 }
 
+// Flat per-ticket service tax charged to the buyer at checkout — covers
+// payment processing, QR issuance and platform services. Must stay in sync
+// with SERVICE_TAX_CENTS in studio-create-checkout / revolut-create-checkout.
+const SERVICE_TAX_CENTS = 140;
+
 const EventPublic = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
@@ -82,6 +91,7 @@ const EventPublic = () => {
   const [attendees, setAttendees] = useState<{ first_name: string; last_name: string; email: string }[]>([]);
   const [following, setFollowing] = useState(false);
   const [followBusy, setFollowBusy] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   // Keep the attendees array sized to the current quantity. When quantity grows,
   // we add empty slots; when it shrinks, we trim. The first slot auto-fills from
@@ -115,7 +125,7 @@ const EventPublic = () => {
     const { data: ev } = await supabase
       .from("events")
       .select(
-        `id, title, description, date, ends_at, location, category, slug, status, primary_color, banner_url, logo_url, og_image_url, seo_description, organizer_id, max_tickets_per_buyer,
+        `id, title, description, date, ends_at, location, category, slug, status, primary_color, banner_url, banner_fit, gallery_urls, logo_url, og_image_url, seo_description, organizer_id, max_tickets_per_buyer,
          organizer:organizer_profiles!events_organizer_id_fkey(id, user_id, name, slug, logo_url, primary_color, website)`,
       )
       .eq("slug", slug)
@@ -252,10 +262,6 @@ const EventPublic = () => {
 
   const handleBuy = async () => {
     if (!selectedTier) return;
-    if (!user) {
-      navigate(`/auth?mode=signup&next=/e/${slug}`);
-      return;
-    }
     // Validate the nominative form before opening checkout — the server will
     // re-validate (defense in depth) but a clear inline error is friendlier.
     for (let i = 0; i < attendees.length; i++) {
@@ -267,12 +273,25 @@ const EventPublic = () => {
     }
     setBuying(true);
     try {
+      // No Ticket Safe account required to buy: signed-out visitors check out
+      // as a guest using the first ticket holder's name/email as the contact —
+      // the server resolves that to a lightweight shadow account so tickets
+      // and order history still work exactly like a signed-in purchase.
+      const body: { tier_id: string; quantity: number; attendees: typeof attendees; guest?: { name: string; email: string } } = {
+        tier_id: selectedTier,
+        quantity: qty,
+        attendees,
+      };
+      if (!user) {
+        body.guest = {
+          name: `${attendees[0].first_name.trim()} ${attendees[0].last_name.trim()}`.trim(),
+          email: attendees[0].email.trim().toLowerCase(),
+        };
+      }
       // Revolut is the payment provider. studio-create-checkout stays deployed
       // as a dormant fallback but is no longer called, so the two never run
       // together.
-      const { data, error } = await supabase.functions.invoke("revolut-create-checkout", {
-        body: { tier_id: selectedTier, quantity: qty, attendees },
-      });
+      const { data, error } = await supabase.functions.invoke("revolut-create-checkout", { body });
       if (error || !data?.url) {
         console.error("[event-public] checkout error:", error, data);
         // supabase.functions.invoke hides the function's error body on a non-2xx
@@ -307,7 +326,7 @@ const EventPublic = () => {
       <div className="min-h-screen bg-background">
         <div className="bg-gradient-to-br from-[#02122d] via-[#0a2f73] to-[#0a3a8a]">
           <div className="container mx-auto max-w-4xl sm:px-4 sm:pt-4">
-            <div className="w-full aspect-[16/9] sm:rounded-2xl bg-white/5 animate-pulse" />
+            <div className="w-full aspect-[16/9] sm:aspect-[21/9] sm:max-h-[380px] sm:rounded-2xl bg-white/5 animate-pulse" />
           </div>
         </div>
         <div className="container mx-auto max-w-5xl px-4 pt-6 space-y-5">
@@ -351,15 +370,16 @@ const EventPublic = () => {
     );
   }
 
-  // Brand identity is non-negotiable: every event uses Ticket Safe blue,
-  // regardless of what colour the organizer set on their event/profile.
-  // Organizers can still bring their own banner + logo (photos), but colour
-  // discipline keeps the buyer experience consistent across the whole platform.
-  const primary = "#003399";
-  const TS_GRADIENT = "linear-gradient(135deg, hsl(220 100% 30%), hsl(210 100% 45%))";
+  // Organizers can brand their event page with their own accent color (set in
+  // Studio); falls back to Ticket Safe blue when unset or invalid.
+  const primary = /^#[0-9A-Fa-f]{6}$/.test(event.primary_color ?? "") ? event.primary_color : "#003399";
+  const TS_GRADIENT = `linear-gradient(135deg, color-mix(in srgb, ${primary} 82%, black), color-mix(in srgb, ${primary} 65%, white))`;
   const selected = tiers.find((t) => t.tier_id === selectedTier) ?? null;
   const totalCents = selected ? selected.price_cents * qty : 0;
-  const feeCents = Math.round(totalCents * 0.05);
+  // Flat per-ticket service tax (not a percentage) — covers payment
+  // processing, QR issuance and platform services. Must match
+  // SERVICE_TAX_CENTS in studio-create-checkout / revolut-create-checkout.
+  const feeCents = SERVICE_TAX_CENTS * qty;
   const grandCents = totalCents + feeCents;
   // Lowest available price, for the "From €X" hero badge.
   const availablePrices = tiers.filter((t) => t.available_qty > 0).map((t) => t.price_cents);
@@ -469,7 +489,7 @@ const EventPublic = () => {
           </div>
           <div className="flex items-baseline justify-between text-sm">
             <span className="text-muted-foreground">
-              Service fee <span className="text-muted-foreground/70">(5%)</span>
+              Service tax <span className="text-muted-foreground/70">(€1.40 × {qty})</span>
             </span>
             <span className="tabular-nums font-medium text-foreground">€{(feeCents / 100).toFixed(2)}</span>
           </div>
@@ -497,14 +517,14 @@ const EventPublic = () => {
                 </>
               ) : (
                 <>
-                  {user ? "Continue to payment" : "Sign in & continue"}
+                  Continue to payment
                   <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
                 </>
               )}
             </button>
             {!user && (
               <p className="text-[11px] text-muted-foreground text-center mt-2">
-                You'll create an account or sign in before paying.
+                No account needed — your tickets are emailed to you instantly.
               </p>
             )}
           </>
@@ -566,13 +586,31 @@ const EventPublic = () => {
       <section className="relative">
         <div className="bg-gradient-to-br from-[#02122d] via-[#0a2f73] to-[#0a3a8a]">
           <div className="container mx-auto max-w-5xl sm:px-4 sm:pt-4">
-            <div className="relative w-full aspect-[16/9] sm:rounded-2xl overflow-hidden bg-black/20 sm:ring-1 sm:ring-white/10">
+            <div className="relative w-full aspect-[16/9] sm:aspect-[21/9] sm:max-h-[380px] sm:rounded-2xl overflow-hidden bg-black/20 sm:ring-1 sm:ring-white/10">
               {event.banner_url ? (
-                <img
-                  src={event.banner_url}
-                  alt={event.title}
-                  className="absolute inset-0 w-full h-full object-cover animate-in fade-in duration-700"
-                />
+                event.banner_fit === "contain" ? (
+                  <>
+                    {/* Blurred backdrop fills the gutters so an un-cropped photo
+                        never letterboxes to bare black — organizer's "Fit" choice. */}
+                    <img
+                      src={safeImageSrc(event.banner_url)}
+                      alt=""
+                      aria-hidden="true"
+                      className="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-50"
+                    />
+                    <img
+                      src={safeImageSrc(event.banner_url)}
+                      alt={event.title}
+                      className="absolute inset-0 w-full h-full object-contain animate-in fade-in duration-700"
+                    />
+                  </>
+                ) : (
+                  <img
+                    src={safeImageSrc(event.banner_url)}
+                    alt={event.title}
+                    className="absolute inset-0 w-full h-full object-cover animate-in fade-in duration-700"
+                  />
+                )
               ) : (
                 <div className="absolute inset-0 flex items-center justify-center" style={{ background: TS_GRADIENT }}>
                   {event.organizer?.logo_url ? (
@@ -911,6 +949,25 @@ const EventPublic = () => {
                 </section>
               )}
 
+              {/* Gallery — extra photos the organizer added beyond the banner */}
+              {event.gallery_urls && event.gallery_urls.length > 0 && (
+                <section className="bg-card border border-border rounded-2xl p-5 md:p-6 shadow-sm">
+                  <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-4">Gallery</h2>
+                  <div className="grid grid-cols-3 gap-2 md:gap-3">
+                    {event.gallery_urls.map((url, i) => (
+                      <button
+                        key={url + i}
+                        type="button"
+                        onClick={() => setLightboxIndex(i)}
+                        className="relative aspect-square rounded-xl overflow-hidden bg-muted hover:opacity-90 transition-opacity focus:outline-none focus:ring-2 focus:ring-primary"
+                      >
+                        <img src={safeImageSrc(url)} alt={`${event.title} photo ${i + 1}`} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              )}
+
               {/* When & where */}
               <section className="bg-card border border-border rounded-2xl p-5 md:p-6 shadow-sm">
                 <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-4">When &amp; where</h2>
@@ -1061,9 +1118,58 @@ const EventPublic = () => {
               className="flex-shrink-0 inline-flex items-center justify-center gap-1.5 min-h-[44px] px-5 rounded-lg font-semibold text-white text-sm disabled:opacity-60 transition-all hover:shadow-md"
               style={{ background: primary, boxShadow: buying ? "none" : `0 4px 12px ${primary}30` }}
             >
-              {buying ? <Loader2 className="w-4 h-4 animate-spin" /> : <>{user ? "Continue" : "Sign in"} <ArrowRight className="w-4 h-4" /></>}
+              {buying ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Continue <ArrowRight className="w-4 h-4" /></>}
             </button>
           </div>
+        </div>
+      )}
+
+      {/* ===== Gallery lightbox ===== */}
+      {lightboxIndex != null && event.gallery_urls && event.gallery_urls[lightboxIndex] && (
+        <div
+          className="fixed inset-0 z-[60] bg-black/90 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setLightboxIndex(null)}
+        >
+          <button
+            type="button"
+            onClick={() => setLightboxIndex(null)}
+            className="absolute top-4 right-4 inline-flex items-center justify-center w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+            aria-label="Close"
+          >
+            <X className="w-5 h-5" />
+          </button>
+          {event.gallery_urls.length > 1 && (
+            <>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLightboxIndex((i) => (i == null ? i : (i - 1 + event.gallery_urls!.length) % event.gallery_urls!.length));
+                }}
+                className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 inline-flex items-center justify-center w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+                aria-label="Previous photo"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLightboxIndex((i) => (i == null ? i : (i + 1) % event.gallery_urls!.length));
+                }}
+                className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 inline-flex items-center justify-center w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+                aria-label="Next photo"
+              >
+                <ArrowRight className="w-5 h-5" />
+              </button>
+            </>
+          )}
+          <img
+            src={safeImageSrc(event.gallery_urls[lightboxIndex])}
+            alt={`${event.title} photo ${lightboxIndex + 1}`}
+            className="max-w-full max-h-full object-contain rounded-lg animate-in fade-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          />
         </div>
       )}
 

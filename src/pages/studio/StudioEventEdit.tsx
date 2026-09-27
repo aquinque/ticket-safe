@@ -28,6 +28,10 @@ import {
   Check,
   Share2,
   Sparkles,
+  UserPlus,
+  ScanLine,
+  X,
+  Palette,
 } from "lucide-react";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import Header from "@/components/Header";
@@ -47,6 +51,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import EventStatusBadge from "@/components/studio/EventStatusBadge";
 import EventPreviewCard from "@/components/studio/EventPreviewCard";
+import { safeImageSrc } from "@/lib/safeImageUrl";
 import { ExternalTicketsSection } from "@/components/studio/ExternalTickets";
 
 interface EventRow {
@@ -61,6 +66,8 @@ interface EventRow {
   slug: string | null;
   primary_color: string | null;
   banner_url: string | null;
+  banner_fit: "cover" | "contain" | null;
+  gallery_urls: string[] | null;
   organizer_id: string;
   published_at: string | null;
   max_tickets_per_buyer: number | null;
@@ -96,6 +103,13 @@ interface OrderRow {
   status: string;
   created_at: string;
   tier_id: string;
+}
+
+interface ScannerRow {
+  id: string;
+  scanner_email: string;
+  created_at: string;
+  revoked_at: string | null;
 }
 
 interface AttendeeRow {
@@ -175,6 +189,9 @@ const StudioEventEdit = () => {
   const [tiers, setTiers] = useState<TierRow[]>([]);
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [attendees, setAttendees] = useState<AttendeeRow[]>([]);
+  const [scanners, setScanners] = useState<ScannerRow[]>([]);
+  const [scannerEmail, setScannerEmail] = useState("");
+  const [invitingScanner, setInvitingScanner] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   // Track the "copied!" feedback on the share-link button. Resets after 2s.
@@ -189,7 +206,7 @@ const StudioEventEdit = () => {
   const load = useCallback(async () => {
     if (!id) return;
     setLoading(true);
-    const [{ data: ev }, { data: tr }, { data: ord }, { data: tix }] = await Promise.all([
+    const [{ data: ev }, { data: tr }, { data: ord }, { data: tix }, { data: scan }] = await Promise.all([
       supabase.from("events").select("*").eq("id", id).maybeSingle(),
       supabase.from("event_tiers").select("*").eq("event_id", id).order("sort_order"),
       supabase
@@ -204,13 +221,51 @@ const StudioEventEdit = () => {
         .eq("event_id", id)
         .order("created_at", { ascending: false })
         .limit(2000),
+      supabase
+        .from("event_scanners")
+        .select("id, scanner_email, created_at, revoked_at")
+        .eq("event_id", id)
+        .is("revoked_at", null)
+        .order("created_at", { ascending: false }),
     ]);
     setEvent((ev as EventRow) ?? null);
     setTiers((tr as TierRow[]) ?? []);
     setOrders((ord as OrderRow[]) ?? []);
     setAttendees((tix as AttendeeRow[]) ?? []);
+    setScanners((scan as ScannerRow[]) ?? []);
     setLoading(false);
   }, [id]);
+
+  const inviteScanner = async () => {
+    const email = scannerEmail.trim().toLowerCase();
+    if (!event || !organizer || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast.error("Enter a valid email address.");
+      return;
+    }
+    if (!user) return;
+    setInvitingScanner(true);
+    const { error } = await supabase.from("event_scanners").insert({
+      event_id: event.id,
+      organizer_id: organizer.id,
+      scanner_email: email,
+      invited_by: user.id,
+    });
+    setInvitingScanner(false);
+    if (error) {
+      toast.error(error.code === "23505" ? "This person already has scan access." : "Could not add door staff.");
+      return;
+    }
+    setScannerEmail("");
+    toast.success(`${email} can now scan tickets for this event.`);
+    load();
+  };
+
+  const revokeScanner = async (scannerId: string) => {
+    const { error } = await supabase.from("event_scanners").update({ revoked_at: new Date().toISOString() }).eq("id", scannerId);
+    if (error) { toast.error("Could not revoke access."); return; }
+    toast.success("Access revoked.");
+    load();
+  };
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -811,6 +866,60 @@ const StudioEventEdit = () => {
               email reads as intentional rather than generic. */}
           <SocialSharingControl event={event} onSaved={(patch) => setEvent({ ...event, ...patch })} />
 
+          {/* Door staff — give someone scan-only access to THIS event without
+              sharing the Studio login. They sign in with their own Ticket
+              Safe account; access is revocable any time. */}
+          <section className="bg-card border border-border rounded-2xl p-5 md:p-6">
+            <div className="flex items-center gap-2 mb-1">
+              <ScanLine className="w-4.5 h-4.5 text-primary" />
+              <h2 className="text-lg font-bold">Door staff</h2>
+            </div>
+            <p className="text-xs text-muted-foreground mb-4">
+              Give someone scan-only access to this event's tickets — no need to share your Studio login. They sign in with their own account and can only scan, nothing else.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-2 mb-4">
+              <input
+                type="email"
+                value={scannerEmail}
+                onChange={(e) => setScannerEmail(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") inviteScanner(); }}
+                placeholder="staff@edu.escp.eu"
+                className="flex-1 px-3 h-11 rounded-lg border border-border bg-background text-sm"
+              />
+              <button
+                type="button"
+                onClick={inviteScanner}
+                disabled={invitingScanner || !scannerEmail.trim()}
+                className="inline-flex items-center justify-center gap-1.5 px-4 h-11 rounded-lg font-bold text-sm bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-50"
+              >
+                {invitingScanner ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
+                Grant access
+              </button>
+            </div>
+            {scanners.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No door staff added yet — you're the only one who can scan tickets for this event.</p>
+            ) : (
+              <div className="space-y-2">
+                {scanners.map((s) => (
+                  <div key={s.id} className="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-lg border border-border">
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold break-all">{s.scanner_email}</div>
+                      <div className="text-[11px] text-muted-foreground">Added {new Date(s.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => revokeScanner(s.id)}
+                      title="Revoke access"
+                      className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
           {/* Buyers — every order, with the named attendees that order issued */}
           <section className="bg-card border border-border rounded-2xl p-5 md:p-6">
             <div className="flex items-center justify-between mb-4 gap-3">
@@ -1267,12 +1376,16 @@ const EventDetailsEditor = ({
   const [endsAt, setEndsAt] = useState(toDatetimeLocal(event.ends_at));
   const [location, setLocation] = useState(event.location ?? "");
   const [category, setCategory] = useState(event.category ?? "party");
-  // Brand colour is fixed (colour customisation removed) — the banner photo is
-  // the event's visual; everything else stays Ticket Safe blue.
-  const primaryColor = "#003399";
+  const [primaryColor, setPrimaryColor] = useState(event.primary_color ?? "#003399");
   const [slug, setSlug] = useState(event.slug ?? "");
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [bannerPreview, setBannerPreview] = useState<string | null>(event.banner_url ?? null);
+  // "cover" crops the photo to fill the banner; "contain" shows the whole
+  // photo un-cropped, letterboxed with a blurred backdrop of itself.
+  const [bannerFit, setBannerFit] = useState<"cover" | "contain">(event.banner_fit ?? "cover");
+  const [galleryUrls, setGalleryUrls] = useState<string[]>(event.gallery_urls ?? []);
+  const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
+  const [galleryPreviews, setGalleryPreviews] = useState<string[]>([]);
   const [cropSrc, setCropSrc] = useState<string | null>(null);
   const [cropOpen, setCropOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -1286,9 +1399,14 @@ const EventDetailsEditor = ({
     setEndsAt(toDatetimeLocal(event.ends_at));
     setLocation(event.location ?? "");
     setCategory(event.category ?? "party");
+    setPrimaryColor(event.primary_color ?? "#003399");
     setSlug(event.slug ?? "");
     setBannerPreview(event.banner_url ?? null);
     setBannerFile(null);
+    setBannerFit(event.banner_fit ?? "cover");
+    setGalleryUrls(event.gallery_urls ?? []);
+    setGalleryFiles([]);
+    setGalleryPreviews([]);
   }, [event]);
 
   const onCropped = (file: File) => {
@@ -1296,11 +1414,48 @@ const EventDetailsEditor = ({
     setBannerPreview(URL.createObjectURL(file));
   };
 
+  const MAX_GALLERY_PHOTOS = 6;
+  const onGalleryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = "";
+    if (files.length === 0) return;
+    const room = MAX_GALLERY_PHOTOS - galleryUrls.length - galleryFiles.length;
+    if (room <= 0) {
+      toast.error(`You can add up to ${MAX_GALLERY_PHOTOS} extra photos.`);
+      return;
+    }
+    const accepted = files.slice(0, room).filter((f) => {
+      if (f.size > 5 * 1024 * 1024) {
+        toast.error(`${f.name} is over 5 MB — skipped.`);
+        return false;
+      }
+      return true;
+    });
+    if (accepted.length === 0) return;
+    setGalleryFiles((prev) => [...prev, ...accepted]);
+    setGalleryPreviews((prev) => [...prev, ...accepted.map((f) => URL.createObjectURL(f))]);
+  };
+  const removeExistingGalleryPhoto = (i: number) => {
+    setGalleryUrls((prev) => prev.filter((_, idx) => idx !== i));
+  };
+  const removeNewGalleryPhoto = (i: number) => {
+    setGalleryFiles((prev) => prev.filter((_, idx) => idx !== i));
+    setGalleryPreviews((prev) => prev.filter((_, idx) => idx !== i));
+  };
+
   const onBannerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
     if (f.size > 5 * 1024 * 1024) {
       toast.error("Banner image must be under 5 MB.");
+      return;
+    }
+    if (bannerFit === "contain") {
+      // "Fit" shows the whole photo as-is — cropping to 16:9 would defeat
+      // the point, so skip the cropper and use the file directly.
+      setBannerFile(f);
+      setBannerPreview(URL.createObjectURL(f));
+      e.target.value = "";
       return;
     }
     setCropSrc(URL.createObjectURL(f));
@@ -1340,6 +1495,23 @@ const EventDetailsEditor = ({
         bannerUrl = pub.publicUrl;
       }
 
+      // Upload any new gallery photos, then append to whatever existing
+      // ones the organizer kept.
+      const uploadedGalleryUrls: string[] = [];
+      if (userId) {
+        for (const f of galleryFiles) {
+          const ext = f.name.split(".").pop()?.toLowerCase() ?? "jpg";
+          const path = `${userId}/gallery/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+          const { error: upErr } = await supabase.storage
+            .from("organizer-assets")
+            .upload(path, f, { cacheControl: "3600", upsert: false });
+          if (upErr) throw new Error(`Gallery upload failed: ${upErr.message}`);
+          const { data: pub } = supabase.storage.from("organizer-assets").getPublicUrl(path);
+          uploadedGalleryUrls.push(pub.publicUrl);
+        }
+      }
+      const finalGalleryUrls = [...galleryUrls, ...uploadedGalleryUrls];
+
       // Check slug uniqueness if it changed
       const finalSlug = slug;
       if (finalSlug !== event.slug) {
@@ -1365,6 +1537,8 @@ const EventDetailsEditor = ({
         primary_color: primaryColor.toUpperCase(),
         slug: finalSlug,
         banner_url: bannerUrl,
+        banner_fit: bannerFit,
+        gallery_urls: finalGalleryUrls,
       };
 
       const { error: updErr } = await supabase
@@ -1375,6 +1549,9 @@ const EventDetailsEditor = ({
 
       onSaved(patch);
       setBannerFile(null);
+      setGalleryUrls(finalGalleryUrls);
+      setGalleryFiles([]);
+      setGalleryPreviews([]);
       toast.success("Event details saved");
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Could not save.";
@@ -1490,18 +1667,37 @@ const EventDetailsEditor = ({
             </Field>
           </div>
 
-          <Field label="Banner image" icon={ImageIcon} hint="Cropped to 16:9. Max 5 MB. This is your event's visual.">
+          <Field label="Cover photo display" icon={ImageIcon} hint="Fill crops your photo to fit the banner. Fit shows the whole photo, un-cropped.">
+            <div className="inline-flex rounded-lg border border-border p-1 bg-muted/30">
+              {(["cover", "contain"] as const).map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setBannerFit(v)}
+                  className={`px-4 py-1.5 rounded-md text-sm font-bold transition-colors ${
+                    bannerFit === v ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {v === "cover" ? "Fill (crop to fit)" : "Fit (show whole photo)"}
+                </button>
+              ))}
+            </div>
+          </Field>
+
+          <Field label="Banner image" icon={ImageIcon} hint={bannerFit === "cover" ? "Cropped to 16:9. Max 5 MB. This is your event's visual." : "Shown in full, letterboxed. Max 5 MB. This is your event's visual."}>
             {bannerPreview ? (
-              <div className="relative rounded-xl overflow-hidden">
-                <img src={bannerPreview} alt="Banner preview" className="w-full aspect-[16/9] object-cover" />
+              <div className="relative rounded-xl overflow-hidden bg-black/80">
+                <img src={safeImageSrc(bannerPreview)} alt="Banner preview" className={`w-full aspect-[16/9] ${bannerFit === "cover" ? "object-cover" : "object-contain"}`} />
                 <div className="absolute top-2 right-2 flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => { if (bannerPreview) { setCropSrc(bannerPreview); setCropOpen(true); } }}
-                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-black/60 text-white text-xs font-bold hover:bg-black/75"
-                  >
-                    Reframe
-                  </button>
+                  {bannerFit === "cover" && (
+                    <button
+                      type="button"
+                      onClick={() => { if (bannerPreview) { setCropSrc(bannerPreview); setCropOpen(true); } }}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-black/60 text-white text-xs font-bold hover:bg-black/75"
+                    >
+                      Reframe
+                    </button>
+                  )}
                   <label className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-black/60 text-white text-xs font-bold cursor-pointer hover:bg-black/75">
                     <Pencil className="w-3 h-3" />
                     Replace
@@ -1519,6 +1715,72 @@ const EventDetailsEditor = ({
           </Field>
 
           <ImageCropDialog src={cropSrc} open={cropOpen} onOpenChange={setCropOpen} onCropped={onCropped} />
+
+          <Field label="Brand color" icon={Palette} hint="Tints your public event page header & CTA.">
+            <div className="flex items-center gap-3">
+              <input
+                type="color"
+                value={/^#[0-9A-Fa-f]{6}$/.test(primaryColor) ? primaryColor : "#003399"}
+                onChange={(e) => setPrimaryColor(e.target.value)}
+                className="w-14 h-11 rounded-lg border border-border bg-background cursor-pointer"
+                aria-label="Pick brand color"
+              />
+              <input
+                value={primaryColor}
+                onChange={(e) => {
+                  const v = e.target.value.trim();
+                  if (/^#[0-9a-fA-F]{0,6}$/.test(v) || v === "") setPrimaryColor(v);
+                }}
+                className="ts-edit font-mono w-32"
+                placeholder="#003399"
+                maxLength={7}
+              />
+              <button
+                type="button"
+                onClick={() => setPrimaryColor("#003399")}
+                className="text-xs font-bold text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Reset
+              </button>
+            </div>
+          </Field>
+
+          <Field label="Extra photos" icon={ImageIcon} hint={`Optional — shown as a gallery on your event page. Up to ${MAX_GALLERY_PHOTOS} photos, 5 MB each.`}>
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+              {galleryUrls.map((url, i) => (
+                <div key={url} className="relative aspect-square rounded-lg overflow-hidden group">
+                  <img src={safeImageSrc(url)} alt={`Gallery photo ${i + 1}`} className="absolute inset-0 w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => removeExistingGalleryPhoto(i)}
+                    className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/60 text-white text-xs font-bold hover:bg-black/80 flex items-center justify-center"
+                    aria-label="Remove photo"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+              {galleryPreviews.map((src, i) => (
+                <div key={src} className="relative aspect-square rounded-lg overflow-hidden group ring-2 ring-primary/40">
+                  <img src={safeImageSrc(src)} alt={`New gallery photo ${i + 1}`} className="absolute inset-0 w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => removeNewGalleryPhoto(i)}
+                    className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/60 text-white text-xs font-bold hover:bg-black/80 flex items-center justify-center"
+                    aria-label="Remove photo"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ))}
+              {galleryUrls.length + galleryFiles.length < MAX_GALLERY_PHOTOS && (
+                <label className="flex flex-col items-center justify-center aspect-square rounded-lg border-2 border-dashed border-border bg-muted/30 cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors">
+                  <Plus className="w-5 h-5 text-muted-foreground" />
+                  <input type="file" accept="image/*" multiple onChange={onGalleryChange} className="hidden" />
+                </label>
+              )}
+            </div>
+          </Field>
 
           <Field
             label="Public URL slug"
