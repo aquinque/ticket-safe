@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { SEOHead } from "@/components/SEOHead";
 import { AnimatedNumber } from "@/components/AnimatedNumber";
+import { safeImageSrc } from "@/lib/safeImageUrl";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -592,20 +593,20 @@ const EventPublic = () => {
                     {/* Blurred backdrop fills the gutters so an un-cropped photo
                         never letterboxes to bare black — organizer's "Fit" choice. */}
                     <img
-                      src={event.banner_url}
+                      src={safeImageSrc(event.banner_url)}
                       alt=""
                       aria-hidden="true"
                       className="absolute inset-0 w-full h-full object-cover scale-110 blur-2xl opacity-50"
                     />
                     <img
-                      src={event.banner_url}
+                      src={safeImageSrc(event.banner_url)}
                       alt={event.title}
                       className="absolute inset-0 w-full h-full object-contain animate-in fade-in duration-700"
                     />
                   </>
                 ) : (
                   <img
-                    src={event.banner_url}
+                    src={safeImageSrc(event.banner_url)}
                     alt={event.title}
                     className="absolute inset-0 w-full h-full object-cover animate-in fade-in duration-700"
                   />
@@ -960,7 +961,7 @@ const EventPublic = () => {
                         onClick={() => setLightboxIndex(i)}
                         className="relative aspect-square rounded-xl overflow-hidden bg-muted hover:opacity-90 transition-opacity focus:outline-none focus:ring-2 focus:ring-primary"
                       >
-                        <img src={url} alt={`${event.title} photo ${i + 1}`} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+                        <img src={safeImageSrc(url)} alt={`${event.title} photo ${i + 1}`} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
                       </button>
                     ))}
                   </div>
@@ -1164,7 +1165,7 @@ const EventPublic = () => {
             </>
           )}
           <img
-            src={event.gallery_urls[lightboxIndex]}
+            src={safeImageSrc(event.gallery_urls[lightboxIndex])}
             alt={`${event.title} photo ${lightboxIndex + 1}`}
             className="max-w-full max-h-full object-contain rounded-lg animate-in fade-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}

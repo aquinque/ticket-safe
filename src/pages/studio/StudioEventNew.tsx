@@ -32,6 +32,7 @@ import { toast } from "sonner";
 import { detectCampus } from "@/lib/campus";
 import { ImageCropDialog } from "@/components/ImageCropDialog";
 import EventPreviewCard from "@/components/studio/EventPreviewCard";
+import { safeImageSrc } from "@/lib/safeImageUrl";
 
 const slugify = (input: string): string =>
   input
@@ -749,7 +750,7 @@ const StudioEventNew = () => {
                   <Field label="Cover image" icon={ImageIcon} hint={bannerFit === "cover" ? "Cropped to 16:9. Max 5 MB. This is your event's headline visual." : "Shown in full, letterboxed. Max 5 MB. This is your event's headline visual."}>
                     {bannerPreview ? (
                       <div className="relative rounded-xl overflow-hidden group bg-black/80">
-                        <img src={bannerPreview} alt="Banner preview" className={`w-full aspect-[16/9] ${bannerFit === "cover" ? "object-cover" : "object-contain"}`} />
+                        <img src={safeImageSrc(bannerPreview)} alt="Banner preview" className={`w-full aspect-[16/9] ${bannerFit === "cover" ? "object-cover" : "object-contain"}`} />
                         <div className="absolute top-2 right-2 flex gap-2">
                           {bannerFit === "cover" && (
                             <button
@@ -826,7 +827,7 @@ const StudioEventNew = () => {
                     <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                       {galleryPreviews.map((src, i) => (
                         <div key={src} className="relative aspect-square rounded-lg overflow-hidden group">
-                          <img src={src} alt={`Gallery photo ${i + 1}`} className="absolute inset-0 w-full h-full object-cover" />
+                          <img src={safeImageSrc(src)} alt={`Gallery photo ${i + 1}`} className="absolute inset-0 w-full h-full object-cover" />
                           <button
                             type="button"
                             onClick={() => removeGalleryPhoto(i)}
