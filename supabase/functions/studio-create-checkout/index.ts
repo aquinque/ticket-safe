@@ -17,6 +17,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
+import { getOrCreateGuestAccount } from "../_shared/getOrCreateGuestAccount.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -56,14 +57,33 @@ serve(async (req) => {
 
   try {
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) return json({ error: "Missing authorization header" }, 401);
-    const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: userErr } = await supabase.auth.getUser(token);
-    if (userErr || !user) return json({ error: "Unauthorized" }, 401);
+    let user: { id: string; email?: string | null } | null = null;
+    if (authHeader) {
+      const { data } = await supabase.auth.getUser(authHeader.replace("Bearer ", ""));
+      user = data?.user ?? null;
+    }
 
     interface AttendeeIn { first_name?: string; last_name?: string; email?: string; }
-    let body: { tier_id?: string; quantity?: number; attendees?: AttendeeIn[] };
+    interface GuestIn { name?: string; email?: string; }
+    let body: { tier_id?: string; quantity?: number; attendees?: AttendeeIn[]; guest?: GuestIn };
     try { body = await req.json(); } catch { return json({ error: "Invalid JSON" }, 400); }
+
+    let buyerId: string;
+    let buyerEmail: string;
+    if (user) {
+      buyerId = user.id;
+      buyerEmail = user.email ?? "";
+    } else {
+      const guestName = (body.guest?.name ?? "").trim();
+      const guestEmail = (body.guest?.email ?? "").trim().toLowerCase();
+      if (guestName.length < 1 || guestName.length > 200) return json({ error: "Please enter your name." }, 400);
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guestEmail) || guestEmail.length > 254) return json({ error: "Please enter a valid email address." }, 400);
+      const guestUserId = await getOrCreateGuestAccount(supabase, guestEmail, guestName);
+      if (!guestUserId) return json({ error: "Could not start checkout. Please try again." }, 500);
+      buyerId = guestUserId;
+      buyerEmail = guestEmail;
+    }
+
     const tierId = body.tier_id;
     const quantity = Math.floor(body.quantity ?? 1);
     if (!tierId || typeof tierId !== "string" || !/^[0-9a-f-]{36}$/i.test(tierId)) return json({ error: "Invalid tier_id" }, 400);
@@ -103,7 +123,7 @@ serve(async (req) => {
 
     const maxPerBuyer = (ev as { max_tickets_per_buyer?: number | null }).max_tickets_per_buyer;
     if (Number.isInteger(maxPerBuyer) && maxPerBuyer && maxPerBuyer > 0) {
-      const { data: alreadyOwned } = await supabase.rpc("buyer_ticket_count_for_event", { p_event_id: ev.id, p_buyer_id: user.id });
+      const { data: alreadyOwned } = await supabase.rpc("buyer_ticket_count_for_event", { p_event_id: ev.id, p_buyer_id: buyerId });
       const already = typeof alreadyOwned === "number" ? alreadyOwned : 0;
       if (already + quantity > maxPerBuyer) {
         const remaining = Math.max(0, maxPerBuyer - already);
@@ -134,9 +154,9 @@ serve(async (req) => {
     const { data: order, error: orderErr } = await supabase
       .from("event_orders")
       .insert({
-        event_id: ev.id, tier_id: tierId, organizer_id: org.id, buyer_id: user.id,
+        event_id: ev.id, tier_id: tierId, organizer_id: org.id, buyer_id: buyerId,
         quantity, unit_price_cents: unitPrice, total_cents: totalCents, fee_cents: orderFeeCents,
-        currency: tier.currency ?? "EUR", status: "pending", buyer_email: user.email ?? "",
+        currency: tier.currency ?? "EUR", status: "pending", buyer_email: buyerEmail,
         attendees: attendees.length > 0 ? attendees : null,
       })
       .select("id").single();
@@ -172,7 +192,7 @@ serve(async (req) => {
         buyer_fee_cents: String(buyerFeeCents),
         organizer_fee_percent: String(ORGANIZER_FEE_PERCENT),
       },
-      customer_email: user.email ?? undefined,
+      customer_email: buyerEmail || undefined,
       success_url: `${siteUrl}/checkout/success?order_id=${order.id}&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${siteUrl}/e/${ev.slug ?? ""}`,
       expires_at: Math.floor(Date.now() / 1000) + 30 * 60,

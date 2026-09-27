@@ -257,10 +257,6 @@ const EventPublic = () => {
 
   const handleBuy = async () => {
     if (!selectedTier) return;
-    if (!user) {
-      navigate(`/auth?mode=signup&next=/e/${slug}`);
-      return;
-    }
     // Validate the nominative form before opening checkout — the server will
     // re-validate (defense in depth) but a clear inline error is friendlier.
     for (let i = 0; i < attendees.length; i++) {
@@ -272,12 +268,25 @@ const EventPublic = () => {
     }
     setBuying(true);
     try {
+      // No Ticket Safe account required to buy: signed-out visitors check out
+      // as a guest using the first ticket holder's name/email as the contact —
+      // the server resolves that to a lightweight shadow account so tickets
+      // and order history still work exactly like a signed-in purchase.
+      const body: { tier_id: string; quantity: number; attendees: typeof attendees; guest?: { name: string; email: string } } = {
+        tier_id: selectedTier,
+        quantity: qty,
+        attendees,
+      };
+      if (!user) {
+        body.guest = {
+          name: `${attendees[0].first_name.trim()} ${attendees[0].last_name.trim()}`.trim(),
+          email: attendees[0].email.trim().toLowerCase(),
+        };
+      }
       // Revolut is the payment provider. studio-create-checkout stays deployed
       // as a dormant fallback but is no longer called, so the two never run
       // together.
-      const { data, error } = await supabase.functions.invoke("revolut-create-checkout", {
-        body: { tier_id: selectedTier, quantity: qty, attendees },
-      });
+      const { data, error } = await supabase.functions.invoke("revolut-create-checkout", { body });
       if (error || !data?.url) {
         console.error("[event-public] checkout error:", error, data);
         // supabase.functions.invoke hides the function's error body on a non-2xx
@@ -505,14 +514,14 @@ const EventPublic = () => {
                 </>
               ) : (
                 <>
-                  {user ? "Continue to payment" : "Sign in & continue"}
+                  Continue to payment
                   <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
                 </>
               )}
             </button>
             {!user && (
               <p className="text-[11px] text-muted-foreground text-center mt-2">
-                You'll create an account or sign in before paying.
+                No account needed — your tickets are emailed to you instantly.
               </p>
             )}
           </>
@@ -1069,7 +1078,7 @@ const EventPublic = () => {
               className="flex-shrink-0 inline-flex items-center justify-center gap-1.5 min-h-[44px] px-5 rounded-lg font-semibold text-white text-sm disabled:opacity-60 transition-all hover:shadow-md"
               style={{ background: primary, boxShadow: buying ? "none" : `0 4px 12px ${primary}30` }}
             >
-              {buying ? <Loader2 className="w-4 h-4 animate-spin" /> : <>{user ? "Continue" : "Sign in"} <ArrowRight className="w-4 h-4" /></>}
+              {buying ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Continue <ArrowRight className="w-4 h-4" /></>}
             </button>
           </div>
         </div>
