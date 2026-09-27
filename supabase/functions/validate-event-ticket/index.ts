@@ -171,7 +171,18 @@ serve(async (req) => {
 
     const isOwner = org?.user_id === user.id;
     const isAdmin = !!roleRow;
-    if (!isOwner && !isAdmin) {
+    let isGrantedScanner = false;
+    if (!isOwner && !isAdmin && user.email) {
+      const { data: grant } = await supabase
+        .from("event_scanners")
+        .select("id")
+        .eq("event_id", ticket.event_id)
+        .eq("scanner_email", user.email.toLowerCase())
+        .is("revoked_at", null)
+        .maybeSingle();
+      isGrantedScanner = !!grant;
+    }
+    if (!isOwner && !isAdmin && !isGrantedScanner) {
       return json({
         result: "FORBIDDEN",
         message: "You are not allowed to scan tickets for this event.",

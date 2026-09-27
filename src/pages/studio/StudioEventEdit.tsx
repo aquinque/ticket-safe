@@ -28,6 +28,9 @@ import {
   Check,
   Share2,
   Sparkles,
+  UserPlus,
+  ScanLine,
+  X,
 } from "lucide-react";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import Header from "@/components/Header";
@@ -96,6 +99,13 @@ interface OrderRow {
   status: string;
   created_at: string;
   tier_id: string;
+}
+
+interface ScannerRow {
+  id: string;
+  scanner_email: string;
+  created_at: string;
+  revoked_at: string | null;
 }
 
 interface AttendeeRow {
@@ -175,6 +185,9 @@ const StudioEventEdit = () => {
   const [tiers, setTiers] = useState<TierRow[]>([]);
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [attendees, setAttendees] = useState<AttendeeRow[]>([]);
+  const [scanners, setScanners] = useState<ScannerRow[]>([]);
+  const [scannerEmail, setScannerEmail] = useState("");
+  const [invitingScanner, setInvitingScanner] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   // Track the "copied!" feedback on the share-link button. Resets after 2s.
@@ -189,7 +202,7 @@ const StudioEventEdit = () => {
   const load = useCallback(async () => {
     if (!id) return;
     setLoading(true);
-    const [{ data: ev }, { data: tr }, { data: ord }, { data: tix }] = await Promise.all([
+    const [{ data: ev }, { data: tr }, { data: ord }, { data: tix }, { data: scan }] = await Promise.all([
       supabase.from("events").select("*").eq("id", id).maybeSingle(),
       supabase.from("event_tiers").select("*").eq("event_id", id).order("sort_order"),
       supabase
@@ -204,13 +217,51 @@ const StudioEventEdit = () => {
         .eq("event_id", id)
         .order("created_at", { ascending: false })
         .limit(2000),
+      supabase
+        .from("event_scanners")
+        .select("id, scanner_email, created_at, revoked_at")
+        .eq("event_id", id)
+        .is("revoked_at", null)
+        .order("created_at", { ascending: false }),
     ]);
     setEvent((ev as EventRow) ?? null);
     setTiers((tr as TierRow[]) ?? []);
     setOrders((ord as OrderRow[]) ?? []);
     setAttendees((tix as AttendeeRow[]) ?? []);
+    setScanners((scan as ScannerRow[]) ?? []);
     setLoading(false);
   }, [id]);
+
+  const inviteScanner = async () => {
+    const email = scannerEmail.trim().toLowerCase();
+    if (!event || !organizer || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast.error("Enter a valid email address.");
+      return;
+    }
+    if (!user) return;
+    setInvitingScanner(true);
+    const { error } = await supabase.from("event_scanners").insert({
+      event_id: event.id,
+      organizer_id: organizer.id,
+      scanner_email: email,
+      invited_by: user.id,
+    });
+    setInvitingScanner(false);
+    if (error) {
+      toast.error(error.code === "23505" ? "This person already has scan access." : "Could not add door staff.");
+      return;
+    }
+    setScannerEmail("");
+    toast.success(`${email} can now scan tickets for this event.`);
+    load();
+  };
+
+  const revokeScanner = async (scannerId: string) => {
+    const { error } = await supabase.from("event_scanners").update({ revoked_at: new Date().toISOString() }).eq("id", scannerId);
+    if (error) { toast.error("Could not revoke access."); return; }
+    toast.success("Access revoked.");
+    load();
+  };
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -810,6 +861,60 @@ const StudioEventEdit = () => {
               link preview when a BDE drops the URL in WhatsApp / Instagram /
               email reads as intentional rather than generic. */}
           <SocialSharingControl event={event} onSaved={(patch) => setEvent({ ...event, ...patch })} />
+
+          {/* Door staff — give someone scan-only access to THIS event without
+              sharing the Studio login. They sign in with their own Ticket
+              Safe account; access is revocable any time. */}
+          <section className="bg-card border border-border rounded-2xl p-5 md:p-6">
+            <div className="flex items-center gap-2 mb-1">
+              <ScanLine className="w-4.5 h-4.5 text-primary" />
+              <h2 className="text-lg font-bold">Door staff</h2>
+            </div>
+            <p className="text-xs text-muted-foreground mb-4">
+              Give someone scan-only access to this event's tickets — no need to share your Studio login. They sign in with their own account and can only scan, nothing else.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-2 mb-4">
+              <input
+                type="email"
+                value={scannerEmail}
+                onChange={(e) => setScannerEmail(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") inviteScanner(); }}
+                placeholder="staff@edu.escp.eu"
+                className="flex-1 px-3 h-11 rounded-lg border border-border bg-background text-sm"
+              />
+              <button
+                type="button"
+                onClick={inviteScanner}
+                disabled={invitingScanner || !scannerEmail.trim()}
+                className="inline-flex items-center justify-center gap-1.5 px-4 h-11 rounded-lg font-bold text-sm bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-50"
+              >
+                {invitingScanner ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
+                Grant access
+              </button>
+            </div>
+            {scanners.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No door staff added yet — you're the only one who can scan tickets for this event.</p>
+            ) : (
+              <div className="space-y-2">
+                {scanners.map((s) => (
+                  <div key={s.id} className="flex items-center justify-between gap-3 px-3.5 py-2.5 rounded-lg border border-border">
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold break-all">{s.scanner_email}</div>
+                      <div className="text-[11px] text-muted-foreground">Added {new Date(s.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => revokeScanner(s.id)}
+                      title="Revoke access"
+                      className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
 
           {/* Buyers — every order, with the named attendees that order issued */}
           <section className="bg-card border border-border rounded-2xl p-5 md:p-6">

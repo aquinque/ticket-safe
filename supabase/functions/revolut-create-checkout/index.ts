@@ -1,22 +1,16 @@
 /**
- * studio-create-checkout — Supabase Edge Function (Deno)
+ * revolut-create-checkout — Studio primary sale via Revolut Merchant (Deno).
+ * Mirrors studio-create-checkout but creates a Revolut order instead of a Stripe
+ * session. Returns the hosted checkout_url to redirect the buyer to. Tickets are
+ * issued later by revolut-webhook once Revolut confirms the order is completed.
  *
  * Fee model:
  *   Buyer pays the listed ticket price + a flat €1.40 service tax PER
- *   TICKET at checkout (not a percentage). Recorded as event_orders.fee_cents
- *   (the only fee taken at order time).
- *   The 8% organizer-side fee is applied LATER, when the organizer
- *   requests a payout — see request-payout for the math at that point.
- *
- *   Per €10 ticket:
- *     buyer pays           €11.40
- *     service tax          €1.40  → Ticket Safe immediately
- *     organizer balance    €10.00 (the gross they see in their dashboard)
- *     on withdrawal of €10 → 8% = €0.80 deducted, €9.20 wired to IBAN
+ *   TICKET at checkout (not a percentage). The 8% organizer-side fee is
+ *   applied LATER, when the organizer requests a payout.
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -40,12 +34,14 @@ serve(async (req) => {
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  const stripeSecretKey = Deno.env.get("STRIPE_SECRET_KEY");
+  const revolutSecret = Deno.env.get("REVOLUT_MERCHANT_SECRET_KEY");
+  const revolutBase = (Deno.env.get("REVOLUT_MERCHANT_BASE") ?? "https://merchant.revolut.com/api").replace(/\/+$/, "");
+  const revolutApiVersion = Deno.env.get("REVOLUT_API_VERSION") ?? "2024-09-01";
   const siteUrl = Deno.env.get("SITE_URL") ?? "https://ticket-safe.eu";
-  if (!supabaseUrl || !supabaseKey || !stripeSecretKey) return json({ error: "Server misconfigured." }, 500);
+  if (!supabaseUrl || !supabaseKey) return json({ error: "Server misconfigured." }, 500);
+  if (!revolutSecret) return json({ error: "Revolut not configured (REVOLUT_MERCHANT_SECRET_KEY missing)." }, 500);
 
   const supabase = createClient(supabaseUrl, supabaseKey);
-  const stripe = new Stripe(stripeSecretKey, { apiVersion: "2024-06-20", httpClient: Stripe.createFetchHttpClient() });
 
   let reservedTierId: string | null = null;
   let reservedQty = 0;
@@ -57,9 +53,13 @@ serve(async (req) => {
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) return json({ error: "Missing authorization header" }, 401);
-    const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: userErr } = await supabase.auth.getUser(token);
+    const { data: { user }, error: userErr } = await supabase.auth.getUser(authHeader.replace("Bearer ", ""));
     if (userErr || !user) return json({ error: "Unauthorized" }, 401);
+
+    try {
+      const { data: rlOk } = await supabase.rpc("rate_limit_consume", { p_bucket: "studio_checkout", p_key: user.id, p_max_hits: 12, p_window_sec: 60 });
+      if (rlOk === false) return json({ error: "Too many checkout attempts. Please wait a minute and try again." }, 429);
+    } catch { /* fail open */ }
 
     interface AttendeeIn { first_name?: string; last_name?: string; email?: string; }
     let body: { tier_id?: string; quantity?: number; attendees?: AttendeeIn[] };
@@ -127,9 +127,8 @@ serve(async (req) => {
     const unitPrice = tier.price_cents;
     const subtotal = unitPrice * quantity;
     const buyerFeeCents = SERVICE_TAX_CENTS * quantity;
-    const totalCents = subtotal + buyerFeeCents;   // what the buyer pays
-    const orderFeeCents = buyerFeeCents;            // only the service tax lives on the order
-    const unitAmountWithFee = unitPrice + SERVICE_TAX_CENTS;
+    const totalCents = subtotal + buyerFeeCents;
+    const orderFeeCents = buyerFeeCents;
 
     const { data: order, error: orderErr } = await supabase
       .from("event_orders")
@@ -143,45 +142,42 @@ serve(async (req) => {
     if (orderErr || !order) { await releaseReservation(); return json({ error: "Could not create order." }, 500); }
     orderId = order.id;
 
-    const session = await stripe.checkout.sessions.create({
-      mode: "payment",
-      line_items: [{
-        quantity,
-        price_data: {
-          currency: (tier.currency ?? "EUR").toLowerCase(),
-          unit_amount: unitAmountWithFee,
-          product_data: {
-            name: `${ev.title} — ${tier.name}`,
-            description: `Ticket × ${quantity} · includes €${(SERVICE_TAX_CENTS / 100).toFixed(2)}/ticket service tax`,
-          },
-        },
-      }],
-      payment_intent_data: {
-        metadata: {
-          source: "studio_primary_sale",
-          order_id: order.id, event_id: ev.id, tier_id: tierId, organizer_id: org.id,
-          quantity: String(quantity),
-          buyer_fee_cents: String(buyerFeeCents),
-          organizer_fee_percent: String(ORGANIZER_FEE_PERCENT),
-        },
+    // Create the Revolut order (hosted checkout). We verify completion later
+    // server-side via GET /orders/{id} in revolut-webhook, so no signature
+    // secret is required.
+    const revRes = await fetch(`${revolutBase}/orders`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${revolutSecret}`,
+        "Revolut-Api-Version": revolutApiVersion,
+        "Content-Type": "application/json",
+        "Accept": "application/json",
       },
-      metadata: {
-        source: "studio_primary_sale",
-        order_id: order.id, event_id: ev.id, tier_id: tierId, organizer_id: org.id,
-        quantity: String(quantity),
-        buyer_fee_cents: String(buyerFeeCents),
-        organizer_fee_percent: String(ORGANIZER_FEE_PERCENT),
-      },
-      customer_email: user.email ?? undefined,
-      success_url: `${siteUrl}/checkout/success?order_id=${order.id}&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${siteUrl}/e/${ev.slug ?? ""}`,
-      expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
+      body: JSON.stringify({
+        amount: totalCents,
+        currency: (tier.currency ?? "EUR").toUpperCase(),
+        description: `${ev.title} — ${tier.name} x${quantity}`,
+        merchant_order_data: { reference: order.id },
+        metadata: { order_id: order.id, source: "studio_primary_sale", event_id: ev.id, tier_id: tierId },
+        redirect_url: `${siteUrl}/checkout/success?order_id=${order.id}&provider=revolut`,
+      }),
     });
+    const revText = await revRes.text();
+    let revOrder: { id?: string; checkout_url?: string } = {};
+    try { revOrder = JSON.parse(revText); } catch { /* keep empty */ }
+    if (!revRes.ok || !revOrder.checkout_url || !revOrder.id) {
+      console.error("[revolut-create-checkout] revolut order failed:", revRes.status, revText);
+      await releaseReservation();
+      if (orderId) await supabase.from("event_orders").update({ status: "cancelled", cancelled_at: new Date().toISOString() }).eq("id", orderId);
+      return json({ error: "Could not start the Revolut checkout. Please try again." }, 502);
+    }
 
-    await supabase.from("event_orders").update({ stripe_checkout_session_id: session.id }).eq("id", order.id);
-    return json({ url: session.url, order_id: order.id });
+    // Store the Revolut order id so the webhook can match it back to this order.
+    await supabase.from("event_orders").update({ stripe_checkout_session_id: `revolut:${revOrder.id}` }).eq("id", order.id);
+
+    return json({ url: revOrder.checkout_url, order_id: order.id, provider: "revolut" });
   } catch (err) {
-    console.error("[studio-create-checkout] unexpected:", err);
+    console.error("[revolut-create-checkout] unexpected:", err);
     await releaseReservation();
     if (orderId) await supabase.from("event_orders").update({ status: "cancelled", cancelled_at: new Date().toISOString() }).eq("id", orderId);
     return json({ error: err instanceof Error ? err.message : "Unexpected error" }, 500);

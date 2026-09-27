@@ -202,9 +202,23 @@ const OrganizerScan = () => {
         .gte("date", cutoffISO)
         .order("date", { ascending: true });
 
-      const [studioRes, catalogRes] = await Promise.all([studioPromise, catalogPromise]);
+      // Events where this user was granted door-scan access (Studio → Door
+      // staff) without owning the organizer account.
+      const scannerPromise = user.email
+        ? supabase
+            .from("event_scanners")
+            .select("event:events!inner(id, title, date, location, status)")
+            .eq("scanner_email", user.email.toLowerCase())
+            .is("revoked_at", null)
+        : Promise.resolve({ data: [] as { event: Event & { status: string } }[] });
+
+      const [studioRes, catalogRes, scannerRes] = await Promise.all([studioPromise, catalogPromise, scannerPromise]);
+      const scannerEvents: Event[] = ((scannerRes.data as { event: Event & { status: string } }[] | null) ?? [])
+        .map((r) => r.event)
+        .filter((e) => e && (e as { status?: string }).status !== "cancelled");
       const merged: Event[] = [
         ...((studioRes.data as Event[]) ?? []),
+        ...scannerEvents,
         ...((catalogRes.data as Event[]) ?? []),
       ];
       // Dedup by id, preserve first occurrence (Studio wins for organizers)

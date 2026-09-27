@@ -678,7 +678,7 @@ const PayoutModal = ({
           {/* Fee breakdown */}
           <div className="rounded-xl border border-border bg-muted/40 p-4 text-xs leading-relaxed text-muted-foreground">
             <div className="font-bold text-foreground mb-1.5 text-[11px] uppercase tracking-wider">Fee breakdown</div>
-            Buyers pay a <strong className="text-foreground">5% service fee</strong> on top at checkout.{" "}
+            Buyers pay a flat <strong className="text-foreground">€1.40 service tax</strong> per ticket on top at checkout.{" "}
             Your balance above shows the gross. Ticket Safe takes another{" "}
             <strong className="text-foreground">8%</strong> when you withdraw — net wired to your IBAN.
           </div>

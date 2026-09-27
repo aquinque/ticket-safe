@@ -66,6 +66,11 @@ interface TierAvailability {
   is_active: boolean;
 }
 
+// Flat per-ticket service tax charged to the buyer at checkout — covers
+// payment processing, QR issuance and platform services. Must stay in sync
+// with SERVICE_TAX_CENTS in studio-create-checkout / revolut-create-checkout.
+const SERVICE_TAX_CENTS = 140;
+
 const EventPublic = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
@@ -359,7 +364,10 @@ const EventPublic = () => {
   const TS_GRADIENT = "linear-gradient(135deg, hsl(220 100% 30%), hsl(210 100% 45%))";
   const selected = tiers.find((t) => t.tier_id === selectedTier) ?? null;
   const totalCents = selected ? selected.price_cents * qty : 0;
-  const feeCents = Math.round(totalCents * 0.05);
+  // Flat per-ticket service tax (not a percentage) — covers payment
+  // processing, QR issuance and platform services. Must match
+  // SERVICE_TAX_CENTS in studio-create-checkout / revolut-create-checkout.
+  const feeCents = SERVICE_TAX_CENTS * qty;
   const grandCents = totalCents + feeCents;
   // Lowest available price, for the "From €X" hero badge.
   const availablePrices = tiers.filter((t) => t.available_qty > 0).map((t) => t.price_cents);
@@ -469,7 +477,7 @@ const EventPublic = () => {
           </div>
           <div className="flex items-baseline justify-between text-sm">
             <span className="text-muted-foreground">
-              Service fee <span className="text-muted-foreground/70">(5%)</span>
+              Service tax <span className="text-muted-foreground/70">(€1.40 × {qty})</span>
             </span>
             <span className="tabular-nums font-medium text-foreground">€{(feeCents / 100).toFixed(2)}</span>
           </div>

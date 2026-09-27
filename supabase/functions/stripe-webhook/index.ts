@@ -173,7 +173,7 @@ serve(async (req) => {
             // shapes so tickets keep working through the migration.
             const { data: ord } = await supabase
               .from("event_orders")
-              .select("buyer_id, buyer_email, event_id, attendees")
+              .select("buyer_id, buyer_email, event_id, attendees, fee_cents")
               .eq("id", orderId)
               .maybeSingle();
             let insertedTickets: Array<{
@@ -273,7 +273,7 @@ serve(async (req) => {
                   .maybeSingle()
                   .then(async ({ data: org }) => {
                     if (!org?.contact_email) return;
-                    const feeCents = Math.round((session.amount_total ?? 0) * 0.05);
+                    const feeCents = ord?.fee_cents ?? 0;
                     const payoutCents = (session.amount_total ?? 0) - feeCents;
                     const orgFirstName = (org.contact_name ?? "").split(" ")[0] || "there";
                     await fetch("https://api.resend.com/emails", {
@@ -294,7 +294,7 @@ serve(async (req) => {
 <p style="margin:0 0 14px"><strong>${qty} ticket${qty > 1 ? "s" : ""}</strong> just sold for <strong>${evTitle}</strong>.</p>
 <table style="width:100%;border-collapse:collapse;font-size:14px;margin:18px 0">
 <tr><td style="padding:6px 0;color:#64748b;width:42%">Sale total</td><td style="padding:6px 0;font-weight:600">€${total.toFixed(2)}</td></tr>
-<tr><td style="padding:6px 0;color:#64748b">Platform fee (5%)</td><td style="padding:6px 0;color:#64748b">−€${(feeCents / 100).toFixed(2)}</td></tr>
+<tr><td style="padding:6px 0;color:#64748b">Service tax</td><td style="padding:6px 0;color:#64748b">−€${(feeCents / 100).toFixed(2)}</td></tr>
 <tr><td style="padding:6px 0;color:#64748b">Your payout</td><td style="padding:6px 0;color:#003399;font-weight:700">€${(payoutCents / 100).toFixed(2)}</td></tr>
 </table>
 <p style="margin:24px 0 8px;text-align:center"><a href="https://ticket-safe.eu/studio/events/${evRow.id ?? ord.event_id}" style="display:inline-block;background:linear-gradient(135deg,#003399,#0066cc);color:#fff;padding:12px 24px;border-radius:10px;text-decoration:none;font-weight:700">Open in Studio</a></p>
