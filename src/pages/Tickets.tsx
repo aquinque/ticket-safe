@@ -90,6 +90,11 @@ const campuses: { id: Campus; label: string; city: string }[] = [
   { id: "london", label: "London", city: "United Kingdom" },
 ];
 
+const schools: { id: string; label: string }[] = [
+  { id: "escp", label: "ESCP Business School" },
+  { id: "rituals", label: "Rituals" },
+];
+
 /**
  * Hydrate a flat list of published events with their tier aggregates
  * (price floor, total capacity, total sold, tier count). Campus is read
@@ -219,6 +224,7 @@ const daysUntil = (iso: string): number => {
 const Tickets = () => {
   // Default to "all" so newcomers see everything until they pick a campus.
   const [selectedCampus, setSelectedCampus] = useState<Campus>("all");
+  const [selectedSchool, setSelectedSchool] = useState<string>("escp");
   const [category, setCategory] = useState<Category>("all");
   const [query, setQuery] = useState("");
   const [allEvents, setAllEvents] = useState<Event[]>([]);
@@ -325,18 +331,24 @@ const Tickets = () => {
                           className="inline-flex items-center gap-2 pl-3.5 pr-3 min-h-[44px] rounded-xl font-semibold text-sm bg-white text-foreground shadow-lg hover:bg-white/95 transition-colors w-fit"
                         >
                           <GraduationCap className="w-4 h-4 text-primary" />
-                          ESCP Business School
+                          {schools.find((s) => s.id === selectedSchool)?.label ?? schools[0].label}
                           <ChevronDown className="w-4 h-4 text-muted-foreground" />
                         </button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="start" className="w-64">
-                        <DropdownMenuItem className="gap-2 font-semibold" onSelect={(e) => e.preventDefault()}>
-                          <Check className="w-4 h-4 text-primary" />
-                          ESCP Business School
-                        </DropdownMenuItem>
+                        {schools.map((s) => (
+                          <DropdownMenuItem
+                            key={s.id}
+                            className="gap-2 font-semibold"
+                            onSelect={() => setSelectedSchool(s.id)}
+                          >
+                            <Check className={`w-4 h-4 text-primary ${s.id === selectedSchool ? "opacity-100" : "opacity-0"}`} />
+                            {s.label}
+                          </DropdownMenuItem>
+                        ))}
                         <DropdownMenuSeparator />
                         <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                          More schools coming soon
+                          More organizations coming soon
                         </div>
                       </DropdownMenuContent>
                     </DropdownMenu>
