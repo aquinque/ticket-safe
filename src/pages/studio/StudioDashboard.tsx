@@ -697,12 +697,10 @@ const PayoutModal = ({
             </div>
           </div>
 
-          {/* Fee breakdown */}
+          {/* How it works — plain, no fee framing: there is none to explain */}
           <div className="rounded-xl border border-border bg-muted/40 p-4 text-xs leading-relaxed text-muted-foreground">
-            <div className="font-bold text-foreground mb-1.5 text-[11px] uppercase tracking-wider">Fee breakdown</div>
-            Buyers pay a flat <strong className="text-foreground">€1.40 service tax</strong> per ticket on top at checkout.{" "}
-            Ticket Safe takes <strong className="text-foreground">no fee</strong> from organizers — you withdraw
-            the full amount, wired to your IBAN.
+            Enter your IBAN and request a payout whenever you want. Ticket Safe wires the
+            full amount by SEPA transfer within 2-3 business days — no fees, no KYC.
           </div>
 
           {!loadedDefaults ? (
@@ -731,15 +729,6 @@ const PayoutModal = ({
                 {!amountValid && (<p className="text-xs text-amber-700 mt-1">Amount must be between €1.00 and €{(available / 100).toFixed(2)}.</p>)}
               </div>
 
-              {amountValid && cents > 0 && (
-                <div className="rounded-xl bg-primary/5 border border-primary/20 p-4 text-sm space-y-1.5">
-                  <div className="flex items-center justify-between font-black text-foreground text-base">
-                    <span>You will receive</span>
-                    <span className="text-primary">€{(cents / 100).toFixed(2)}</span>
-                  </div>
-                </div>
-              )}
-
               <button onClick={submit} disabled={!canSubmit} className="w-full inline-flex items-center justify-center gap-2 min-h-[44px] rounded-lg font-bold bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-60">
                 {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : (
                   <>
@@ -749,7 +738,7 @@ const PayoutModal = ({
                 )}
               </button>
               <p className="text-[11px] text-muted-foreground text-center">
-                Ticket Safe takes no fee from organizers — the full amount is wired to your IBAN within 2-3 business days. No Stripe account, no SIREN, no KYC.
+                No Stripe account, no SIREN, no KYC — just your IBAN.
               </p>
             </>
           )}
