@@ -12,6 +12,7 @@ import {
   Mic2,
   GlassWater,
   GraduationCap,
+  Building2,
   Check,
   Clock,
   Flame,
@@ -318,11 +319,11 @@ const Tickets = () => {
                   Tickets sold directly by campus societies — discover, filter and buy in a couple of taps.
                 </p>
 
-                {/* School + campus filters */}
+                {/* Organization + campus filters */}
                 <div className="space-y-5">
                   <div>
                     <div className="text-[10px] md:text-[11px] uppercase tracking-[0.2em] font-bold text-white/70 mb-2">
-                      School
+                      Organization
                     </div>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -330,7 +331,7 @@ const Tickets = () => {
                           type="button"
                           className="inline-flex items-center gap-2 pl-3.5 pr-3 min-h-[44px] rounded-xl font-semibold text-sm bg-white text-foreground shadow-lg hover:bg-white/95 transition-colors w-fit"
                         >
-                          <GraduationCap className="w-4 h-4 text-primary" />
+                          <Building2 className="w-4 h-4 text-primary" />
                           {schools.find((s) => s.id === selectedSchool)?.label ?? schools[0].label}
                           <ChevronDown className="w-4 h-4 text-muted-foreground" />
                         </button>
