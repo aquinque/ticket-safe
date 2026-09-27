@@ -102,8 +102,13 @@ const StudioEventNew = () => {
   const [maxPerBuyer, setMaxPerBuyer] = useState("1");
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [bannerPreview, setBannerPreview] = useState<string | null>(null);
+  // "cover" crops the photo to fill the banner; "contain" shows the whole
+  // photo un-cropped, letterboxed with a blurred backdrop of itself.
+  const [bannerFit, setBannerFit] = useState<"cover" | "contain">("cover");
   const [cropSrc, setCropSrc] = useState<string | null>(null);
   const [cropOpen, setCropOpen] = useState(false);
+  const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
+  const [galleryPreviews, setGalleryPreviews] = useState<string[]>([]);
   const [slug, setSlug] = useState("");
   const [slugTouched, setSlugTouched] = useState(false);
   const [tiers, setTiers] = useState<TierDraft[]>([makeTier()]);
@@ -133,7 +138,15 @@ const StudioEventNew = () => {
       toast.error("Banner image must be under 5 MB.");
       return;
     }
-    // Open the cropper so the organizer can frame the photo to 16:9.
+    if (bannerFit === "contain") {
+      // "Fit" shows the whole photo as-is — cropping to 16:9 would defeat
+      // the point, so skip the cropper and use the file directly.
+      setBannerFile(f);
+      setBannerPreview(URL.createObjectURL(f));
+      e.target.value = "";
+      return;
+    }
+    // "Fill" — open the cropper so the organizer can frame the photo to 16:9.
     setCropSrc(URL.createObjectURL(f));
     setCropOpen(true);
     e.target.value = ""; // allow re-selecting the same file later
@@ -142,6 +155,32 @@ const StudioEventNew = () => {
   const onCropped = (file: File) => {
     setBannerFile(file);
     setBannerPreview(URL.createObjectURL(file));
+  };
+
+  const MAX_GALLERY_PHOTOS = 6;
+  const onGalleryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = "";
+    if (files.length === 0) return;
+    const room = MAX_GALLERY_PHOTOS - galleryFiles.length;
+    if (room <= 0) {
+      toast.error(`You can add up to ${MAX_GALLERY_PHOTOS} extra photos.`);
+      return;
+    }
+    const accepted = files.slice(0, room).filter((f) => {
+      if (f.size > 5 * 1024 * 1024) {
+        toast.error(`${f.name} is over 5 MB — skipped.`);
+        return false;
+      }
+      return true;
+    });
+    if (accepted.length === 0) return;
+    setGalleryFiles((prev) => [...prev, ...accepted]);
+    setGalleryPreviews((prev) => [...prev, ...accepted.map((f) => URL.createObjectURL(f))]);
+  };
+  const removeGalleryPhoto = (i: number) => {
+    setGalleryFiles((prev) => prev.filter((_, idx) => idx !== i));
+    setGalleryPreviews((prev) => prev.filter((_, idx) => idx !== i));
   };
 
   const addTier = () => {
@@ -246,6 +285,22 @@ const StudioEventNew = () => {
         bannerUrl = pub.publicUrl;
       }
 
+      // 1b) Upload any extra gallery photos the same way.
+      const galleryUrls: string[] = [];
+      for (const f of galleryFiles) {
+        const ext = f.name.split(".").pop()?.toLowerCase() ?? "jpg";
+        const path = `${user.id}/gallery/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const { error: upErr } = await supabase.storage
+          .from("organizer-assets")
+          .upload(path, f, { cacheControl: "3600", upsert: false });
+        if (upErr) {
+          console.error("[studio-event-new] gallery upload:", upErr);
+          throw new Error("Could not upload one of the gallery photos.");
+        }
+        const { data: pub } = supabase.storage.from("organizer-assets").getPublicUrl(path);
+        galleryUrls.push(pub.publicUrl);
+      }
+
       // 2) Ensure slug is unique (append random suffix if not).
       let finalSlug = slug;
       for (let attempt = 0; attempt < 5; attempt++) {
@@ -290,6 +345,8 @@ const StudioEventNew = () => {
           slug: finalSlug,
           primary_color: primaryColor,
           banner_url: bannerUrl,
+          banner_fit: bannerFit,
+          gallery_urls: galleryUrls,
           logo_url: organizer.logo_url,
           status: "draft",
           sold_via_studio: true,
@@ -673,18 +730,36 @@ const StudioEventNew = () => {
                   title="Cover image & link"
                   desc="A strong cover is the single biggest driver of clicks. Add yours and pick a clean link."
                 >
-                  <Field label="Cover image" icon={ImageIcon} hint="Cropped to 16:9. Max 5 MB. This is your event's headline visual.">
+                  <Field label="Cover photo display" icon={ImageIcon} hint="Fill crops your photo to fit the banner. Fit shows the whole photo, un-cropped.">
+                    <div className="inline-flex rounded-lg border border-border p-1 bg-muted/30">
+                      {(["cover", "contain"] as const).map((v) => (
+                        <button
+                          key={v}
+                          type="button"
+                          onClick={() => setBannerFit(v)}
+                          className={`px-4 py-1.5 rounded-md text-sm font-bold transition-colors ${
+                            bannerFit === v ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+                          }`}
+                        >
+                          {v === "cover" ? "Fill (crop to fit)" : "Fit (show whole photo)"}
+                        </button>
+                      ))}
+                    </div>
+                  </Field>
+                  <Field label="Cover image" icon={ImageIcon} hint={bannerFit === "cover" ? "Cropped to 16:9. Max 5 MB. This is your event's headline visual." : "Shown in full, letterboxed. Max 5 MB. This is your event's headline visual."}>
                     {bannerPreview ? (
-                      <div className="relative rounded-xl overflow-hidden group">
-                        <img src={bannerPreview} alt="Banner preview" className="w-full aspect-[16/9] object-cover" />
+                      <div className="relative rounded-xl overflow-hidden group bg-black/80">
+                        <img src={bannerPreview} alt="Banner preview" className={`w-full aspect-[16/9] ${bannerFit === "cover" ? "object-cover" : "object-contain"}`} />
                         <div className="absolute top-2 right-2 flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => { if (bannerPreview) { setCropSrc(bannerPreview); setCropOpen(true); } }}
-                            className="px-3 py-1.5 rounded-lg bg-black/60 text-white text-xs font-bold hover:bg-black/75"
-                          >
-                            Reframe
-                          </button>
+                          {bannerFit === "cover" && (
+                            <button
+                              type="button"
+                              onClick={() => { if (bannerPreview) { setCropSrc(bannerPreview); setCropOpen(true); } }}
+                              className="px-3 py-1.5 rounded-lg bg-black/60 text-white text-xs font-bold hover:bg-black/75"
+                            >
+                              Reframe
+                            </button>
+                          )}
                           <label className="px-3 py-1.5 rounded-lg bg-black/60 text-white text-xs font-bold hover:bg-black/75 cursor-pointer">
                             Replace
                             <input type="file" accept="image/*" onChange={onBannerChange} className="hidden" />
@@ -745,6 +820,29 @@ const StudioEventNew = () => {
                       >
                         Reset
                       </button>
+                    </div>
+                  </Field>
+                  <Field label="Extra photos" icon={ImageIcon} hint={`Optional — shown as a gallery on your event page. Up to ${MAX_GALLERY_PHOTOS} photos, 5 MB each.`}>
+                    <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                      {galleryPreviews.map((src, i) => (
+                        <div key={src} className="relative aspect-square rounded-lg overflow-hidden group">
+                          <img src={src} alt={`Gallery photo ${i + 1}`} className="absolute inset-0 w-full h-full object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => removeGalleryPhoto(i)}
+                            className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/60 text-white text-xs font-bold hover:bg-black/80 flex items-center justify-center"
+                            aria-label="Remove photo"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                      {galleryFiles.length < MAX_GALLERY_PHOTOS && (
+                        <label className="flex flex-col items-center justify-center aspect-square rounded-lg border-2 border-dashed border-border bg-muted/30 cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors">
+                          <Plus className="w-5 h-5 text-muted-foreground" />
+                          <input type="file" accept="image/*" multiple onChange={onGalleryChange} className="hidden" />
+                        </label>
+                      )}
                     </div>
                   </Field>
                 </StepCard>
