@@ -819,6 +819,13 @@ const StudioEventEdit = () => {
                 <span className="text-xs text-muted-foreground hidden sm:inline">
                   {orders.length} order{orders.length === 1 ? "" : "s"} · {attendees.length} ticket{attendees.length === 1 ? "" : "s"}
                 </span>
+                <Link
+                  to={`/studio/events/${event.id}/attendees`}
+                  className="inline-flex items-center gap-1.5 px-3 min-h-[34px] rounded-lg text-xs font-bold bg-primary text-primary-foreground hover:bg-primary-hover"
+                >
+                  <Users className="w-3.5 h-3.5" />
+                  Full attendee list
+                </Link>
                 {attendees.length > 0 && (
                   <button
                     type="button"

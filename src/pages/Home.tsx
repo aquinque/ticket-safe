@@ -162,6 +162,30 @@ const Home = () => {
             </h1>
           </div>
 
+          {/* Studio quick access — the single most important thing an approved
+              organizer needs to find on this page, especially on a phone.
+              Shown above the buyer paths, full-width, one tap to /studio. */}
+          {isStudioOrganizer && (
+            <Link
+              to="/studio"
+              className="group flex items-center gap-3 md:gap-4 mb-3.5 md:mb-6 px-4 md:px-6 py-4 md:py-5 rounded-2xl text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all animate-slide-up"
+              style={{ background: "linear-gradient(135deg, #003399, #0066cc)" }}
+            >
+              <div className="w-10 h-10 md:w-11 md:h-11 rounded-xl bg-white/15 backdrop-blur flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                <LayoutDashboard className="w-5 h-5 md:w-6 md:h-6" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-[10px] uppercase tracking-[0.2em] font-bold text-white/75">
+                  Welcome back
+                </div>
+                <div className="font-black text-base md:text-lg leading-tight">
+                  Go to Ticket Safe Studio
+                </div>
+              </div>
+              <ArrowRight className="w-5 h-5 shrink-0 group-hover:translate-x-1 transition-transform" />
+            </Link>
+          )}
+
           {/* Two paths */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 md:gap-6 animate-slide-up">
             {/* Path 1 — Resale marketplace. Shown first, especially on mobile
