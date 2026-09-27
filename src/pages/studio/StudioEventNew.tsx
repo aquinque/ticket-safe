@@ -544,12 +544,11 @@ const StudioEventNew = () => {
                             const p = Number(t.priceEuros);
                             if (!Number.isFinite(p) || p <= 0) return null;
                             const buyerPays = p + 1.4;
-                            const net = p * 0.92;
                             return (
                               <p className="text-[11px] text-muted-foreground mt-1.5 leading-snug">
                                 Buyer pays <strong className="text-foreground">€{buyerPays.toFixed(2)}</strong> (incl. €1.40 service tax)
                                 {" "}· you receive{" "}
-                                <strong className="text-primary">€{net.toFixed(2)}</strong> per ticket (after 8% Ticket Safe fee).
+                                <strong className="text-primary">€{p.toFixed(2)}</strong> per ticket — Ticket Safe takes no fee from organizers.
                               </p>
                             );
                           })()}

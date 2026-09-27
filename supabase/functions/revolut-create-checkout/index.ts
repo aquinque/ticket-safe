@@ -6,8 +6,9 @@
  *
  * Fee model:
  *   Buyer pays the listed ticket price + a flat €1.40 service tax PER
- *   TICKET at checkout (not a percentage). The 8% organizer-side fee is
- *   applied LATER, when the organizer requests a payout.
+ *   TICKET at checkout (not a percentage). That's the only fee anywhere
+ *   in this flow — Ticket Safe takes no fee from the organizer; they
+ *   withdraw 100% of their gross balance.
  *
  * Guest checkout:
  *   No Ticket Safe account is required to buy. With a valid Authorization
@@ -27,8 +28,8 @@ const cors = {
 };
 
 // Flat per-ticket service tax charged to the buyer — not a percentage.
+// Ticket Safe takes no fee from the organizer.
 const SERVICE_TAX_CENTS = 140;
-const ORGANIZER_FEE_PERCENT = 8;
 const MAX_QUANTITY = 50;
 const MIN_UNIT_PRICE_CENTS = 50;
 const MAX_UNIT_PRICE_CENTS = 500_000;
@@ -151,8 +152,8 @@ serve(async (req) => {
     reservedTierId = tierId;
     reservedQty = quantity;
 
-    // Fee math: a flat €1.40 service tax per ticket for the buyer. The 8%
-    // on the organizer is applied at withdrawal time, NOT here.
+    // Fee math: a flat €1.40 service tax per ticket for the buyer.
+    // Ticket Safe takes no fee from the organizer, at checkout or withdrawal.
     const unitPrice = tier.price_cents;
     const subtotal = unitPrice * quantity;
     const buyerFeeCents = SERVICE_TAX_CENTS * quantity;

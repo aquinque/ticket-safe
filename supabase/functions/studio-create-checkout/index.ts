@@ -4,15 +4,14 @@
  * Fee model:
  *   Buyer pays the listed ticket price + a flat €1.40 service tax PER
  *   TICKET at checkout (not a percentage). Recorded as event_orders.fee_cents
- *   (the only fee taken at order time).
- *   The 8% organizer-side fee is applied LATER, when the organizer
- *   requests a payout — see request-payout for the math at that point.
+ *   (the only fee taken anywhere in this flow). Ticket Safe takes NO fee
+ *   from the organizer — they withdraw 100% of their gross balance; see
+ *   request-payout.
  *
  *   Per €10 ticket:
  *     buyer pays           €11.40
- *     service tax          €1.40  → Ticket Safe immediately
- *     organizer balance    €10.00 (the gross they see in their dashboard)
- *     on withdrawal of €10 → 8% = €0.80 deducted, €9.20 wired to IBAN
+ *     service tax          €1.40  (Ticket Safe)
+ *     organizer receives   €10.00 (gross balance, and the full withdrawal amount)
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -25,8 +24,8 @@ const cors = {
 };
 
 // Flat per-ticket service tax charged to the buyer — not a percentage.
+// Ticket Safe takes no fee from the organizer.
 const SERVICE_TAX_CENTS = 140;
-const ORGANIZER_FEE_PERCENT = 8;
 const MAX_QUANTITY = 50;
 const MIN_UNIT_PRICE_CENTS = 50;
 const MAX_UNIT_PRICE_CENTS = 500_000;
@@ -142,8 +141,8 @@ serve(async (req) => {
     reservedTierId = tierId;
     reservedQty = quantity;
 
-    // Fee math: a flat €1.40 service tax per ticket for the buyer. The 8%
-    // on the organizer is applied at withdrawal time, NOT here.
+    // Fee math: a flat €1.40 service tax per ticket for the buyer.
+    // Ticket Safe takes no fee from the organizer, at checkout or withdrawal.
     const unitPrice = tier.price_cents;
     const subtotal = unitPrice * quantity;
     const buyerFeeCents = SERVICE_TAX_CENTS * quantity;
@@ -182,7 +181,6 @@ serve(async (req) => {
           order_id: order.id, event_id: ev.id, tier_id: tierId, organizer_id: org.id,
           quantity: String(quantity),
           buyer_fee_cents: String(buyerFeeCents),
-          organizer_fee_percent: String(ORGANIZER_FEE_PERCENT),
         },
       },
       metadata: {
@@ -190,7 +188,6 @@ serve(async (req) => {
         order_id: order.id, event_id: ev.id, tier_id: tierId, organizer_id: org.id,
         quantity: String(quantity),
         buyer_fee_cents: String(buyerFeeCents),
-        organizer_fee_percent: String(ORGANIZER_FEE_PERCENT),
       },
       customer_email: buyerEmail || undefined,
       success_url: `${siteUrl}/checkout/success?order_id=${order.id}&session_id={CHECKOUT_SESSION_ID}`,
