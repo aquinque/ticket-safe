@@ -716,13 +716,13 @@ const Tickets = () => {
               <div className="relative flex flex-col md:flex-row md:items-center gap-5 md:gap-10">
                 <div className="flex-1">
                   <div className="text-[10px] md:text-xs uppercase tracking-[0.2em] font-bold text-white/80 mb-2">
-                    For student societies
+                    For event organizers
                   </div>
                   <h3 className="text-xl md:text-3xl font-black mb-2 md:mb-3 leading-tight">
                     Selling tickets for your event?
                   </h3>
                   <p className="text-white/85 text-sm md:text-base max-w-md leading-relaxed">
-                    Apply for Ticket Safe Studio — branded event pages, VIP tiers, real-time dashboard. Built for student organizers.
+                    Apply for Ticket Safe Studio — branded event pages, VIP tiers, real-time dashboard, and official resale built in.
                   </p>
                 </div>
                 <Link
