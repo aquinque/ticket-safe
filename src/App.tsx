@@ -44,6 +44,7 @@ const MentionsLegales = lazy(() => import("./pages/MentionsLegales"));
 const HowItWorks = lazy(() => import("./pages/HowItWorks"));
 const HowItWorksTickets = lazy(() => import("./pages/HowItWorksTickets"));
 const OrganizerScan = lazy(() => import("./pages/OrganizerScan"));
+const ScanStaff = lazy(() => import("./pages/ScanStaff"));
 const ReviewTickets = lazy(() => import("./pages/admin/ReviewTickets"));
 const CheckoutSuccess = lazy(() => import("./pages/CheckoutSuccess"));
 const CheckoutCancel = lazy(() => import("./pages/CheckoutCancel"));
@@ -123,6 +124,7 @@ const App = () => (
         <Route path="/how-it-works" element={<HowItWorks />} />
         <Route path="/how-it-works/tickets" element={<HowItWorksTickets />} />
         <Route path="/organizer/scan" element={<OrganizerScan />} />
+        <Route path="/scan/:token" element={<ScanStaff />} />
         <Route path="/admin/review" element={<ProtectedAdminRoute><ReviewTickets /></ProtectedAdminRoute>} />
         <Route path="/checkout/success" element={<CheckoutSuccess />} />
         <Route path="/checkout/cancel" element={<CheckoutCancel />} />

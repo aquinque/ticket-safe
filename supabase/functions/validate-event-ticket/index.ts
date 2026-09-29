@@ -2,18 +2,29 @@
  * validate-event-ticket — door scan validator for Studio primary-sale tickets.
  *
  * POST /functions/v1/validate-event-ticket
- * Authorization: Bearer <user-jwt>   (scanner = organizer or admin)
- * Body: { qr_token: string, event_id?: string }
+ * Auth — one of:
+ *   Authorization: Bearer <user-jwt>     (scanner = the event's organizer or a global admin)
+ *   Body { staff_token }                 (a door-staff link from event_scan_staff — no
+ *                                          Supabase Auth session needed; see the Studio
+ *                                          "Scan staff" panel. Locked server-side to the
+ *                                          one event the link was created for.)
+ * Body: { qr_token: string, event_id?: string, staff_token?: string }
  *
  * Behaviour:
- *   1. Verify the caller is either the organizer of the event OR a global admin.
+ *   1. Authenticate: Bearer session (owner/admin check further down) OR a
+ *      valid, non-revoked staff_token (event is then server-determined, not
+ *      client-supplied).
  *   2. Look up event_tickets by qr_token. 404 if not found.
  *   3. If event_id is provided, reject mismatches (WRONG_EVENT).
  *   4. If scanned_at is already set, reject as ALREADY_USED with the prior scan time.
  *   5. Otherwise atomically set scanned_at = now and return VALID with ticket details.
  *
  * Audited: every accept and every reject lands in audit_log so disputes
- * can be traced. Rate-limited per scanner (10/sec) to mitigate flood scans.
+ * can be traced (staff-link scans are attributed to the organizer's own id
+ * for the FK-constrained columns, with the staff link's label kept in the
+ * audit row's metadata). Rate-limited per scanner (10/sec) to mitigate flood
+ * scans — staff links are rate-limited per-link, not per-organizer, so one
+ * busy door doesn't throttle another.
  */
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -36,30 +47,85 @@ serve(async (req) => {
     const url = Deno.env.get("SUPABASE_URL");
     const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     if (!url || !key) return json({ error: "Server misconfigured." }, 500);
-
-    const authHeader = req.headers.get("Authorization") ?? "";
-    if (!authHeader.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
     const supabase = createClient(url, key);
-    const { data: { user }, error: authErr } = await supabase.auth.getUser(authHeader.slice(7));
-    if (authErr || !user) return json({ error: "Invalid or expired token" }, 401);
 
-    // Rate limit: 10 scans/sec per scanner — defense-in-depth against runaway scans
-    const { data: allowed } = await supabase.rpc("rate_limit_consume", {
-      p_bucket: "validate_event_ticket",
-      p_key: user.id,
-      p_max_hits: 10,
-      p_window_sec: 1,
-    });
-    if (allowed === false) return json({ result: "RATE_LIMITED", message: "Too many scans." }, 429);
-
-    let body: { qr_token?: string; event_id?: string };
+    // Body is parsed up front — the staff-link auth path (below) needs
+    // `staff_token` from it before we know who's scanning.
+    let body: { qr_token?: string; event_id?: string; staff_token?: string };
     try {
       body = await req.json();
     } catch {
       return json({ error: "Invalid JSON" }, 400);
     }
+
+    // ── Auth: either a normal organizer/admin session, or a staff scan
+    // link (event_scan_staff) that needs no Supabase Auth login at all —
+    // this is how an organizer hands door-scanning to bouncers/volunteers
+    // without sharing their own account. Either way we end up with
+    // `actorUserId`, a real auth.users id to attribute the scan to (for the
+    // FK-constrained scanned_by/audit columns) and, for the staff path,
+    // `staffLockedEventId` which forces which event this request is allowed
+    // to scan for — the client cannot override it.
+    const authHeader = req.headers.get("Authorization") ?? "";
+    let actorUserId: string;
+    let staffLabel: string | null = null;
+    let staffLockedEventId: string | null = null;
+    let rateLimitKey: string;
+
+    if (authHeader.startsWith("Bearer ")) {
+      const { data: { user }, error: authErr } = await supabase.auth.getUser(authHeader.slice(7));
+      if (authErr || !user) return json({ error: "Invalid or expired token" }, 401);
+      actorUserId = user.id;
+      rateLimitKey = user.id;
+    } else {
+      const staffToken = (body.staff_token ?? "").trim();
+      if (!staffToken || staffToken.length < 16 || staffToken.length > 200) {
+        return json({ error: "Unauthorized" }, 401);
+      }
+
+      const { data: staffRow, error: staffErr } = await supabase
+        .from("event_scan_staff")
+        .select("id, event_id, organizer_id, label, revoked_at, scan_count")
+        .eq("token", staffToken)
+        .maybeSingle();
+      if (staffErr || !staffRow || staffRow.revoked_at) {
+        return json({ result: "FORBIDDEN", message: "This scan link is invalid or has been revoked." }, 403);
+      }
+
+      const { data: staffOrg } = await supabase
+        .from("organizer_profiles")
+        .select("user_id")
+        .eq("id", staffRow.organizer_id)
+        .maybeSingle();
+      if (!staffOrg?.user_id) return json({ error: "Server error resolving scan link." }, 500);
+
+      actorUserId = staffOrg.user_id;
+      staffLabel = staffRow.label;
+      staffLockedEventId = staffRow.event_id;
+      rateLimitKey = `staff:${staffRow.id}`;
+
+      // Best-effort usage tracking — never blocks or fails the scan itself.
+      supabase
+        .from("event_scan_staff")
+        .update({ last_used_at: new Date().toISOString(), scan_count: (staffRow.scan_count ?? 0) + 1 })
+        .eq("id", staffRow.id)
+        .then(({ error: e }) => { if (e) console.warn("[validate-event-ticket] staff usage update failed:", e); });
+    }
+
+    // Rate limit: 10 scans/sec per scanner — defense-in-depth against runaway scans
+    const { data: allowed } = await supabase.rpc("rate_limit_consume", {
+      p_bucket: "validate_event_ticket",
+      p_key: rateLimitKey,
+      p_max_hits: 10,
+      p_window_sec: 1,
+    });
+    if (allowed === false) return json({ result: "RATE_LIMITED", message: "Too many scans." }, 429);
+
     const qrToken = (body.qr_token ?? "").trim();
-    const requestedEventId = body.event_id;
+    // A staff link's event is server-determined and cannot be overridden by
+    // the client; a normal session still passes whatever event_id the UI's
+    // event selector has chosen.
+    const requestedEventId = staffLockedEventId ?? body.event_id;
     // JWTs are 200-400+ chars; legacy random-hex tokens are 40. Allow up to 600
     // so a bigger payload (future extra claims) doesn't push us over the limit.
     if (!qrToken || qrToken.length < 16 || qrToken.length > 600) {
@@ -93,7 +159,7 @@ serve(async (req) => {
             p_target_kind: "event_ticket",
             p_target_id: verify.payload?.sub ?? null,
             p_meta: { scanned_event_id: requestedEventId ?? null },
-            p_actor_id: user.id,
+            p_actor_id: actorUserId,
           });
           return json({
             result: "REVOKED",
@@ -105,7 +171,7 @@ serve(async (req) => {
             p_target_kind: "event_ticket",
             p_target_id: null,
             p_meta: { reason: verify.reason, scanned_event_id: requestedEventId ?? null },
-            p_actor_id: user.id,
+            p_actor_id: actorUserId,
           });
           return json({
             result: "FORGED",
@@ -140,7 +206,7 @@ serve(async (req) => {
         p_target_kind: "event_ticket",
         p_target_id: null,
         p_meta: { reason: "not_found", scanned_event_id: requestedEventId ?? null, token_prefix: qrToken.slice(0, 8) },
-        p_actor_id: user.id,
+        p_actor_id: actorUserId,
       });
       return json({
         result: "FORGED",
@@ -165,11 +231,11 @@ serve(async (req) => {
     const { data: roleRow } = await supabase
       .from("user_roles")
       .select("role")
-      .eq("user_id", user.id)
+      .eq("user_id", actorUserId)
       .eq("role", "admin")
       .maybeSingle();
 
-    const isOwner = org?.user_id === user.id;
+    const isOwner = org?.user_id === actorUserId;
     const isAdmin = !!roleRow;
     if (!isOwner && !isAdmin) {
       return json({
@@ -199,7 +265,7 @@ serve(async (req) => {
           actual_event_id: ticket.event_id,
           actual_event_title: ev?.title,
         },
-        p_actor_id: user.id,
+        p_actor_id: actorUserId,
       });
       return json({
         result: "WRONG_EVENT",
@@ -220,7 +286,7 @@ serve(async (req) => {
         p_target_kind: "event_ticket",
         p_target_id: ticket.id,
         p_meta: { event_id: ticket.event_id },
-        p_actor_id: user.id,
+        p_actor_id: actorUserId,
       });
       return json({
         result: "REVOKED",
@@ -237,7 +303,7 @@ serve(async (req) => {
         p_target_kind: "event_ticket",
         p_target_id: ticket.id,
         p_meta: { order_id: ticket.order_id, event_id: ticket.event_id },
-        p_actor_id: user.id,
+        p_actor_id: actorUserId,
       });
       return json({
         result: "REVOKED",
@@ -253,7 +319,7 @@ serve(async (req) => {
         p_target_kind: "event_ticket",
         p_target_id: ticket.id,
         p_meta: { scanned_at: ticket.scanned_at },
-        p_actor_id: user.id,
+        p_actor_id: actorUserId,
       });
       return json({
         result: "ALREADY_USED",
@@ -268,7 +334,7 @@ serve(async (req) => {
     const now = new Date().toISOString();
     const { data: updated, error: updErr } = await supabase
       .from("event_tickets")
-      .update({ scanned_at: now, scanned_by: user.id, status: "scanned" })
+      .update({ scanned_at: now, scanned_by: actorUserId, status: "scanned" })
       .eq("id", ticket.id)
       .eq("status", "valid")
       .is("scanned_at", null)
@@ -296,7 +362,7 @@ serve(async (req) => {
           winner_scanned_at: re?.scanned_at ?? null,
           err: updErr ? String(updErr.message ?? updErr) : null,
         },
-        p_actor_id: user.id,
+        p_actor_id: actorUserId,
       });
       return json({
         result: "ALREADY_USED",
@@ -309,8 +375,13 @@ serve(async (req) => {
       p_action: "scan.valid",
       p_target_kind: "event_ticket",
       p_target_id: ticket.id,
-      p_meta: { event_id: ticket.event_id, tier_id: ticket.tier_id },
-      p_actor_id: user.id,
+      // staff_label distinguishes "the organizer scanned this personally"
+      // (null) from "scanned via the door-staff link named X" — scanned_by/
+      // p_actor_id above is always the organizer's own id either way (a
+      // staff link has no real auth.users row of its own), so this is the
+      // only place that trail survives.
+      p_meta: { event_id: ticket.event_id, tier_id: ticket.tier_id, staff_label: staffLabel },
+      p_actor_id: actorUserId,
     });
 
     const holderName = [ticket.holder_first_name, ticket.holder_last_name].filter(Boolean).join(" ");

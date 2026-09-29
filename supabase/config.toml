@@ -24,6 +24,12 @@ verify_jwt = false
 [functions.studio-create-checkout]
 verify_jwt = false
 
+# Studio primary-sale checkout via Revolut Merchant — the function EventPublic.tsx
+# actually calls (Revolut is the live payment provider; studio-create-checkout/
+# Stripe above stays deployed as a dormant fallback). Same internal auth pattern.
+[functions.revolut-create-checkout]
+verify_jwt = false
+
 # Organizer notification emails. Authenticated; auth-handled inside the
 # function (owner for new_application, admin for approve/reject).
 [functions.organizer-notify]
