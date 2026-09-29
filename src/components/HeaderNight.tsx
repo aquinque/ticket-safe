@@ -1,23 +1,30 @@
 import { useEffect, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
-import { Menu, X, Globe } from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Menu, X, Globe, User, Ticket, Banknote, LayoutDashboard, LogOut } from "lucide-react";
 import Logo from "@/components/Logo";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/contexts/I18nContext";
+import { useAuth } from "@/hooks/useAuth";
+import { useOrganizer } from "@/hooks/useOrganizer";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 /**
  * Public header for the "night" theme (Home, /tickets, /resale, event
- * pages — Phase 3/4). NOT wired into any page yet: this component is meant
- * to render inside a `.theme-night`-wrapped layout, so it can lean on the
- * theme-relative tokens (bg-card, border-border, text-foreground) rather
- * than hardcoding dark colors — it'll pick up the right values once a
- * later phase actually wraps a page in `.theme-night`.
+ * pages — Phase 3/4). Meant to render inside a `.theme-night`-wrapped
+ * layout, so it leans on theme-relative tokens (bg-card, border-border,
+ * text-foreground) rather than hardcoding dark colors.
  *
- * Distinct from the existing `Header.tsx` on purpose: that one carries a
- * lot of signed-in-user chrome (My Tickets / My Wallet / admin dropdown)
- * built for the current light site and used across many pages already —
- * rebuilding it in place would risk breaking those. This is a fresh,
- * logged-out-first component for the redesigned public surface.
+ * Distinct component from the existing `Header.tsx` on purpose — that one
+ * is used across many already-live pages and rebuilding it in place risked
+ * breaking those. This one carries its own (lighter) signed-in account
+ * menu so pages that adopt it, starting with Home in Phase 3, don't lose
+ * quick access to My Tickets / My Wallet / Studio for logged-in users.
  */
 const NAV_LINKS = [
   { to: "/tickets", labelKey: "nav.events" as const },
@@ -28,8 +35,23 @@ const NAV_LINKS = [
 const HeaderNight = () => {
   const { t, language, setLanguage } = useI18n();
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, signOut } = useAuth();
+  const { organizer } = useOrganizer();
+  const isStudioOrganizer = !!user && organizer?.status === "approved";
   const [isScrolled, setIsScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+
+  const firstName = (() => {
+    const fn = (user?.user_metadata as { full_name?: string } | undefined)?.full_name;
+    if (fn) return fn.split(" ")[0];
+    return user?.email?.split("@")[0] ?? "";
+  })();
+
+  const handleSignOut = async () => {
+    await signOut();
+    window.location.href = "/";
+  };
 
   useEffect(() => {
     const onScroll = () => setIsScrolled(window.scrollY > 24);
@@ -84,14 +106,54 @@ const HeaderNight = () => {
               <Globe className="w-3.5 h-3.5" />
               {language.toUpperCase()}
             </button>
-            <Button variant="ghost" size="sm" asChild>
-              <Link to="/auth" className="text-foreground">
-                {t("nav.login")}
-              </Link>
-            </Button>
-            <Button variant="primary" size="sm" asChild>
-              <Link to="/auth?mode=signup">{t("nav.signUp")}</Link>
-            </Button>
+            {user ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="inline-flex items-center gap-2 h-9 px-3 rounded-md font-semibold text-sm text-foreground border border-border hover:bg-secondary transition-colors">
+                    <User className="w-4 h-4" />
+                    {firstName && <span className="max-w-[8rem] truncate">{firstName}</span>}
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => navigate("/profile")}>
+                    <User className="w-4 h-4 mr-2" />
+                    {t("nav.profile")}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate("/my-tickets")}>
+                    <Ticket className="w-4 h-4 mr-2" />
+                    My Tickets
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate("/settings/listings")}>
+                    <Banknote className="w-4 h-4 mr-2" />
+                    My Wallet
+                  </DropdownMenuItem>
+                  {isStudioOrganizer && (
+                    <DropdownMenuItem onClick={() => navigate("/studio")}>
+                      <LayoutDashboard className="w-4 h-4 mr-2" />
+                      Ticket Safe Studio
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => navigate("/settings")}>{t("nav.settings")}</DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleSignOut}>
+                    <LogOut className="w-4 h-4 mr-2" />
+                    {t("nav.signOut")}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <>
+                <Button variant="ghost" size="sm" asChild>
+                  <Link to="/auth" className="text-foreground">
+                    {t("nav.login")}
+                  </Link>
+                </Button>
+                <Button variant="primary" size="sm" asChild>
+                  <Link to="/auth?mode=signup">{t("nav.signUp")}</Link>
+                </Button>
+              </>
+            )}
           </div>
 
           <button
@@ -143,12 +205,40 @@ const HeaderNight = () => {
               <Globe className="w-4 h-4" />
               {language === "en" ? "English" : "Français"}
             </button>
-            <Button variant="outline" size="lg" asChild onClick={() => setMenuOpen(false)}>
-              <Link to="/auth">{t("nav.login")}</Link>
-            </Button>
-            <Button variant="primary" size="lg" asChild onClick={() => setMenuOpen(false)}>
-              <Link to="/auth?mode=signup">{t("nav.signUp")}</Link>
-            </Button>
+            {user ? (
+              <>
+                <Button variant="outline" size="lg" asChild onClick={() => setMenuOpen(false)}>
+                  <Link to="/my-tickets">My Tickets</Link>
+                </Button>
+                <Button variant="outline" size="lg" asChild onClick={() => setMenuOpen(false)}>
+                  <Link to="/settings/listings">My Wallet</Link>
+                </Button>
+                {isStudioOrganizer && (
+                  <Button variant="outline" size="lg" asChild onClick={() => setMenuOpen(false)}>
+                    <Link to="/studio">Ticket Safe Studio</Link>
+                  </Button>
+                )}
+                <Button
+                  variant="primary"
+                  size="lg"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    handleSignOut();
+                  }}
+                >
+                  {t("nav.signOut")}
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="outline" size="lg" asChild onClick={() => setMenuOpen(false)}>
+                  <Link to="/auth">{t("nav.login")}</Link>
+                </Button>
+                <Button variant="primary" size="lg" asChild onClick={() => setMenuOpen(false)}>
+                  <Link to="/auth?mode=signup">{t("nav.signUp")}</Link>
+                </Button>
+              </>
+            )}
           </div>
         </div>
       )}

@@ -1,252 +1,338 @@
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowRight, Ticket, Repeat2, ShieldCheck, QrCode, Lock, User, LogOut, LayoutDashboard, Banknote } from "lucide-react";
-import Logo from "@/components/Logo";
-import { SEOHead } from "@/components/SEOHead";
-import { useAuth } from "@/hooks/useAuth";
-import { useOrganizer } from "@/hooks/useOrganizer";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  ArrowRight,
+  QrCode,
+  ShieldCheck,
+  Lock,
+  GraduationCap,
+  Repeat2,
+  LayoutDashboard,
+} from "lucide-react";
+import HeaderNight from "@/components/HeaderNight";
+import Footer from "@/components/Footer";
+import { SEOHead } from "@/components/SEOHead";
+import { Button } from "@/components/ui/button";
+import { EventCarousel } from "@/components/EventCarousel";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { useESCPEvents } from "@/hooks/useESCPEvents";
+import { useThemeMode } from "@/hooks/useThemeMode";
+import { partnerLogos } from "@/config/partnerLogos";
+import { supabase } from "@/integrations/supabase/client";
+import type { EventData } from "@/data/eventsData";
+
+const HOW_IT_WORKS = [
+  {
+    icon: GraduationCap,
+    title: "Vérifie ton email étudiant",
+    desc: "Inscription en 30 secondes avec l'email de ton école. Réservé aux étudiants.",
+  },
+  {
+    icon: Repeat2,
+    title: "Achète ou revends",
+    desc: "Billets officiels de ton BDE, ou trouve/liste un billet sur la revente.",
+  },
+  {
+    icon: QrCode,
+    title: "QR unique, paiement libéré",
+    desc: "Le QR arrive dans ta boîte mail. Le paiement n'est débloqué qu'une fois le billet validé.",
+  },
+];
+
+const FAQS = [
+  {
+    q: "C'est réservé à mon école ?",
+    a: "Oui — l'inscription se fait avec ton email étudiant. Chaque campus a son propre espace, pas de comptes non vérifiés.",
+  },
+  {
+    q: "Comment je sais que mon billet revendu est vrai ?",
+    a: "Chaque billet a un QR unique vérifié avant d'être mis en vente. Le paiement reste bloqué jusqu'à la validation du transfert.",
+  },
+  {
+    q: "Combien ça coûte ?",
+    a: "Achat direct : frais inclus dans le prix affiché. Revente : petite commission prélevée au retrait, jamais à l'achat.",
+  },
+  {
+    q: "Et si l'event est annulé ?",
+    a: "Remboursement automatique intégral, frais de plateforme inclus, sans avoir à ouvrir de ticket support.",
+  },
+  {
+    q: "Comment je suis payé si je revends ?",
+    a: "Le paiement est débloqué dès que l'acheteur confirme la réception du billet, puis tu le retires par virement bancaire.",
+  },
+];
 
 const Home = () => {
-  const { user, signOut } = useAuth();
-  const { organizer } = useOrganizer();
+  useThemeMode("night");
   const navigate = useNavigate();
-  const isStudioOrganizer = !!user && organizer?.status === "approved";
+  const { events: upcomingEvents, loading: eventsLoading } = useESCPEvents({ onlyWithTickets: true });
+  const [ticketsSold, setTicketsSold] = useState<number | null>(null);
 
-  const firstName = (() => {
-    const fn = (user?.user_metadata as { full_name?: string } | undefined)?.full_name;
-    if (fn) return fn.split(" ")[0];
-    return user?.email?.split("@")[0] ?? "you";
-  })();
+  useEffect(() => {
+    supabase
+      .from("transactions")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "completed")
+      .then(({ count }) => {
+        if (count && count >= 10) setTicketsSold(count);
+      });
+  }, []);
 
-  const handleSignOut = async () => {
-    await signOut();
-    // Hard reload so the whole app re-initialises signed-out.
-    window.location.href = "/";
-  };
+  const carouselEvents: EventData[] = upcomingEvents.slice(0, 10).map((e) => ({
+    id: e.id,
+    title: e.title,
+    date: e.start_date,
+    time: "",
+    location: e.location,
+    organizer: e.organizer,
+    description: e.description,
+    category: e.category,
+    filterCategory: e.category.toLowerCase(),
+    image: e.image_url,
+    isPastEvent: false,
+    fromPriceCents: e.min_price != null ? Math.round(e.min_price * 100) : undefined,
+  }));
+
+  // Counters section: only real, verifiable numbers. Hidden individually
+  // when null rather than showing a fabricated placeholder value.
+  const counters = [
+    { value: ticketsSold, label: "billets vendus en toute sécurité" },
+    { value: null, label: "campus actifs" }, // TODO_DATA: no live "active campuses" count yet
+  ].filter((c) => c.value != null) as { value: number; label: string }[];
 
   return (
-    <div className="min-h-screen flex flex-col bg-background relative overflow-hidden">
+    <div className="theme-night min-h-screen flex flex-col bg-background">
       <SEOHead
-        title="TicketSafe — Buy event tickets or resell safely"
-        description="Two ways to find your ticket: buy directly from verified event organizers, or trade on the secure resale marketplace."
+        title="TicketSafe — Tes soirées étudiantes. Zéro arnaque."
+        description="Achète tes places directement auprès de ton BDE, ou revends la tienne en toute sécurité."
       />
 
-      {/* Minimal top bar */}
-      <header className="relative z-10">
-        <div className="container mx-auto px-4 py-4 md:py-6 flex items-center justify-between gap-2">
-          <Link to="/" className="flex items-center hover:opacity-90 transition-opacity flex-shrink-0">
-            <Logo height={32} />
-          </Link>
-          <nav className="flex items-center gap-1 md:gap-2 text-sm">
-            <Link
-              to="/about"
-              className="hidden sm:inline-flex px-3 py-2 rounded-lg font-semibold text-foreground/80 hover:text-primary transition-colors"
-            >
-              About
-            </Link>
-            <Link
-              to="/contact"
-              className="hidden md:inline-flex px-3 py-2 rounded-lg font-semibold text-foreground/80 hover:text-primary transition-colors"
-            >
-              Contact
-            </Link>
+      <HeaderNight />
 
-            {/* Studio button — only visible when the signed-in user is an approved organizer */}
-            {isStudioOrganizer && (
-              <Link
-                to="/studio"
-                className="inline-flex items-center gap-1.5 px-3 md:px-4 min-h-[40px] rounded-lg font-bold text-sm text-white bg-primary hover:bg-primary/90 transition-colors"
+      <main className="flex-1">
+        {/* ============ HERO ============ */}
+        <section className="relative min-h-[100svh] flex items-end md:items-center overflow-hidden">
+          {/* Placeholder gradient background — swap for a real event photo/video
+              once supplied. Expected location: public/hero/ (e.g.
+              public/hero/home.jpg or .mp4), see TODO_DATA.md. */}
+          <div
+            className="absolute inset-0"
+            style={{
+              background:
+                "radial-gradient(ellipse at 30% 20%, hsl(227 77% 30% / 0.55), transparent 60%), radial-gradient(ellipse at 80% 70%, hsl(228 67% 25% / 0.5), transparent 55%), hsl(234 58% 6%)",
+            }}
+          />
+          {/* ~70% darkening overlay, ready for when a real photo sits behind it */}
+          <div className="absolute inset-0 bg-black/70" />
+
+          <div className="relative container mx-auto px-4 pb-10 pt-28 md:pt-0 md:pb-0">
+            <div className="max-w-2xl">
+              <h1
+                className="font-display font-bold text-foreground text-[40px] leading-[1.05] md:text-7xl lg:text-8xl mb-4 md:mb-6"
+                style={{ letterSpacing: "-0.02em" }}
               >
-                <LayoutDashboard className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Ticket Safe Studio</span>
-                <span className="sm:hidden">Studio</span>
-              </Link>
-            )}
+                Tes soirées étudiantes.
+                <br />
+                Zéro arnaque.
+              </h1>
+              <p className="text-base md:text-xl text-muted-foreground mb-7 md:mb-9 max-w-lg">
+                Achète tes places directement auprès de ton BDE, ou revends la tienne en toute sécurité.
+              </p>
 
-            {user ? (
-              // ── Logged in: profile chip with dropdown ──────────────────
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button className="inline-flex items-center gap-2 min-h-[40px] px-3 md:px-4 rounded-lg font-semibold text-primary border border-primary/20 hover:bg-primary/5 transition-colors">
-                    <User className="w-4 h-4" />
-                    <span className="hidden md:inline">Hi, {firstName}</span>
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => navigate("/profile")} className="font-semibold">
-                    <User className="w-4 h-4 mr-2" />
-                    My profile
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate("/my-tickets")} className="font-semibold">
-                    <Ticket className="w-4 h-4 mr-2" />
-                    My Tickets
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate("/settings/listings")} className="font-semibold">
-                    <Banknote className="w-4 h-4 mr-2" />
-                    My Wallet
-                  </DropdownMenuItem>
-                  {isStudioOrganizer && (
-                    <DropdownMenuItem onClick={() => navigate("/studio")}>
-                      <LayoutDashboard className="w-4 h-4 mr-2" />
-                      Ticket Safe Studio
-                    </DropdownMenuItem>
-                  )}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => navigate("/settings")}>
-                    Settings
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleSignOut}>
-                    <LogOut className="w-4 h-4 mr-2" />
-                    Sign out
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : (
-              // ── Logged out: Log in + Sign up ───────────────────────────
-              <>
-                <Link
-                  to="/auth?next=/"
-                  className="inline-flex items-center justify-center min-h-[40px] px-3 md:px-4 rounded-lg font-semibold text-foreground/80 hover:text-primary transition-colors"
-                >
-                  Log in
-                </Link>
-                <Link
-                  to="/auth?mode=signup&next=/"
-                  className="inline-flex items-center justify-center min-h-[40px] px-4 rounded-lg font-bold text-white bg-primary hover:bg-primary/90 transition-colors"
-                >
-                  Sign up
-                </Link>
-              </>
-            )}
-          </nav>
-        </div>
-      </header>
-
-      {/* Main */}
-      <main className="flex-1 flex items-center justify-center relative z-10 px-4 py-6 md:py-12">
-        <div className="w-full max-w-5xl">
-          {/* Positioning headline — explicitly says what TicketSafe is */}
-          <div className="flex flex-col items-center text-center gap-3 md:gap-4 mb-7 md:mb-12 animate-fade-in">
-            <h1 className="text-[28px] sm:text-3xl md:text-5xl lg:text-6xl font-black text-foreground leading-[1.08] tracking-tight max-w-3xl">
-              The ticket platform built for{" "}
-              <span className="bg-gradient-hero bg-clip-text text-transparent">
-                student events.
-              </span>
-            </h1>
-          </div>
-
-          {/* Studio quick access — the single most important thing an approved
-              organizer needs to find on this page, especially on a phone.
-              Shown above the buyer paths, full-width, one tap to /studio. */}
-          {isStudioOrganizer && (
-            <Link
-              to="/studio"
-              className="group flex items-center gap-3 md:gap-4 mb-3.5 md:mb-6 px-4 md:px-6 py-4 md:py-5 rounded-lg text-white bg-primary hover:bg-primary/90 transition-colors animate-slide-up"
-            >
-              <LayoutDashboard className="w-5 h-5 md:w-6 md:h-6 shrink-0" />
-              <div className="flex-1 min-w-0">
-                <div className="text-[10px] uppercase tracking-[0.2em] font-bold text-white/75">
-                  Welcome back
-                </div>
-                <div className="font-black text-base md:text-lg leading-tight">
-                  Go to Ticket Safe Studio
-                </div>
+              <div className="flex flex-col sm:flex-row gap-3 mb-7 md:mb-9">
+                <Button variant="buy" size="lg" asChild>
+                  <Link to="/tickets">
+                    Voir les events
+                    <ArrowRight className="w-4 h-4" />
+                  </Link>
+                </Button>
+                <Button variant="outline" size="lg" asChild className="border-white/25 text-foreground hover:bg-white/5">
+                  <Link to="/sell">Revendre mon billet</Link>
+                </Button>
               </div>
-              <ArrowRight className="w-5 h-5 shrink-0 group-hover:translate-x-1 transition-transform" />
-            </Link>
-          )}
 
-          {/* Two paths — one vertical list, not two boxes side by side.
-              Resale first (per 7f7015c: that's the primary use case). */}
-          <div className="rounded-lg border border-border divide-y divide-border overflow-hidden animate-slide-up">
-            <Link
-              to="/resale"
-              className="group flex items-center gap-4 p-5 md:p-6 hover:bg-muted/50 transition-colors"
-            >
-              <Repeat2 className="w-6 h-6 md:w-7 md:h-7 text-primary shrink-0" />
-              <div className="flex-1 min-w-0">
-                <div className="font-black text-base md:text-lg leading-tight text-foreground">
-                  Resale marketplace
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Buy from or sell to another student.
-                </p>
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs md:text-sm text-muted-foreground">
+                <span className="inline-flex items-center gap-1.5">
+                  <QrCode className="w-4 h-4 text-primary" />
+                  QR vérifiés
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-primary" />
+                  Paiement sécurisé
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <Lock className="w-4 h-4 text-primary" />
+                  Conforme RGPD
+                </span>
               </div>
-              <ArrowRight className="w-5 h-5 text-muted-foreground shrink-0 group-hover:translate-x-1 group-hover:text-primary transition-all" />
-            </Link>
-
-            <Link
-              to="/tickets"
-              className="group flex items-center gap-4 p-5 md:p-6 hover:bg-muted/50 transition-colors"
-            >
-              <Ticket className="w-6 h-6 md:w-7 md:h-7 text-primary shrink-0" />
-              <div className="flex-1 min-w-0">
-                <div className="font-black text-base md:text-lg leading-tight text-foreground">
-                  Buy event tickets
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Official tickets, sold directly by student organizers.
-                </p>
-              </div>
-              <ArrowRight className="w-5 h-5 text-muted-foreground shrink-0 group-hover:translate-x-1 group-hover:text-primary transition-all" />
-            </Link>
+            </div>
           </div>
+        </section>
 
-          {/* Trust strip */}
-          <div className="mt-7 md:mt-12 flex flex-wrap items-center justify-center gap-x-4 sm:gap-x-6 md:gap-x-8 gap-y-2 text-[11px] md:text-xs font-medium text-muted-foreground">
-            <span className="inline-flex items-center gap-1.5">
-              <Lock className="w-3.5 h-3.5 text-primary" />
-              GDPR compliant
-            </span>
-            <span className="text-border">·</span>
-            <span className="inline-flex items-center gap-1.5">
-              <QrCode className="w-3.5 h-3.5 text-primary" />
-              QR-verified tickets
-            </span>
-            <span className="text-border">·</span>
-            <span className="inline-flex items-center gap-1.5">
-              <ShieldCheck className="w-3.5 h-3.5 text-primary" />
-              Escrow payments
-            </span>
-          </div>
-
-          {/* Organizer micro-CTA */}
-          <div className="mt-6 md:mt-10 text-center">
-            <Link
-              to="/organizers"
-              className="inline-flex flex-wrap items-center justify-center gap-1.5 text-sm font-semibold text-foreground/70 hover:text-primary transition-colors"
-            >
-              Are you organizing an event?{" "}
-              <span className="text-primary inline-flex items-center gap-1">
-                Apply for TicketSafe Studio
+        {/* ============ CARROUSEL — Prochains events ============ */}
+        <section className="py-12 md:py-16 border-t border-border">
+          <div className="container mx-auto px-4">
+            <div className="flex items-center justify-between mb-5 md:mb-6">
+              <h2 className="font-display font-bold text-2xl md:text-3xl text-foreground" style={{ letterSpacing: "-0.02em" }}>
+                Prochains events
+              </h2>
+              <Link to="/tickets" className="text-sm font-semibold text-primary hover:underline inline-flex items-center gap-1 shrink-0">
+                Tout voir
                 <ArrowRight className="w-3.5 h-3.5" />
-              </span>
-            </Link>
+              </Link>
+            </div>
+
+            {!eventsLoading && carouselEvents.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Aucun event avec billets pour l'instant — reviens bientôt.
+              </p>
+            ) : (
+              <EventCarousel
+                events={carouselEvents}
+                loading={eventsLoading}
+                onEventClick={(event) => navigate(`/event/${event.id}/tickets`)}
+              />
+            )}
           </div>
-        </div>
+        </section>
+
+        {/* ============ PREUVE SOCIALE ============ */}
+        {(partnerLogos.length > 0 || counters.length > 0) && (
+          <section className="py-10 md:py-12 border-t border-border">
+            <div className="container mx-auto px-4">
+              {partnerLogos.length > 0 && (
+                <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-4 opacity-70 mb-8">
+                  {partnerLogos.map((logo) => (
+                    <img key={logo.name} src={logo.src} alt={logo.name} className="h-6 md:h-8 w-auto" />
+                  ))}
+                </div>
+              )}
+              {counters.length > 0 && (
+                <div className="flex flex-wrap items-center justify-center gap-x-12 gap-y-4">
+                  {counters.map((c) => (
+                    <div key={c.label} className="text-center">
+                      <div className="font-display font-bold text-3xl md:text-4xl text-foreground tabular-nums" style={{ letterSpacing: "-0.02em" }}>
+                        {c.value}+
+                      </div>
+                      <div className="text-xs md:text-sm text-muted-foreground">{c.label}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* ============ COMMENT ÇA MARCHE ============ */}
+        <section className="py-14 md:py-20 border-t border-border">
+          <div className="container mx-auto px-4">
+            <h2 className="font-display font-bold text-2xl md:text-3xl text-foreground text-center mb-10 md:mb-14" style={{ letterSpacing: "-0.02em" }}>
+              Comment ça marche
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-10 max-w-4xl mx-auto">
+              {HOW_IT_WORKS.map((step, i) => {
+                const Icon = step.icon;
+                return (
+                  <div key={step.title} className="text-center">
+                    <div className="w-14 h-14 rounded-full bg-secondary flex items-center justify-center mx-auto mb-4">
+                      <Icon className="w-6 h-6 text-primary" />
+                    </div>
+                    <div className="text-xs font-bold text-primary mb-1.5">{`0${i + 1}`}</div>
+                    <h3 className="font-display font-bold text-lg text-foreground mb-2" style={{ letterSpacing: "-0.02em" }}>
+                      {step.title}
+                    </h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed">{step.desc}</p>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+
+        {/* ============ SECTION ORGANISATEURS ============ */}
+        <section className="py-14 md:py-20 bg-secondary/50 border-t border-border">
+          <div className="container mx-auto px-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-16 items-center max-w-5xl mx-auto">
+              <div>
+                <h2 className="font-display font-bold text-2xl md:text-4xl text-foreground mb-4" style={{ letterSpacing: "-0.02em" }}>
+                  Tu organises un event ?
+                </h2>
+                <ul className="space-y-3 mb-6 text-sm md:text-base text-muted-foreground">
+                  <li className="flex items-start gap-2.5">
+                    <ShieldCheck className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                    Billetterie + revente sécurisée intégrée
+                  </li>
+                  <li className="flex items-start gap-2.5">
+                    <Repeat2 className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                    Liens de vente par membre du BDE
+                  </li>
+                  <li className="flex items-start gap-2.5">
+                    <LayoutDashboard className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                    Dashboard temps réel — ventes, check-in, paiements
+                  </li>
+                </ul>
+                <p className="font-display font-bold text-3xl md:text-5xl text-foreground mb-1" style={{ letterSpacing: "-0.02em" }}>
+                  1,40&nbsp;€ par billet.
+                </p>
+                <p className="text-sm text-muted-foreground mb-6">C'est tout.</p>
+                <Button variant="buy" size="lg" asChild>
+                  <Link to="/organizers">
+                    Lancer mon event avec TicketSafe Studio
+                    <ArrowRight className="w-4 h-4" />
+                  </Link>
+                </Button>
+              </div>
+
+              {/* Studio dashboard mockup placeholder — swap for a real
+                  screenshot once available (public/hero/ or similar). */}
+              <div className="rounded-lg border border-border bg-card p-4 shadow-card">
+                <div className="flex items-center gap-1.5 mb-3">
+                  <span className="w-2.5 h-2.5 rounded-full bg-danger/60" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-warning/60" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-success/60" />
+                </div>
+                <div className="grid grid-cols-3 gap-2 mb-3">
+                  {["Billets vendus", "CA net", "Remplissage"].map((label) => (
+                    <div key={label} className="rounded-md bg-secondary p-2.5">
+                      <div className="h-2 w-10 rounded bg-muted-foreground/30 mb-2" />
+                      <div className="h-4 w-14 rounded bg-foreground/20 tabular-nums" />
+                    </div>
+                  ))}
+                </div>
+                <div className="rounded-md bg-secondary h-28 flex items-end gap-1.5 p-3">
+                  {[40, 65, 50, 80, 60, 90, 70].map((h, i) => (
+                    <div key={i} className="flex-1 rounded-sm bg-primary/60" style={{ height: `${h}%` }} />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ============ FAQ ============ */}
+        <section className="py-14 md:py-20 border-t border-border">
+          <div className="container mx-auto px-4 max-w-2xl">
+            <h2 className="font-display font-bold text-2xl md:text-3xl text-foreground text-center mb-8 md:mb-10" style={{ letterSpacing: "-0.02em" }}>
+              Questions fréquentes
+            </h2>
+            <Accordion type="single" collapsible>
+              {FAQS.map((faq, i) => (
+                <AccordionItem key={i} value={`faq-${i}`}>
+                  <AccordionTrigger className="text-left font-semibold text-foreground">{faq.q}</AccordionTrigger>
+                  <AccordionContent className="text-muted-foreground">{faq.a}</AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          </div>
+        </section>
       </main>
 
-      {/* Footer micro */}
-      <footer className="relative z-10 py-4 md:py-5 border-t border-border/50 bg-background/50">
-        <div className="container mx-auto px-4 flex flex-wrap items-center justify-center gap-x-4 md:gap-x-5 gap-y-1.5 text-[11px] md:text-xs text-muted-foreground">
-          <Link to="/about" className="hover:text-foreground transition-colors">About</Link>
-          <span className="text-border">·</span>
-          <Link to="/contact" className="hover:text-foreground transition-colors">Contact</Link>
-          <span className="text-border">·</span>
-          <Link to="/privacy" className="hover:text-foreground transition-colors">Privacy</Link>
-          <span className="text-border">·</span>
-          <Link to="/terms" className="hover:text-foreground transition-colors">Terms</Link>
-          <span className="text-border hidden sm:inline">·</span>
-          <span className="hidden sm:inline">© {new Date().getFullYear()} TicketSafe</span>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 };
