@@ -48,16 +48,16 @@ All colors MUST be HSL.
     --destructive-foreground: 0 0% 100%;
     
     /* ESCP Gradients - Professional Blue Blends */
-    --gradient-hero: linear-gradient(135deg, hsl(220 100% 30%) 0%, hsl(215 95% 40%) 50%, hsl(210 100% 45%) 100%);
-    --gradient-card: linear-gradient(145deg, hsl(var(--card)) 0%, hsl(var(--background)) 100%);
-    --gradient-accent: linear-gradient(135deg, hsl(220 100% 30%) 0%, hsl(210 100% 45%) 100%);
-    --gradient-purple-blue: linear-gradient(135deg, hsl(215 95% 40%) 0%, hsl(220 100% 30%) 50%, hsl(210 100% 45%) 100%);
+    --gradient-hero: linear-gradient(hsl(220 100% 30%), hsl(220 100% 30%));
+    --gradient-card: linear-gradient(hsl(var(--card)), hsl(var(--card)));
+    --gradient-accent: linear-gradient(hsl(220 100% 30%), hsl(220 100% 30%));
+    --gradient-purple-blue: linear-gradient(hsl(220 100% 30%), hsl(220 100% 30%));
     
     /* Professional Shadows - Deep Blue Glow */
-    --shadow-soft: 0 2px 12px 0 hsl(220 100% 30% / 0.08);
-    --shadow-card: 0 4px 20px 0 hsl(220 100% 30% / 0.12);
-    --shadow-hover: 0 8px 40px 0 hsl(220 100% 30% / 0.25);
-    --shadow-glow: 0 0 30px hsl(220 100% 30% / 0.35);
+    --shadow-soft: none;
+    --shadow-card: none;
+    --shadow-hover: none;
+    --shadow-glow: none;
     
     /* Animations */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -79,20 +79,17 @@ All colors MUST be HSL.
     --studio-cyan: 190 100% 60%;
     --studio-lime: 80 90% 60%;
 
-    --gradient-studio-hero: radial-gradient(ellipse at 20% 10%, hsl(256 100% 65% / 0.55), transparent 55%),
-                            radial-gradient(ellipse at 80% 30%, hsl(320 100% 62% / 0.45), transparent 55%),
-                            radial-gradient(ellipse at 50% 90%, hsl(14 100% 64% / 0.35), transparent 60%),
-                            linear-gradient(135deg, hsl(240 28% 7%) 0%, hsl(245 30% 10%) 100%);
-    --gradient-studio-cta: linear-gradient(120deg, hsl(256 100% 65%) 0%, hsl(320 100% 62%) 50%, hsl(14 100% 64%) 100%);
-    --gradient-studio-card: linear-gradient(145deg, hsl(240 22% 15% / 0.85) 0%, hsl(240 26% 11% / 0.85) 100%);
-    --gradient-studio-glow: linear-gradient(135deg, hsl(256 100% 65% / 0.18) 0%, hsl(320 100% 62% / 0.18) 100%);
+    --gradient-studio-hero: linear-gradient(hsl(240 28% 7%), hsl(240 28% 7%));
+    --gradient-studio-cta: linear-gradient(hsl(256 100% 65%), hsl(256 100% 65%));
+    --gradient-studio-card: linear-gradient(hsl(240 26% 11%), hsl(240 26% 11%));
+    --gradient-studio-glow: linear-gradient(transparent, transparent);
 
-    --shadow-studio-glow: 0 0 80px hsl(256 100% 65% / 0.35), 0 0 30px hsl(320 100% 62% / 0.25);
-    --shadow-studio-card: 0 24px 60px -20px hsl(256 100% 65% / 0.35);
+    --shadow-studio-glow: none;
+    --shadow-studio-card: none;
 
     /* Single source of truth for card/button radii.
        1rem reads premium-soft (Vinted / Dice) without being playful. */
-    --radius: 1rem;
+    --radius: 2px;
 
     --sidebar-background: 0 0% 98%;
 
@@ -217,8 +214,7 @@ All colors MUST be HSL.
   .studio-cta-bg {
     background-image: var(--gradient-studio-cta);
     background-size: 200% 200%;
-    animation: studio-cta-pan 8s ease-in-out infinite;
-    color: white;
+        color: white;
   }
   .studio-text-gradient {
     background: var(--gradient-studio-cta);
@@ -226,12 +222,10 @@ All colors MUST be HSL.
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
-    animation: studio-cta-pan 6s ease-in-out infinite;
-  }
+      }
   .studio-card {
     background: var(--gradient-studio-card);
     border: 1px solid hsl(var(--studio-border));
-    backdrop-filter: blur(12px);
     box-shadow: var(--shadow-studio-card);
   }
   .studio-glow {

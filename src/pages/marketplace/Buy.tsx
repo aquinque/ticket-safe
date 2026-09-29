@@ -449,7 +449,7 @@ const Buy = () => {
       </section>
 
       {/* =================== FILTER RAIL (sticky) =================== */}
-      <div className="sticky top-0 z-30 bg-white/90 backdrop-blur-xl border-b border-border">
+      <div className="sticky top-0 z-30 bg-white/90 border-b border-border">
         <div className="container mx-auto max-w-6xl px-4 md:px-6 py-3 md:py-4">
           <div className="flex items-center gap-2 md:gap-3 overflow-x-auto scrollbar-hide -mx-1 px-1">
             {/* Category chips */}
@@ -784,7 +784,7 @@ function StandardCard({
 
   return (
     <div
-      className="ts-fade-up flex flex-col rounded-2xl overflow-hidden bg-card border border-border hover:border-primary/30 hover:shadow-[0_18px_40px_-20px_hsl(220_100%_30%/0.25)] hover:-translate-y-0.5 transition-all duration-300"
+      className="ts-fade-up flex flex-col rounded-2xl overflow-hidden bg-card border border-border hover:border-primary/30 hover:shadow-[0_18px_40px_-20px_hsl(220_100%_30%/0.25)] transition-all duration-300"
       style={{ animationDelay: `${index * 50}ms` }}
     >
       {/* Image */}
@@ -800,12 +800,12 @@ function StandardCard({
         {/* Top badges */}
         <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
           {group.eventCategory && (
-            <span className="px-2.5 py-1 rounded-full bg-black/55 backdrop-blur text-white text-[10px] font-bold uppercase tracking-wider">
+            <span className="px-2.5 py-1 rounded-full bg-black/55 text-white text-[10px] font-bold uppercase tracking-wider">
               {group.eventCategory}
             </span>
           )}
           {group.eventCampus && (
-            <span className="px-2.5 py-1 rounded-full bg-black/45 backdrop-blur text-white text-[10px] font-bold uppercase tracking-wider">
+            <span className="px-2.5 py-1 rounded-full bg-black/45 text-white text-[10px] font-bold uppercase tracking-wider">
               {group.eventCampus}
             </span>
           )}

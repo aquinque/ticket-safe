@@ -114,7 +114,7 @@ const Organizers = () => {
               <div className="mb-5">
                 <BackButton />
               </div>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 backdrop-blur border border-white/20 text-[10px] md:text-xs font-semibold tracking-wider uppercase mb-4 md:mb-5">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 border border-white/20 text-[10px] md:text-xs font-semibold tracking-wider uppercase mb-4 md:mb-5">
                 <Sparkles className="w-3 h-3" />
                 <span className="leading-tight">TicketSafe Studio — for event organizers</span>
               </div>
@@ -129,7 +129,7 @@ const Organizers = () => {
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3">
                 <Link
                   to={cta.to}
-                  className="inline-flex items-center justify-center gap-2 px-6 min-h-[52px] rounded-xl font-bold bg-white text-primary hover:bg-white/95 hover:scale-[1.02] transition-all shadow-lg text-sm md:text-base"
+                  className="inline-flex items-center justify-center gap-2 px-6 min-h-[52px] rounded-xl font-bold bg-white text-primary hover:bg-white/95 transition-all shadow-lg text-sm md:text-base"
                 >
                   <cta.icon className="w-4 h-4" />
                   {cta.label}
@@ -183,7 +183,7 @@ const Organizers = () => {
                     className="group p-5 md:p-6 rounded-2xl bg-card border border-border hover:border-primary/30 hover:shadow-card transition-all"
                   >
                     <div
-                      className="inline-flex w-10 h-10 md:w-11 md:h-11 rounded-xl items-center justify-center mb-3 md:mb-4 group-hover:scale-110 transition-transform"
+                      className="inline-flex w-10 h-10 md:w-11 md:h-11 rounded-xl items-center justify-center mb-3 md:mb-4 group- transition-transform"
                       style={{ background: "var(--gradient-hero)" }}
                     >
                       <Icon className="w-5 h-5 text-white" />
@@ -333,7 +333,7 @@ const Organizers = () => {
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                   <Link
                     to={cta.to}
-                    className="inline-flex items-center justify-center gap-2 px-6 min-h-[52px] rounded-xl font-bold bg-white text-primary hover:bg-white/95 hover:scale-[1.02] transition-all shadow-lg text-sm md:text-base"
+                    className="inline-flex items-center justify-center gap-2 px-6 min-h-[52px] rounded-xl font-bold bg-white text-primary hover:bg-white/95 transition-all shadow-lg text-sm md:text-base"
                   >
                     <cta.icon className="w-4 h-4" />
                     {cta.label}

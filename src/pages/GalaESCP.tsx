@@ -96,7 +96,7 @@ function useCountdown(target: Date): TimeLeft {
 function CountdownBox({ value, label }: { value: number; label: string }) {
   return (
     <div className="flex flex-col items-center gap-1 min-w-[72px]">
-      <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center">
+      <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center">
         <span className="text-2xl sm:text-3xl font-bold text-white tabular-nums">
           {String(value).padStart(2, "0")}
         </span>
@@ -237,7 +237,7 @@ const GalaESCP = () => {
           COUNTDOWN
       ================================================================ */}
       {!timeLeft.isPast && (
-        <section className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 py-10">
+        <section className="bg-slate-900 py-10">
           <div className="container mx-auto px-4 text-center">
             <p className="text-white/50 text-xs uppercase tracking-widest mb-6">
               La soirée commence dans
@@ -413,7 +413,7 @@ const GalaESCP = () => {
                   <CardContent className="p-0">
                     <div className="flex flex-col sm:flex-row items-stretch">
                       {/* Colour accent strip */}
-                      <div className="sm:w-2 w-full h-2 sm:h-auto bg-gradient-to-b from-amber-400 to-amber-600 shrink-0 rounded-t sm:rounded-t-none sm:rounded-l" />
+                      <div className="sm:w-2 w-full h-2 sm:h-auto bg-amber-500 shrink-0 rounded-t sm:rounded-t-none sm:rounded-l" />
 
                       <div className="flex flex-1 items-center justify-between gap-4 p-5">
                         <div className="flex-1 min-w-0">
@@ -476,7 +476,7 @@ const GalaESCP = () => {
       {/* ================================================================
           SELL CTA BANNER
       ================================================================ */}
-      <section className="py-16 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900">
+      <section className="py-16 bg-slate-900">
         <div className="container mx-auto px-4 max-w-3xl text-center">
           <h2 className="text-3xl font-bold text-white mb-4">
             Tu ne peux plus y aller ?

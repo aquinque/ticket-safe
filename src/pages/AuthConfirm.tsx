@@ -96,7 +96,7 @@ const AuthConfirm = () => {
   }, [params, navigate]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         {status === "verifying" && (
           <CardContent className="flex flex-col items-center justify-center py-12 gap-3">

@@ -245,7 +245,7 @@ const ApplicationCard = ({
         style={{ background: `linear-gradient(135deg, ${app.primary_color || "#003399"}, hsl(210 100% 45%))` }}
       >
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-11 h-11 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center font-black text-lg shrink-0">
+          <div className="w-11 h-11 rounded-xl bg-white/20 flex items-center justify-center font-black text-lg shrink-0">
             {app.name[0]?.toUpperCase() ?? "?"}
           </div>
           <div className="min-w-0">
@@ -383,7 +383,7 @@ const StatusPill = ({ status }: { status: string }) => {
     suspended: "bg-white/15 text-white/80 border-white/30",
   };
   return (
-    <span className={`shrink-0 inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border backdrop-blur ${map[status] ?? "bg-white/15 text-white/80 border-white/30"}`}>
+    <span className={`shrink-0 inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${map[status] ?? "bg-white/15 text-white/80 border-white/30"}`}>
       {status}
     </span>
   );

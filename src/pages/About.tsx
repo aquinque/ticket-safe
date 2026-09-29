@@ -102,7 +102,7 @@ const About = () => {
             <div className="mb-5">
               <BackButton />
             </div>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 backdrop-blur border border-white/20 text-[10px] md:text-xs font-bold uppercase tracking-[0.2em] mb-4">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 border border-white/20 text-[10px] md:text-xs font-bold uppercase tracking-[0.2em] mb-4">
               <Sparkles className="w-3 h-3" />
               About Ticket Safe
             </div>
@@ -136,7 +136,7 @@ const About = () => {
                 <Link
                   key={title}
                   to={to}
-                  className="group relative rounded-2xl md:rounded-3xl p-6 md:p-8 overflow-hidden text-white transition-all duration-300 active:scale-[0.99] md:hover:-translate-y-1 md:hover:shadow-hover"
+                  className="group relative rounded-2xl md:rounded-3xl p-6 md:p-8 overflow-hidden text-white transition-all duration-300 active:scale-[0.99] md: md:hover:shadow-hover"
                   style={{ background: gradient }}
                 >
                   <div
@@ -144,7 +144,7 @@ const About = () => {
                     style={{ background: "radial-gradient(circle, hsl(210 100% 65%), transparent 70%)" }}
                   />
                   <div className="relative">
-                    <div className="inline-flex w-12 h-12 md:w-14 md:h-14 rounded-xl md:rounded-2xl bg-white/15 backdrop-blur items-center justify-center mb-4 md:mb-5">
+                    <div className="inline-flex w-12 h-12 md:w-14 md:h-14 rounded-xl md:rounded-2xl bg-white/15 items-center justify-center mb-4 md:mb-5">
                       <Icon className="w-6 h-6 md:w-7 md:h-7 text-white" />
                     </div>
                     <h3 className="text-xl md:text-2xl font-black mb-2 md:mb-3 leading-tight">

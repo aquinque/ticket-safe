@@ -64,7 +64,7 @@ const EventCard = ({ event, onClick }: EventCardProps) => {
 
   return (
     <Card 
-      className="group overflow-hidden bg-card border-0 hover:shadow-hover transition-all duration-300 hover:-translate-y-2 shadow-card cursor-pointer rounded-xl"
+      className="group overflow-hidden bg-card border-0 hover:shadow-hover transition-all duration-300 shadow-card cursor-pointer rounded-xl"
       onClick={onClick}
     >
       {/* Event Image */}
@@ -72,15 +72,15 @@ const EventCard = ({ event, onClick }: EventCardProps) => {
         <img 
           src={event.image} 
           alt={event.title}
-          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500 saturate-75"
+          className="w-full h-full object-cover group- transition-transform duration-500 saturate-75"
         />
         
         {/* Brand color overlay */}
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-accent/10 mix-blend-overlay" />
+        <div className="absolute inset-0 bg-primary/10 mix-blend-overlay" />
         
         {/* Verified Badge */}
         <Badge 
-          className="absolute top-4 left-4 bg-white/95 text-foreground backdrop-blur-md shadow-soft flex items-center gap-1"
+          className="absolute top-4 left-4 bg-white/95 text-foreground shadow-soft flex items-center gap-1"
         >
           <ShieldCheck className="w-3 h-3 text-primary" />
           {t('events.verifiedByTicketSafe')}
@@ -88,7 +88,7 @@ const EventCard = ({ event, onClick }: EventCardProps) => {
 
         {/* Type Badge */}
         <Badge 
-          className={`absolute top-4 right-4 ${getTypeColor(event.category)} backdrop-blur-md shadow-soft border`}
+          className={`absolute top-4 right-4 ${getTypeColor(event.category)} shadow-soft border`}
         >
           {event.category}
         </Badge>
@@ -97,7 +97,7 @@ const EventCard = ({ event, onClick }: EventCardProps) => {
         {event.isPastEvent && (
           <Badge
             variant="secondary"
-            className="absolute bottom-4 left-4 bg-black/80 text-white backdrop-blur-md"
+            className="absolute bottom-4 left-4 bg-black/80 text-white"
           >
             {t('events.eventEnded')}
           </Badge>
@@ -109,7 +109,7 @@ const EventCard = ({ event, onClick }: EventCardProps) => {
           if (!badge) return null;
           return (
             <Badge
-              className={`absolute bottom-4 right-4 backdrop-blur-md flex items-center gap-1 ${
+              className={`absolute bottom-4 right-4 flex items-center gap-1 ${
                 badge.urgent
                   ? "bg-amber-500 text-white border-transparent"
                   : "bg-white/90 text-foreground border-border"

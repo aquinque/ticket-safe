@@ -32,7 +32,7 @@ const Hero = () => {
   const { t } = useI18n();
 
   return (
-    <section className="relative overflow-hidden bg-gradient-to-b from-background to-muted/20 pt-4 pb-8 md:pb-8">
+    <section className="relative overflow-hidden bg-background pt-4 pb-8 md:pb-8">
       {/* Background Gradient Overlay */}
       <div className="absolute inset-0 bg-gradient-hero opacity-5" />
 
@@ -67,7 +67,7 @@ const Hero = () => {
               variant="hero"
               size="lg"
               asChild
-              className="h-14 md:h-16 px-6 md:px-10 text-base md:text-xl font-bold rounded-xl md:rounded-2xl shadow-lg md:shadow-2xl hover:scale-[1.02] transition-transform"
+              className="h-14 md:h-16 px-6 md:px-10 text-base md:text-xl font-bold rounded-xl md:rounded-2xl shadow-lg md:shadow-2xl transition-transform"
             >
               <Link to="/marketplace" aria-label="Find a ticket on the marketplace">
                 <Search className="w-5 h-5 md:w-6 md:h-6" />
@@ -79,7 +79,7 @@ const Hero = () => {
               variant="outline"
               size="lg"
               asChild
-              className="h-14 md:h-16 px-6 md:px-10 text-base md:text-xl font-bold rounded-xl md:rounded-2xl border-2 hover:scale-[1.02] transition-transform"
+              className="h-14 md:h-16 px-6 md:px-10 text-base md:text-xl font-bold rounded-xl md:rounded-2xl border-2 transition-transform"
             >
               <Link to="/sell" aria-label="List your ticket for sale">
                 Sell a Ticket

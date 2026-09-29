@@ -60,7 +60,7 @@ const EventDetail = () => {
       <Header />
       <main className="min-h-screen bg-background">
         {/* Hero Image Section */}
-        <div className="relative h-[40vh] md:h-[50vh] overflow-hidden bg-gradient-to-br from-primary/20 to-primary/5">
+        <div className="relative h-[40vh] md:h-[50vh] overflow-hidden bg-primary/10">
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
           <div className="absolute top-4 left-4 md:top-8 md:left-8">
             <BackButton className="bg-secondary/80 hover:bg-secondary" />
@@ -75,7 +75,7 @@ const EventDetail = () => {
         {/* Content Section */}
         <div className="container mx-auto px-4 -mt-20 relative z-10 pb-16">
           <div className="max-w-4xl mx-auto">
-            <Card className="backdrop-blur-sm bg-card/95">
+            <Card className=" bg-card/95">
               <CardContent className="p-6 md:p-8">
                 {/* Title */}
                 <h1 className="text-3xl md:text-5xl font-bold mb-6">{event.title}</h1>

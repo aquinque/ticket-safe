@@ -115,7 +115,7 @@ const Index = () => {
                 <div className="flex items-center gap-3 shrink-0">
                   <Link
                     to="/organizers"
-                    className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl font-bold bg-white text-primary hover:bg-white/95 hover:scale-[1.02] transition-all"
+                    className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl font-bold bg-white text-primary hover:bg-white/95 transition-all"
                   >
                     <Rocket className="w-4 h-4" />
                     Discover Studio

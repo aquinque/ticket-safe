@@ -364,7 +364,7 @@ const MyListings = () => {
         <Header />
         <main className="py-16 flex items-center justify-center">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4" />
+            <div className="animate-spin rounded-[9999px] h-12 w-12 border-b-2 border-primary mx-auto mb-4" />
             <p className="text-muted-foreground">Loading your listings…</p>
           </div>
         </main>
@@ -401,7 +401,7 @@ const MyListings = () => {
               the price of every completed resale (the 6% buyer fee was already
               taken at checkout); Ticket Safe takes 5% when you withdraw. ===== */}
           <section className="mb-6">
-            <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-card p-5 md:p-6">
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 md:p-6">
               <div className="flex items-start justify-between gap-4 flex-wrap">
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0">
@@ -790,7 +790,7 @@ const MyListings = () => {
             </Button>
             <Button onClick={savePrice} disabled={editLoading} className="gap-2">
               {editLoading ? (
-                <span className="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4" />
+                <span className="animate-spin border-2 border-white border-t-transparent rounded-[9999px] w-4 h-4" />
               ) : (
                 <CheckCircle2 className="w-4 h-4" />
               )}
@@ -823,7 +823,7 @@ const MyListings = () => {
               className="gap-2"
             >
               {cancelLoading ? (
-                <span className="animate-spin border-2 border-white border-t-transparent rounded-full w-4 h-4" />
+                <span className="animate-spin border-2 border-white border-t-transparent rounded-[9999px] w-4 h-4" />
               ) : (
                 <Trash2 className="w-4 h-4" />
               )}
@@ -953,7 +953,7 @@ const SellerPayoutModal = ({
   const netCents = cents - feeCents;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end md:items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 bg-black/60 flex items-end md:items-center justify-center p-4" onClick={onClose}>
       <div className="bg-card w-full max-w-lg rounded-2xl shadow-2xl border border-border max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="px-6 py-5 border-b border-border flex items-start justify-between">
           <div>

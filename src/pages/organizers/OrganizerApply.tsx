@@ -622,7 +622,7 @@ const OrganizerApply = () => {
                 <button
                   type="button"
                   onClick={handleNext}
-                  className="inline-flex items-center justify-center gap-2 px-5 sm:px-6 min-h-[48px] rounded-xl font-bold text-white hover:scale-[1.02] transition-transform text-sm md:text-base"
+                  className="inline-flex items-center justify-center gap-2 px-5 sm:px-6 min-h-[48px] rounded-xl font-bold text-white transition-transform text-sm md:text-base"
                   style={{ background: "var(--gradient-hero)" }}
                 >
                   Continue <ArrowRight className="w-4 h-4" />
@@ -632,7 +632,7 @@ const OrganizerApply = () => {
                   type="button"
                   onClick={handleSubmit}
                   disabled={submitting}
-                  className="inline-flex items-center justify-center gap-2 px-5 sm:px-6 min-h-[48px] rounded-xl font-bold text-white hover:scale-[1.02] transition-transform disabled:opacity-60 disabled:cursor-wait text-sm md:text-base"
+                  className="inline-flex items-center justify-center gap-2 px-5 sm:px-6 min-h-[48px] rounded-xl font-bold text-white transition-transform disabled:opacity-60 disabled:cursor-wait text-sm md:text-base"
                   style={{ background: "var(--gradient-hero)" }}
                 >
                   {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />}

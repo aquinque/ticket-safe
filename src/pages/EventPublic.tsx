@@ -305,7 +305,7 @@ const EventPublic = () => {
   if (loading || authLoading) {
     return (
       <div className="min-h-screen bg-background">
-        <div className="bg-gradient-to-br from-[#02122d] via-[#0a2f73] to-[#0a3a8a]">
+        <div className="bg-[#0a2f73]">
           <div className="container mx-auto max-w-4xl sm:px-4 sm:pt-4">
             <div className="w-full aspect-[16/9] sm:rounded-2xl bg-white/5 animate-pulse" />
           </div>
@@ -564,7 +564,7 @@ const EventPublic = () => {
 
       {/* ===== Hero — clean banner + title (Eventbrite / Dice style) ===== */}
       <section className="relative">
-        <div className="bg-gradient-to-br from-[#02122d] via-[#0a2f73] to-[#0a3a8a]">
+        <div className="bg-[#0a2f73]">
           <div className="container mx-auto max-w-5xl sm:px-4 sm:pt-4">
             <div className="relative w-full aspect-[16/9] sm:rounded-2xl overflow-hidden bg-black/20 sm:ring-1 sm:ring-white/10">
               {event.banner_url ? (
@@ -594,13 +594,13 @@ const EventPublic = () => {
                     if (location.key && location.key !== "default") navigate(-1);
                     else navigate("/tickets");
                   }}
-                  className="group inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/45 backdrop-blur ring-1 ring-white/20 hover:bg-black/60 transition-colors"
+                  className="group inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/45 ring-1 ring-white/20 hover:bg-black/60 transition-colors"
                   aria-label="Back"
                 >
                   <ArrowLeft className="w-4 h-4 text-white transition-transform group-hover:-translate-x-0.5" />
                   <span className="text-xs font-bold text-white">Back</span>
                 </button>
-                <Link to="/" className="hidden sm:inline-flex px-3 py-1.5 rounded-full bg-black/40 backdrop-blur ring-1 ring-white/15">
+                <Link to="/" className="hidden sm:inline-flex px-3 py-1.5 rounded-full bg-black/40 ring-1 ring-white/15">
                   <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/90">Powered by Ticket Safe</span>
                 </Link>
               </div>
@@ -612,7 +612,7 @@ const EventPublic = () => {
                   {statusBadge.label}
                 </span>
                 {categoryLabel && (
-                  <span className="inline-flex items-center px-3 py-1.5 rounded-full bg-black/55 backdrop-blur text-white text-[11px] font-bold uppercase tracking-[0.14em]">
+                  <span className="inline-flex items-center px-3 py-1.5 rounded-full bg-black/55 text-white text-[11px] font-bold uppercase tracking-[0.14em]">
                     {categoryLabel}
                   </span>
                 )}
@@ -1047,7 +1047,7 @@ const EventPublic = () => {
 
       {/* ===== Sticky mobile checkout bar ===== */}
       {selected && !eventSoldOut && (
-        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/95 backdrop-blur-md shadow-[0_-4px_24px_rgba(0,0,0,0.06)] px-4 pt-3 pb-[calc(0.75rem_+_env(safe-area-inset-bottom))] animate-in slide-in-from-bottom-2 duration-300">
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/95 shadow-[0_-4px_24px_rgba(0,0,0,0.06)] px-4 pt-3 pb-[calc(0.75rem_+_env(safe-area-inset-bottom))] animate-in slide-in-from-bottom-2 duration-300">
           <div className="container mx-auto max-w-4xl flex items-center gap-3">
             <div className="flex-1 min-w-0">
               <div className="text-[11px] font-medium text-muted-foreground truncate">{qty} × {selected.name}</div>

@@ -13,6 +13,32 @@ export default {
         "2xl": "1400px",
       },
     },
+    // Flat, squared-off look: near-square corners and no drop shadows.
+    borderRadius: {
+      none: "0",
+      sm: "0",
+      DEFAULT: "2px",
+      md: "2px",
+      lg: "2px",
+      xl: "2px",
+      "2xl": "2px",
+      "3xl": "2px",
+      full: "2px",
+    },
+    boxShadow: {
+      none: "none",
+      sm: "none",
+      DEFAULT: "none",
+      md: "none",
+      lg: "none",
+      xl: "none",
+      "2xl": "none",
+      inner: "none",
+      soft: "none",
+      card: "none",
+      hover: "none",
+      glow: "none",
+    },
     extend: {
       colors: {
         border: "hsl(var(--border))",
@@ -62,22 +88,11 @@ export default {
           ring: "hsl(var(--sidebar-ring))",
         },
       },
-      borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
-      },
       backgroundImage: {
         'gradient-hero': 'var(--gradient-hero)',
         'gradient-card': 'var(--gradient-card)',
         'gradient-accent': 'var(--gradient-accent)',
         'gradient-purple-blue': 'var(--gradient-purple-blue)',
-      },
-      boxShadow: {
-        'soft': 'var(--shadow-soft)',
-        'card': 'var(--shadow-card)',
-        'hover': 'var(--shadow-hover)',
-        'glow': 'var(--shadow-glow)',
       },
       transitionTimingFunction: {
         'smooth': 'var(--transition-smooth)',

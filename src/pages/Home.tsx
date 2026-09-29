@@ -168,10 +168,10 @@ const Home = () => {
           {isStudioOrganizer && (
             <Link
               to="/studio"
-              className="group flex items-center gap-3 md:gap-4 mb-3.5 md:mb-6 px-4 md:px-6 py-4 md:py-5 rounded-2xl text-white shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all animate-slide-up"
+              className="group flex items-center gap-3 md:gap-4 mb-3.5 md:mb-6 px-4 md:px-6 py-4 md:py-5 rounded-2xl text-white shadow-lg hover:shadow-xl transition-all animate-slide-up"
               style={{ background: "linear-gradient(135deg, #003399, #0066cc)" }}
             >
-              <div className="w-10 h-10 md:w-11 md:h-11 rounded-xl bg-white/15 backdrop-blur flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+              <div className="w-10 h-10 md:w-11 md:h-11 rounded-xl bg-white/15 flex items-center justify-center shrink-0 group- transition-transform">
                 <LayoutDashboard className="w-5 h-5 md:w-6 md:h-6" />
               </div>
               <div className="flex-1 min-w-0">
@@ -193,7 +193,7 @@ const Home = () => {
                 pattern as the other card so both CTAs line up. */}
             <Link
               to="/resale"
-              className="group relative rounded-2xl md:rounded-3xl p-6 md:p-10 overflow-hidden bg-card border border-border transition-all duration-300 active:scale-[0.99] md:hover:-translate-y-1 md:hover:shadow-hover hover:border-primary/30 flex flex-col"
+              className="group relative rounded-2xl md:rounded-3xl p-6 md:p-10 overflow-hidden bg-card border border-border transition-all duration-300 active:scale-[0.99] md: md:hover:shadow-hover hover:border-primary/30 flex flex-col"
             >
               <div
                 className="pointer-events-none absolute -top-20 -right-20 w-72 h-72 rounded-full opacity-30 blur-3xl group-hover:opacity-50 transition-opacity"
@@ -201,7 +201,7 @@ const Home = () => {
               />
               <div className="relative flex flex-col flex-1">
                 <div
-                  className="inline-flex w-12 h-12 md:w-14 md:h-14 rounded-xl md:rounded-2xl items-center justify-center mb-4 md:mb-6 group-hover:scale-110 transition-transform"
+                  className="inline-flex w-12 h-12 md:w-14 md:h-14 rounded-xl md:rounded-2xl items-center justify-center mb-4 md:mb-6 group- transition-transform"
                   style={{ background: "linear-gradient(135deg, hsl(220 100% 30%), hsl(210 100% 45%))" }}
                 >
                   <Repeat2 className="w-6 h-6 md:w-7 md:h-7 text-white" />
@@ -225,7 +225,7 @@ const Home = () => {
             {/* Path 2 — Buy event tickets. Same flex-col + mt-auto pattern. */}
             <Link
               to="/tickets"
-              className="group relative rounded-2xl md:rounded-3xl p-6 md:p-10 overflow-hidden text-white transition-all duration-300 active:scale-[0.99] md:hover:-translate-y-1 md:hover:shadow-hover flex flex-col"
+              className="group relative rounded-2xl md:rounded-3xl p-6 md:p-10 overflow-hidden text-white transition-all duration-300 active:scale-[0.99] md: md:hover:shadow-hover flex flex-col"
               style={{ background: "var(--gradient-hero)" }}
             >
               {/* Glow accent */}
@@ -234,7 +234,7 @@ const Home = () => {
                 style={{ background: "radial-gradient(circle, hsl(210 100% 65%), transparent 70%)" }}
               />
               <div className="relative flex flex-col flex-1">
-                <div className="inline-flex w-12 h-12 md:w-14 md:h-14 rounded-xl md:rounded-2xl bg-white/15 backdrop-blur items-center justify-center mb-4 md:mb-6 group-hover:scale-110 group-hover:bg-white/25 transition-all">
+                <div className="inline-flex w-12 h-12 md:w-14 md:h-14 rounded-xl md:rounded-2xl bg-white/15 items-center justify-center mb-4 md:mb-6 group- group-hover:bg-white/25 transition-all">
                   <Ticket className="w-6 h-6 md:w-7 md:h-7 text-white" />
                 </div>
                 <h2 className="text-xl md:text-3xl font-black mb-2 md:mb-3 leading-tight">
@@ -286,7 +286,7 @@ const Home = () => {
       </main>
 
       {/* Footer micro */}
-      <footer className="relative z-10 py-4 md:py-5 border-t border-border/50 bg-background/50 backdrop-blur">
+      <footer className="relative z-10 py-4 md:py-5 border-t border-border/50 bg-background/50">
         <div className="container mx-auto px-4 flex flex-wrap items-center justify-center gap-x-4 md:gap-x-5 gap-y-1.5 text-[11px] md:text-xs text-muted-foreground">
           <Link to="/about" className="hover:text-foreground transition-colors">About</Link>
           <span className="text-border">·</span>

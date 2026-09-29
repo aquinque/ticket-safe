@@ -211,8 +211,8 @@ const Footer = () => {
                 className="relative group"
                 aria-label="Instagram"
               >
-                <div className="absolute inset-0 bg-primary/10 rounded-full scale-0 group-hover:scale-100 transition-transform duration-300" />
-                <div className="relative p-2 transition-all duration-300 group-hover:scale-110">
+                <div className="absolute inset-0 bg-primary/10 rounded-full scale-0 group- transition-transform duration-300" />
+                <div className="relative p-2 transition-all duration-300 group-">
                   <Instagram className="h-5 w-5 text-primary transition-all duration-300 group-hover:drop-shadow-lg" />
                 </div>
               </a>
