@@ -10,8 +10,8 @@ All colors MUST be HSL.
 @layer base {
   :root {
     /* Background & Surfaces */
-    --background: 210 20% 98%;
-    --foreground: 222 47% 11%;
+    --background: 40 25% 97%;
+    --foreground: 222 30% 12%;
     
     --card: 0 0% 100%;
     --card-foreground: 222 47% 11%;
@@ -20,28 +20,28 @@ All colors MUST be HSL.
     --popover-foreground: 222 47% 11%;
     
     /* ESCP Brand Colors - Professional Blue & White */
-    --primary: 220 100% 30%; /* Deep ESCP Blue */
+    --primary: 222 55% 24%; /* Deep ESCP Blue */
     --primary-foreground: 0 0% 100%;
-    --primary-hover: 220 100% 35%;
+    --primary-hover: 222 55% 30%;
     
     /* Brand Blue for CTAs */
-    --cta-blue: 221 100% 56%; /* Brand blue #1E5EFF */
+    --cta-blue: 222 55% 32%; /* Brand blue #1E5EFF */
     --cta-blue-hover: 221 87% 48%; /* Darker blue #184BDC */
     
-    --secondary: 215 95% 40%; /* Rich Blue */
+    --secondary: 222 40% 34%; /* Rich Blue */
     --secondary-foreground: 0 0% 100%;
     --secondary-hover: 215 95% 45%;
     
-    --accent: 210 100% 45%; /* Bright Accent Blue */
+    --accent: 222 45% 38%; /* Bright Accent Blue */
     --accent-foreground: 0 0% 100%;
     --accent-hover: 210 100% 50%;
     
     /* Neutral System */
-    --muted: 210 20% 96%;
-    --muted-foreground: 215 16% 47%;
+    --muted: 40 15% 93%;
+    --muted-foreground: 30 8% 40%;
     
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
+    --border: 35 12% 84%;
+    --input: 35 12% 84%;
     --ring: 240 100% 67%;
     
     --destructive: 0 84% 60%;
@@ -176,6 +176,10 @@ All colors MUST be HSL.
   }
 
   /* Professional Typography Hierarchy */
+  h1, h2, h3, h4 {
+    @apply font-serif;
+  }
+
   h1 {
     @apply scroll-m-20 text-4xl font-bold tracking-tight lg:text-5xl;
   }
