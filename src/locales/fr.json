@@ -18,6 +18,9 @@
   },
   "nav": {
     "home": "Accueil",
+    "events": "Events",
+    "resale": "Revente",
+    "organizers": "Organisateurs",
     "marketplace": "Marketplace",
     "sellTickets": "Vendre des billets",
     "campusLife": "Vie étudiante",

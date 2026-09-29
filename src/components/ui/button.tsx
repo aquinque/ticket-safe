@@ -10,6 +10,13 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: "bg-primary text-primary-foreground hover:bg-primary/90 shadow-soft hover:shadow-card",
+        // Alias of `default`, named explicitly per the design-system spec
+        // ("primary (brand-500)") so new code can reach for the semantic
+        // name without needing to know `default` already means that.
+        primary: "bg-primary text-primary-foreground hover:bg-primary/90 shadow-soft hover:shadow-card",
+        // The purchase action. Electric lime, reserved for this — never a
+        // large background fill elsewhere. Dark text for AA contrast on lime.
+        buy: "bg-lime text-lime-foreground hover:bg-lime/90 font-bold shadow-soft hover:shadow-card",
         destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
         outline: "border border-border bg-background hover:bg-muted hover:border-primary/50",
         secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/90 shadow-soft hover:shadow-card",
@@ -21,10 +28,13 @@ const buttonVariants = cva(
         marketplace: "bg-gradient-hero text-white font-semibold rounded-full shadow-card hover:shadow-hover",
       },
       size: {
-        default: "h-10 px-4 py-2",
-        sm: "h-9 rounded-md px-3",
-        lg: "h-11 rounded-md px-8",
-        icon: "h-10 w-10",
+        // Every size guarantees a >=44px tap target on mobile (spec: "taille
+        // min 44px de haut sur mobile"), then relaxes to the previous,
+        // denser desktop heights from `md:` up.
+        default: "h-11 md:h-10 px-4 py-2",
+        sm: "h-11 md:h-9 rounded-md px-3",
+        lg: "h-12 md:h-11 rounded-md px-8",
+        icon: "h-11 w-11 md:h-10 md:w-10",
       },
     },
     defaultVariants: {

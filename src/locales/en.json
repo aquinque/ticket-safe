@@ -18,6 +18,9 @@
   },
   "nav": {
     "home": "Home",
+    "events": "Events",
+    "resale": "Resale",
+    "organizers": "Organizers",
     "marketplace": "Marketplace",
     "sellTickets": "Sell Tickets",
     "campusLife": "Campus Life",

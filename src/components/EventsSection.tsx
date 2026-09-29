@@ -3,11 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, Filter, Bell, BookOpen, Tag } from "lucide-react";
-import EventCard from "./EventCard";
+import EventCard, { EventCardSkeleton } from "./EventCard";
 import { useI18n } from "@/contexts/I18nContext";
 import { useESCPEvents } from "@/hooks/useESCPEvents";
-import { Skeleton } from "@/components/ui/skeleton";
-import { getEventImage } from "@/lib/eventImages";
 import { toast } from "sonner";
 import { matchesDateFilter, type DateFilterId } from "@/lib/dateFilters";
 
@@ -119,13 +117,9 @@ const EventsSection = () => {
 
         {/* Loading */}
         {loading && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
             {[1, 2, 3, 4, 5, 6].map((i) => (
-              <div key={i} className="space-y-3">
-                <Skeleton className="h-40 md:h-48 w-full" />
-                <Skeleton className="h-4 w-3/4" />
-                <Skeleton className="h-4 w-1/2" />
-              </div>
+              <EventCardSkeleton key={i} />
             ))}
           </div>
         )}
@@ -143,9 +137,10 @@ const EventsSection = () => {
           </div>
         )}
 
-        {/* Events Grid */}
+        {/* Events Grid — 2 cols mobile, 3-4 desktop (matches the poster-card
+            aspect ratio; consistent with the /tickets grid in Phase 4). */}
         {!loading && !error && filteredEvents.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
             {filteredEvents.map(event => (
               <EventCard
                 key={event.id}
@@ -159,8 +154,12 @@ const EventsSection = () => {
                   organizer: event.organizer,
                   description: event.description,
                   filterCategory: event.category.toLowerCase(),
-                  image: getEventImage(event.image_url, event.category),
+                  // Raw url, not pre-resolved through getEventImage: a
+                  // missing poster should render EventCard's generated
+                  // brand-gradient fallback, not a generic stock photo.
+                  image: event.image_url,
                   isPastEvent: false,
+                  fromPriceCents: event.min_price != null ? Math.round(event.min_price * 100) : undefined,
                 }}
                 onClick={() => navigate(`/event/${event.id}/tickets`)}
               />
