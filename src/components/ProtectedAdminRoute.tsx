@@ -20,7 +20,7 @@ const FullScreenSpinner = () => (
     <div
       role="status"
       aria-label="Checking access"
-      className="w-8 h-8 rounded-full border-2 border-muted border-t-primary animate-spin"
+      className="w-8 h-8 rounded-[9999px] border-2 border-muted border-t-primary animate-spin"
     />
   </div>
 );

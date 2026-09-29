@@ -106,7 +106,7 @@ const Settings = () => {
           <button
             type="button"
             onClick={() => navigate("/settings/listings")}
-            className="w-full text-left mb-4 rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-card p-5 md:p-6 hover:shadow-md transition-all group"
+            className="w-full text-left mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-5 md:p-6 hover:shadow-md transition-all group"
           >
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-3 min-w-0">

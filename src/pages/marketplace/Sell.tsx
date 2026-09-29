@@ -972,7 +972,7 @@ const Sell = () => {
                       isDone
                         ? "bg-white text-primary ring-white"
                         : isActive
-                        ? "bg-white/20 text-white ring-white/40 backdrop-blur"
+                        ? "bg-white/20 text-white ring-white/40"
                         : "bg-white/5 text-white/65 ring-white/15"
                     }`}
                   >
@@ -1753,7 +1753,7 @@ const Sell = () => {
           form, and that turns into the Publish CTA once a price is set. Keeps
           the interface perfectly fit for mobile (no scrolling back up). */}
       {(studioTicket || showExternalFlow) && (
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/95 backdrop-blur-md shadow-[0_-4px_24px_rgba(0,0,0,0.08)] px-4 pt-2.5 pb-[calc(0.75rem_+_env(safe-area-inset-bottom))]">
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/95 shadow-[0_-4px_24px_rgba(0,0,0,0.08)] px-4 pt-2.5 pb-[calc(0.75rem_+_env(safe-area-inset-bottom))]">
         <div className="container mx-auto max-w-4xl">
           {/* Compact progress: numbered chip per step + connecting bar */}
           <div className="flex items-center gap-1.5 mb-2.5">

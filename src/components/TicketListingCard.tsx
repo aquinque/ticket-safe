@@ -39,21 +39,21 @@ const TicketListingCard = ({ listing }: TicketListingCardProps) => {
         <img
           src={event.image}
           alt={event.title}
-          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+          className="w-full h-full object-cover transition-transform duration-300 group-"
         />
         <div className="absolute top-3 left-3 flex flex-col gap-2">
-          <Badge variant="secondary" className="bg-background/90 backdrop-blur-sm">
+          <Badge variant="secondary" className="bg-background/90">
             {event.category}
           </Badge>
           {verified && (
-            <Badge variant="default" className="bg-green-600/90 backdrop-blur-sm flex items-center gap-1">
+            <Badge variant="default" className="bg-green-600/90 flex items-center gap-1">
               <ShieldCheck className="w-3 h-3" />
               Verified
             </Badge>
           )}
         </div>
         <div className="absolute top-3 right-3">
-          <Badge variant="default" className="bg-primary/90 backdrop-blur-sm">
+          <Badge variant="default" className="bg-primary/90">
             {quantity} ticket{quantity > 1 ? 's' : ''} available
           </Badge>
         </div>

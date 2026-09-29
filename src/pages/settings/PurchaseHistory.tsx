@@ -197,7 +197,7 @@ const PurchaseHistory = () => {
             <CardContent className="pt-0">
               {loading ? (
                 <div className="text-center py-10">
-                  <div className="animate-spin rounded-full h-7 w-7 border-b-2 border-primary mx-auto mb-2" />
+                  <div className="animate-spin rounded-[9999px] h-7 w-7 border-b-2 border-primary mx-auto mb-2" />
                   <p className="text-sm text-muted-foreground">Loading...</p>
                 </div>
               ) : purchases.length === 0 ? (

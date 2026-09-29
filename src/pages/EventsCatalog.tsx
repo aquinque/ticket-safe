@@ -199,7 +199,7 @@ const EventsCatalog = () => {
                       <img
                         src={getEventImage(event.image_url, event.category)}
                         alt={event.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        className="w-full h-full object-cover group- transition-transform duration-500"
                       />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
                       <div className="absolute top-3 right-3">

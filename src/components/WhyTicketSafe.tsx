@@ -129,7 +129,7 @@ const WhyTicketSafe = () => {
         </div>
 
         {/* Bottom CTA */}
-        <div className="mt-8 md:mt-12 p-5 md:p-8 bg-gradient-to-r from-primary/10 to-accent/10 rounded-2xl text-center">
+        <div className="mt-8 md:mt-12 p-5 md:p-8 bg-primary/10 rounded-2xl text-center">
           <h3 className="text-lg md:text-2xl font-bold mb-2 md:mb-3">
             Ready to buy or sell safely?
           </h3>

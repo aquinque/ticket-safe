@@ -465,7 +465,7 @@ const StudioEventEdit = () => {
                   <button
                     onClick={unpublish}
                     disabled={saving}
-                    className="inline-flex items-center gap-2 px-4 min-h-[40px] rounded-lg font-bold bg-white/15 backdrop-blur border border-white/20 hover:bg-white/25"
+                    className="inline-flex items-center gap-2 px-4 min-h-[40px] rounded-lg font-bold bg-white/15 border border-white/20 hover:bg-white/25"
                   >
                     <EyeOff className="w-4 h-4" />
                     Unpublish
@@ -505,7 +505,7 @@ const StudioEventEdit = () => {
                   <button
                     onClick={openCancelDialog}
                     disabled={saving}
-                    className="inline-flex items-center gap-1.5 px-4 min-h-[40px] rounded-lg font-bold text-sm bg-red-500/20 backdrop-blur border border-red-200/40 text-white hover:bg-red-500/30"
+                    className="inline-flex items-center gap-1.5 px-4 min-h-[40px] rounded-lg font-bold text-sm bg-red-500/20 border border-red-200/40 text-white hover:bg-red-500/30"
                     title="Cancel event and refund all buyers"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -521,7 +521,7 @@ const StudioEventEdit = () => {
           {event.status === "published" && (
             <Link
               to={`/organizer/scan?event_id=${event.id}`}
-              className="group flex items-center gap-4 rounded-2xl border border-emerald-300/70 bg-gradient-to-br from-emerald-50 to-card p-4 md:p-5 mb-6 hover:shadow-md transition-all"
+              className="group flex items-center gap-4 rounded-2xl border border-emerald-300/70 bg-emerald-50 p-4 md:p-5 mb-6 hover:shadow-md transition-all"
             >
               <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-sm">
                 <QrCode className="w-6 h-6 md:w-7 md:h-7" />

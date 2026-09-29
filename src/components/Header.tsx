@@ -111,7 +111,7 @@ const Header = ({ minimal = false }: HeaderProps) => {
 
   return (
     <header className={`sticky top-0 z-50 w-full border-b border-border transition-all duration-300 ${
-      isScrolled ? 'bg-background/80 backdrop-blur-xl shadow-lg' : 'bg-background/95 backdrop-blur-lg shadow-soft'
+      isScrolled ? 'bg-background/80 shadow-lg' : 'bg-background/95 shadow-soft'
     }`}>
       <div className="container mx-auto px-3 md:px-4">
         <div className="flex h-14 md:h-16 lg:h-20 items-center justify-between">
@@ -280,7 +280,7 @@ const Header = ({ minimal = false }: HeaderProps) => {
 
         {/* Mobile Navigation */}
         {isMenuOpen && (
-          <div className="md:hidden border-t border-border bg-background/95 backdrop-blur-md">
+          <div className="md:hidden border-t border-border bg-background/95">
             <nav className="flex flex-col gap-2.5 p-4">
               {isStudioOrganizer && (
                 <div className="mb-2 pb-3 border-b border-border">

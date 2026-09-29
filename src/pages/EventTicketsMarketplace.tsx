@@ -354,7 +354,7 @@ const EventTicketsMarketplace = () => {
                 <Card key={listing.id} className="overflow-hidden hover:shadow-xl transition-all duration-300">
                   <CardContent className="p-0">
                     {/* Ticket Header */}
-                    <div className="bg-gradient-to-br from-primary/10 to-accent/10 p-6 border-b">
+                    <div className="bg-primary/10 p-6 border-b">
                       <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-2">
                           <Badge variant="default">

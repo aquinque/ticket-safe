@@ -69,7 +69,7 @@ const ChatBubble = () => {
             return !v;
           });
         }}
-        className="fixed bottom-6 right-6 z-[9999] w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200 flex items-center justify-center group"
+        className="fixed bottom-6 right-6 z-[9999] w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center group"
         aria-label="Open messages"
         title="Messages — chat with buyers and sellers"
       >
@@ -112,7 +112,7 @@ const ChatBubble = () => {
           <div className="flex-1 overflow-y-auto">
             {loading && (
               <div className="flex justify-center py-8">
-                <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-[9999px] animate-spin" />
               </div>
             )}
 

@@ -298,7 +298,7 @@ const StudioDashboard = () => {
                     className="w-14 h-14 md:w-16 md:h-16 rounded-xl object-cover bg-white/10"
                   />
                 ) : (
-                  <div className="w-14 h-14 md:w-16 md:h-16 rounded-xl bg-white/15 backdrop-blur flex items-center justify-center font-black text-2xl">
+                  <div className="w-14 h-14 md:w-16 md:h-16 rounded-xl bg-white/15 flex items-center justify-center font-black text-2xl">
                     {organizer.name[0]?.toUpperCase() ?? "?"}
                   </div>
                 )}
@@ -311,7 +311,7 @@ const StudioDashboard = () => {
                     <Link
                       to="/studio/profile"
                       title="Edit organizer profile"
-                      className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-white/15 backdrop-blur hover:bg-white/25 transition-colors"
+                      className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-white/15 hover:bg-white/25 transition-colors"
                     >
                       <Settings className="w-3.5 h-3.5" />
                     </Link>
@@ -648,7 +648,7 @@ const PayoutModal = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end md:items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 bg-black/60 flex items-end md:items-center justify-center p-4" onClick={onClose}>
       <div className="bg-card w-full max-w-lg rounded-2xl shadow-2xl border border-border max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="px-6 py-5 border-b border-border flex items-start justify-between">
           <div>
@@ -869,7 +869,7 @@ const QuickAction = ({
 };
 
 const StatCard = ({ icon: Icon, label, value }: { icon: typeof Calendar; label: string; value: string }) => (
-  <div className="bg-white/15 backdrop-blur rounded-xl px-3 py-3 md:px-4 md:py-4 border border-white/20">
+  <div className="bg-white/15 rounded-xl px-3 py-3 md:px-4 md:py-4 border border-white/20">
     <div className="flex items-center gap-2 mb-1">
       <Icon className="w-3.5 h-3.5 md:w-4 md:h-4 opacity-80" />
       <span className="text-[10px] md:text-xs uppercase tracking-wider font-bold opacity-80">{label}</span>
@@ -947,7 +947,7 @@ const EventRow = ({ event }: { event: StudioEvent }) => {
   return (
     <Link
       to={`/studio/events/${event.id}`}
-      className="group block bg-card border border-border rounded-2xl overflow-hidden hover:border-primary/30 hover:shadow-hover hover:-translate-y-1 transition-all duration-300"
+      className="group block bg-card border border-border rounded-2xl overflow-hidden hover:border-primary/30 hover:shadow-hover transition-all duration-300"
     >
       <div
         className="h-28 relative overflow-hidden"
@@ -957,7 +957,7 @@ const EventRow = ({ event }: { event: StudioEvent }) => {
           <img
             src={event.banner_url}
             alt=""
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            className="w-full h-full object-cover group- transition-transform duration-500"
           />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/45 via-black/0 to-black/10" />
@@ -965,7 +965,7 @@ const EventRow = ({ event }: { event: StudioEvent }) => {
           <EventStatusBadge status={event.status} date={event.date} soldOut={soldOut} size="sm" />
         </div>
         {priceFrom && (
-          <span className="absolute bottom-3 left-3 inline-flex items-center rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-black text-foreground shadow-soft backdrop-blur">
+          <span className="absolute bottom-3 left-3 inline-flex items-center rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-black text-foreground shadow-soft">
             {priceFrom}
           </span>
         )}

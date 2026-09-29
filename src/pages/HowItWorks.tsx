@@ -128,7 +128,7 @@ const HowItWorks = () => {
             <div className="mb-5">
               <BackButton />
             </div>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 backdrop-blur border border-white/20 text-[10px] md:text-xs font-bold uppercase tracking-[0.2em] mb-4">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 border border-white/20 text-[10px] md:text-xs font-bold uppercase tracking-[0.2em] mb-4">
               <Repeat2 className="w-3 h-3" />
               Resale marketplace
             </div>

@@ -386,7 +386,7 @@ const Tickets = () => {
               {/* Right — resale marketplace card */}
               <Link
                 to="/resale"
-                className="group block rounded-2xl bg-white text-foreground p-5 md:p-6 shadow-xl hover:shadow-2xl hover:-translate-y-0.5 transition-all duration-300"
+                className="group block rounded-2xl bg-white text-foreground p-5 md:p-6 shadow-xl hover:shadow-2xl transition-all duration-300"
               >
                 <div className="flex items-center gap-3 mb-3">
                   <div
@@ -427,7 +427,7 @@ const Tickets = () => {
         </section>
 
         {/* ===================== FILTER & SEARCH ===================== */}
-        <section className="sticky top-0 z-20 bg-background/95 backdrop-blur-lg border-b border-border">
+        <section className="sticky top-0 z-20 bg-background/95 border-b border-border">
           <div className="container mx-auto px-4 py-3 md:py-3.5">
             {/* Desktop / tablet: context + categories + search on one row */}
             <div className="hidden md:flex md:items-center gap-3">
@@ -740,7 +740,7 @@ const Tickets = () => {
                 </div>
                 <Link
                   to="/organizers"
-                  className="inline-flex items-center justify-center gap-2 px-6 min-h-[48px] rounded-xl font-bold bg-white text-primary hover:bg-white/95 hover:scale-[1.03] transition-all shrink-0"
+                  className="inline-flex items-center justify-center gap-2 px-6 min-h-[48px] rounded-xl font-bold bg-white text-primary hover:bg-white/95 transition-all shrink-0"
                 >
                   Apply for Studio
                   <ArrowRight className="w-4 h-4" />
@@ -767,7 +767,7 @@ const EventCard = ({ event }: { event: Event }) => {
   return (
     <Link
       to={`/e/${event.slug}`}
-      className="group flex flex-col rounded-2xl overflow-hidden bg-card border border-border hover:border-primary/30 hover:shadow-hover hover:-translate-y-1 transition-all duration-300"
+      className="group flex flex-col rounded-2xl overflow-hidden bg-card border border-border hover:border-primary/30 hover:shadow-hover transition-all duration-300"
     >
       {/* Visual — banner photo if available, organizer logo on a navy-tinted
           shell otherwise. One single fallback treatment so the grid reads as
@@ -781,21 +781,21 @@ const EventCard = ({ event }: { event: Event }) => {
             <img
               src={event.logoUrl}
               alt={event.organizer}
-              className="max-h-[80%] max-w-[78%] object-contain group-hover:scale-105 transition-transform duration-500"
+              className="max-h-[80%] max-w-[78%] object-contain group- transition-transform duration-500"
             />
           </div>
         ) : (
           <div className="absolute inset-0 flex items-center justify-center">
-            <Icon className="w-14 h-14 text-primary/30 group-hover:scale-110 group-hover:text-primary/45 transition-all duration-500" strokeWidth={1.5} />
+            <Icon className="w-14 h-14 text-primary/30 group- group-hover:text-primary/45 transition-all duration-500" strokeWidth={1.5} />
           </div>
         )}
 
         {/* Badges — dark pills so they read on a photo or a light logo card */}
         <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
-          <span className="px-2.5 py-1 rounded-full bg-black/55 backdrop-blur text-white text-[10px] font-bold uppercase tracking-wider">
+          <span className="px-2.5 py-1 rounded-full bg-black/55 text-white text-[10px] font-bold uppercase tracking-wider">
             {event.category}
           </span>
-          <span className="px-2.5 py-1 rounded-full bg-black/45 backdrop-blur text-white text-[10px] font-bold uppercase tracking-wider">
+          <span className="px-2.5 py-1 rounded-full bg-black/45 text-white text-[10px] font-bold uppercase tracking-wider">
             {event.campus}
           </span>
           {soldOut ? (

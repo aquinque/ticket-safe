@@ -260,7 +260,7 @@ const Profile = () => {
         <Header />
         <main className="py-16 flex-1 flex items-center justify-center">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mx-auto mb-3" />
+            <div className="animate-spin rounded-[9999px] h-10 w-10 border-b-2 border-primary mx-auto mb-3" />
             <p className="text-sm text-muted-foreground">{t("profile.loadingProfile")}</p>
           </div>
         </main>
@@ -335,7 +335,7 @@ const Profile = () => {
             </div>
             <div className="flex items-center gap-4 md:gap-5">
               <div
-                className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-white/15 backdrop-blur ring-1 ring-white/30 flex items-center justify-center text-lg md:text-xl font-bold tracking-tight shadow-lg flex-shrink-0"
+                className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-white/15 ring-1 ring-white/30 flex items-center justify-center text-lg md:text-xl font-bold tracking-tight shadow-lg flex-shrink-0"
                 aria-label={`${userData.name}'s initials`}
               >
                 {initials}

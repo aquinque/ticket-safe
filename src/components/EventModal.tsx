@@ -77,7 +77,7 @@ const EventModal = ({ event, isOpen, onClose }: EventModalProps) => {
           
           {/* Verified Badge */}
           <Badge 
-            className="absolute top-4 left-4 bg-white/95 text-foreground backdrop-blur-md shadow-soft flex items-center gap-1"
+            className="absolute top-4 left-4 bg-white/95 text-foreground shadow-soft flex items-center gap-1"
           >
             <ShieldCheck className="w-3 h-3 text-primary" />
             {t('events.verifiedByTicketSafe')}
@@ -86,7 +86,7 @@ const EventModal = ({ event, isOpen, onClose }: EventModalProps) => {
           {/* Type Badge */}
           <Badge 
             variant="secondary"
-            className="absolute top-4 right-4 bg-white/95 text-foreground backdrop-blur-md shadow-soft"
+            className="absolute top-4 right-4 bg-white/95 text-foreground shadow-soft"
           >
             {event.category}
           </Badge>
@@ -95,7 +95,7 @@ const EventModal = ({ event, isOpen, onClose }: EventModalProps) => {
           {event.isPastEvent && (
             <Badge 
               variant="secondary"
-              className="absolute bottom-4 left-4 bg-black/80 text-white backdrop-blur-md"
+              className="absolute bottom-4 left-4 bg-black/80 text-white"
             >
               {t('events.eventEnded')}
             </Badge>

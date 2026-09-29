@@ -172,7 +172,7 @@ export default function Marketplace() {
           {/* top-14 matches the Header height (h-14 / md:h-16); on lg it lowers
               to keep clear of the bigger logo. Backdrop-blur lets event cards
               fade under it during scroll, like Shotgun / Pretix. */}
-          <div className="sticky top-14 md:top-16 lg:top-20 z-30 -mx-4 px-4 mb-6 bg-background/85 backdrop-blur-md border-y border-border/60 py-3">
+          <div className="sticky top-14 md:top-16 lg:top-20 z-30 -mx-4 px-4 mb-6 bg-background/85 border-y border-border/60 py-3">
             <div className="flex flex-wrap items-center gap-2">
               {/* Search */}
               <div className="relative flex-1 min-w-[200px]">
@@ -270,7 +270,7 @@ export default function Marketplace() {
                       // capped at 12 (~600ms) so a grid of 50 doesn't make
                       // the user wait. Combined with a hover lift (-translate-y
                       // + brand-tinted shadow) so each card feels alive.
-                      className="overflow-hidden hover:shadow-xl hover:-translate-y-0.5 transition-all duration-300 cursor-pointer group animate-in fade-in slide-in-from-bottom-2 fill-mode-both"
+                      className="overflow-hidden hover:shadow-xl transition-all duration-300 cursor-pointer group animate-in fade-in slide-in-from-bottom-2 fill-mode-both"
                       style={{ animationDelay: `${Math.min(i, 12) * 40}ms` }}
                       onClick={() => navigate(`/event/${ev.id}/tickets`)}
                     >
@@ -278,7 +278,7 @@ export default function Marketplace() {
                         <img
                           src={getEventImage(ev.image_url, ev.category)}
                           alt={ev.title}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          className="w-full h-full object-cover group- transition-transform duration-500"
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
                         <div className="absolute top-3 right-3">

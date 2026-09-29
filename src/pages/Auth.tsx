@@ -336,7 +336,7 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col">
       <div className="absolute top-4 left-4">
         <BackButton />
       </div>

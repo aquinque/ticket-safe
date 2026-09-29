@@ -153,7 +153,7 @@ const ResetPassword = () => {
   // ── Verifying session ────────────────────────────────────────────────────
   if (isValidToken === null) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="absolute top-4 left-4">
           <BackButton />
         </div>
@@ -170,7 +170,7 @@ const ResetPassword = () => {
   // ── Invalid / expired ────────────────────────────────────────────────────
   if (isValidToken === false) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="absolute top-4 left-4">
           <BackButton />
         </div>
@@ -194,7 +194,7 @@ const ResetPassword = () => {
   // ── Success ──────────────────────────────────────────────────────────────
   if (success) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
             <div className="mx-auto mb-3 w-14 h-14 rounded-full bg-green-100 flex items-center justify-center">
@@ -220,7 +220,7 @@ const ResetPassword = () => {
 
   // ── Reset form ───────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="absolute top-4 left-4">
         <BackButton />
       </div>
