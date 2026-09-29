@@ -107,7 +107,7 @@ const EventCard = ({ event, onClick }: EventCardProps) => {
           </Badge>
         ) : (
           urgency && (
-            <Badge className="ml-auto bg-lime text-lime-foreground border-transparent text-[10px] uppercase tracking-wider font-bold">
+            <Badge className="ml-auto bg-cta text-cta-foreground border-transparent text-[10px] uppercase tracking-wider font-bold">
               {urgency}
             </Badge>
           )

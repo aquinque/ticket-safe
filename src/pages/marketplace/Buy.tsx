@@ -449,7 +449,7 @@ const Buy = () => {
                 <button
                   key={c.id}
                   onClick={() => setActiveCategories(toggleInSet(activeCategories, c.id))}
-                  className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs md:text-sm font-semibold whitespace-nowrap transition-all ${
+                  className={`shrink-0 px-3.5 py-1.5 text-xs md:text-sm font-semibold whitespace-nowrap transition-all ${
                     active
                       ? "bg-primary text-primary-foreground shadow-sm"
                       : "bg-muted text-foreground/75 hover:bg-muted/80"
@@ -467,7 +467,7 @@ const Buy = () => {
                 <button
                   key={b.id}
                   onClick={() => setActivePriceBucket(active ? null : b.id)}
-                  className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs md:text-sm font-semibold whitespace-nowrap transition-all tabular-nums ${
+                  className={`shrink-0 px-3.5 py-1.5 text-xs md:text-sm font-semibold whitespace-nowrap transition-all tabular-nums ${
                     active
                       ? "bg-primary text-primary-foreground shadow-sm"
                       : "bg-muted text-foreground/75 hover:bg-muted/80"
@@ -486,7 +486,7 @@ const Buy = () => {
                     <button
                       key={u}
                       onClick={() => setActiveUniversities(toggleInSet(activeUniversities, u))}
-                      className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs md:text-sm font-semibold whitespace-nowrap transition-all ${
+                      className={`shrink-0 px-3.5 py-1.5 text-xs md:text-sm font-semibold whitespace-nowrap transition-all ${
                         active
                           ? "bg-primary text-primary-foreground shadow-sm"
                           : "bg-muted text-foreground/75 hover:bg-muted/80"
@@ -507,7 +507,7 @@ const Buy = () => {
                     <button
                       key={c}
                       onClick={() => setActiveCampuses(toggleInSet(activeCampuses, c))}
-                      className={`shrink-0 px-3 py-1.5 rounded-full text-xs md:text-sm font-semibold whitespace-nowrap transition-all ${
+                      className={`shrink-0 px-3 py-1.5 text-xs md:text-sm font-semibold whitespace-nowrap transition-all ${
                         active
                           ? "bg-primary text-primary-foreground shadow-sm"
                           : "bg-muted text-foreground/75 hover:bg-muted/80"
@@ -522,7 +522,7 @@ const Buy = () => {
             {activeFilterCount > 0 && (
               <button
                 onClick={resetAll}
-                className="shrink-0 ml-auto px-3 py-1.5 rounded-full text-xs md:text-sm font-semibold text-muted-foreground hover:text-foreground inline-flex items-center gap-1 transition-colors"
+                className="shrink-0 ml-auto px-3 py-1.5 text-xs md:text-sm font-semibold text-muted-foreground hover:text-foreground inline-flex items-center gap-1 transition-colors"
               >
                 <X className="w-3.5 h-3.5" />
                 Réinitialiser
@@ -667,7 +667,7 @@ function FeaturedCard({
 
         {/* Featured ribbon */}
         {group.hasBoosted && (
-          <div className="absolute top-4 left-4 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-400 text-amber-950 font-bold text-[10px] uppercase tracking-wider shadow-md">
+          <div className="absolute top-4 left-4 inline-flex items-center gap-1.5 px-3 py-1.5 bg-cta text-cta-foreground font-bold text-[10px] uppercase tracking-wider shadow-md">
             <Sparkles className="w-3 h-3" />
             Featured
           </div>
@@ -675,7 +675,7 @@ function FeaturedCard({
 
         {/* Urgency badge */}
         {days >= 0 && days <= 7 && (
-          <div className="absolute top-4 right-4 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/95 text-foreground font-bold text-[10px] uppercase tracking-wider shadow-md">
+          <div className="absolute top-4 right-4 inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/95 text-foreground font-bold text-[10px] uppercase tracking-wider shadow-md">
             <Clock className="w-3 h-3" />
             {days === 0 ? "Ce soir" : days === 1 ? "Demain" : `Dans ${days}j`}
           </div>
@@ -785,17 +785,17 @@ function StandardCard({
         {/* Top badges */}
         <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
           {group.eventCategory && (
-            <span className="px-2.5 py-1 rounded-full bg-black/55 text-white text-[10px] font-bold uppercase tracking-wider">
+            <span className="px-2.5 py-1 bg-black/55 text-white text-[10px] font-bold uppercase tracking-wider">
               {group.eventCategory}
             </span>
           )}
           {group.eventCampus && (
-            <span className="px-2.5 py-1 rounded-full bg-black/45 text-white text-[10px] font-bold uppercase tracking-wider">
+            <span className="px-2.5 py-1 bg-black/45 text-white text-[10px] font-bold uppercase tracking-wider">
               {group.eventCampus}
             </span>
           )}
           {sellingFast && (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-orange-500 text-white text-[10px] font-bold uppercase tracking-wider">
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-cta text-cta-foreground text-[10px] font-bold uppercase tracking-wider">
               <Flame className="w-3 h-3" />
               Bientôt épuisé
             </span>
@@ -803,7 +803,7 @@ function StandardCard({
         </div>
 
         {days >= 0 && days <= 7 && (
-          <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-white/95 text-foreground text-[10px] font-bold uppercase tracking-wider inline-flex items-center gap-1">
+          <div className="absolute top-3 right-3 px-2.5 py-1 bg-white/95 text-foreground text-[10px] font-bold uppercase tracking-wider inline-flex items-center gap-1">
             <Clock className="w-3 h-3" />
             {days === 0 ? "Ce soir" : days === 1 ? "Demain" : `Dans ${days}j`}
           </div>

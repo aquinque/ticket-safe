@@ -13,19 +13,18 @@ export default {
         "2xl": "1400px",
       },
     },
-    // Cards 16px (`rounded-lg`, matches ui/card.tsx's base class) / buttons
-    // 12px (`rounded-md`, matches ui/button.tsx's base class) / badges stay
-    // fully rounded via the real `full` value (ui/badge.tsx already uses
-    // `rounded-full` directly — this just stops it being clipped to 2px).
+    // Square corners everywhere (`rounded-lg`/`rounded-xl`/etc. all resolve
+    // to 0). `full` is kept as a real 9999px so circular avatars/dots don't
+    // get squished — that's not a "rounded corner", it's a circle.
     borderRadius: {
       none: "0",
-      sm: "0.5rem",                 /* 8px */
-      DEFAULT: "var(--radius-button)", /* 12px */
-      md: "var(--radius-button)",      /* 12px — buttons */
-      lg: "var(--radius-card)",        /* 16px — cards */
-      xl: "1.25rem",                /* 20px */
-      "2xl": "1.5rem",              /* 24px */
-      "3xl": "1.75rem",             /* 28px */
+      sm: "0",
+      DEFAULT: "var(--radius-button)", /* 0 */
+      md: "var(--radius-button)",      /* 0 — buttons */
+      lg: "var(--radius-card)",        /* 0 — cards */
+      xl: "0",
+      "2xl": "0",
+      "3xl": "0",
       full: "9999px",
     },
     boxShadow: {
@@ -92,11 +91,11 @@ export default {
           700: "hsl(var(--brand-700))",
           200: "hsl(var(--brand-200))",
         },
-        // Electric lime — buy CTAs + urgency badges only. Used by the
+        // Light-blue CTA — buy CTAs + urgency badges only. Used by the
         // `buy` Button variant (Phase 2).
-        lime: {
-          DEFAULT: "hsl(var(--lime))",
-          foreground: "hsl(var(--lime-foreground))",
+        cta: {
+          DEFAULT: "hsl(var(--cta))",
+          foreground: "hsl(var(--cta-foreground))",
         },
         danger: {
           DEFAULT: "hsl(var(--danger))",

@@ -22,14 +22,15 @@
     --brand-700: 228 67% 43%;   /* #2440b6 — hover/pressed */
     --brand-200: 222 100% 84%;  /* #aec6ff — logo "S", light accents */
 
-    /* Electric lime — RESERVED for buy CTAs + urgency badges ("J-2", "Dernières
-       places"). Never a large fill. Exposed as its own `lime` Tailwind color,
+    /* Light-blue CTA — RESERVED for buy CTAs + urgency badges ("J-2", "Dernières
+       places"). Never a large fill. Exposed as its own `cta` Tailwind color,
        deliberately NOT reusing shadcn's `--accent` (that stays the neutral
        hover-surface color every shadcn primitive expects — select/dropdown/
        command/context-menu/menubar/navigation-menu all paint `bg-accent` on
-       hover, and would turn neon-lime if we repointed it). */
-    --lime: 73 100% 61%;            /* #D4FF3A */
-    --lime-foreground: 234 58% 6%;  /* #07091A */
+       hover). No yellow anywhere in the palette — dark blue background
+       throughout, this light blue (brand-200) as the sole accent. */
+    --cta: 222 100% 84%;            /* #aec6ff — brand-200 */
+    --cta-foreground: 234 58% 6%;   /* #07091A */
 
     --danger: 349 100% 65%;   /* #FF4D6D */
     --danger-foreground: 0 0% 100%;
@@ -38,9 +39,10 @@
     --warning: 39 100% 56%;   /* #FFB020 */
     --warning-foreground: 234 58% 6%;
 
-    /* Cards 16px / buttons 12px / badges full-rounded (Tailwind `full`, see config). */
-    --radius-card: 1rem;      /* 16px */
-    --radius-button: 0.75rem; /* 12px */
+    /* Square corners everywhere — no rounded cards/buttons. `full` (see
+       config) is kept only for genuinely circular things (avatars, dots). */
+    --radius-card: 0px;
+    --radius-button: 0px;
     --radius: var(--radius-button); /* legacy alias — a few older components read --radius directly */
 
     /* ===== Theme-relative tokens (shadcn contract) =====

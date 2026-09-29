@@ -92,8 +92,8 @@ const App = () => (
         <Route path="/" element={<Home />} />
         <Route path="/tickets" element={<Tickets />} />
         <Route path="/resale" element={<Index />} />
-        <Route path="/marketplace" element={<Marketplace />} />
-        <Route path="/catalog" element={<Navigate to="/marketplace?view=all" replace />} />
+        <Route path="/marketplace" element={<Navigate to="/tickets" replace />} />
+        <Route path="/catalog" element={<Navigate to="/tickets" replace />} />
         <Route path="/events" element={<Events />} />
         <Route path="/events/:id" element={<Events />} />
         <Route path="/event/:eventId" element={<EventDetail />} />

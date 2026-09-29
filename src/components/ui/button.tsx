@@ -14,9 +14,9 @@ const buttonVariants = cva(
         // ("primary (brand-500)") so new code can reach for the semantic
         // name without needing to know `default` already means that.
         primary: "bg-primary text-primary-foreground hover:bg-primary/90 shadow-soft hover:shadow-card",
-        // The purchase action. Electric lime, reserved for this — never a
-        // large background fill elsewhere. Dark text for AA contrast on lime.
-        buy: "bg-lime text-lime-foreground hover:bg-lime/90 font-bold shadow-soft hover:shadow-card",
+        // The purchase action. Light-blue CTA, reserved for this — never a
+        // large background fill elsewhere. Dark text for AA contrast.
+        buy: "bg-cta text-cta-foreground hover:bg-cta/90 font-bold shadow-soft hover:shadow-card",
         destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
         outline: "border border-border bg-background hover:bg-muted hover:border-primary/50",
         secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/90 shadow-soft hover:shadow-card",
@@ -25,7 +25,7 @@ const buttonVariants = cva(
         hero: "bg-gradient-hero text-white shadow-card hover:shadow-hover font-semibold",
         accent: "bg-accent text-accent-foreground hover:bg-accent/90 shadow-soft hover:shadow-card",
         "outline-primary": "border-2 border-primary text-primary bg-transparent hover:bg-primary hover:text-primary-foreground",
-        marketplace: "bg-gradient-hero text-white font-semibold rounded-full shadow-card hover:shadow-hover",
+        marketplace: "bg-gradient-hero text-white font-semibold shadow-card hover:shadow-hover",
       },
       size: {
         // Every size guarantees a >=44px tap target on mobile (spec: "taille

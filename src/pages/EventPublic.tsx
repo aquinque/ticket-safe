@@ -412,7 +412,7 @@ const EventPublic = () => {
     : eventSoldOut
     ? { label: "Sold out", cls: "bg-rose-600 text-white" }
     : sellingFast
-    ? { label: "Selling fast", cls: "bg-amber-500 text-white", pulse: true }
+    ? { label: "Selling fast", cls: "bg-cta text-cta-foreground", pulse: true }
     : { label: "On sale", cls: "bg-emerald-500 text-white" };
 
   const fmtPrice = (cents: number) => `€${(cents / 100).toFixed(cents % 100 === 0 ? 0 : 2)}`;
@@ -799,8 +799,8 @@ const EventPublic = () => {
                                     Sold out
                                   </span>
                                 ) : (
-                                  <span className="text-[11px] font-semibold inline-flex items-center gap-1.5 text-amber-700">
-                                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                                  <span className="text-[11px] font-semibold inline-flex items-center gap-1.5 text-brand-200">
+                                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-brand-200 animate-pulse" />
                                     Few tickets remaining
                                   </span>
                                 )}
@@ -821,7 +821,7 @@ const EventPublic = () => {
                 {resaleCount > 0 && (
                   <Link
                     to={`/event/${event.id}/tickets`}
-                    className="mt-3 flex items-center justify-between gap-2 px-4 py-3 rounded-xl border border-lime/40 bg-lime/10 hover:bg-lime/15 transition-colors"
+                    className="mt-3 flex items-center justify-between gap-2 px-4 py-3 border border-cta/40 bg-cta/10 hover:bg-cta/15 transition-colors"
                   >
                     <span className="text-sm font-semibold text-foreground">
                       Resale available ({resaleCount} ticket{resaleCount > 1 ? "s" : ""})
