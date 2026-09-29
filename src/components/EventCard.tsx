@@ -1,21 +1,39 @@
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, MapPin, ShieldCheck, Clock } from "lucide-react";
+import { MapPin } from "lucide-react";
 import { useI18n } from "@/contexts/I18nContext";
 import { EventData } from "@/data/eventsData";
 
-function getDateBadge(dateString: string): { label: string; urgent: boolean } | null {
+function daysUntil(dateString: string): number | null {
   if (!dateString) return null;
   const now = new Date();
   const event = new Date(dateString);
   const diffMs = event.getTime() - now.getTime();
-  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-  if (diffDays < 0) return null;
-  if (diffDays === 0) return { label: "Tonight", urgent: true };
-  if (diffDays === 1) return { label: "Tomorrow", urgent: true };
-  if (diffDays <= 7) return { label: `In ${diffDays} days`, urgent: false };
+  return Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+}
+
+/** "J-2" / "Ce soir" style urgency badge — date-driven, or stock-driven via
+ *  `percentRemaining` when the caller has that data (event capacity isn't
+ *  known for every listing source yet, e.g. the resale marketplace). */
+function getUrgencyLabel(event: EventData, language: "en" | "fr" | "es"): string | null {
+  if (event.isPastEvent) return null;
+  const days = daysUntil(event.date);
+  if (days != null && days >= 0 && days <= 3) {
+    if (days === 0) return language === "fr" ? "Ce soir" : language === "es" ? "Esta noche" : "Tonight";
+    if (days === 1) return language === "fr" ? "Demain" : language === "es" ? "Mañana" : "Tomorrow";
+    return `J-${days}`;
+  }
+  if (event.percentRemaining != null && event.percentRemaining < 15) {
+    return language === "fr" ? "Dernières places" : language === "es" ? "Últimas plazas" : "Almost sold out";
+  }
   return null;
+}
+
+function formatDateBadge(dateString: string, locale: string): string {
+  const date = new Date(dateString);
+  const weekday = date.toLocaleDateString(locale, { weekday: "short" }).toUpperCase();
+  const day = date.getDate();
+  const month = date.toLocaleDateString(locale, { month: "short" }).toUpperCase();
+  return `${weekday} ${day} ${month}`;
 }
 
 interface EventCardProps {
@@ -23,144 +41,132 @@ interface EventCardProps {
   onClick: () => void;
 }
 
+/** Poster-format event card (4:5, Shotgun-style): full-bleed affiche with a
+ *  bottom gradient overlay carrying date/title/location/price, category +
+ *  campus + urgency badges up top, and a generated brand-gradient fallback
+ *  (never a stock photo or a generic music-note icon) when there's no real
+ *  poster image. */
 const EventCard = ({ event, onClick }: EventCardProps) => {
   const { t, language } = useI18n();
-  
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const locale = language === 'fr' ? 'fr-FR' : 'en-US';
-    return date.toLocaleDateString(locale, { 
-      weekday: 'short', 
-      day: 'numeric', 
-      month: 'short',
-      year: 'numeric'
-    });
-  };
+  const locale = language === "fr" ? "fr-FR" : language === "es" ? "es-ES" : "en-US";
+  const soldOutLabel = language === "fr" ? "Complet" : language === "es" ? "Agotado" : "Sold out";
 
-  const formatDateRange = () => {
-    if (event.endDate) {
-      return `${formatDate(event.date)} - ${formatDate(event.endDate)}`;
-    }
-    return formatDate(event.date);
-  };
-
-  const formatTime = () => {
-    if (event.endTime) {
-      return `${event.time} - ${event.endTime}`;
-    }
-    return event.time;
-  };
-
-  const getTypeColor = (eventType: string) => {
-    const type = eventType.toLowerCase();
-    if (type.includes('parties') || type.includes('party') || type.includes('halloween')) return 'bg-gradient-hero text-white border-transparent';
-    if (type.includes('galas') || type.includes('gala')) return 'bg-gradient-accent text-white border-transparent';
-    if (type.includes('conference') || type.includes('panel')) return 'bg-primary/10 text-primary border-primary/20';
-    if (type.includes('sustainability') || type.includes('swap')) return 'bg-accent/10 text-accent border-accent/20';
-    if (type.includes('ceremony')) return 'bg-secondary/10 text-secondary border-secondary/20';
-    if (type.includes('ski') || type.includes('sport') || type.includes('game')) return 'bg-primary/15 text-primary border-primary/30';
-    return 'bg-muted text-muted-foreground border-border';
-  };
+  const urgency = getUrgencyLabel(event, language);
+  const campusLabel = event.campus || event.organizer;
+  const hasPoster = !!event.image;
 
   return (
-    <Card 
-      className="group overflow-hidden bg-card border-0 hover:shadow-hover transition-all duration-300 shadow-card cursor-pointer rounded-xl"
+    <button
+      type="button"
       onClick={onClick}
+      className="group relative block w-full aspect-[4/5] overflow-hidden rounded-lg text-left"
     >
-      {/* Event Image */}
-      <div className="relative h-52 bg-gradient-purple-blue overflow-hidden rounded-t-xl">
-        <img 
-          src={event.image} 
+      {/* Affiche */}
+      {hasPoster ? (
+        <img
+          src={event.image ?? undefined}
           alt={event.title}
-          className="w-full h-full object-cover group- transition-transform duration-500 saturate-75"
+          loading="lazy"
+          decoding="async"
+          className={`absolute inset-0 w-full h-full object-cover transition-transform duration-300 ${
+            event.soldOut ? "grayscale opacity-60" : "md:group-hover:scale-[1.03]"
+          }`}
         />
-        
-        {/* Brand color overlay */}
-        <div className="absolute inset-0 bg-primary/10 mix-blend-overlay" />
-        
-        {/* Verified Badge */}
-        <Badge 
-          className="absolute top-4 left-4 bg-white/95 text-foreground shadow-soft flex items-center gap-1"
-        >
-          <ShieldCheck className="w-3 h-3 text-primary" />
-          {t('events.verifiedByTicketSafe')}
-        </Badge>
+      ) : (
+        // Generated fallback — just the brand gradient. The event name
+        // still reads "en gros Space Grotesk" via the h3 below, which every
+        // card (poster or not) already renders in the bottom overlay; a
+        // second copy of the title here was pure duplication.
+        <div
+          className="absolute inset-0"
+          style={{ background: "linear-gradient(150deg, hsl(227 77% 56%), hsl(228 67% 43%))" }}
+        />
+      )}
 
-        {/* Type Badge */}
-        <Badge 
-          className={`absolute top-4 right-4 ${getTypeColor(event.category)} shadow-soft border`}
-        >
+      {/* Bottom gradient — always present so the text stays legible over a
+          photo, and reads as a deliberate label on the generated fallback. */}
+      <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none" />
+
+      {/* Top badges */}
+      <div className="absolute top-3 left-3 right-3 flex flex-wrap items-center gap-1.5">
+        <Badge className="bg-black/55 text-white border-transparent backdrop-blur-sm text-[10px] uppercase tracking-wider font-bold">
           {event.category}
         </Badge>
-
-        {/* Event Ended Badge */}
-        {event.isPastEvent && (
-          <Badge
-            variant="secondary"
-            className="absolute bottom-4 left-4 bg-black/80 text-white"
-          >
-            {t('events.eventEnded')}
+        {campusLabel && (
+          <Badge className="bg-black/40 text-white border-transparent backdrop-blur-sm text-[10px] uppercase tracking-wider font-bold">
+            {campusLabel}
           </Badge>
         )}
-
-        {/* Date imminence badge */}
-        {!event.isPastEvent && (() => {
-          const badge = getDateBadge(event.date);
-          if (!badge) return null;
-          return (
-            <Badge
-              className={`absolute bottom-4 right-4 flex items-center gap-1 ${
-                badge.urgent
-                  ? "bg-amber-500 text-white border-transparent"
-                  : "bg-white/90 text-foreground border-border"
-              }`}
-            >
-              <Clock className="w-3 h-3" aria-hidden="true" />
-              {badge.label}
+        {event.isPastEvent ? (
+          <Badge className="ml-auto bg-black/70 text-white border-transparent text-[10px] uppercase tracking-wider font-bold">
+            {t("events.eventEnded")}
+          </Badge>
+        ) : event.soldOut ? (
+          <Badge className="ml-auto bg-danger text-danger-foreground border-transparent text-[10px] uppercase tracking-wider font-bold">
+            {soldOutLabel}
+          </Badge>
+        ) : (
+          urgency && (
+            <Badge className="ml-auto bg-lime text-lime-foreground border-transparent text-[10px] uppercase tracking-wider font-bold">
+              {urgency}
             </Badge>
-          );
-        })()}
-
-        {/* Gradient Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+          )
+        )}
       </div>
 
-      <CardHeader className="pb-3">
-        <h3 className="font-semibold text-lg line-clamp-2 group-hover:text-primary transition-colors">
+      {/* Bottom content */}
+      <div className="absolute inset-x-0 bottom-0 p-4 text-white">
+        <div className="text-[11px] font-bold tracking-wider text-white/80 mb-1">
+          {formatDateBadge(event.date, locale)}
+        </div>
+        <h3
+          className={`font-display font-bold leading-tight mb-1.5 line-clamp-2 ${hasPoster ? "text-lg" : "text-xl"}`}
+          style={{ letterSpacing: "-0.02em" }}
+        >
           {event.title}
         </h3>
-        <p className="text-sm text-muted-foreground">
-          {event.organizer}
-        </p>
-      </CardHeader>
-
-      <CardContent className="space-y-3 pb-4">
-        {/* Date & Time */}
-        <div className="flex items-start gap-2 text-sm text-muted-foreground">
-          <Calendar className="w-4 h-4 mt-0.5 flex-shrink-0" />
-          <div>
-            <div>{formatDateRange()}</div>
-            <div>{formatTime()}</div>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1 text-xs text-white/75 min-w-0">
+            <MapPin className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">{event.location}</span>
           </div>
+          {event.soldOut ? (
+            <span className="shrink-0 text-sm font-black text-white/70">
+              {soldOutLabel}
+            </span>
+          ) : (
+            event.fromPriceCents != null && (
+              <span className="shrink-0 text-sm font-black tabular-nums">
+                {language === "fr"
+                  ? `dès ${(event.fromPriceCents / 100).toFixed(0)} €`
+                  : language === "es"
+                  ? `desde ${(event.fromPriceCents / 100).toFixed(0)} €`
+                  : `from €${(event.fromPriceCents / 100).toFixed(0)}`}
+              </span>
+            )
+          )}
         </div>
+      </div>
 
-        {/* Location */}
-        <div className="flex items-start gap-2 text-sm text-muted-foreground">
-          <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
-          <span className="line-clamp-2">{event.location}</span>
-        </div>
-      </CardContent>
-
-      <CardFooter className="pt-0">
-        <Button 
-          variant="outline-primary" 
-          className="w-full group-hover:bg-gradient-hero group-hover:text-white group-hover:border-transparent shadow-soft group-hover:shadow-glow transition-all duration-300"
-        >
-          {t('events.buyOrResellTicket')}
-        </Button>
-      </CardFooter>
-    </Card>
+      <span className="sr-only">{t("events.buyOrResellTicket")}</span>
+    </button>
   );
 };
 
 export default EventCard;
+
+/** Loading placeholder matching the 4:5 poster shape — used anywhere
+ *  EventCard is, so lists never show a blank gap while fetching. */
+export const EventCardSkeleton = () => (
+  <div className="relative w-full aspect-[4/5] overflow-hidden rounded-lg bg-muted animate-pulse">
+    <div className="absolute inset-x-3 top-3 flex gap-1.5">
+      <div className="h-5 w-16 rounded-full bg-foreground/10" />
+      <div className="h-5 w-14 rounded-full bg-foreground/10" />
+    </div>
+    <div className="absolute inset-x-4 bottom-4 space-y-2">
+      <div className="h-3 w-20 rounded bg-foreground/10" />
+      <div className="h-5 w-3/4 rounded bg-foreground/10" />
+      <div className="h-3 w-1/2 rounded bg-foreground/10" />
+    </div>
+  </div>
+);

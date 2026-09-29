@@ -12,8 +12,20 @@ export interface EventData {
   description: string;
   category: string;
   filterCategory: string;
-  image: string;
+  /** Real poster/banner image. `null`/`undefined` = no real affiche — the
+   *  card renders a generated brand-gradient fallback instead of a stock
+   *  photo (see EventCard.tsx). */
+  image?: string | null;
   isPastEvent: boolean;
+  /** Cheapest available price, in cents. Shown as "from €X" on the card. */
+  fromPriceCents?: number;
+  /** Campus/school label for the card's top badge. Falls back to `organizer`. */
+  campus?: string;
+  /** 0-100. Below 15, the card shows a "Dernières places" urgency badge. */
+  percentRemaining?: number;
+  /** When true, the card shows a "Sold out" badge instead of any urgency
+   *  badge and swaps the price for "Sold out". */
+  soldOut?: boolean;
 }
 
 export const eventsList: EventData[] = [

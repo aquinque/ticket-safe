@@ -22,7 +22,10 @@ import {
 } from "lucide-react";
 import { SEOHead } from "@/components/SEOHead";
 import { AnimatedNumber } from "@/components/AnimatedNumber";
+import HeaderNight from "@/components/HeaderNight";
+import { ProtectionBadge } from "@/components/common/ProtectionBadge";
 import { useAuth } from "@/hooks/useAuth";
+import { useThemeMode } from "@/hooks/useThemeMode";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -67,6 +70,7 @@ interface TierAvailability {
 }
 
 const EventPublic = () => {
+  useThemeMode("night");
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const location = useLocation();
@@ -74,6 +78,7 @@ const EventPublic = () => {
 
   const [event, setEvent] = useState<PublicEvent | null>(null);
   const [tiers, setTiers] = useState<TierAvailability[]>([]);
+  const [resaleCount, setResaleCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [selectedTier, setSelectedTier] = useState<string | null>(null);
   const [qty, setQty] = useState(1);
@@ -194,6 +199,28 @@ const EventPublic = () => {
     };
   }, [event?.id, load]);
 
+  // Resale availability — "Resale available (X tickets)" banner. Reads the
+  // same `tickets` table the resale marketplace itself lists from; no new
+  // table or business rule, just a count for this event's listings.
+  useEffect(() => {
+    if (!event?.id) {
+      setResaleCount(0);
+      return;
+    }
+    let active = true;
+    supabase
+      .from("tickets")
+      .select("id", { count: "exact", head: true })
+      .eq("event_id", event.id)
+      .eq("status", "available")
+      .then(({ count }) => {
+        if (active) setResaleCount(count ?? 0);
+      });
+    return () => {
+      active = false;
+    };
+  }, [event?.id]);
+
   // Whether the signed-in user already follows this event's organizer.
   useEffect(() => {
     const orgId = event?.organizer?.id;
@@ -304,8 +331,9 @@ const EventPublic = () => {
   // ── Loading skeleton ──────────────────────────────────────────────────────
   if (loading || authLoading) {
     return (
-      <div className="min-h-screen bg-background">
-        <div className="bg-[#0a2f73]">
+      <div className="theme-night min-h-screen bg-background">
+        <HeaderNight />
+        <div className="bg-background pt-16 md:pt-20">
           <div className="container mx-auto max-w-4xl sm:px-4 sm:pt-4">
             <div className="w-full aspect-[16/9] sm:rounded-2xl bg-white/5 animate-pulse" />
           </div>
@@ -330,7 +358,9 @@ const EventPublic = () => {
   // ── Event not found ───────────────────────────────────────────────────────
   if (!event) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-6">
+      <div className="theme-night min-h-screen flex flex-col bg-background">
+        <HeaderNight />
+        <div className="flex-1 flex items-center justify-center p-6">
         <div className="text-center max-w-md bg-card border border-border rounded-2xl p-8 shadow-sm">
           <div className="w-14 h-14 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-4">
             <Ticket className="w-7 h-7 text-muted-foreground" strokeWidth={1.5} />
@@ -347,6 +377,7 @@ const EventPublic = () => {
             <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
+        </div>
       </div>
     );
   }
@@ -355,8 +386,8 @@ const EventPublic = () => {
   // regardless of what colour the organizer set on their event/profile.
   // Organizers can still bring their own banner + logo (photos), but colour
   // discipline keeps the buyer experience consistent across the whole platform.
-  const primary = "#003399";
-  const TS_GRADIENT = "linear-gradient(135deg, hsl(220 100% 30%), hsl(210 100% 45%))";
+  const primary = "#3a5fe6";
+  const TS_GRADIENT = "linear-gradient(135deg, hsl(227 77% 56%), hsl(228 67% 43%))";
   const selected = tiers.find((t) => t.tier_id === selectedTier) ?? null;
   const totalCents = selected ? selected.price_cents * qty : 0;
   const feeCents = Math.round(totalCents * 0.05);
@@ -507,6 +538,9 @@ const EventPublic = () => {
                 You'll create an account or sign in before paying.
               </p>
             )}
+            <div className="flex justify-center mt-3">
+              <ProtectionBadge />
+            </div>
           </>
         )}
 
@@ -522,7 +556,8 @@ const EventPublic = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-background" style={{ ["--studio-primary" as string]: primary }}>
+    <div className="theme-night min-h-screen flex flex-col bg-background" style={{ ["--studio-primary" as string]: primary }}>
+      <HeaderNight />
       <SEOHead
         title={`${event.title} — ${event.organizer?.name ?? "Ticket Safe"}`}
         description={event.seo_description ?? event.description ?? `Tickets for ${event.title}`}
@@ -563,8 +598,8 @@ const EventPublic = () => {
       />
 
       {/* ===== Hero — clean banner + title (Eventbrite / Dice style) ===== */}
-      <section className="relative">
-        <div className="bg-[#0a2f73]">
+      <section className="relative pt-16 md:pt-20">
+        <div className="bg-background">
           <div className="container mx-auto max-w-5xl sm:px-4 sm:pt-4">
             <div className="relative w-full aspect-[16/9] sm:rounded-2xl overflow-hidden bg-black/20 sm:ring-1 sm:ring-white/10">
               {event.banner_url ? (
@@ -616,8 +651,12 @@ const EventPublic = () => {
                     {categoryLabel}
                   </span>
                 )}
+                {/* Always-dark text below: this pill is always on a white/light
+                    chip regardless of surrounding theme, so it can't use the
+                    theme-relative `foreground` token (would go white-on-white
+                    under .theme-night). */}
                 {minPriceCents != null && !eventSoldOut && (
-                  <span className="ml-auto inline-flex items-center px-3 py-1.5 rounded-full bg-white text-[#02122d] text-xs font-black shadow-sm">
+                  <span className="ml-auto inline-flex items-center px-3 py-1.5 rounded-full bg-white text-slate-900 text-xs font-black shadow-sm">
                     From {fmtPrice(minPriceCents)}
                   </span>
                 )}
@@ -777,6 +816,18 @@ const EventPublic = () => {
                       );
                     })}
                   </div>
+                )}
+
+                {resaleCount > 0 && (
+                  <Link
+                    to={`/event/${event.id}/tickets`}
+                    className="mt-3 flex items-center justify-between gap-2 px-4 py-3 rounded-xl border border-lime/40 bg-lime/10 hover:bg-lime/15 transition-colors"
+                  >
+                    <span className="text-sm font-semibold text-foreground">
+                      Resale available ({resaleCount} ticket{resaleCount > 1 ? "s" : ""})
+                    </span>
+                    <ArrowRight className="w-4 h-4 text-foreground shrink-0" />
+                  </Link>
                 )}
               </section>
 

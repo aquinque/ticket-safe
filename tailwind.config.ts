@@ -13,36 +13,46 @@ export default {
         "2xl": "1400px",
       },
     },
-    // Flat, squared-off look: near-square corners and no drop shadows.
+    // Cards 16px (`rounded-lg`, matches ui/card.tsx's base class) / buttons
+    // 12px (`rounded-md`, matches ui/button.tsx's base class) / badges stay
+    // fully rounded via the real `full` value (ui/badge.tsx already uses
+    // `rounded-full` directly — this just stops it being clipped to 2px).
     borderRadius: {
       none: "0",
-      sm: "0",
-      DEFAULT: "2px",
-      md: "2px",
-      lg: "2px",
-      xl: "2px",
-      "2xl": "2px",
-      "3xl": "2px",
-      full: "2px",
+      sm: "0.5rem",                 /* 8px */
+      DEFAULT: "var(--radius-button)", /* 12px */
+      md: "var(--radius-button)",      /* 12px — buttons */
+      lg: "var(--radius-card)",        /* 16px — cards */
+      xl: "1.25rem",                /* 20px */
+      "2xl": "1.5rem",              /* 24px */
+      "3xl": "1.75rem",             /* 28px */
+      full: "9999px",
     },
     boxShadow: {
+      // Values come from CSS custom properties so they flip per theme
+      // (.theme-studio = real soft shadows, .theme-night = none + glow on
+      // hover) without touching any component's `shadow-soft` / `shadow-card`
+      // / `hover:shadow-hover` classes.
       none: "none",
-      sm: "none",
-      DEFAULT: "none",
-      md: "none",
-      lg: "none",
-      xl: "none",
-      "2xl": "none",
-      inner: "none",
-      soft: "none",
-      card: "none",
-      hover: "none",
-      glow: "none",
+      sm: "var(--shadow-soft)",
+      DEFAULT: "var(--shadow-card)",
+      md: "var(--shadow-card)",
+      lg: "var(--shadow-hover)",
+      xl: "var(--shadow-hover)",
+      "2xl": "var(--shadow-glow)",
+      inner: "inset 0 2px 4px 0 hsl(228 53% 9% / 0.05)",
+      soft: "var(--shadow-soft)",
+      card: "var(--shadow-card)",
+      hover: "var(--shadow-hover)",
+      glow: "var(--shadow-glow)",
     },
     extend: {
       fontFamily: {
-        sans: ["Inter", "system-ui", "sans-serif"],
-        serif: ['"Source Serif 4"', "Georgia", "serif"],
+        // UI/body text.
+        sans: ["Inter", "system-ui", "-apple-system", "sans-serif"],
+        // Titles/display, unified with the logo. See `.font-display` on
+        // h1-h4 in index.css and the `.text-display-hero` utility.
+        display: ['"Space Grotesk"', "Inter", "system-ui", "sans-serif"],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -68,10 +78,37 @@ export default {
           DEFAULT: "hsl(var(--muted))",
           foreground: "hsl(var(--muted-foreground))",
         },
+        // Neutral shadcn hover/highlight surface — NOT the lime brand accent.
+        // See the comment on `--lime` in index.css for why these are separate.
         accent: {
           DEFAULT: "hsl(var(--accent))",
           foreground: "hsl(var(--accent-foreground))",
           hover: "hsl(var(--accent-hover))",
+        },
+        // Brand tokens (Phase 1 spec) — direct hsl(var()) reads, no /alpha
+        // template needed since nothing modifies their opacity today.
+        brand: {
+          500: "hsl(var(--brand-500))",
+          700: "hsl(var(--brand-700))",
+          200: "hsl(var(--brand-200))",
+        },
+        // Electric lime — buy CTAs + urgency badges only. Used by the
+        // `buy` Button variant (Phase 2).
+        lime: {
+          DEFAULT: "hsl(var(--lime))",
+          foreground: "hsl(var(--lime-foreground))",
+        },
+        danger: {
+          DEFAULT: "hsl(var(--danger))",
+          foreground: "hsl(var(--danger-foreground))",
+        },
+        success: {
+          DEFAULT: "hsl(var(--success))",
+          foreground: "hsl(var(--success-foreground))",
+        },
+        warning: {
+          DEFAULT: "hsl(var(--warning))",
+          foreground: "hsl(var(--warning-foreground))",
         },
         popover: {
           DEFAULT: "hsl(var(--popover))",
@@ -98,7 +135,11 @@ export default {
         'gradient-accent': 'var(--gradient-accent)',
         'gradient-purple-blue': 'var(--gradient-purple-blue)',
       },
+      transitionDuration: {
+        DEFAULT: '200ms',
+      },
       transitionTimingFunction: {
+        DEFAULT: 'ease-out',
         'smooth': 'var(--transition-smooth)',
         'bounce': 'var(--transition-bounce)',
       },

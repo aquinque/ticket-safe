@@ -1,35 +1,25 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Search,
-  Calendar,
-  MapPin,
   Ticket,
   ArrowRight,
   Sparkles,
-  Music,
-  Trophy,
-  Mic2,
-  GlassWater,
-  GraduationCap,
   Building2,
   Check,
-  Clock,
-  Flame,
   Lock,
   Repeat2,
   MousePointerClick,
   CreditCard,
   QrCode,
   PartyPopper,
-  ShieldCheck,
   ChevronDown,
-  BadgeCheck,
 } from "lucide-react";
-import Header from "@/components/Header";
+import HeaderNight from "@/components/HeaderNight";
 import Footer from "@/components/Footer";
 import { BackButton } from "@/components/BackButton";
 import { SEOHead } from "@/components/SEOHead";
+import EventCardShared, { EventCardSkeleton as SharedEventCardSkeleton } from "@/components/EventCard";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,6 +31,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { detectCampus } from "@/lib/campus";
 import { useAuth } from "@/hooks/useAuth";
 import { useRecommendations } from "@/hooks/useRecommendations";
+import { useThemeMode } from "@/hooks/useThemeMode";
+import type { EventData } from "@/data/eventsData";
 
 type Campus = "all" | "paris" | "madrid" | "turin" | "berlin" | "london";
 
@@ -60,26 +52,8 @@ type Event = {
   tiersCount: number;
   capacity: number;
   sold: number;
-  gradient: string;
-  icon: typeof Music;
   bannerUrl: string | null;
   logoUrl: string | null;
-};
-
-const ICON_BY_CATEGORY: Record<string, typeof Music> = {
-  party: Music,
-  gala: GlassWater,
-  conference: Mic2,
-  sports: Trophy,
-  other: Sparkles,
-};
-
-const GRADIENT_BY_CAMPUS: Record<string, string> = {
-  paris: "linear-gradient(135deg, hsl(220 100% 30%), hsl(210 100% 45%))",
-  madrid: "linear-gradient(135deg, hsl(14 90% 50%), hsl(35 100% 55%))",
-  turin: "linear-gradient(135deg, hsl(140 70% 35%), hsl(180 70% 45%))",
-  berlin: "linear-gradient(135deg, hsl(280 80% 45%), hsl(320 80% 55%))",
-  london: "linear-gradient(135deg, hsl(220 60% 25%), hsl(240 70% 40%))",
 };
 
 const campuses: { id: Campus; label: string; city: string }[] = [
@@ -188,11 +162,6 @@ async function fetchPublishedEvents(): Promise<Event[]> {
         tiersCount: agg?.count ?? 0,
         capacity: agg?.total ?? 0,
         sold: agg?.sold ?? 0,
-        gradient:
-          e.primary_color
-            ? `linear-gradient(135deg, ${e.primary_color}, hsl(210 100% 45%))`
-            : GRADIENT_BY_CAMPUS[derivedCampus] ?? GRADIENT_BY_CAMPUS.paris,
-        icon: ICON_BY_CATEGORY[normCategory] ?? Sparkles,
         bannerUrl: e.banner_url,
         logoUrl: e.logo_url ?? org?.logo_url ?? null,
       } satisfies Event;
@@ -210,19 +179,35 @@ const categories: { id: Category; label: string }[] = [
   { id: "sports", label: "Sports" },
 ];
 
-const formatDate = (iso: string) => {
-  const d = new Date(iso);
-  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
-};
-
-const daysUntil = (iso: string): number => {
-  const target = new Date(iso).getTime();
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return Math.ceil((target - today.getTime()) / (1000 * 60 * 60 * 24));
-};
+/** Adapts this page's own `Event` shape (tier aggregates, campus, capacity —
+ *  none of which the shared card needs to know about) to the shared
+ *  poster `EventData` the rest of the redesign uses. Pure presentation
+ *  mapping, no business logic touched. */
+function toEventData(e: Event): EventData {
+  const hasCapacity = e.capacity > 0;
+  const soldPct = hasCapacity ? Math.round((e.sold / e.capacity) * 100) : 0;
+  return {
+    id: e.id,
+    title: e.title,
+    date: e.date,
+    time: e.time,
+    location: e.venue,
+    organizer: e.organizer,
+    description: "",
+    category: e.category,
+    filterCategory: e.category,
+    image: e.bannerUrl,
+    isPastEvent: false,
+    fromPriceCents: e.priceFrom > 0 ? e.priceFrom * 100 : undefined,
+    campus: e.campus.charAt(0).toUpperCase() + e.campus.slice(1),
+    percentRemaining: hasCapacity ? 100 - soldPct : undefined,
+    soldOut: hasCapacity && soldPct >= 100,
+  };
+}
 
 const Tickets = () => {
+  useThemeMode("night");
+  const navigate = useNavigate();
   // Default to "all" so newcomers see everything until they pick a campus.
   const [selectedCampus, setSelectedCampus] = useState<Campus>("all");
   const [selectedSchool, setSelectedSchool] = useState<string>("escp");
@@ -281,167 +266,103 @@ const Tickets = () => {
       );
   }, [allEvents, selectedCampus, category, query]);
 
-  const selectedCampusMeta = campuses.find((c) => c.id === selectedCampus)!;
-
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="theme-night min-h-screen flex flex-col bg-background">
       <SEOHead
         title="Student events — Ticket Safe"
         description="Buy tickets to student events across all campuses — Paris, Madrid, Turin, Berlin, London."
       />
-      <Header minimal />
+      <HeaderNight />
 
-      <main className="flex-1">
-        {/* ===================== HERO ===================== */}
-        <section className="relative overflow-hidden text-white" style={{ background: "var(--gradient-hero)" }}>
-          {/* One restrained glow for depth — no flashy blob cluster. */}
-          <div
-            className="pointer-events-none absolute inset-0 opacity-60"
-            style={{ background: "radial-gradient(70% 90% at 12% 0%, hsl(210 100% 60% / 0.35), transparent 60%)" }}
-          />
-
-          <div className="container mx-auto px-4 py-8 md:py-14 relative">
-            <div className="mb-5">
+      <main className="flex-1 pt-16 md:pt-20">
+        {/* ===================== COMPACT INTRO ===================== */}
+        <section className="border-b border-border">
+          <div className="container mx-auto px-4 py-5 md:py-6">
+            <div className="mb-3">
               <BackButton />
             </div>
-
-            <div className="grid lg:grid-cols-[1fr_20rem] gap-7 lg:gap-10 lg:items-end">
-              {/* Left — intro + filters */}
-              <div className="max-w-2xl">
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/12 ring-1 ring-white/20 text-[10px] md:text-[11px] uppercase tracking-[0.18em] font-bold text-white/90 mb-4">
-                  <Ticket className="w-3 h-3" />
-                  Student events marketplace
-                </div>
-                <h1 className="text-3xl md:text-5xl font-black tracking-tight leading-[1.06] mb-3">
+            <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
+              <div>
+                <h1
+                  className="font-display font-bold text-2xl md:text-3xl text-foreground leading-tight"
+                  style={{ letterSpacing: "-0.02em" }}
+                >
                   Find your next student event
                 </h1>
-                <p className="text-sm md:text-lg text-white/80 max-w-xl mb-7 leading-relaxed">
-                  Tickets sold directly by campus societies — discover, filter and buy in a couple of taps.
+                <p className="text-sm text-muted-foreground mt-1">
+                  Tickets sold directly by campus societies.
                 </p>
-
-                {/* Organization + campus filters */}
-                <div className="space-y-5">
-                  <div>
-                    <div className="text-[10px] md:text-[11px] uppercase tracking-[0.2em] font-bold text-white/70 mb-2">
-                      Organization
-                    </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button
-                          type="button"
-                          className="inline-flex items-center gap-2 pl-3.5 pr-3 min-h-[44px] rounded-xl font-semibold text-sm bg-white text-foreground shadow-lg hover:bg-white/95 transition-colors w-fit"
-                        >
-                          <Building2 className="w-4 h-4 text-primary" />
-                          {schools.find((s) => s.id === selectedSchool)?.label ?? schools[0].label}
-                          <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="start" className="w-64">
-                        {schools.map((s) => (
-                          <DropdownMenuItem
-                            key={s.id}
-                            className="gap-2 font-semibold"
-                            onSelect={() => setSelectedSchool(s.id)}
-                          >
-                            <Check className={`w-4 h-4 text-primary ${s.id === selectedSchool ? "opacity-100" : "opacity-0"}`} />
-                            {s.label}
-                          </DropdownMenuItem>
-                        ))}
-                        <DropdownMenuSeparator />
-                        <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                          More organizations coming soon
-                        </div>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-
-                  <div>
-                    <div className="text-[10px] md:text-[11px] uppercase tracking-[0.2em] font-bold text-white/70 mb-2">
-                      Campus
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {campuses.map((c) => {
-                        const selected = c.id === selectedCampus;
-                        return (
-                          <button
-                            key={c.id}
-                            type="button"
-                            onClick={() => setSelectedCampus(c.id)}
-                            className={`inline-flex items-center gap-1.5 px-3.5 min-h-[40px] rounded-lg font-semibold text-sm transition-colors ${
-                              selected
-                                ? "bg-white text-primary shadow-sm"
-                                : "bg-white/10 hover:bg-white/20 text-white ring-1 ring-white/25"
-                            }`}
-                          >
-                            {selected && <Check className="w-3.5 h-3.5" />}
-                            {c.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
               </div>
-
-              {/* Right — resale marketplace card */}
               <Link
                 to="/resale"
-                className="group block rounded-2xl bg-white text-foreground p-5 md:p-6 shadow-xl hover:shadow-2xl transition-all duration-300"
+                className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline shrink-0"
               >
-                <div className="flex items-center gap-3 mb-3">
-                  <div
-                    className="w-11 h-11 rounded-xl flex items-center justify-center text-white shrink-0"
-                    style={{ background: "var(--gradient-hero)" }}
-                  >
-                    <Repeat2 className="w-5 h-5" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-[10px] uppercase tracking-[0.18em] font-bold text-primary">
-                      Resale marketplace
-                    </div>
-                    <div className="text-lg font-black text-foreground leading-tight">
-                      Buy or resell a ticket
-                    </div>
-                  </div>
-                </div>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Student-to-student resale with secure payment handling.
-                </p>
-                <div className="flex flex-wrap gap-1.5 mb-4">
-                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-muted text-[11px] font-semibold text-muted-foreground">
-                    <ShieldCheck className="w-3 h-3 text-primary" />
-                    Secure payment
-                  </span>
-                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-muted text-[11px] font-semibold text-muted-foreground">
-                    <BadgeCheck className="w-3 h-3 text-primary" />
-                    Verified tickets
-                  </span>
-                </div>
-                <div className="inline-flex w-full items-center justify-center gap-1.5 px-4 min-h-[44px] rounded-xl bg-primary text-primary-foreground font-bold text-sm group-hover:gap-2.5 transition-all">
-                  Open resale marketplace
-                  <ArrowRight className="w-4 h-4" />
-                </div>
+                <Repeat2 className="w-4 h-4" />
+                Resale marketplace
+                <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
           </div>
         </section>
 
-        {/* ===================== FILTER & SEARCH ===================== */}
-        <section className="sticky top-0 z-20 bg-background/95 border-b border-border">
-          <div className="container mx-auto px-4 py-3 md:py-3.5">
-            {/* Desktop / tablet: context + categories + search on one row */}
-            <div className="hidden md:flex md:items-center gap-3">
-              <div className="inline-flex items-center gap-2 text-sm shrink-0">
-                <GraduationCap className="w-4 h-4 text-primary" />
-                <span className="font-bold text-foreground leading-none">ESCP</span>
-                <span className="text-muted-foreground">
-                  · {selectedCampus === "all" ? "All campuses" : selectedCampusMeta.label}
-                </span>
+        {/* ===================== STICKY FILTER BAR — org, campus, category, search ===================== */}
+        <section className="sticky top-16 md:top-20 z-20 bg-background/95 backdrop-blur-sm border-b border-border">
+          <div className="container mx-auto px-4 py-3 space-y-2.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-2 pl-3 pr-2.5 min-h-[40px] rounded-lg font-semibold text-sm bg-card border border-border hover:border-primary/40 transition-colors"
+                  >
+                    <Building2 className="w-4 h-4 text-primary" />
+                    {schools.find((s) => s.id === selectedSchool)?.label ?? schools[0].label}
+                    <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-64">
+                  {schools.map((s) => (
+                    <DropdownMenuItem
+                      key={s.id}
+                      className="gap-2 font-semibold"
+                      onSelect={() => setSelectedSchool(s.id)}
+                    >
+                      <Check className={`w-4 h-4 text-primary ${s.id === selectedSchool ? "opacity-100" : "opacity-0"}`} />
+                      {s.label}
+                    </DropdownMenuItem>
+                  ))}
+                  <DropdownMenuSeparator />
+                  <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                    More organizations coming soon
+                  </div>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <div className="hidden sm:block w-px h-6 bg-border" />
+
+              <div className="flex flex-wrap gap-1.5">
+                {campuses.map((c) => {
+                  const selected = c.id === selectedCampus;
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => setSelectedCampus(c.id)}
+                      className={`inline-flex items-center gap-1.5 px-3 min-h-[36px] rounded-full font-semibold text-xs transition-colors ${
+                        selected
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-card text-muted-foreground border border-border hover:border-primary/40 hover:text-foreground"
+                      }`}
+                    >
+                      {selected && <Check className="w-3 h-3" />}
+                      {c.label}
+                    </button>
+                  );
+                })}
               </div>
+            </div>
 
-              <div className="w-px h-6 bg-border mx-1" />
-
-              {/* Categories */}
+            <div className="flex items-center gap-2">
               <div className="flex gap-1.5 overflow-x-auto -mx-1 px-1 flex-1 min-w-0 scrollbar-thin">
                 {categories.map((c) => (
                   <button
@@ -459,65 +380,27 @@ const Tickets = () => {
                 ))}
               </div>
 
-              {/* Search */}
-              <div className="relative md:w-72 shrink-0">
+              <div className="relative w-40 sm:w-56 md:w-72 shrink-0">
                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <input
-                  type="text"
+                  type="search"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search events…"
+                  placeholder="Search…"
                   className="w-full pl-10 pr-3 h-10 rounded-full bg-muted/60 border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/40 focus:bg-background transition-colors"
                 />
-              </div>
-            </div>
-
-            {/* Mobile: search row + scrolling categories */}
-            <div className="md:hidden flex flex-col gap-2.5">
-              <div className="flex items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 text-xs font-bold text-foreground truncate shrink-0">
-                  <GraduationCap className="w-3.5 h-3.5 text-primary" />
-                  ESCP
-                </span>
-                <div className="relative flex-1 ml-0.5">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-                  <input
-                    type="search"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Search events…"
-                    className="w-full pl-9 pr-3 h-10 rounded-full bg-muted/60 border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/40 focus:bg-background transition-colors"
-                  />
-                </div>
-              </div>
-              {/* Horizontal scrolling categories */}
-              <div className="flex gap-1.5 overflow-x-auto -mx-4 px-4 pb-0.5 scrollbar-thin">
-                {categories.map((c) => (
-                  <button
-                    key={c.id}
-                    type="button"
-                    onClick={() => setCategory(c.id)}
-                    className={`shrink-0 px-3 min-h-[34px] rounded-full text-xs font-semibold border transition-colors ${
-                      category === c.id
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "bg-card text-muted-foreground border-border"
-                    }`}
-                  >
-                    {c.label}
-                  </button>
-                ))}
               </div>
             </div>
           </div>
         </section>
 
-        {/* ===================== EVENTS GRID ===================== */}
-        <section className="py-8 md:py-14">
+        {/* ===================== EVENTS GRID — 2 cols mobile, 3-4 desktop ===================== */}
+        <section className="py-6 md:py-10">
           <div className="container mx-auto px-4">
             {loading ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-5">
                 {[0, 1, 2, 3, 4, 5].map((i) => (
-                  <EventCardSkeleton key={i} />
+                  <SharedEventCardSkeleton key={i} />
                 ))}
               </div>
             ) : filteredEvents.length === 0 ? (
@@ -555,14 +438,14 @@ const Tickets = () => {
                         </div>
                       </div>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
                       {recommended.slice(0, 4).map((e, i) => (
                         <div
                           key={`reco-${e.id}`}
                           className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both"
                           style={{ animationDelay: `${i * 50}ms` }}
                         >
-                          <EventCard event={e} />
+                          <EventCardShared event={toEventData(e)} onClick={() => navigate(`/e/${e.slug}`)} />
                         </div>
                       ))}
                     </div>
@@ -584,14 +467,14 @@ const Tickets = () => {
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-5">
                   {filteredEvents.map((e, i) => (
                     <div
                       key={e.id}
                       className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both"
                       style={{ animationDelay: `${Math.min(i, 12) * 40}ms` }}
                     >
-                      <EventCard event={e} />
+                      <EventCardShared event={toEventData(e)} onClick={() => navigate(`/e/${e.slug}`)} />
                     </div>
                   ))}
                 </div>
@@ -682,7 +565,7 @@ const Tickets = () => {
             <div className="mt-6 md:mt-8 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 rounded-2xl border border-border bg-card px-5 py-4">
               <div
                 className="w-10 h-10 rounded-lg flex items-center justify-center text-white shrink-0"
-                style={{ background: "linear-gradient(135deg, hsl(220 100% 30%), hsl(210 100% 45%))" }}
+                style={{ background: "var(--gradient-hero)" }}
               >
                 <Repeat2 className="w-5 h-5" />
               </div>
@@ -719,13 +602,9 @@ const Tickets = () => {
         <section className="py-12 md:py-20">
           <div className="container mx-auto px-4">
             <div
-              className="relative max-w-4xl mx-auto rounded-2xl md:rounded-3xl p-6 md:p-12 overflow-hidden text-white"
+              className="relative max-w-4xl mx-auto rounded-lg p-6 md:p-12 overflow-hidden text-white"
               style={{ background: "var(--gradient-hero)" }}
             >
-              <div
-                className="pointer-events-none absolute -top-20 -right-20 w-72 h-72 rounded-full opacity-40 blur-3xl"
-                style={{ background: "radial-gradient(circle, hsl(210 100% 65%), transparent 70%)" }}
-              />
               <div className="relative flex flex-col md:flex-row md:items-center gap-5 md:gap-10">
                 <div className="flex-1">
                   <div className="text-[10px] md:text-xs uppercase tracking-[0.2em] font-bold text-white/80 mb-2">
@@ -756,145 +635,11 @@ const Tickets = () => {
   );
 };
 
-const EventCard = ({ event }: { event: Event }) => {
-  const Icon = event.icon;
-  const hasCapacity = event.capacity > 0;
-  const soldPct = hasCapacity ? Math.round((event.sold / event.capacity) * 100) : 0;
-  const days = daysUntil(event.date);
-  const isSellingFast = hasCapacity && soldPct >= 70 && soldPct < 100;
-  const soldOut = hasCapacity && soldPct >= 100;
-
-  return (
-    <Link
-      to={`/e/${event.slug}`}
-      className="group flex flex-col rounded-2xl overflow-hidden bg-card border border-border hover:border-primary/30 hover:shadow-hover transition-all duration-300"
-    >
-      {/* Visual — banner photo if available, organizer logo on a navy-tinted
-          shell otherwise. One single fallback treatment so the grid reads as
-          one product (was: slate-100→slate-200, which made the grid look like
-          four different products). */}
-      <div className="relative aspect-[16/9] overflow-hidden bg-[hsl(220_100%_30%/0.06)] dark:bg-[hsl(220_60%_30%/0.18)]">
-        {event.bannerUrl ? (
-          <img src={event.bannerUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
-        ) : event.logoUrl ? (
-          <div className="absolute inset-0 flex items-center justify-center p-6">
-            <img
-              src={event.logoUrl}
-              alt={event.organizer}
-              className="max-h-[80%] max-w-[78%] object-contain group- transition-transform duration-500"
-            />
-          </div>
-        ) : (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <Icon className="w-14 h-14 text-primary/30 group- group-hover:text-primary/45 transition-all duration-500" strokeWidth={1.5} />
-          </div>
-        )}
-
-        {/* Badges — dark pills so they read on a photo or a light logo card */}
-        <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
-          <span className="px-2.5 py-1 rounded-full bg-black/55 text-white text-[10px] font-bold uppercase tracking-wider">
-            {event.category}
-          </span>
-          <span className="px-2.5 py-1 rounded-full bg-black/45 text-white text-[10px] font-bold uppercase tracking-wider">
-            {event.campus}
-          </span>
-          {soldOut ? (
-            <span className="px-2.5 py-1 rounded-full bg-red-500 text-white text-[10px] font-bold uppercase tracking-wider">
-              Sold out
-            </span>
-          ) : isSellingFast ? (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-orange-500 text-white text-[10px] font-bold uppercase tracking-wider">
-              <Flame className="w-3 h-3" />
-              Selling fast
-            </span>
-          ) : null}
-        </div>
-
-        {/* Days countdown */}
-        {days >= 0 && days <= 60 && !soldOut && (
-          <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-white/95 text-foreground text-[10px] font-bold inline-flex items-center gap-1">
-            <Clock className="w-3 h-3" />
-            {days === 0 ? "Today" : `${days}d left`}
-          </div>
-        )}
-      </div>
-
-      {/* Content */}
-      <div className="flex-1 p-5 flex flex-col">
-        <div className="text-xs font-semibold text-primary mb-1">{event.organizer}</div>
-        <h3 className="text-lg font-bold text-foreground leading-tight mb-3 line-clamp-2 group-hover:text-primary transition-colors">
-          {event.title}
-        </h3>
-
-        <div className="space-y-1.5 text-xs text-muted-foreground mb-4">
-          <div className="flex items-center gap-1.5">
-            <Calendar className="w-3.5 h-3.5 shrink-0" />
-            <span>{formatDate(event.date)} · {event.time}</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <MapPin className="w-3.5 h-3.5 shrink-0" />
-            <span className="truncate">{event.venue}</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <Ticket className="w-3.5 h-3.5 shrink-0" />
-            <span>{event.tiersCount} tiers available</span>
-          </div>
-        </div>
-
-        {/* Scarcity nudge only — buyers don't see exact stock (Studio-only).
-            Shown when fewer than 30% of the original tickets remain. */}
-        {hasCapacity && !soldOut && soldPct >= 70 && (
-          <div className="mb-4">
-            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-amber-700">
-              <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-              Few tickets remaining
-            </span>
-          </div>
-        )}
-
-        {/* Footer */}
-        <div className="mt-auto flex items-center justify-between pt-3 border-t border-border">
-          <div>
-            <div className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">From</div>
-            <div className="text-xl font-black text-foreground leading-none">
-              {event.priceFrom > 0 ? `€${event.priceFrom}` : "Free"}
-            </div>
-            <div className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-medium text-muted-foreground">
-              <ShieldCheck className="w-3 h-3 text-primary/70" />
-              Ticket Safe protection included
-            </div>
-          </div>
-          <div className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg font-bold text-sm transition-all ${
-            soldOut
-              ? "bg-muted text-muted-foreground cursor-not-allowed"
-              : "bg-primary text-primary-foreground group-hover:gap-2.5 group-hover:bg-primary-hover"
-          }`}>
-            {soldOut ? "Sold out" : "Get tickets"}
-            {!soldOut && <ArrowRight className="w-3.5 h-3.5 transition-all" />}
-          </div>
-        </div>
-      </div>
-    </Link>
-  );
-};
-
-const EventCardSkeleton = () => (
-  <div className="rounded-2xl overflow-hidden bg-card border border-border">
-    <div className="aspect-[16/9] bg-muted animate-pulse" />
-    <div className="p-5 space-y-3">
-      <div className="h-3 w-1/3 rounded bg-muted animate-pulse" />
-      <div className="h-5 w-3/4 rounded bg-muted animate-pulse" />
-      <div className="space-y-2 pt-1">
-        <div className="h-3 w-1/2 rounded bg-muted animate-pulse" />
-        <div className="h-3 w-2/5 rounded bg-muted animate-pulse" />
-      </div>
-      <div className="flex items-center justify-between pt-3 border-t border-border">
-        <div className="h-6 w-16 rounded bg-muted animate-pulse" />
-        <div className="h-9 w-24 rounded-lg bg-muted animate-pulse" />
-      </div>
-    </div>
-  </div>
-);
+// Local EventCard/EventCardSkeleton removed — this page now renders the
+// shared poster EventCard (src/components/EventCard.tsx) via the
+// `toEventData` adapter above, consolidating what used to be two different
+// card implementations for the same kind of listing (see TODO_DATA.md,
+// Phase 2/3 notes).
 
 const EmptyState = ({
   query,

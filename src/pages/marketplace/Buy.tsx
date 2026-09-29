@@ -21,7 +21,7 @@
 
 import { useEffect, useMemo, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import Header from "@/components/Header";
+import HeaderNight from "@/components/HeaderNight";
 import Footer from "@/components/Footer";
 import { Input } from "@/components/ui/input";
 import {
@@ -37,7 +37,6 @@ import {
   Calendar,
   Ticket,
   ShieldCheck,
-  Loader2,
   ArrowRight,
   Sparkles,
   GraduationCap,
@@ -45,14 +44,11 @@ import {
   MessageSquare,
   Flame,
   Clock,
-  Music,
-  GlassWater,
-  Mic2,
-  Trophy,
 } from "lucide-react";
 import { SEOHead } from "@/components/SEOHead";
 import { useTicketListings, TicketListing } from "@/contexts/TicketListingsContext";
 import { useAuth } from "@/hooks/useAuth";
+import { useThemeMode } from "@/hooks/useThemeMode";
 import { getOrCreateConversation } from "@/hooks/useChat";
 import { calcBreakdown } from "@/lib/fees";
 import { toast } from "sonner";
@@ -82,22 +78,14 @@ const daysUntil = (iso: string): number => {
   return Math.ceil((target - today.getTime()) / (1000 * 60 * 60 * 24));
 };
 
-const ICON_BY_CATEGORY: Record<string, typeof Music> = {
-  party: Music,
-  gala: GlassWater,
-  conference: Mic2,
-  sports: Trophy,
-  other: Sparkles,
-};
-
-// Derive a deterministic navy-family gradient from any event id so cards
-// without a banner still look intentional rather than blank.
+// Brand-gradient fallback for listings without a banner — same treatment as
+// the shared poster EventCard (Phase 2): a deterministic angle/mix of the
+// two brand blues, event name in Space Grotesk, never a category icon.
 const fallbackGradient = (eventId: string): string => {
   let h = 0;
   for (let i = 0; i < eventId.length; i++) h = (h * 31 + eventId.charCodeAt(i)) | 0;
-  const hue1 = 215 + (Math.abs(h) % 18);
-  const hue2 = 200 + (Math.abs(h >> 4) % 22);
-  return `linear-gradient(135deg, hsl(${hue1} 100% 28%), hsl(${hue2} 95% 45%))`;
+  const angle = 120 + (Math.abs(h) % 60);
+  return `linear-gradient(${angle}deg, hsl(227 77% 56%), hsl(228 67% 43%))`;
 };
 
 const reducedMotion = () =>
@@ -213,6 +201,7 @@ const CATEGORY_CHIPS: { id: string; label: string }[] = [
 ];
 
 const Buy = () => {
+  useThemeMode("night");
   const navigate = useNavigate();
   const { user } = useAuth();
   const { listings, isLoading } = useTicketListings();
@@ -351,16 +340,16 @@ const Buy = () => {
 
   // ── Render ─────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-[#FAFAF7] flex flex-col">
+    <div className="theme-night min-h-screen bg-background flex flex-col">
       <SEOHead
         titleKey="marketplace.buy.title"
         descriptionKey="marketplace.buy.description"
       />
-      <Header />
+      <HeaderNight />
 
       {/* =================== EDITORIAL HERO =================== */}
       <section
-        className="relative overflow-hidden text-white"
+        className="relative overflow-hidden text-white pt-16 md:pt-20"
         style={{ background: "var(--gradient-hero)" }}
       >
         {/* Film grain overlay — editorial paper feel */}
@@ -371,14 +360,14 @@ const Buy = () => {
               "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>\")",
           }}
         />
-        {/* Vignette glow */}
+        {/* Vignette glow — brand blues, was a stray blue/purple mix */}
         <div
           className="absolute -top-32 -right-32 w-[36rem] h-[36rem] rounded-full opacity-40 blur-3xl pointer-events-none"
-          style={{ background: "radial-gradient(circle, hsl(210 100% 65%), transparent 70%)" }}
+          style={{ background: "radial-gradient(circle, hsl(222 100% 84%), transparent 70%)" }}
         />
         <div
           className="absolute -bottom-40 -left-40 w-[32rem] h-[32rem] rounded-full opacity-25 blur-3xl pointer-events-none"
-          style={{ background: "radial-gradient(circle, hsl(240 100% 70%), transparent 70%)" }}
+          style={{ background: "radial-gradient(circle, hsl(228 67% 43%), transparent 70%)" }}
         />
 
         <div className="relative container mx-auto max-w-6xl px-4 md:px-6 pt-12 md:pt-20 pb-10 md:pb-16">
@@ -389,7 +378,8 @@ const Buy = () => {
           <h1
             className="font-bold leading-[0.95] tracking-tight mb-7 md:mb-9 max-w-4xl"
             style={{
-              fontFamily: "ui-serif, Georgia, 'Times New Roman', serif",
+              fontFamily: "'Space Grotesk', Inter, system-ui, sans-serif",
+              letterSpacing: "-0.02em",
               fontSize: "clamp(2.5rem, 7vw, 5.5rem)",
             }}
           >
@@ -449,7 +439,7 @@ const Buy = () => {
       </section>
 
       {/* =================== FILTER RAIL (sticky) =================== */}
-      <div className="sticky top-0 z-30 bg-white/90 border-b border-border">
+      <div className="sticky top-16 md:top-20 z-30 bg-background/95 backdrop-blur-sm border-b border-border">
         <div className="container mx-auto max-w-6xl px-4 md:px-6 py-3 md:py-4">
           <div className="flex items-center gap-2 md:gap-3 overflow-x-auto scrollbar-hide -mx-1 px-1">
             {/* Category chips */}
@@ -660,20 +650,18 @@ function FeaturedCard({
   onOffer: (t: TicketListing) => void;
 }) {
   const days = daysUntil(group.eventDate);
-  const Icon = ICON_BY_CATEGORY[(group.eventCategory || "other").toLowerCase()] ?? Sparkles;
   return (
     <div
       className="ts-fade-up sm:col-span-2 lg:col-span-2 lg:row-span-2 relative rounded-2xl overflow-hidden bg-card border border-border shadow-sm group"
       style={{ animationDelay: `${index * 50}ms` }}
     >
-      {/* Hero image */}
+      {/* Hero image — no real banner data on grouped listings yet, so this
+          is always the brand-gradient fallback (same treatment as the
+          shared poster EventCard: gradient + name, never a category icon). */}
       <div
         className="relative aspect-[16/10] sm:aspect-[16/9] overflow-hidden"
         style={{ background: fallbackGradient(group.eventId) }}
       >
-        <div className="absolute inset-0 flex items-center justify-center text-white/40">
-          <Icon className="w-24 h-24" strokeWidth={1.2} aria-hidden="true" />
-        </div>
         {/* Dark scrim for legibility */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/15 to-transparent" />
 
@@ -701,7 +689,8 @@ function FeaturedCard({
           <h2
             className="font-bold leading-[0.98] tracking-tight mb-3 max-w-2xl"
             style={{
-              fontFamily: "ui-serif, Georgia, 'Times New Roman', serif",
+              fontFamily: "'Space Grotesk', Inter, system-ui, sans-serif",
+              letterSpacing: "-0.02em",
               fontSize: "clamp(1.5rem, 3.2vw, 2.5rem)",
             }}
           >
@@ -779,22 +768,18 @@ function StandardCard({
   onOffer: (t: TicketListing) => void;
 }) {
   const days = daysUntil(group.eventDate);
-  const Icon = ICON_BY_CATEGORY[(group.eventCategory || "other").toLowerCase()] ?? Sparkles;
   const sellingFast = group.totalAvailable <= 3;
 
   return (
     <div
-      className="ts-fade-up flex flex-col rounded-2xl overflow-hidden bg-card border border-border hover:border-primary/30 hover:shadow-[0_18px_40px_-20px_hsl(220_100%_30%/0.25)] transition-all duration-300"
+      className="ts-fade-up flex flex-col rounded-2xl overflow-hidden bg-card border border-border hover:border-primary/30 hover:shadow-[0_18px_40px_-20px_hsl(227_77%_56%/0.25)] transition-all duration-300"
       style={{ animationDelay: `${index * 50}ms` }}
     >
-      {/* Image */}
+      {/* Image — brand-gradient fallback, see FeaturedCard comment above. */}
       <div
         className="relative aspect-[16/10] overflow-hidden"
         style={{ background: fallbackGradient(group.eventId) }}
       >
-        <div className="absolute inset-0 flex items-center justify-center text-white/35 group-hover:text-white/55 transition-colors">
-          <Icon className="w-16 h-16" strokeWidth={1.2} aria-hidden="true" />
-        </div>
         <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
 
         {/* Top badges */}
@@ -833,7 +818,8 @@ function StandardCard({
         <h3
           className="font-bold text-foreground leading-tight mb-2.5 line-clamp-2"
           style={{
-            fontFamily: "ui-serif, Georgia, 'Times New Roman', serif",
+            fontFamily: "'Space Grotesk', Inter, system-ui, sans-serif",
+            letterSpacing: "-0.02em",
             fontSize: "1.15rem",
           }}
         >
@@ -1004,7 +990,7 @@ function EmptyState({
       </div>
       <h3
         className="text-2xl font-bold text-foreground mb-2"
-        style={{ fontFamily: "ui-serif, Georgia, serif" }}
+        style={{ fontFamily: "'Space Grotesk', Inter, system-ui, sans-serif", letterSpacing: "-0.02em" }}
       >
         {hasAnyListing ? "Aucun billet ne correspond" : "Aucun billet pour l'instant"}
       </h3>

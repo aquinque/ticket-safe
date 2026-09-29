@@ -242,7 +242,7 @@ const ApplicationCard = ({
       {/* Header strip in organizer brand color */}
       <div
         className="px-5 py-4 flex items-center justify-between gap-3 text-white"
-        style={{ background: `linear-gradient(135deg, ${app.primary_color || "#003399"}, hsl(210 100% 45%))` }}
+        style={{ background: `linear-gradient(135deg, ${app.primary_color || "#3a5fe6"}, #2440b6)` }}
       >
         <div className="flex items-center gap-3 min-w-0">
           <div className="w-11 h-11 rounded-xl bg-white/20 flex items-center justify-center font-black text-lg shrink-0">

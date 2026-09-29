@@ -171,10 +171,9 @@ const Header = ({ minimal = false }: HeaderProps) => {
             {isStudioOrganizer && (
               <Link
                 to="/studio"
-                className={`inline-flex items-center gap-2 px-4 h-10 rounded-lg font-bold text-sm text-white shadow-md hover:shadow-lg transition-all whitespace-nowrap ${
+                className={`inline-flex items-center gap-2 px-4 h-10 rounded-lg font-bold text-sm text-white bg-primary hover:bg-primary/90 transition-colors whitespace-nowrap ${
                   location.pathname.startsWith("/studio") ? "ring-2 ring-offset-2 ring-primary/30" : ""
                 }`}
-                style={{ background: "linear-gradient(135deg, #003399, #0066cc)" }}
               >
                 <Sparkles className="w-4 h-4" />
                 Ticket Safe Studio
@@ -287,8 +286,7 @@ const Header = ({ minimal = false }: HeaderProps) => {
                   <Link
                     to="/studio"
                     onClick={() => setIsMenuOpen(false)}
-                    className="flex items-center justify-center gap-2 w-full h-12 rounded-lg font-bold text-base text-white shadow-md"
-                    style={{ background: "linear-gradient(135deg, #003399, #0066cc)" }}
+                    className="flex items-center justify-center gap-2 w-full h-12 rounded-lg font-bold text-base text-white bg-primary"
                   >
                     <Sparkles className="w-4 h-4" />
                     Ticket Safe Studio

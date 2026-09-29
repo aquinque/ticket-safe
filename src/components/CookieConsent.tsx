@@ -1,9 +1,16 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Cookie, X, Settings } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Cookie } from "lucide-react";
 
 interface CookiePreferences {
   necessary: boolean;
@@ -96,193 +103,132 @@ export const CookieConsent = () => {
   }
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 p-4 md:p-6 animate-in slide-in-from-bottom duration-500">
-      <Card className="max-w-5xl mx-auto shadow-2xl border-2">
-        <CardContent className="p-6">
-          {!showSettings ? (
-            // Simple Banner View
-            <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
-              <div className="flex items-start gap-3 flex-1">
-                <Cookie className="w-8 h-8 text-primary flex-shrink-0 mt-1" />
-                <div>
-                  <h3 className="font-semibold text-lg mb-2">We Value Your Privacy</h3>
-                  <p className="text-sm text-muted-foreground">
-                    We use cookies to enhance your experience, analyze site usage, and provide secure services.
-                    Essential cookies are required for the platform to function. You can customize your preferences or accept all cookies.
+    <>
+      {/* Compact bar — one line of text + 3 actions, capped ~120px on
+          mobile instead of the previous full-screen-ish modal card. */}
+      <div className="fixed bottom-0 left-0 right-0 z-50 max-h-[120px] md:max-h-none border-t border-border bg-card/95 backdrop-blur-sm shadow-hover animate-in slide-in-from-bottom duration-300">
+        <div className="container mx-auto px-4 py-3 md:py-3.5 flex flex-col md:flex-row md:items-center gap-2.5 md:gap-4">
+          <div className="flex items-start md:items-center gap-2.5 flex-1 min-w-0">
+            <Cookie className="w-5 h-5 text-primary shrink-0" />
+            <p className="text-xs md:text-sm text-foreground leading-snug line-clamp-2 md:line-clamp-1">
+              We use cookies to run TicketSafe and, with your consent, to measure usage.{" "}
+              <Link to="/cookie-policy" className="text-primary hover:underline whitespace-nowrap">
+                Learn more
+              </Link>
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 md:gap-3 shrink-0">
+            <button
+              type="button"
+              onClick={() => setShowSettings(true)}
+              className="text-xs md:text-sm font-semibold text-muted-foreground hover:text-foreground underline underline-offset-2 whitespace-nowrap"
+            >
+              Customize
+            </button>
+            <Button variant="outline" size="sm" onClick={acceptNecessary} className="whitespace-nowrap">
+              Refuse
+            </Button>
+            <Button variant="primary" size="sm" onClick={acceptAll} className="whitespace-nowrap">
+              Accept All
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Detailed preferences — opened from "Customize", keeps the bar
+          itself compact at all times. */}
+      <Dialog open={showSettings} onOpenChange={setShowSettings}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Cookie className="w-5 h-5 text-primary" />
+              Cookie Preferences
+            </DialogTitle>
+            <DialogDescription>
+              Choose which types of cookies you want to allow. Essential cookies are always enabled.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 max-h-[55vh] overflow-y-auto pr-1">
+            <div className="border border-border rounded-lg p-4 bg-muted/30">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <h4 className="font-semibold text-sm">Strictly Necessary</h4>
+                    <span className="text-[10px] font-bold uppercase bg-danger/10 text-danger px-2 py-0.5 rounded-full">
+                      Always Active
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Essential for the website to function — authentication, security, payment processing. Cannot be disabled.
                   </p>
-                  <Link
-                    to="/cookie-policy"
-                    className="text-xs text-primary hover:underline inline-block mt-2"
-                  >
-                    Learn more about our cookie policy
-                  </Link>
                 </div>
-              </div>
-
-              <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowSettings(true)}
-                  className="w-full sm:w-auto"
-                >
-                  <Settings className="w-4 h-4 mr-2" />
-                  Customize
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={acceptNecessary}
-                  className="w-full sm:w-auto"
-                >
-                  Necessary Only
-                </Button>
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={acceptAll}
-                  className="w-full sm:w-auto"
-                >
-                  Accept All
-                </Button>
+                <Switch checked disabled className="opacity-50" />
               </div>
             </div>
-          ) : (
-            // Detailed Settings View
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Cookie className="w-6 h-6 text-primary" />
-                  <h3 className="font-semibold text-lg">Cookie Preferences</h3>
+
+            <div className="border border-border rounded-lg p-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <h4 className="font-semibold text-sm mb-1.5">Functional</h4>
+                  <p className="text-xs text-muted-foreground">
+                    Remembers your preferences — language, recently viewed tickets.
+                  </p>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowSettings(false)}
-                >
-                  <X className="w-4 h-4" />
-                </Button>
+                <Switch
+                  checked={preferences.functional}
+                  onCheckedChange={(checked) => setPreferences({ ...preferences, functional: checked })}
+                />
               </div>
-
-              <p className="text-sm text-muted-foreground">
-                Choose which types of cookies you want to allow. Essential cookies are always enabled.
-              </p>
-
-              <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
-                {/* Necessary Cookies */}
-                <div className="border rounded-lg p-4 bg-muted/20">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <h4 className="font-semibold">Strictly Necessary</h4>
-                        <span className="text-xs bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-200 px-2 py-0.5 rounded">
-                          Always Active
-                        </span>
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        Essential for the website to function. Includes authentication, security, and payment processing. Cannot be disabled.
-                      </p>
-                    </div>
-                    <Switch
-                      checked={true}
-                      disabled={true}
-                      className="opacity-50"
-                    />
-                  </div>
-                </div>
-
-                {/* Functional Cookies */}
-                <div className="border rounded-lg p-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <h4 className="font-semibold mb-2">Functional</h4>
-                      <p className="text-sm text-muted-foreground">
-                        Remember your preferences like theme (dark/light mode), language, and recently viewed tickets. Enhances your user experience.
-                      </p>
-                    </div>
-                    <Switch
-                      checked={preferences.functional}
-                      onCheckedChange={(checked) =>
-                        setPreferences({ ...preferences, functional: checked })
-                      }
-                    />
-                  </div>
-                </div>
-
-                {/* Analytics Cookies */}
-                <div className="border rounded-lg p-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <h4 className="font-semibold mb-2">Analytics & Performance</h4>
-                      <p className="text-sm text-muted-foreground">
-                        Help us understand how you use the platform through anonymized data. Allows us to improve features and user experience.
-                      </p>
-                    </div>
-                    <Switch
-                      checked={preferences.analytics}
-                      onCheckedChange={(checked) =>
-                        setPreferences({ ...preferences, analytics: checked })
-                      }
-                    />
-                  </div>
-                </div>
-
-                {/* Marketing Cookies */}
-                <div className="border rounded-lg p-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <h4 className="font-semibold mb-2">Marketing & Advertising</h4>
-                      <p className="text-sm text-muted-foreground">
-                        Currently not used. TicketSafe does not track you across websites or display targeted ads.
-                      </p>
-                    </div>
-                    <Switch
-                      checked={false}
-                      disabled={true}
-                      className="opacity-50"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex flex-col sm:flex-row gap-2 pt-4 border-t">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={acceptNecessary}
-                  className="w-full sm:flex-1"
-                >
-                  Reject All Optional
-                </Button>
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={saveCustomPreferences}
-                  className="w-full sm:flex-1"
-                >
-                  Save My Preferences
-                </Button>
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={acceptAll}
-                  className="w-full sm:flex-1"
-                >
-                  Accept All Cookies
-                </Button>
-              </div>
-
-              <p className="text-xs text-muted-foreground text-center">
-                You can change your preferences at any time in our{' '}
-                <Link to="/cookie-policy" className="text-primary hover:underline">
-                  Cookie Policy
-                </Link>
-              </p>
             </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+
+            <div className="border border-border rounded-lg p-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <h4 className="font-semibold text-sm mb-1.5">Analytics & Performance</h4>
+                  <p className="text-xs text-muted-foreground">
+                    Anonymized usage data, helps us improve the platform.
+                  </p>
+                </div>
+                <Switch
+                  checked={preferences.analytics}
+                  onCheckedChange={(checked) => setPreferences({ ...preferences, analytics: checked })}
+                />
+              </div>
+            </div>
+
+            <div className="border border-border rounded-lg p-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <h4 className="font-semibold text-sm mb-1.5">Marketing & Advertising</h4>
+                  <p className="text-xs text-muted-foreground">
+                    Currently not used. TicketSafe does not track you across sites or show targeted ads.
+                  </p>
+                </div>
+                <Switch checked={false} disabled className="opacity-50" />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" size="sm" onClick={acceptNecessary} className="w-full sm:flex-1">
+              Reject Optional
+            </Button>
+            <Button variant="primary" size="sm" onClick={saveCustomPreferences} className="w-full sm:flex-1">
+              Save Preferences
+            </Button>
+          </DialogFooter>
+
+          <p className="text-[11px] text-muted-foreground text-center">
+            You can change this anytime in our{' '}
+            <Link to="/cookie-policy" className="text-primary hover:underline">
+              Cookie Policy
+            </Link>
+          </p>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
 

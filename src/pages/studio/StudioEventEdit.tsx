@@ -30,10 +30,8 @@ import {
   Sparkles,
 } from "lucide-react";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import Header from "@/components/Header";
+import { StudioLayout } from "@/components/studio/StudioLayout";
 import { ImageCropDialog } from "@/components/ImageCropDialog";
-import { BackButton } from "@/components/BackButton";
-import Footer from "@/components/Footer";
 import { SEOHead } from "@/components/SEOHead";
 import {
   AlertDialog,
@@ -43,6 +41,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrganizer } from "@/hooks/useOrganizer";
+import { useThemeMode } from "@/hooks/useThemeMode";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import EventStatusBadge from "@/components/studio/EventStatusBadge";
@@ -166,6 +165,7 @@ function exportAttendeesCsv(
 }
 
 const StudioEventEdit = () => {
+  useThemeMode("studio");
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
@@ -352,7 +352,7 @@ const StudioEventEdit = () => {
 
   if (authLoading || orgLoading || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="theme-studio min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
@@ -360,17 +360,11 @@ const StudioEventEdit = () => {
 
   if (!event) {
     return (
-      <div className="min-h-screen bg-background flex flex-col">
-        <Header minimal />
-        <main className="flex-1 flex items-center justify-center p-6">
-          <div className="text-center">
-            <p className="text-sm text-muted-foreground mb-4">Event not found.</p>
-            <Link to="/studio" className="text-primary font-bold">
-              Back to dashboard
-            </Link>
-          </div>
-        </main>
-        <Footer />
+      <div className="theme-studio min-h-screen bg-background flex flex-col items-center justify-center p-6">
+        <p className="text-sm text-muted-foreground mb-4">Event not found.</p>
+        <Link to="/studio" className="text-primary font-bold">
+          Back to dashboard
+        </Link>
       </div>
     );
   }
@@ -420,21 +414,21 @@ const StudioEventEdit = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <StudioLayout active="events" organizer={organizer ? { name: organizer.name, logo_url: organizer.logo_url } : null}>
       <SEOHead title={`${event.title} · Studio`} description={`Manage ${event.title}.`} />
-      <Header minimal />
 
-      <main className="flex-1 py-6 md:py-10">
-        <div className="container mx-auto px-4 max-w-5xl">
+      <div className="p-4 md:p-6 max-w-5xl mx-auto">
           <div className="mb-4">
-            <BackButton fallbackPath="/studio" />
+            <Link to="/studio" className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-primary">
+              ← Retour au dashboard
+            </Link>
           </div>
 
           {/* Header strip */}
           <div
             className="rounded-2xl p-6 md:p-8 text-white mb-6"
             style={{
-              background: "linear-gradient(135deg, #003399, hsl(210 100% 45%))",
+              background: "linear-gradient(135deg, #3a5fe6, #2440b6)",
             }}
           >
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
@@ -888,10 +882,7 @@ const StudioEventEdit = () => {
               </div>
             )}
           </section>
-        </div>
-      </main>
-
-      <Footer />
+      </div>
 
       {/* Cancel-event confirmation dialog. Surfaces the real impact (buyer
           count + total refund €) before the irreversible action, and gates
@@ -984,7 +975,7 @@ const StudioEventEdit = () => {
           })()}
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </StudioLayout>
   );
 };
 
