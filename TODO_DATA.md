@@ -32,8 +32,16 @@ new tables/queries without asking. Updated as phases land.
 
 ## Known duplication to resolve
 
-- `src/pages/Tickets.tsx` defines its **own local** `EventCard`/
-  `EventCardSkeleton` (different data shape: `bannerUrl`/`logoUrl`/`campus`/
-  `capacity`/`slug`), separate from the shared poster `EventCard` built in
-  Phase 2. Left alone in Phase 2/3; Phase 4 (rebuilding `/tickets`) is
-  where I'll consolidate it onto the shared component.
+- ~~`src/pages/Tickets.tsx` local EventCard~~ — **done in Phase 4**:
+  consolidated onto the shared poster `EventCard` via a `toEventData`
+  adapter, dead per-campus-gradient/per-category-icon maps removed.
+- **`src/pages/Marketplace.tsx`** (`/marketplace`, 528 lines) is a *third*
+  parallel "browse events" implementation — uses `useESCPEvents` like
+  `EventsSection.tsx`/old Home did, separate again from both the shared
+  `EventCard` and from `marketplace/Buy.tsx`'s own grouped-listing bento
+  grid. `/catalog` redirects here. Not touched in this redesign — it wasn't
+  one of the three surfaces the Phase 4 brief named (`/tickets`, the event
+  page, "the resale marketplace" = `marketplace/Buy.tsx` at
+  `/marketplace/buy`), and I didn't want to guess-expand scope on a page
+  that size without checking first. Worth deciding whether it's still
+  needed at all, or should redirect to `/tickets` instead.
