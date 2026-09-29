@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowRight, Ticket, Repeat2, ShieldCheck, QrCode, Lock, Sparkles, GraduationCap, User, LogOut, LayoutDashboard, Banknote } from "lucide-react";
+import { ArrowRight, Ticket, Repeat2, ShieldCheck, QrCode, Lock, Sparkles, User, LogOut, LayoutDashboard, Banknote } from "lucide-react";
 import Logo from "@/components/Logo";
 import { SEOHead } from "@/components/SEOHead";
 import { useAuth } from "@/hooks/useAuth";
@@ -150,10 +150,6 @@ const Home = () => {
         <div className="w-full max-w-5xl">
           {/* Positioning headline — explicitly says what TicketSafe is */}
           <div className="flex flex-col items-center text-center gap-3 md:gap-4 mb-7 md:mb-12 animate-fade-in">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-border shadow-soft text-[11px] md:text-xs font-semibold tracking-wide text-foreground/80">
-              <GraduationCap className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-              <span className="leading-tight">Student-only · Verified by university email</span>
-            </div>
             <h1 className="text-[28px] sm:text-3xl md:text-5xl lg:text-6xl font-black text-foreground leading-[1.08] tracking-tight max-w-3xl">
               The ticket platform built for{" "}
               <span className="bg-gradient-hero bg-clip-text text-transparent">
