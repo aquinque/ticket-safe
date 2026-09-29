@@ -18,12 +18,11 @@ import {
   ArrowUpDown,
   ArrowLeft,
 } from "lucide-react";
-import Header from "@/components/Header";
-import { BackButton } from "@/components/BackButton";
-import Footer from "@/components/Footer";
+import { StudioLayout } from "@/components/studio/StudioLayout";
 import { SEOHead } from "@/components/SEOHead";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrganizer } from "@/hooks/useOrganizer";
+import { useThemeMode } from "@/hooks/useThemeMode";
 import { supabase } from "@/integrations/supabase/client";
 
 interface EventRow {
@@ -124,6 +123,7 @@ function buildRows(
 }
 
 const StudioEventAttendees = () => {
+  useThemeMode("studio");
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
@@ -235,22 +235,17 @@ const StudioEventAttendees = () => {
 
   if (authLoading || orgLoading || loading || !event) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="theme-studio min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="w-6 h-6 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <StudioLayout active="events" organizer={organizer ? { name: organizer.name, logo_url: organizer.logo_url } : null}>
       <SEOHead title={`Attendees · ${event.title} · Studio`} description={`Attendee list for ${event.title}.`} />
-      <Header minimal />
 
-      <main className="flex-1 container mx-auto px-4 py-6 md:py-10 max-w-5xl">
-        <div className="mb-5">
-          <BackButton />
-        </div>
-
+      <div className="p-4 md:p-6 max-w-5xl mx-auto">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6">
           <div>
             <Link to={`/studio/events/${event.id}`} className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-primary mb-1.5">
@@ -292,13 +287,13 @@ const StudioEventAttendees = () => {
             <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-1.5">
               <Banknote className="w-3.5 h-3.5" /> Gross revenue
             </div>
-            <div className="text-2xl font-black">{eur(stats.grossCents)}</div>
+            <div className="text-2xl font-black tabular-nums">{eur(stats.grossCents)}</div>
           </div>
           <div className="rounded-xl border border-border bg-card p-4">
             <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-1.5">
               <Users className="w-3.5 h-3.5" /> Net payout
             </div>
-            <div className="text-2xl font-black">{eur(stats.netCents)}</div>
+            <div className="text-2xl font-black tabular-nums">{eur(stats.netCents)}</div>
           </div>
         </div>
 
@@ -335,10 +330,10 @@ const StudioEventAttendees = () => {
         </div>
 
         {/* Desktop table */}
-        <div className="hidden md:block rounded-2xl border border-border bg-card overflow-hidden">
+        <div className="hidden md:block rounded-lg border border-border bg-card overflow-hidden">
           <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border bg-muted/40 text-left">
+            <thead className="sticky top-0 z-10">
+              <tr className="border-b border-border bg-muted/60 backdrop-blur-sm text-left">
                 {([
                   ["name", "Name"],
                   ["date", "Order date"],
@@ -361,7 +356,7 @@ const StudioEventAttendees = () => {
                 <tr key={r.id} className="border-b border-border last:border-0 hover:bg-muted/20">
                   <td className="px-4 py-3 font-semibold">{r.name}</td>
                   <td className="px-4 py-3 text-muted-foreground">{new Date(r.orderDate).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</td>
-                  <td className="px-4 py-3 font-semibold">{eur(r.amountCents)}</td>
+                  <td className="px-4 py-3 font-semibold tabular-nums">{eur(r.amountCents)}</td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold ${r.checkedIn ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-muted text-muted-foreground border border-border"}`}>
                       {r.checkedIn ? <CheckCircle2 className="w-3 h-3" /> : null}
@@ -393,7 +388,7 @@ const StudioEventAttendees = () => {
               <div className="text-xs text-muted-foreground break-all mb-1.5">{r.email}</div>
               <div className="flex items-center justify-between text-xs">
                 <span className="text-muted-foreground">{r.tierName} · {new Date(r.orderDate).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</span>
-                <span className="font-bold text-foreground">{eur(r.amountCents)}</span>
+                <span className="font-bold text-foreground tabular-nums">{eur(r.amountCents)}</span>
               </div>
             </div>
           ))}
@@ -401,10 +396,8 @@ const StudioEventAttendees = () => {
             <p className="text-sm text-muted-foreground text-center py-10">No attendees match your filters.</p>
           )}
         </div>
-      </main>
-
-      <Footer />
-    </div>
+      </div>
+    </StudioLayout>
   );
 };
 

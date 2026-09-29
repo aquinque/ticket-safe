@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import {
   Calendar,
   MapPin,
@@ -21,12 +21,11 @@ import {
   Ticket,
   CheckCircle2,
 } from "lucide-react";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
-import { BackButton } from "@/components/BackButton";
+import { StudioLayout } from "@/components/studio/StudioLayout";
 import { SEOHead } from "@/components/SEOHead";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrganizer } from "@/hooks/useOrganizer";
+import { useThemeMode } from "@/hooks/useThemeMode";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { detectCampus } from "@/lib/campus";
@@ -74,6 +73,7 @@ const STEPS = [
 ] as const;
 
 const StudioEventNew = () => {
+  useThemeMode("studio");
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const { organizer, loading: orgLoading } = useOrganizer();
@@ -361,7 +361,7 @@ const StudioEventNew = () => {
 
   if (authLoading || orgLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="theme-studio min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
@@ -388,14 +388,14 @@ const StudioEventNew = () => {
   );
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <StudioLayout active="events" organizer={organizer ? { name: organizer.name, logo_url: organizer.logo_url } : null}>
       <SEOHead title="New event — Ticket Safe Studio" description="Create a branded event in Ticket Safe Studio." />
-      <Header minimal />
 
-      <main className="flex-1 py-6 md:py-10">
-        <div className="container mx-auto px-4 max-w-6xl">
+      <div className="p-4 md:p-6 max-w-6xl mx-auto">
           <div className="mb-4">
-            <BackButton fallbackPath="/studio" />
+            <Link to="/studio" className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-primary">
+              ← Retour au dashboard
+            </Link>
           </div>
 
           {/* ===== Page header ===== */}
@@ -873,8 +873,7 @@ const StudioEventNew = () => {
               </div>
             </aside>
           </div>
-        </div>
-      </main>
+      </div>
 
       <style>{`
         .ts-input { width: 100%; padding: 12px 14px; border: 1px solid hsl(var(--border)); border-radius: 12px; background: hsl(var(--background)); font-size: 16px; line-height: 1.4; color: hsl(var(--foreground)); transition: border-color .15s, box-shadow .15s; }
@@ -882,9 +881,7 @@ const StudioEventNew = () => {
       `}</style>
 
       <ImageCropDialog src={cropSrc} open={cropOpen} onOpenChange={setCropOpen} onCropped={onCropped} />
-
-      <Footer />
-    </div>
+    </StudioLayout>
   );
 };
 

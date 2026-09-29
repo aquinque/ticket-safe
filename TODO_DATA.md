@@ -30,6 +30,40 @@ new tables/queries without asking. Updated as phases land.
   of only empty states. No filter added. Revisit later if you want it gone
   or want a reusable `is_test` flag instead of a manual deactivate.
 
+## Phase 5 — Studio
+
+- **Sidebar nav items with no dedicated screen**: "Ventes" and "Équipe /
+  Vendeurs" are shown in `StudioLayout`'s sidebar marked "Bientôt"
+  (disabled, not a fake empty page) — no table/query backs either yet.
+  "Ventes" could probably reuse the new dashboard sales-by-day query plus
+  a per-event breakdown; "Équipe / Vendeurs" would need a real
+  organizer-team/roles model that doesn't exist in the schema today.
+- **"Paiements" nav item** links to `/studio` (where the existing payout
+  banner/modal lives) rather than a dedicated `/studio/payouts` page —
+  there wasn't one before this redesign either.
+- **Daily sales chart** (`StudioDashboard.tsx`): added a real (not
+  invented) query — `event_orders` filtered by `organizer_id`/`status=paid`,
+  bucketed client-side into the last 14 days. Simple bars, no library
+  chart component; fine for now but could move to the `ui/chart.tsx`
+  (recharts) wrapper already used in `StudioEventEdit.tsx` if you want
+  axes/tooltips.
+- **"Billets revendus" KPI**: real count, added via a new read-only query
+  (`tickets` table filtered to this organizer's event ids) — same pattern
+  as the "Resale available" banner added to the event page in Phase 4.
+- **Not rebuilt**: `StudioEventNew.tsx`'s 5-step wizard (Details → Date &
+  place → Tickets → Cover & link → Review) with its sticky live
+  `EventPreviewCard` **already existed** before this redesign — Phase 5
+  only re-themed it (StudioLayout wrapper, `.theme-studio`), it wasn't
+  rebuilt from scratch. Same for `StudioEventEdit.tsx`'s existing sales
+  chart (recharts) and `StudioEventAttendees.tsx`'s table (search, sort,
+  filters, CSV export) — those already met the "dense table" bar, I only
+  added a sticky header and `tabular-nums` on amount columns.
+- **Not visually verified**: Studio requires an approved-organizer login I
+  don't have test credentials for. Build/type-check/lint are clean and the
+  unauthenticated `/studio` redirect renders with zero console errors, but
+  I couldn't screenshot the actual dashboard/wizard/tables post-login —
+  worth a manual spot-check.
+
 ## Known duplication to resolve
 
 - ~~`src/pages/Tickets.tsx` local EventCard~~ — **done in Phase 4**:

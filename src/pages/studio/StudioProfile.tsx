@@ -13,16 +13,16 @@ import {
   AlertCircle,
   CheckCircle2,
 } from "lucide-react";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
-import { BackButton } from "@/components/BackButton";
+import { StudioLayout } from "@/components/studio/StudioLayout";
 import { SEOHead } from "@/components/SEOHead";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrganizer } from "@/hooks/useOrganizer";
+import { useThemeMode } from "@/hooks/useThemeMode";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 const StudioProfile = () => {
+  useThemeMode("studio");
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const { organizer, loading: orgLoading, refresh } = useOrganizer();
@@ -32,7 +32,7 @@ const StudioProfile = () => {
   const [contactEmail, setContactEmail] = useState("");
   const [website, setWebsite] = useState("");
   const [about, setAbout] = useState("");
-  const [primaryColor, setPrimaryColor] = useState("#003399");
+  const [primaryColor, setPrimaryColor] = useState("#3a5fe6");
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -53,7 +53,7 @@ const StudioProfile = () => {
       setContactEmail(organizer.contact_email ?? "");
       setWebsite(organizer.website ?? "");
       setAbout(organizer.about ?? "");
-      setPrimaryColor(organizer.primary_color ?? "#003399");
+      setPrimaryColor(organizer.primary_color ?? "#3a5fe6");
       setLogoPreview(organizer.logo_url ?? null);
     }
   }, [organizer, orgLoading, authLoading, navigate]);
@@ -78,7 +78,7 @@ const StudioProfile = () => {
     if (contactName.trim().length < 2) return "Contact name is too short.";
     if (!/\S+@\S+\.\S+/.test(contactEmail)) return "Contact email is not valid.";
     if (website && !/^https?:\/\//.test(website)) return "Website must start with http:// or https://";
-    if (!/^#[0-9A-Fa-f]{6}$/.test(primaryColor)) return "Primary color must be hex like #003399.";
+    if (!/^#[0-9A-Fa-f]{6}$/.test(primaryColor)) return "Primary color must be hex like #3a5fe6.";
     return null;
   };
 
@@ -132,25 +132,19 @@ const StudioProfile = () => {
 
   if (authLoading || orgLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="theme-studio min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <StudioLayout active="settings" organizer={organizer ? { name: organizer.name, logo_url: organizer.logo_url } : null}>
       <SEOHead title="Organizer profile — Studio" description="Edit your organizer profile in Ticket Safe Studio." />
-      <Header minimal />
 
-      <main className="flex-1 py-6 md:py-10">
-        <div className="container mx-auto px-4 max-w-3xl">
-          <div className="mb-4">
-            <BackButton fallbackPath="/studio" />
-          </div>
-
-          <h1 className="text-2xl md:text-4xl font-black mb-2">Organizer profile</h1>
-          <p className="text-sm md:text-base text-muted-foreground mb-8">
+      <div className="p-4 md:p-6 max-w-3xl mx-auto">
+          <h1 className="text-xl md:text-2xl font-bold text-foreground mb-2">Organizer profile</h1>
+          <p className="text-sm text-muted-foreground mb-6">
             Edit how your organization appears across Ticket Safe.
           </p>
 
@@ -237,16 +231,13 @@ const StudioProfile = () => {
             <CheckCircle2 className="w-3.5 h-3.5 text-green-600" />
             Public URL: <code className="font-mono">ticket-safe.eu/e/&lt;event-slug&gt;</code>
           </div>
-        </div>
-      </main>
+      </div>
 
       <style>{`
         .ts-prof { width: 100%; padding: 12px 14px; border: 1px solid hsl(var(--border)); border-radius: 12px; background: hsl(var(--background)); font-size: 16px; line-height: 1.4; color: hsl(var(--foreground)); transition: border-color .15s, box-shadow .15s; }
         .ts-prof:focus { outline: none; border-color: hsl(var(--primary)); box-shadow: 0 0 0 3px hsl(var(--primary) / 0.15); }
       `}</style>
-
-      <Footer />
-    </div>
+    </StudioLayout>
   );
 };
 

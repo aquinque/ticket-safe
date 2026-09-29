@@ -15,17 +15,15 @@ import {
   ExternalLink,
   Banknote,
   QrCode,
-  Settings,
   Repeat2,
   Download,
 } from "lucide-react";
 import { toast } from "sonner";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
-import { BackButton } from "@/components/BackButton";
+import { StudioLayout } from "@/components/studio/StudioLayout";
 import { SEOHead } from "@/components/SEOHead";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrganizer } from "@/hooks/useOrganizer";
+import { useThemeMode } from "@/hooks/useThemeMode";
 import { supabase } from "@/integrations/supabase/client";
 import { generatePayoutReceiptPDF } from "@/lib/payoutReceiptPdf";
 import EventStatusBadge, { deriveEventStatusKind } from "@/components/studio/EventStatusBadge";
@@ -57,6 +55,7 @@ interface Earnings {
 }
 
 const StudioDashboard = () => {
+  useThemeMode("studio");
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const { organizer, loading: orgLoading } = useOrganizer();
@@ -65,6 +64,8 @@ const StudioDashboard = () => {
   const [earnings, setEarnings] = useState<Earnings | null>(null);
   const [payoutModalOpen, setPayoutModalOpen] = useState(false);
   const [filter, setFilter] = useState<"all" | "live" | "draft" | "past">("all");
+  const [resoldCount, setResoldCount] = useState<number | null>(null);
+  const [dailySales, setDailySales] = useState<{ day: string; cents: number }[] | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user) navigate("/auth?next=/studio");
@@ -181,6 +182,52 @@ const StudioDashboard = () => {
     };
   }, [organizer, loadEvents, events]);
 
+  // Resold count — of this organizer's tickets, how many are now listed on
+  // the resale marketplace. Read-only count against the same `tickets`
+  // table the resale marketplace itself lists from; no new table.
+  useEffect(() => {
+    const eventIds = events.map((e) => e.id);
+    if (!eventIds.length) {
+      setResoldCount(0);
+      return;
+    }
+    supabase
+      .from("tickets")
+      .select("id", { count: "exact", head: true })
+      .in("event_id", eventIds)
+      .then(({ count }) => setResoldCount(count ?? 0));
+  }, [events]);
+
+  // Daily gross sales, last 14 days — bucketed client-side from
+  // event_orders (already queried elsewhere on this page; organizer_id is
+  // a direct column, no new join needed).
+  useEffect(() => {
+    if (!organizer) return;
+    (async () => {
+      const since = new Date();
+      since.setDate(since.getDate() - 13);
+      since.setHours(0, 0, 0, 0);
+      const { data } = await supabase
+        .from("event_orders")
+        .select("total_cents, created_at")
+        .eq("organizer_id", organizer.id)
+        .eq("status", "paid")
+        .gte("created_at", since.toISOString());
+
+      const buckets = new Map<string, number>();
+      for (let i = 0; i < 14; i++) {
+        const d = new Date(since);
+        d.setDate(d.getDate() + i);
+        buckets.set(d.toISOString().slice(0, 10), 0);
+      }
+      for (const row of (data ?? []) as { total_cents: number; created_at: string }[]) {
+        const key = row.created_at.slice(0, 10);
+        if (buckets.has(key)) buckets.set(key, (buckets.get(key) ?? 0) + row.total_cents);
+      }
+      setDailySales(Array.from(buckets.entries()).map(([day, cents]) => ({ day, cents })));
+    })();
+  }, [organizer]);
+
   if (authLoading || orgLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -192,18 +239,17 @@ const StudioDashboard = () => {
   // ── No application yet ──────────────────────────────────────────────────
   if (!organizer) {
     return (
-      <div className="min-h-screen bg-background flex flex-col">
+      <div className="theme-studio min-h-screen bg-background flex flex-col">
         <SEOHead title="Studio — Ticket Safe" description="Ticket Safe Studio for student event organizers." />
-        <Header minimal />
         <main className="flex-1 flex items-center justify-center p-6">
-          <div className="max-w-md w-full text-center bg-card border border-border rounded-2xl p-8 shadow-soft">
+          <div className="max-w-md w-full text-center bg-card border border-border rounded-lg p-8 shadow-card">
             <div
-              className="w-14 h-14 rounded-xl mx-auto flex items-center justify-center mb-5"
+              className="w-14 h-14 rounded-lg mx-auto flex items-center justify-center mb-5"
               style={{ background: "var(--gradient-hero)" }}
             >
               <Sparkles className="w-7 h-7 text-white" />
             </div>
-            <h1 className="text-2xl font-black mb-2">Apply for Studio</h1>
+            <h1 className="text-2xl font-bold mb-2">Apply for Studio</h1>
             <p className="text-sm text-muted-foreground mb-6">
               You need an approved organizer profile to access the Studio dashboard.
             </p>
@@ -216,7 +262,6 @@ const StudioDashboard = () => {
             </Link>
           </div>
         </main>
-        <Footer />
       </div>
     );
   }
@@ -224,19 +269,18 @@ const StudioDashboard = () => {
   // ── Pending / rejected / suspended ──────────────────────────────────────
   if (organizer.status !== "approved") {
     return (
-      <div className="min-h-screen bg-background flex flex-col">
+      <div className="theme-studio min-h-screen bg-background flex flex-col">
         <SEOHead title="Studio — Ticket Safe" description="Application status" />
-        <Header minimal />
         <main className="flex-1 flex items-center justify-center p-6">
-          <div className="max-w-md w-full text-center bg-card border border-border rounded-2xl p-8 shadow-soft">
-            <div className="w-14 h-14 rounded-xl mx-auto flex items-center justify-center mb-5 bg-primary/10">
+          <div className="max-w-md w-full text-center bg-card border border-border rounded-lg p-8 shadow-card">
+            <div className="w-14 h-14 rounded-lg mx-auto flex items-center justify-center mb-5 bg-primary/10">
               {organizer.status === "pending" ? (
                 <Clock className="w-7 h-7 text-primary" />
               ) : (
                 <AlertCircle className="w-7 h-7 text-destructive" />
               )}
             </div>
-            <h1 className="text-2xl font-black mb-2">
+            <h1 className="text-2xl font-bold mb-2">
               {organizer.status === "pending" && "Application under review"}
               {organizer.status === "rejected" && "Application not approved"}
               {organizer.status === "suspended" && "Account suspended"}
@@ -257,7 +301,6 @@ const StudioDashboard = () => {
             </Link>
           </div>
         </main>
-        <Footer />
       </div>
     );
   }
@@ -266,126 +309,122 @@ const StudioDashboard = () => {
   const stats = events.reduce(
     (acc, e) => ({
       sold: acc.sold + e.sold_count,
+      capacity: acc.capacity + e.total_capacity,
       revenue: acc.revenue + e.revenue_cents,
       published: acc.published + (e.status === "published" ? 1 : 0),
     }),
-    { sold: 0, revenue: 0, published: 0 },
+    { sold: 0, capacity: 0, revenue: 0, published: 0 },
   );
+  const fillRate = stats.capacity > 0 ? Math.round((stats.sold / stats.capacity) * 100) : null;
+  const maxDailyCents = dailySales ? Math.max(1, ...dailySales.map((d) => d.cents)) : 1;
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <StudioLayout active="dashboard" organizer={{ name: organizer.name, logo_url: organizer.logo_url }}>
       <SEOHead title={`${organizer.name} · Studio`} description="Ticket Safe Studio dashboard" />
-      <Header minimal />
 
-      <main className="flex-1">
-        {/* ===== Header strip ===== */}
-        <section
-          className="text-white"
-          style={{
-            background: `linear-gradient(135deg, ${organizer.primary_color}, hsl(210 100% 45%))`,
-          }}
-        >
-          <div className="container mx-auto px-4 py-8 md:py-10">
-            <div className="mb-5">
-              <BackButton />
-            </div>
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-5">
-              <div className="flex items-center gap-4">
-                {organizer.logo_url ? (
-                  <img
-                    src={organizer.logo_url}
-                    alt={organizer.name}
-                    className="w-14 h-14 md:w-16 md:h-16 rounded-xl object-cover bg-white/10"
-                  />
-                ) : (
-                  <div className="w-14 h-14 md:w-16 md:h-16 rounded-xl bg-white/15 flex items-center justify-center font-black text-2xl">
-                    {organizer.name[0]?.toUpperCase() ?? "?"}
-                  </div>
-                )}
-                <div className="min-w-0">
-                  <div className="text-xs uppercase tracking-[0.18em] font-bold text-white/80">
-                    Studio dashboard
-                  </div>
-                  <h1 className="text-2xl md:text-3xl font-black leading-tight inline-flex items-center gap-2">
-                    {organizer.name}
-                    <Link
-                      to="/studio/profile"
-                      title="Edit organizer profile"
-                      className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-white/15 hover:bg-white/25 transition-colors"
-                    >
-                      <Settings className="w-3.5 h-3.5" />
-                    </Link>
-                  </h1>
-                  <p className="text-sm text-white/85 mt-1 max-w-md">
-                    Create events, sell tickets, and get paid — all in one place.
-                  </p>
-                </div>
-              </div>
-              <Link
-                to="/studio/events/new"
-                className="inline-flex items-center justify-center gap-2 px-5 min-h-[44px] rounded-xl font-bold bg-white text-primary hover:bg-white/95 transition-colors"
-              >
-                <Plus className="w-4 h-4" />
-                New event
-              </Link>
-            </div>
-
-            {/* Stats */}
-            <div className="grid grid-cols-3 gap-3 md:gap-5 mt-6 md:mt-8">
-              <StatCard icon={Calendar} label="Published events" value={String(stats.published)} />
-              <StatCard icon={Users} label="Tickets sold" value={String(stats.sold)} />
-              <StatCard icon={TrendingUp} label="Revenue" value={`€${(stats.revenue / 100).toFixed(0)}`} />
-            </div>
+      <div className="p-4 md:p-6 max-w-6xl mx-auto">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+          <div>
+            <h1 className="text-xl md:text-2xl font-bold text-foreground">Dashboard</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Créez des events, vendez des billets, et faites-vous payer — le tout au même endroit.
+            </p>
           </div>
-        </section>
+          <Link
+            to="/studio/events/new"
+            className="inline-flex items-center justify-center gap-2 px-4 min-h-[44px] rounded-lg font-bold text-sm bg-primary text-primary-foreground hover:bg-primary-hover transition-colors self-start sm:self-auto"
+          >
+            <Plus className="w-4 h-4" />
+            Nouvel event
+          </Link>
+        </div>
+
+        {/* ===== KPI cards ===== */}
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
+          <KpiCard label="Billets vendus" value={stats.sold.toLocaleString("fr-FR")} icon={Users} />
+          <KpiCard label="CA brut" value={`€${(stats.revenue / 100).toLocaleString("fr-FR", { maximumFractionDigits: 0 })}`} icon={TrendingUp} />
+          <KpiCard
+            label="CA net (après frais)"
+            value={earnings ? `€${(earnings.net_earned_cents / 100).toLocaleString("fr-FR", { maximumFractionDigits: 0 })}` : "—"}
+            icon={Banknote}
+          />
+          <KpiCard label="Taux de remplissage" value={fillRate != null ? `${fillRate}%` : "—"} icon={Calendar} />
+          <KpiCard
+            label="Billets revendus"
+            value={resoldCount != null ? String(resoldCount) : "—"}
+            icon={Repeat2}
+          />
+        </div>
+
+        {/* ===== Sales chart — gross, last 14 days ===== */}
+        <div className="rounded-lg border border-border bg-card p-4 md:p-5 mb-6">
+          <div className="text-sm font-bold text-foreground mb-4">Ventes des 14 derniers jours</div>
+          {dailySales ? (
+            dailySales.every((d) => d.cents === 0) ? (
+              <p className="text-sm text-muted-foreground py-6 text-center">Aucune vente sur cette période.</p>
+            ) : (
+              <div className="flex items-end gap-1 h-32">
+                {dailySales.map((d) => (
+                  <div key={d.day} className="flex-1 flex flex-col items-center justify-end h-full group relative">
+                    <div
+                      className="w-full rounded-sm bg-primary/70 hover:bg-primary transition-colors"
+                      style={{ height: `${Math.max(2, (d.cents / maxDailyCents) * 100)}%` }}
+                      title={`${new Date(d.day).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })} — €${(d.cents / 100).toFixed(0)}`}
+                    />
+                  </div>
+                ))}
+              </div>
+            )
+          ) : (
+            <div className="h-32 flex items-center justify-center">
+              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+            </div>
+          )}
+        </div>
 
         {/* ===== Earnings banner — manual SEPA payout via IBAN. No Stripe
             KYC for the organizer: they just type their IBAN, Ticket Safe
             wires the funds from its bank within 2-3 business days. */}
         {earnings && earnings.available_cents > 0 && (
-          <section className="container mx-auto px-4 pt-6 md:pt-8 max-w-5xl">
-            <div className="flex flex-col md:flex-row md:items-center gap-4 rounded-2xl border border-emerald-300 bg-emerald-50 px-5 py-4">
-              <div className="w-11 h-11 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0">
-                <Banknote className="w-5 h-5 text-emerald-700" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="font-bold text-sm md:text-base text-emerald-900">
-                  €{(earnings.available_cents / 100).toFixed(2)} available to withdraw
-                </div>
-                <div className="text-xs md:text-sm text-emerald-800">
-                  Just give us a SEPA-compatible IBAN — no Stripe account, no SIREN, no KYC. We'll wire the funds within 2-3 business days.
-                </div>
-              </div>
-              <button
-                onClick={() => setPayoutModalOpen(true)}
-                className="inline-flex items-center justify-center gap-1.5 px-4 min-h-[40px] rounded-lg font-bold text-sm bg-emerald-700 text-white hover:bg-emerald-800 shrink-0"
-              >
-                <ArrowRight className="w-4 h-4" />
-                Get paid
-              </button>
+          <div className="flex flex-col md:flex-row md:items-center gap-4 rounded-lg border border-emerald-300 bg-emerald-50 px-5 py-4 mb-6">
+            <div className="w-11 h-11 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0">
+              <Banknote className="w-5 h-5 text-emerald-700" />
             </div>
-          </section>
+            <div className="flex-1 min-w-0">
+              <div className="font-bold text-sm md:text-base text-emerald-900">
+                €{(earnings.available_cents / 100).toFixed(2)} disponible — paiement versé sous 2-3 jours ouvrés une fois demandé
+              </div>
+              <div className="text-xs md:text-sm text-emerald-800">
+                IBAN SEPA uniquement — pas de compte Stripe, pas de SIREN, pas de KYC. Frais TicketSafe : 8% au retrait.
+              </div>
+            </div>
+            <button
+              onClick={() => setPayoutModalOpen(true)}
+              className="inline-flex items-center justify-center gap-1.5 px-4 min-h-[40px] rounded-lg font-bold text-sm bg-emerald-700 text-white hover:bg-emerald-800 shrink-0"
+            >
+              <ArrowRight className="w-4 h-4" />
+              Demander le paiement
+            </button>
+          </div>
         )}
         {earnings && earnings.claimed_cents > 0 && earnings.available_cents === 0 && (
-          <section className="container mx-auto px-4 pt-6 md:pt-8 max-w-5xl">
-            <div className="rounded-2xl border border-border bg-card px-5 py-4 flex items-center gap-3">
-              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-bold">
-                  €{(earnings.claimed_cents / 100).toFixed(2)} payout in progress
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  We'll send the SEPA transfer to your IBAN within 2-3 business days.
-                </div>
+          <div className="rounded-lg border border-border bg-card px-5 py-4 flex items-center gap-3 mb-6">
+            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-bold text-foreground">
+                €{(earnings.claimed_cents / 100).toFixed(2)} — paiement en cours
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Virement SEPA envoyé sous 2-3 jours ouvrés vers votre IBAN.
               </div>
             </div>
-          </section>
+          </div>
         )}
 
         {/* ===== Everything in one place panel ===== */}
-        <section className="container mx-auto px-4 pt-6 md:pt-8 max-w-5xl">
+        <div className="mb-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-base md:text-lg font-bold">Everything in one place</h2>
+            <h2 className="text-base md:text-lg font-bold text-foreground">Everything in one place</h2>
             <span className="text-xs text-muted-foreground">Quick actions</span>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -431,10 +470,10 @@ const StudioDashboard = () => {
               accent={organizer.primary_color}
             />
           </div>
-        </section>
+        </div>
 
         {/* ===== Events list ===== */}
-        <section className="container mx-auto px-4 py-8 md:py-10 max-w-5xl">
+        <div>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
             <h2 className="text-xl md:text-2xl font-bold">Your events</h2>
             {events.length > 0 && (
@@ -523,8 +562,8 @@ const StudioDashboard = () => {
               </div>
             );
           })()}
-        </section>
-      </main>
+        </div>
+      </div>
 
       {payoutModalOpen && organizer && (
         <PayoutModal
@@ -541,9 +580,7 @@ const StudioDashboard = () => {
           }}
         />
       )}
-
-      <Footer />
-    </div>
+    </StudioLayout>
   );
 };
 
@@ -868,13 +905,13 @@ const QuickAction = ({
   return content;
 };
 
-const StatCard = ({ icon: Icon, label, value }: { icon: typeof Calendar; label: string; value: string }) => (
-  <div className="bg-white/15 rounded-xl px-3 py-3 md:px-4 md:py-4 border border-white/20">
-    <div className="flex items-center gap-2 mb-1">
-      <Icon className="w-3.5 h-3.5 md:w-4 md:h-4 opacity-80" />
-      <span className="text-[10px] md:text-xs uppercase tracking-wider font-bold opacity-80">{label}</span>
+const KpiCard = ({ icon: Icon, label, value }: { icon: typeof Calendar; label: string; value: string }) => (
+  <div className="bg-card rounded-lg px-3.5 py-3.5 border border-border">
+    <div className="flex items-center gap-1.5 mb-1.5 text-muted-foreground">
+      <Icon className="w-3.5 h-3.5" />
+      <span className="text-[10px] uppercase tracking-wider font-bold">{label}</span>
     </div>
-    <div className="text-xl md:text-3xl font-black">{value}</div>
+    <div className="text-xl md:text-2xl font-bold text-foreground tabular-nums">{value}</div>
   </div>
 );
 
