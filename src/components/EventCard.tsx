@@ -65,17 +65,19 @@ const EventCard = ({ event, onClick }: EventCardProps) => {
         <img
           src={event.image ?? undefined}
           alt={event.title}
-          className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 md:group-hover:scale-[1.03]"
+          className={`absolute inset-0 w-full h-full object-cover transition-transform duration-300 ${
+            event.soldOut ? "grayscale opacity-60" : "md:group-hover:scale-[1.03]"
+          }`}
         />
       ) : (
+        // Generated fallback — just the brand gradient. The event name
+        // still reads "en gros Space Grotesk" via the h3 below, which every
+        // card (poster or not) already renders in the bottom overlay; a
+        // second copy of the title here was pure duplication.
         <div
-          className="absolute inset-0 flex items-end p-5"
+          className="absolute inset-0"
           style={{ background: "linear-gradient(150deg, hsl(227 77% 56%), hsl(228 67% 43%))" }}
-        >
-          <span className="font-display font-bold text-2xl text-white leading-tight" style={{ letterSpacing: "-0.02em" }}>
-            {event.title}
-          </span>
-        </div>
+        />
       )}
 
       {/* Bottom gradient — always present so the text stays legible over a
@@ -96,6 +98,10 @@ const EventCard = ({ event, onClick }: EventCardProps) => {
           <Badge className="ml-auto bg-black/70 text-white border-transparent text-[10px] uppercase tracking-wider font-bold">
             {t("events.eventEnded")}
           </Badge>
+        ) : event.soldOut ? (
+          <Badge className="ml-auto bg-danger text-danger-foreground border-transparent text-[10px] uppercase tracking-wider font-bold">
+            {language === "fr" ? "Complet" : "Sold out"}
+          </Badge>
         ) : (
           urgency && (
             <Badge className="ml-auto bg-lime text-lime-foreground border-transparent text-[10px] uppercase tracking-wider font-bold">
@@ -110,7 +116,10 @@ const EventCard = ({ event, onClick }: EventCardProps) => {
         <div className="text-[11px] font-bold tracking-wider text-white/80 mb-1">
           {formatDateBadge(event.date, locale)}
         </div>
-        <h3 className="font-display font-bold text-lg leading-tight mb-1.5 line-clamp-2" style={{ letterSpacing: "-0.02em" }}>
+        <h3
+          className={`font-display font-bold leading-tight mb-1.5 line-clamp-2 ${hasPoster ? "text-lg" : "text-xl"}`}
+          style={{ letterSpacing: "-0.02em" }}
+        >
           {event.title}
         </h3>
         <div className="flex items-center justify-between gap-2">
@@ -118,12 +127,18 @@ const EventCard = ({ event, onClick }: EventCardProps) => {
             <MapPin className="w-3.5 h-3.5 shrink-0" />
             <span className="truncate">{event.location}</span>
           </div>
-          {event.fromPriceCents != null && (
-            <span className="shrink-0 text-sm font-black tabular-nums">
-              {language === "fr"
-                ? `dès ${(event.fromPriceCents / 100).toFixed(0)} €`
-                : `from €${(event.fromPriceCents / 100).toFixed(0)}`}
+          {event.soldOut ? (
+            <span className="shrink-0 text-sm font-black text-white/70">
+              {language === "fr" ? "Complet" : "Sold out"}
             </span>
+          ) : (
+            event.fromPriceCents != null && (
+              <span className="shrink-0 text-sm font-black tabular-nums">
+                {language === "fr"
+                  ? `dès ${(event.fromPriceCents / 100).toFixed(0)} €`
+                  : `from €${(event.fromPriceCents / 100).toFixed(0)}`}
+              </span>
+            )
           )}
         </div>
       </div>

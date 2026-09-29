@@ -23,6 +23,9 @@ export interface EventData {
   campus?: string;
   /** 0-100. Below 15, the card shows a "Dernières places" urgency badge. */
   percentRemaining?: number;
+  /** When true, the card shows a "Sold out" badge instead of any urgency
+   *  badge and swaps the price for "Sold out". */
+  soldOut?: boolean;
 }
 
 export const eventsList: EventData[] = [

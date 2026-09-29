@@ -25,13 +25,10 @@ new tables/queries without asking. Updated as phases land.
   only shows counters with a real value). Would need a real source —
   either a manual constant you maintain, or a query grouping `events.university`
   distinct values, whichever you'd rather have.
-- **Test event "BDE TEST / escp test"**: confirmed the `events` table has
-  no `status`/`draft`/`is_test` column, only `is_active`. It's a normal row
-  showing up because it's `is_active = true` with a future date. Two
-  options (from the Phase-1 report): deactivate/delete it by hand in
-  Supabase (simplest), or I add an `is_test` column + filter in
-  `useESCPEvents` if you'd rather have a reusable flag. Not done — waiting
-  on your call.
+- **Test event "BDE TEST / escp test"**: **left as-is, on purpose** — kept
+  live so the new design can be checked against a real(-ish) event instead
+  of only empty states. No filter added. Revisit later if you want it gone
+  or want a reusable `is_test` flag instead of a manual deactivate.
 
 ## Known duplication to resolve
 
