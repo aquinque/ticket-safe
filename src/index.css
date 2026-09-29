@@ -2,78 +2,119 @@
 @tailwind components;
 @tailwind utilities;
 
-/* RESEAT Design System - Inspired by Spotify, Airbnb, TicketSwap
-Modern, fresh, student-focused palette with blue, violet, green
-All colors MUST be HSL.
-*/
+/* TicketSafe Design System — "Night" (public/student) + "Studio" (organizer) themes.
+   All colors MUST be HSL (`H S% L%`, no `hsl()` wrapper) so Tailwind's
+   `bg-primary/10` opacity-modifier syntax keeps working.
+
+   Phase 1 of the redesign/night-studio brief: tokens + typography only.
+   No page markup changed in this pass — the two themes below are wired up
+   and ready, but no page yet carries a `.theme-night` / `.theme-studio`
+   class (that happens when each surface is actually rebuilt in later
+   phases). Until then, :root carries the same values as `.theme-studio`
+   so every existing page keeps rendering (recolored to the new brand blue,
+   with real radius/shadows back instead of the previous flat 2px/no-shadow
+   override) rather than going blank or unthemed. */
 
 @layer base {
   :root {
-    /* Background & Surfaces */
-    --background: 40 25% 97%;
-    --foreground: 222 30% 12%;
-    
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
-    
-    --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-    
-    /* ESCP Brand Colors - Professional Blue & White */
-    --primary: 222 55% 24%; /* Deep ESCP Blue */
-    --primary-foreground: 0 0% 100%;
-    --primary-hover: 222 55% 30%;
-    
-    /* Brand Blue for CTAs */
-    --cta-blue: 222 55% 32%; /* Brand blue #1E5EFF */
-    --cta-blue-hover: 221 87% 48%; /* Darker blue #184BDC */
-    
-    --secondary: 222 40% 34%; /* Rich Blue */
-    --secondary-foreground: 0 0% 100%;
-    --secondary-hover: 215 95% 45%;
-    
-    --accent: 222 45% 38%; /* Bright Accent Blue */
-    --accent-foreground: 0 0% 100%;
-    --accent-hover: 210 100% 50%;
-    
-    /* Neutral System */
-    --muted: 40 15% 93%;
-    --muted-foreground: 30 8% 40%;
-    
-    --border: 35 12% 84%;
-    --input: 35 12% 84%;
-    --ring: 240 100% 67%;
-    
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
-    
-    /* ESCP Gradients - Professional Blue Blends */
-    --gradient-hero: linear-gradient(hsl(220 100% 30%), hsl(220 100% 30%));
-    --gradient-card: linear-gradient(hsl(var(--card)), hsl(var(--card)));
-    --gradient-accent: linear-gradient(hsl(220 100% 30%), hsl(220 100% 30%));
-    --gradient-purple-blue: linear-gradient(hsl(220 100% 30%), hsl(220 100% 30%));
-    
-    /* Professional Shadows - Deep Blue Glow */
-    --shadow-soft: none;
-    --shadow-card: none;
-    --shadow-hover: none;
-    --shadow-glow: none;
-    
-    /* Animations */
-    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    --transition-bounce: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    /* ===== Brand tokens — shared by both themes ===== */
+    --brand-500: 227 77% 56%;   /* #3a5fe6 — logo blue, primary everywhere */
+    --brand-700: 228 67% 43%;   /* #2440b6 — hover/pressed */
+    --brand-200: 222 100% 84%;  /* #aec6ff — logo "S", light accents */
 
-    /* ===== STUDIO — Creator/Organizer palette (event-tech) =====
-       Used in /organizers section. Bold, immersive, gradient-heavy.
-       Does NOT replace base theme — coexists. */
-    --studio-bg: 240 28% 7%;          /* near-black, slight violet */
+    /* Electric lime — RESERVED for buy CTAs + urgency badges ("J-2", "Dernières
+       places"). Never a large fill. Exposed as its own `lime` Tailwind color,
+       deliberately NOT reusing shadcn's `--accent` (that stays the neutral
+       hover-surface color every shadcn primitive expects — select/dropdown/
+       command/context-menu/menubar/navigation-menu all paint `bg-accent` on
+       hover, and would turn neon-lime if we repointed it). */
+    --lime: 73 100% 61%;            /* #D4FF3A */
+    --lime-foreground: 234 58% 6%;  /* #07091A */
+
+    --danger: 349 100% 65%;   /* #FF4D6D */
+    --danger-foreground: 0 0% 100%;
+    --success: 142 71% 45%;   /* #22C55E */
+    --success-foreground: 0 0% 100%;
+    --warning: 39 100% 56%;   /* #FFB020 */
+    --warning-foreground: 234 58% 6%;
+
+    /* Cards 16px / buttons 12px / badges full-rounded (Tailwind `full`, see config). */
+    --radius-card: 1rem;      /* 16px */
+    --radius-button: 0.75rem; /* 12px */
+    --radius: var(--radius-button); /* legacy alias — a few older components read --radius directly */
+
+    /* ===== Theme-relative tokens (shadcn contract) =====
+       :root === .theme-studio values (see below) so unthemed pages default
+       to the light, professional look. */
+    --background: 228 38% 97%;       /* studio bg #F6F7FB */
+    --foreground: 228 53% 9%;        /* studio text #0B1024 */
+
+    --card: 0 0% 100%;
+    --card-foreground: 228 53% 9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 228 53% 9%;
+
+    --primary: 227 77% 56%;          /* brand-500 */
+    --primary-foreground: 0 0% 100%;
+    --primary-hover: 228 67% 43%;    /* brand-700 */
+
+    --secondary: 228 67% 43%;        /* brand-700 reused — one brand blue, not a second hue */
+    --secondary-foreground: 0 0% 100%;
+    --secondary-hover: 227 77% 50%;
+
+    /* shadcn-semantic accent: neutral highlighted/hover surface, NOT the lime CTA color. */
+    --accent: 225 29% 92%;
+    --accent-foreground: 228 53% 9%;
+    --accent-hover: 225 29% 88%;
+
+    --muted: 225 29% 95%;
+    --muted-foreground: 225 17% 43%; /* studio text-muted #5B6480 */
+
+    --border: 225 29% 92%;           /* studio border #E4E7F0 */
+    --input: 225 29% 92%;
+    --ring: 227 77% 56%;
+
+    --destructive: 349 100% 65%;     /* = --danger */
+    --destructive-foreground: 0 0% 100%;
+
+    /* Gradients — still consumed by EventCard category badges, some CTA
+       tiles etc. Re-pointed at the new brand blue instead of the old ESCP hue. */
+    --gradient-hero: linear-gradient(135deg, hsl(227 77% 56%), hsl(228 67% 43%));
+    --gradient-card: linear-gradient(hsl(var(--card)), hsl(var(--card)));
+    --gradient-accent: linear-gradient(135deg, hsl(227 77% 56%), hsl(222 100% 84%));
+    --gradient-purple-blue: linear-gradient(135deg, hsl(228 67% 43%), hsl(227 77% 56%));
+
+    /* Studio-theme-shaped by default: soft, low-key shadows. `.theme-night`
+       overrides these with "none" + a brand-blue hover glow instead. */
+    --shadow-soft: 0 1px 2px 0 hsl(228 53% 9% / 0.05);
+    --shadow-card: 0 1px 3px 0 hsl(228 53% 9% / 0.08), 0 1px 2px -1px hsl(228 53% 9% / 0.06);
+    --shadow-hover: 0 4px 12px -2px hsl(228 53% 9% / 0.12);
+    --shadow-glow: 0 0 0 3px hsl(227 77% 56% / 0.15);
+
+    /* Transitions: 150-200ms ease-out per spec (was 300ms cubic-bezier). */
+    --transition-fast: 150ms ease-out;
+    --transition-base: 200ms ease-out;
+    --transition-smooth: cubic-bezier(0.4, 0, 0.2, 1); /* timing-function only — see tailwind.config transitionTimingFunction.smooth */
+    --transition-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+    /* ===== LEGACY "studio" palette — DO NOT confuse with the new
+       `.theme-studio` class below. This is the bold violet/magenta/coral
+       immersive palette used only on the /organizers MARKETING page
+       (src/pages/organizers/Organizers.tsx) via the `.studio-*` utility
+       classes further down this file. It predates this redesign brief and
+       is a different "studio" than the new light/sober Studio APP theme.
+       Left untouched on purpose (Phase 1 = tokens only, no page changes) —
+       flagged here so it doesn't get mixed up with `.theme-studio`. Worth
+       renaming/retiring in a later phase once /organizers is rebuilt. */
+    --studio-bg: 240 28% 7%;
     --studio-surface: 240 26% 11%;
     --studio-elevated: 240 22% 15%;
     --studio-foreground: 0 0% 98%;
     --studio-muted: 240 10% 65%;
     --studio-border: 240 18% 22%;
 
-    --studio-electric: 256 100% 65%;  /* electric violet */
+    --studio-electric: 256 100% 65%;
     --studio-magenta: 320 100% 62%;
     --studio-coral: 14 100% 64%;
     --studio-cyan: 190 100% 60%;
@@ -87,25 +128,87 @@ All colors MUST be HSL.
     --shadow-studio-glow: none;
     --shadow-studio-card: none;
 
-    /* Single source of truth for card/button radii.
-       1rem reads premium-soft (Vinted / Dice) without being playful. */
-    --radius: 2px;
-
     --sidebar-background: 0 0% 98%;
-
     --sidebar-foreground: 240 5.3% 26.1%;
-
     --sidebar-primary: 240 5.9% 10%;
-
     --sidebar-primary-foreground: 0 0% 98%;
-
     --sidebar-accent: 240 4.8% 95.9%;
-
     --sidebar-accent-foreground: 240 5.9% 10%;
-
     --sidebar-border: 220 13% 91%;
-
     --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  /* ===== .theme-studio — TicketSafe Studio app (organizer dashboard, Phase 5).
+     Explicit alias of :root so components can opt in deliberately instead of
+     relying on the implicit default. */
+  .theme-studio {
+    --background: 228 38% 97%;
+    --foreground: 228 53% 9%;
+    --card: 0 0% 100%;
+    --card-foreground: 228 53% 9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 228 53% 9%;
+    --primary: 227 77% 56%;
+    --primary-foreground: 0 0% 100%;
+    --primary-hover: 228 67% 43%;
+    --secondary: 228 67% 43%;
+    --secondary-foreground: 0 0% 100%;
+    --accent: 225 29% 92%;
+    --accent-foreground: 228 53% 9%;
+    --muted: 225 29% 95%;
+    --muted-foreground: 225 17% 43%;
+    --border: 225 29% 92%;
+    --input: 225 29% 92%;
+    --ring: 227 77% 56%;
+    --shadow-soft: 0 1px 2px 0 hsl(228 53% 9% / 0.05);
+    --shadow-card: 0 1px 3px 0 hsl(228 53% 9% / 0.08), 0 1px 2px -1px hsl(228 53% 9% / 0.06);
+    --shadow-hover: 0 4px 12px -2px hsl(228 53% 9% / 0.12);
+    --shadow-glow: 0 0 0 3px hsl(227 77% 56% / 0.15);
+  }
+
+  /* ===== .theme-night — public student-facing pages (Home, /tickets,
+     /resale, event pages, Phase 3-4). Dark, nightlife-energy surface;
+     shadows are traded for thin borders + a brand-blue glow on hover. */
+  .theme-night {
+    --background: 234 58% 6%;        /* #07091A */
+    --foreground: 229 100% 98%;      /* #F4F6FF */
+
+    --card: 233 52% 12%;             /* surface #0F1330 */
+    --card-foreground: 229 100% 98%;
+
+    --popover: 233 52% 12%;
+    --popover-foreground: 229 100% 98%;
+
+    --primary: 227 77% 56%;          /* brand-500 stays identical across themes */
+    --primary-foreground: 0 0% 100%;
+    --primary-hover: 222 100% 84%;   /* brand-200 — lightens on hover against a dark bg */
+
+    --secondary: 233 49% 17%;        /* surface-2 #161B40 */
+    --secondary-foreground: 229 100% 98%;
+
+    --accent: 233 49% 17%;           /* neutral hover surface = surface-2, not lime */
+    --accent-foreground: 229 100% 98%;
+
+    --muted: 233 49% 17%;
+    --muted-foreground: 228 29% 69%; /* text-muted #9AA3C7 */
+
+    /* Spec gives the border as rgba(255,255,255,0.08). Flattened to an opaque
+       HSL triplet (white-8%-over-#07091A, composited) so it stays a plain
+       token Tailwind's opacity-modifier syntax can still apply to if needed,
+       instead of double-nesting alpha inside `hsl()`. */
+    --border: 233 24% 14%;
+    --input: 233 49% 17%;
+    --ring: 227 77% 56%;
+
+    --destructive: 349 100% 65%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* No conventional shadows in night — thin borders instead, and a
+       brand-blue glow used only on hover. */
+    --shadow-soft: none;
+    --shadow-card: none;
+    --shadow-hover: 0 0 24px hsl(227 77% 56% / 0.35);
+    --shadow-glow: 0 0 32px hsl(227 77% 56% / 0.45);
   }
 
   .dark {
@@ -164,7 +267,7 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground antialiased;
+    @apply bg-background text-foreground antialiased font-sans;
     margin: 0;
     padding: 0;
     min-height: 100vh;
@@ -175,25 +278,28 @@ All colors MUST be HSL.
     min-height: 100vh;
   }
 
-  /* Professional Typography Hierarchy */
+  /* Titles/display: Space Grotesk, tight tracking per spec (-0.02em).
+     Numbers (prices, counters, tables) should add `tabular-nums` at the call
+     site — it's a built-in Tailwind utility, no extra CSS needed here. */
   h1, h2, h3, h4 {
-    @apply font-serif;
+    @apply font-display;
+    letter-spacing: -0.02em;
   }
 
   h1 {
-    @apply scroll-m-20 text-4xl font-bold tracking-tight lg:text-5xl;
+    @apply scroll-m-20 text-4xl font-bold lg:text-5xl;
   }
 
   h2 {
-    @apply scroll-m-20 text-3xl font-semibold tracking-tight;
+    @apply scroll-m-20 text-3xl font-semibold;
   }
 
   h3 {
-    @apply scroll-m-20 text-2xl font-semibold tracking-tight;
+    @apply scroll-m-20 text-2xl font-semibold;
   }
 
   h4 {
-    @apply scroll-m-20 text-xl font-semibold tracking-tight;
+    @apply scroll-m-20 text-xl font-semibold;
   }
 
   p {
@@ -201,7 +307,31 @@ All colors MUST be HSL.
   }
 }
 
-/* ===== STUDIO utilities — scoped helpers for /organizers area ===== */
+/* Respect prefers-reduced-motion globally — belt-and-braces on top of any
+   per-animation handling added in later phases. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@layer utilities {
+  /* Ready for the Phase 3 hero — not used by any page yet.
+     Mobile ~40px -> desktop ~88px via clamp(), Space Grotesk, -0.02em tracking. */
+  .text-display-hero {
+    @apply font-display;
+    letter-spacing: -0.02em;
+    line-height: 1.05;
+    font-size: clamp(2.5rem, 1rem + 5vw, 5.5rem);
+  }
+}
+
+/* ===== LEGACY STUDIO utilities — scoped to the /organizers marketing page.
+   See the "LEGACY studio palette" comment in :root above: this is NOT the
+   new `.theme-studio` app theme. Left as-is in Phase 1. ===== */
 @layer utilities {
   .studio-surface {
     background-color: hsl(var(--studio-surface));
@@ -218,7 +348,7 @@ All colors MUST be HSL.
   .studio-cta-bg {
     background-image: var(--gradient-studio-cta);
     background-size: 200% 200%;
-        color: white;
+    color: white;
   }
   .studio-text-gradient {
     background: var(--gradient-studio-cta);
@@ -226,7 +356,7 @@ All colors MUST be HSL.
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
-      }
+  }
   .studio-card {
     background: var(--gradient-studio-card);
     border: 1px solid hsl(var(--studio-border));

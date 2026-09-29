@@ -434,7 +434,7 @@ const StudioEventEdit = () => {
           <div
             className="rounded-2xl p-6 md:p-8 text-white mb-6"
             style={{
-              background: "linear-gradient(135deg, #003399, hsl(210 100% 45%))",
+              background: "linear-gradient(135deg, #3a5fe6, #2440b6)",
             }}
           >
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">

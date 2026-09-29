@@ -616,8 +616,12 @@ const EventPublic = () => {
                     {categoryLabel}
                   </span>
                 )}
+                {/* Always-dark text below: this pill is always on a white/light
+                    chip regardless of surrounding theme, so it can't use the
+                    theme-relative `foreground` token (would go white-on-white
+                    under .theme-night). */}
                 {minPriceCents != null && !eventSoldOut && (
-                  <span className="ml-auto inline-flex items-center px-3 py-1.5 rounded-full bg-white text-[#02122d] text-xs font-black shadow-sm">
+                  <span className="ml-auto inline-flex items-center px-3 py-1.5 rounded-full bg-white text-slate-900 text-xs font-black shadow-sm">
                     From {fmtPrice(minPriceCents)}
                   </span>
                 )}

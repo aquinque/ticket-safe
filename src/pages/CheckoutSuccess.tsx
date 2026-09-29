@@ -31,7 +31,7 @@ async function fireConfetti(): Promise<void> {
     );
     const confetti = (mod as { default?: (opts: unknown) => void }).default
       ?? (mod as unknown as (opts: unknown) => void);
-    const colours = ["#003399", "#0066cc", "#3b82f6", "#1d4ed8", "#ffffff"];
+    const colours = ["#3a5fe6", "#2440b6", "#aec6ff", "#D4FF3A", "#ffffff"];
     // Three timed bursts: a big one straight up, then two from the sides
     // for a "fountain" feel. Matches the Stripe / Pretix success vibe.
     confetti({

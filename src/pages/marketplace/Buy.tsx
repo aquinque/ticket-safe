@@ -351,7 +351,7 @@ const Buy = () => {
 
   // ── Render ─────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-[#FAFAF7] flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col">
       <SEOHead
         titleKey="marketplace.buy.title"
         descriptionKey="marketplace.buy.description"
