@@ -67,19 +67,6 @@ const Footer = () => {
               explanation={t('trust.buyerGuaranteeDesc')}
             />
             <TrustItem
-              icon={
-                <img
-                  src="/logos/stripe.svg"
-                  alt=""
-                  aria-hidden="true"
-                  height={16}
-                  className="h-4 w-auto"
-                />
-              }
-              label={t('trust.stripe')}
-              explanation={t('trust.stripeDesc')}
-            />
-            <TrustItem
               icon={<Users className="w-4 h-4 text-primary" aria-hidden="true" />}
               label={t('trust.verifiedStudents')}
               explanation={t('trust.verifiedStudentsDesc')}

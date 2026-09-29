@@ -58,7 +58,7 @@ const features = [
 
 const steps = [
   { n: "01", title: "Apply", desc: "Tell us about your organization and your first planned event. Takes 5 minutes." },
-  { n: "02", title: "Get verified", desc: "We review your application within 24h. Connect Stripe to receive payouts." },
+  { n: "02", title: "Get verified", desc: "We review your application within 24h. Add your bank details to receive payouts." },
   { n: "03", title: "Build your event", desc: "Set up your page, tiers, and promo codes. Publish when you're ready." },
   { n: "04", title: "Sell & scan", desc: "Track sales live. On the day, scan tickets from the app at the door." },
 ];
@@ -146,7 +146,7 @@ const Organizers = () => {
 
               <div className="flex flex-wrap items-center gap-x-4 sm:gap-x-5 gap-y-2 text-[11px] md:text-xs text-white/70 mt-6 md:mt-7">
                 <span className="inline-flex items-center gap-1.5">
-                  <Lock className="w-3.5 h-3.5" /> Stripe Connect payouts
+                  <Lock className="w-3.5 h-3.5" /> Bank transfer payouts
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                   <ShieldCheck className="w-3.5 h-3.5" /> QR-verified tickets

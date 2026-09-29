@@ -36,7 +36,7 @@ const buyerSteps = [
     step: "03",
     icon: Lock,
     title: "Payment held in escrow",
-    body: "Your money is locked by Stripe until the QR ticket reaches you. No upfront risk.",
+    body: "Your money stays locked in escrow until the QR ticket reaches you. No upfront risk.",
   },
   {
     step: "04",
@@ -69,7 +69,7 @@ const sellerSteps = [
     step: "04",
     icon: Banknote,
     title: "Get paid to your bank",
-    body: "Payout via Stripe Connect — typically the next business day after the sale. No invoices, no chasing.",
+    body: "Request a payout anytime from your balance. We send it by bank transfer (SEPA) — typically 2-3 business days. No invoices, no chasing.",
   },
 ];
 
@@ -84,7 +84,7 @@ const faqs = [
   },
   {
     q: "How long until the seller is paid?",
-    a: "Stripe Connect uses a rolling daily payout schedule — usually the next business day after the sale clears.",
+    a: "Once your sale clears, you can request a payout to your bank account (SEPA transfer). It typically arrives within 2-3 business days.",
   },
   {
     q: "Can I cancel my listing?",
@@ -105,7 +105,7 @@ const HowItWorks = () => {
     <div className="min-h-screen bg-background flex flex-col">
       <SEOHead
         title="How resale works — Ticket Safe"
-        description="How the Ticket Safe resale marketplace works for buyers and sellers — escrow payments, automatic QR delivery, payouts via Stripe."
+        description="How the Ticket Safe resale marketplace works for buyers and sellers — escrow payments, automatic QR delivery, bank transfer payouts."
       />
       <Header />
 

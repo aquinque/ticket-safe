@@ -34,7 +34,7 @@ const steps = [
     step: "03",
     icon: CreditCard,
     title: "Pay securely",
-    body: "Card payment via Stripe. The organizer is paid directly — Ticket Safe never holds your money longer than needed.",
+    body: "Secure card payment, no account needed. Ticket Safe never touches your card details.",
   },
   {
     step: "04",
@@ -69,7 +69,7 @@ const faqs = [
   },
   {
     q: "What payment methods are accepted?",
-    a: "All major cards via Stripe Checkout — Visa, Mastercard, Amex. In some campuses, Apple Pay and Google Pay are also available.",
+    a: "All major cards — Visa, Mastercard, Amex.",
   },
   {
     q: "Can I get a refund if I change my mind?",

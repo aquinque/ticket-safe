@@ -381,8 +381,6 @@
     "escrowPaymentsDesc": "Votre paiement est conservé en sécurité jusqu'à ce que vous confirmiez la réception du billet.",
     "buyerGuarantee": "Garantie acheteur",
     "buyerGuaranteeDesc": "Remboursement complet si le billet est invalide ou l'événement annulé, frais de plateforme inclus.",
-    "stripe": "Propulsé par Stripe",
-    "stripeDesc": "Paiements traités par Stripe — vos coordonnées bancaires ne nous parviennent jamais.",
     "verifiedStudents": "Étudiants vérifiés",
     "verifiedStudentsDesc": "Seuls les étudiants vérifiés de votre école peuvent acheter ou vendre."
   },

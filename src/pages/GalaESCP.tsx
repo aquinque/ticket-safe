@@ -465,8 +465,7 @@ const GalaESCP = () => {
               <p className="text-xs text-center text-muted-foreground pt-2">
                 {galaTickets.length} offre
                 {galaTickets.length > 1 ? "s" : ""} disponible
-                {galaTickets.length > 1 ? "s" : ""} · Paiement sécurisé par
-                Stripe
+                {galaTickets.length > 1 ? "s" : ""} · Paiement sécurisé
               </p>
             </div>
           )}
@@ -494,7 +493,7 @@ const GalaESCP = () => {
             Vendre mon billet
           </Button>
           <p className="text-white/40 text-xs mt-4">
-            Commission plateforme : 5% · Paiement par Stripe
+            Commission plateforme : 5% · Paiement sécurisé
           </p>
         </div>
       </section>

@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowRight, Ticket, Repeat2, ShieldCheck, QrCode, Lock, Sparkles, User, LogOut, LayoutDashboard, Banknote } from "lucide-react";
+import { ArrowRight, Ticket, Repeat2, ShieldCheck, QrCode, Lock, User, LogOut, LayoutDashboard, Banknote } from "lucide-react";
 import Logo from "@/components/Logo";
 import { SEOHead } from "@/components/SEOHead";
 import { useAuth } from "@/hooks/useAuth";
@@ -37,20 +37,6 @@ const Home = () => {
         description="Two ways to find your ticket: buy directly from verified event organizers, or trade on the secure resale marketplace."
       />
 
-      {/* Ambient ESCP blue gradients */}
-      <div
-        className="pointer-events-none absolute -top-40 -left-40 w-[44rem] h-[44rem] rounded-full opacity-30 blur-3xl"
-        style={{ background: "radial-gradient(circle, hsl(220 100% 30% / 0.35), transparent 70%)" }}
-      />
-      <div
-        className="pointer-events-none absolute top-1/3 -right-40 w-[36rem] h-[36rem] rounded-full opacity-25 blur-3xl"
-        style={{ background: "radial-gradient(circle, hsl(210 100% 45% / 0.35), transparent 70%)" }}
-      />
-      <div
-        className="pointer-events-none absolute -bottom-32 left-1/4 w-[32rem] h-[32rem] rounded-full opacity-20 blur-3xl"
-        style={{ background: "radial-gradient(circle, hsl(221 100% 56% / 0.30), transparent 70%)" }}
-      />
-
       {/* Minimal top bar */}
       <header className="relative z-10">
         <div className="container mx-auto px-4 py-4 md:py-6 flex items-center justify-between gap-2">
@@ -75,10 +61,9 @@ const Home = () => {
             {isStudioOrganizer && (
               <Link
                 to="/studio"
-                className="inline-flex items-center gap-1.5 px-3 md:px-4 min-h-[40px] rounded-lg font-bold text-sm text-white shadow-md hover:shadow-lg transition-all"
-                style={{ background: "linear-gradient(135deg, #003399, #0066cc)" }}
+                className="inline-flex items-center gap-1.5 px-3 md:px-4 min-h-[40px] rounded-lg font-bold text-sm text-white bg-primary hover:bg-primary/90 transition-colors"
               >
-                <Sparkles className="w-3.5 h-3.5" />
+                <LayoutDashboard className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Ticket Safe Studio</span>
                 <span className="sm:hidden">Studio</span>
               </Link>
@@ -134,8 +119,7 @@ const Home = () => {
                 </Link>
                 <Link
                   to="/auth?mode=signup&next=/"
-                  className="inline-flex items-center justify-center min-h-[40px] px-4 rounded-lg font-bold text-white shadow-md hover:shadow-lg transition-all"
-                  style={{ background: "linear-gradient(135deg, #003399, #0066cc)" }}
+                  className="inline-flex items-center justify-center min-h-[40px] px-4 rounded-lg font-bold text-white bg-primary hover:bg-primary/90 transition-colors"
                 >
                   Sign up
                 </Link>
@@ -164,12 +148,9 @@ const Home = () => {
           {isStudioOrganizer && (
             <Link
               to="/studio"
-              className="group flex items-center gap-3 md:gap-4 mb-3.5 md:mb-6 px-4 md:px-6 py-4 md:py-5 rounded-2xl text-white shadow-lg hover:shadow-xl transition-all animate-slide-up"
-              style={{ background: "linear-gradient(135deg, #003399, #0066cc)" }}
+              className="group flex items-center gap-3 md:gap-4 mb-3.5 md:mb-6 px-4 md:px-6 py-4 md:py-5 rounded-lg text-white bg-primary hover:bg-primary/90 transition-colors animate-slide-up"
             >
-              <div className="w-10 h-10 md:w-11 md:h-11 rounded-xl bg-white/15 flex items-center justify-center shrink-0 group- transition-transform">
-                <LayoutDashboard className="w-5 h-5 md:w-6 md:h-6" />
-              </div>
+              <LayoutDashboard className="w-5 h-5 md:w-6 md:h-6 shrink-0" />
               <div className="flex-1 min-w-0">
                 <div className="text-[10px] uppercase tracking-[0.2em] font-bold text-white/75">
                   Welcome back
@@ -182,68 +163,39 @@ const Home = () => {
             </Link>
           )}
 
-          {/* Two paths */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 md:gap-6 animate-slide-up">
-            {/* Path 1 — Resale marketplace. Shown first, especially on mobile
-                where the grid stacks in DOM order. Same flex-col + mt-auto
-                pattern as the other card so both CTAs line up. */}
+          {/* Two paths — one vertical list, not two boxes side by side.
+              Resale first (per 7f7015c: that's the primary use case). */}
+          <div className="rounded-lg border border-border divide-y divide-border overflow-hidden animate-slide-up">
             <Link
               to="/resale"
-              className="group relative rounded-2xl md:rounded-3xl p-6 md:p-10 overflow-hidden bg-card border border-border transition-all duration-300 active:scale-[0.99] md: md:hover:shadow-hover hover:border-primary/30 flex flex-col"
+              className="group flex items-center gap-4 p-5 md:p-6 hover:bg-muted/50 transition-colors"
             >
-              <div
-                className="pointer-events-none absolute -top-20 -right-20 w-72 h-72 rounded-full opacity-30 blur-3xl group-hover:opacity-50 transition-opacity"
-                style={{ background: "radial-gradient(circle, hsl(221 100% 56% / 0.35), transparent 70%)" }}
-              />
-              <div className="relative flex flex-col flex-1">
-                <div
-                  className="inline-flex w-12 h-12 md:w-14 md:h-14 rounded-xl md:rounded-2xl items-center justify-center mb-4 md:mb-6 group- transition-transform"
-                  style={{ background: "linear-gradient(135deg, hsl(220 100% 30%), hsl(210 100% 45%))" }}
-                >
-                  <Repeat2 className="w-6 h-6 md:w-7 md:h-7 text-white" />
-                </div>
-                <div className="text-[10px] uppercase tracking-[0.2em] font-bold text-primary/80 mb-1.5 md:mb-2">
-                  Marketplace
-                </div>
-                <h2 className="text-xl md:text-3xl font-black text-foreground mb-2 md:mb-3 leading-tight">
+              <Repeat2 className="w-6 h-6 md:w-7 md:h-7 text-primary shrink-0" />
+              <div className="flex-1 min-w-0">
+                <div className="font-black text-base md:text-lg leading-tight text-foreground">
                   Resale marketplace
-                </h2>
-                <p className="text-sm md:text-base text-muted-foreground mb-5 md:mb-8 leading-relaxed max-w-sm">
-                  Sold out? Find a ticket from another student. Got an extra? List it in two minutes and find a buyer fast.
-                </p>
-                <div className="mt-auto inline-flex items-center gap-2 font-bold text-primary text-sm md:text-base group-hover:gap-3 transition-all">
-                  Go to marketplace
-                  <ArrowRight className="w-4 h-4 md:w-5 md:h-5 group-hover:translate-x-1 transition-transform" />
                 </div>
+                <p className="text-sm text-muted-foreground">
+                  Buy from or sell to another student.
+                </p>
               </div>
+              <ArrowRight className="w-5 h-5 text-muted-foreground shrink-0 group-hover:translate-x-1 group-hover:text-primary transition-all" />
             </Link>
 
-            {/* Path 2 — Buy event tickets. Same flex-col + mt-auto pattern. */}
             <Link
               to="/tickets"
-              className="group relative rounded-2xl md:rounded-3xl p-6 md:p-10 overflow-hidden text-white transition-all duration-300 active:scale-[0.99] md: md:hover:shadow-hover flex flex-col"
-              style={{ background: "var(--gradient-hero)" }}
+              className="group flex items-center gap-4 p-5 md:p-6 hover:bg-muted/50 transition-colors"
             >
-              {/* Glow accent */}
-              <div
-                className="pointer-events-none absolute -top-20 -right-20 w-72 h-72 rounded-full opacity-40 blur-3xl group-hover:opacity-60 transition-opacity"
-                style={{ background: "radial-gradient(circle, hsl(210 100% 65%), transparent 70%)" }}
-              />
-              <div className="relative flex flex-col flex-1">
-                <div className="inline-flex w-12 h-12 md:w-14 md:h-14 rounded-xl md:rounded-2xl bg-white/15 items-center justify-center mb-4 md:mb-6 group- group-hover:bg-white/25 transition-all">
-                  <Ticket className="w-6 h-6 md:w-7 md:h-7 text-white" />
-                </div>
-                <h2 className="text-xl md:text-3xl font-black mb-2 md:mb-3 leading-tight">
+              <Ticket className="w-6 h-6 md:w-7 md:h-7 text-primary shrink-0" />
+              <div className="flex-1 min-w-0">
+                <div className="font-black text-base md:text-lg leading-tight text-foreground">
                   Buy event tickets
-                </h2>
-                <p className="text-sm md:text-base text-white/80 mb-5 md:mb-8 leading-relaxed max-w-sm">
-                  All your campus events in one place. Tickets sold directly by student associations.
-                </p>
-                <div className="mt-auto inline-flex items-center gap-2 font-bold text-white text-sm md:text-base group-hover:gap-3 transition-all">
-                  Browse events
-                  <ArrowRight className="w-4 h-4 md:w-5 md:h-5 group-hover:translate-x-1 transition-transform" />
                 </div>
+                <p className="text-sm text-muted-foreground">
+                  Official tickets, sold directly by student organizers.
+                </p>
               </div>
+              <ArrowRight className="w-5 h-5 text-muted-foreground shrink-0 group-hover:translate-x-1 group-hover:text-primary transition-all" />
             </Link>
           </div>
 

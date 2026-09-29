@@ -55,7 +55,7 @@ const values = [
   {
     icon: Lock,
     title: "Bank-grade payments",
-    body: "Stripe handles every transaction. Card data never touches our servers. Payouts are direct to your bank.",
+    body: "Card data never touches our servers. Payouts are direct to your bank.",
   },
 ];
 

@@ -1,31 +1,13 @@
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Search, ShieldCheck, GraduationCap, Sparkles } from "lucide-react";
+import { ArrowRight, Search, ShieldCheck, GraduationCap, Rss } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useI18n } from "@/contexts/I18nContext";
 import heroImage from "@/assets/hero-bg.jpg";
 
 const trustPoints = [
-  {
-    icon: Sparkles,
-    title: "Everything in one place",
-    desc: "Every campus event, every listing, in a single feed. No more chasing tickets through stories, WhatsApp groups, or DMs.",
-    tint: "bg-primary/10",
-    iconColor: "text-primary",
-  },
-  {
-    icon: ShieldCheck,
-    title: "Bank-grade, escrow-protected",
-    desc: "Stripe handles every euro. Your money stays locked in escrow until the QR ticket reaches your inbox.",
-    tint: "bg-secondary/10",
-    iconColor: "text-secondary",
-  },
-  {
-    icon: GraduationCap,
-    title: "Your school's students only",
-    desc: "Every account is verified at sign-up with a university email. No scalpers, no bots — just your campus.",
-    tint: "bg-accent/10",
-    iconColor: "text-accent",
-  },
+  { icon: Rss, label: "All campus events, one feed" },
+  { icon: ShieldCheck, label: "Escrow-protected payments" },
+  { icon: GraduationCap, label: "Verified students only" },
 ];
 
 const Hero = () => {
@@ -88,38 +70,16 @@ const Hero = () => {
             </Button>
           </div>
 
-          {/* Trust Indicators - 3 punchy points */}
-          <div className="hidden md:grid md:grid-cols-3 gap-6 lg:gap-8 max-w-5xl mx-auto">
-            {trustPoints.map(({ icon: Icon, title, desc, tint, iconColor }) => (
-              <div
-                key={title}
-                className="flex flex-col items-center gap-3 p-6 rounded-2xl bg-card/60 border border-border hover:border-primary/30 hover:shadow-soft transition-all"
-              >
-                <div className={`w-14 h-14 ${tint} rounded-2xl flex items-center justify-center`}>
-                  <Icon className={`w-7 h-7 ${iconColor}`} />
-                </div>
-                <h3 className="font-bold text-lg text-foreground text-center leading-tight">
-                  {title}
-                </h3>
-                <p className="text-sm text-muted-foreground text-center leading-relaxed">{desc}</p>
-              </div>
-            ))}
-          </div>
-
-          {/* Mobile: 3 punchy badges */}
-          <div className="md:hidden grid grid-cols-3 gap-2 max-w-md mx-auto">
-            {trustPoints.map(({ icon: Icon, title, tint, iconColor }) => (
-              <div
-                key={title}
-                className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-card/60 border border-border"
-              >
-                <div className={`w-9 h-9 ${tint} rounded-lg flex items-center justify-center`}>
-                  <Icon className={`w-4 h-4 ${iconColor}`} />
-                </div>
-                <span className="text-[11px] font-bold text-foreground text-center leading-tight">
-                  {title}
+          {/* Trust strip — short, inline, no card grid */}
+          <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 max-w-2xl mx-auto text-xs md:text-sm font-medium text-muted-foreground">
+            {trustPoints.map(({ icon: Icon, label }, i) => (
+              <span key={label} className="inline-flex items-center gap-3">
+                <span className="inline-flex items-center gap-1.5">
+                  <Icon className="w-4 h-4 text-primary flex-shrink-0" />
+                  {label}
                 </span>
-              </div>
+                {i < trustPoints.length - 1 && <span className="text-border hidden sm:inline">·</span>}
+              </span>
             ))}
           </div>
         </div>

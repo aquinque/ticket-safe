@@ -381,8 +381,6 @@
     "escrowPaymentsDesc": "Your payment is held safely until you confirm you received the ticket.",
     "buyerGuarantee": "Buyer Guarantee",
     "buyerGuaranteeDesc": "Full refund if the ticket is invalid or the event is cancelled, including the platform fee.",
-    "stripe": "Powered by Stripe",
-    "stripeDesc": "Payments processed by Stripe — your card details never reach us.",
     "verifiedStudents": "Verified students",
     "verifiedStudentsDesc": "Only verified students from your school can buy or sell."
   },
