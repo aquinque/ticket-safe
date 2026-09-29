@@ -130,7 +130,8 @@
     "newPasswordPlaceholder": "Enter new password",
     "saveChanges": "Save Changes",
     "languageEnglish": "English",
-    "languageFrench": "French"
+    "languageFrench": "French",
+    "languageSpanish": "Spanish"
   },
   "toast": {
     "settingsSaved": "Settings saved!",

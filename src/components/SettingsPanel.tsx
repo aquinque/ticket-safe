@@ -111,9 +111,10 @@ export const SettingsPanel = ({ open, onOpenChange }: SettingsPanelProps) => {
     });
   };
 
-  const handleLanguageChange = (lang: 'en' | 'fr') => {
+  const handleLanguageChange = (lang: 'en' | 'fr' | 'es') => {
     setLanguage(lang);
-    const langName = lang === 'en' ? t('settings.languageEnglish') : t('settings.languageFrench');
+    const langName =
+      lang === 'en' ? t('settings.languageEnglish') : lang === 'es' ? t('settings.languageSpanish') : t('settings.languageFrench');
     toast({
       title: t('toast.languageUpdated'),
       description: t('toast.languageChanged', { language: langName }),
@@ -235,8 +236,9 @@ export const SettingsPanel = ({ open, onOpenChange }: SettingsPanelProps) => {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="en">{t('settings.languageEnglish')}</SelectItem>
                       <SelectItem value="fr">{t('settings.languageFrench')}</SelectItem>
+                      <SelectItem value="en">{t('settings.languageEnglish')}</SelectItem>
+                      <SelectItem value="es">{t('settings.languageSpanish')}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

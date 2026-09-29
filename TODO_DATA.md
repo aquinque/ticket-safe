@@ -64,6 +64,51 @@ new tables/queries without asking. Updated as phases land.
   I couldn't screenshot the actual dashboard/wizard/tables post-login —
   worth a manual spot-check.
 
+## Phase 6 — i18n + finitions
+
+- **i18n system**: kept the existing custom `I18nContext` (not react-i18next
+  — a working lib already existed, brief says use it if so). Default
+  flipped from EN to **FR** per spec, with browser-language auto-detect
+  (falls back to FR). Added full **Spanish** (`src/locales/es.json`,
+  ~250 keys translated) and wired `es` through the type system, the
+  fallback chain (missing key → FR, not EN, since FR is now the default),
+  `HeaderNight`'s language picker (was a binary EN/FR toggle — now a
+  3-option dropdown desktop + 3-button row mobile) and `SettingsPanel`'s
+  language `<Select>`.
+- **Important gap, tested and confirmed by screenshot**: switching
+  language correctly translates everything that already went through
+  `t()` before this redesign (nav, footer, settings, auth, about, contact,
+  sell, profile, trust copy — the full existing ~250-key set). It does
+  **not** translate the new copy written during Phases 3-5 — Home's hero/
+  sections, the Tickets page intro, Studio's dashboard labels, the cookie
+  bar, HeaderNight's own non-nav strings — those are still hardcoded
+  (French on Home/Tickets, English elsewhere) regardless of the selected
+  language. Fully extracting and translating (×3) every string introduced
+  in this redesign is a real, sizeable task I did not attempt to rush;
+  flagging it here rather than claiming it's done.
+- **OG images**: `SEOHead` already supported per-page dynamic title/
+  description/image before this redesign, and `EventPublic.tsx` already
+  passed a real per-event image (`og_image_url ?? banner_url ?? organizer
+  logo`) — this was already correct, not new work. `public/og-default.svg`
+  (the brand fallback for pages without their own image) was already a
+  well-made dark brand-blue image using the exact brand-500/700/200 hex —
+  left as-is, no changes needed.
+- **Accessibility**: `index.html`'s viewport meta already had no
+  `user-scalable=no`/`maximum-scale` — pinch-zoom already worked, nothing
+  to fix. Computed the night theme's `--muted-foreground` (`228 29% 69%`)
+  against `--background` (`234 58% 6%`) by hand: ~8.6:1 contrast, well
+  past the 4.5:1 AA bar for normal text. Not exhaustively audited beyond
+  that one pairing (the one I was most worried about, muted text being the
+  easiest to get wrong on a dark theme).
+- **Performance**: added `loading="lazy"` + `decoding="async"` to the
+  shared `EventCard`'s poster `<img>` (appears repeatedly in every grid
+  across the site). Did not do a full sweep of every `<img>` in every
+  touched file, or touch image *formats* (webp/avif) — most images here
+  are either external URLs (Unsplash, user uploads to Supabase storage)
+  or SVG, not something a frontend-only pass controls format-wise. No
+  real hero video exists yet (still the gradient placeholder), so the
+  "video hero > 2MB" constraint doesn't currently apply.
+
 ## Known duplication to resolve
 
 - ~~`src/pages/Tickets.tsx` local EventCard~~ — **done in Phase 4**:

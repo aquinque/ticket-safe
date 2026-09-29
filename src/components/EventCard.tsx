@@ -14,16 +14,16 @@ function daysUntil(dateString: string): number | null {
 /** "J-2" / "Ce soir" style urgency badge — date-driven, or stock-driven via
  *  `percentRemaining` when the caller has that data (event capacity isn't
  *  known for every listing source yet, e.g. the resale marketplace). */
-function getUrgencyLabel(event: EventData, language: "en" | "fr"): string | null {
+function getUrgencyLabel(event: EventData, language: "en" | "fr" | "es"): string | null {
   if (event.isPastEvent) return null;
   const days = daysUntil(event.date);
   if (days != null && days >= 0 && days <= 3) {
-    if (days === 0) return language === "fr" ? "Ce soir" : "Tonight";
-    if (days === 1) return language === "fr" ? "Demain" : "Tomorrow";
+    if (days === 0) return language === "fr" ? "Ce soir" : language === "es" ? "Esta noche" : "Tonight";
+    if (days === 1) return language === "fr" ? "Demain" : language === "es" ? "Mañana" : "Tomorrow";
     return `J-${days}`;
   }
   if (event.percentRemaining != null && event.percentRemaining < 15) {
-    return language === "fr" ? "Dernières places" : "Almost sold out";
+    return language === "fr" ? "Dernières places" : language === "es" ? "Últimas plazas" : "Almost sold out";
   }
   return null;
 }
@@ -48,7 +48,8 @@ interface EventCardProps {
  *  poster image. */
 const EventCard = ({ event, onClick }: EventCardProps) => {
   const { t, language } = useI18n();
-  const locale = language === "fr" ? "fr-FR" : "en-US";
+  const locale = language === "fr" ? "fr-FR" : language === "es" ? "es-ES" : "en-US";
+  const soldOutLabel = language === "fr" ? "Complet" : language === "es" ? "Agotado" : "Sold out";
 
   const urgency = getUrgencyLabel(event, language);
   const campusLabel = event.campus || event.organizer;
@@ -65,6 +66,8 @@ const EventCard = ({ event, onClick }: EventCardProps) => {
         <img
           src={event.image ?? undefined}
           alt={event.title}
+          loading="lazy"
+          decoding="async"
           className={`absolute inset-0 w-full h-full object-cover transition-transform duration-300 ${
             event.soldOut ? "grayscale opacity-60" : "md:group-hover:scale-[1.03]"
           }`}
@@ -100,7 +103,7 @@ const EventCard = ({ event, onClick }: EventCardProps) => {
           </Badge>
         ) : event.soldOut ? (
           <Badge className="ml-auto bg-danger text-danger-foreground border-transparent text-[10px] uppercase tracking-wider font-bold">
-            {language === "fr" ? "Complet" : "Sold out"}
+            {soldOutLabel}
           </Badge>
         ) : (
           urgency && (
@@ -129,13 +132,15 @@ const EventCard = ({ event, onClick }: EventCardProps) => {
           </div>
           {event.soldOut ? (
             <span className="shrink-0 text-sm font-black text-white/70">
-              {language === "fr" ? "Complet" : "Sold out"}
+              {soldOutLabel}
             </span>
           ) : (
             event.fromPriceCents != null && (
               <span className="shrink-0 text-sm font-black tabular-nums">
                 {language === "fr"
                   ? `dès ${(event.fromPriceCents / 100).toFixed(0)} €`
+                  : language === "es"
+                  ? `desde ${(event.fromPriceCents / 100).toFixed(0)} €`
                   : `from €${(event.fromPriceCents / 100).toFixed(0)}`}
               </span>
             )

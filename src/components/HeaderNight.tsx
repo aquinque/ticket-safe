@@ -32,6 +32,12 @@ const NAV_LINKS = [
   { to: "/organizers", labelKey: "nav.organizers" as const },
 ];
 
+const LANGUAGES: { code: "fr" | "en" | "es"; label: string }[] = [
+  { code: "fr", label: "Français" },
+  { code: "en", label: "English" },
+  { code: "es", label: "Español" },
+];
+
 const HeaderNight = () => {
   const { t, language, setLanguage } = useI18n();
   const location = useLocation();
@@ -97,15 +103,25 @@ const HeaderNight = () => {
           </nav>
 
           <div className="hidden md:flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setLanguage(language === "en" ? "fr" : "en")}
-              className="inline-flex items-center gap-1.5 px-2.5 h-9 rounded-md text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-              aria-label="Toggle language"
-            >
-              <Globe className="w-3.5 h-3.5" />
-              {language.toUpperCase()}
-            </button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1.5 px-2.5 h-9 rounded-md text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+                  aria-label="Choose language"
+                >
+                  <Globe className="w-3.5 h-3.5" />
+                  {language.toUpperCase()}
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {LANGUAGES.map((l) => (
+                  <DropdownMenuItem key={l.code} onClick={() => setLanguage(l.code)} className="font-semibold">
+                    {l.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
             {user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -197,14 +213,23 @@ const HeaderNight = () => {
           </nav>
 
           <div className="p-6 flex flex-col gap-3">
-            <button
-              type="button"
-              onClick={() => setLanguage(language === "en" ? "fr" : "en")}
-              className="inline-flex items-center justify-center gap-1.5 h-11 rounded-md text-sm font-bold text-muted-foreground border border-border"
-            >
-              <Globe className="w-4 h-4" />
-              {language === "en" ? "English" : "Français"}
-            </button>
+            <div className="flex items-center gap-2">
+              <Globe className="w-4 h-4 text-muted-foreground shrink-0" />
+              {LANGUAGES.map((l) => (
+                <button
+                  key={l.code}
+                  type="button"
+                  onClick={() => setLanguage(l.code)}
+                  className={`flex-1 h-11 rounded-md text-sm font-bold border transition-colors ${
+                    language === l.code
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "text-muted-foreground border-border"
+                  }`}
+                >
+                  {l.code.toUpperCase()}
+                </button>
+              ))}
+            </div>
             {user ? (
               <>
                 <Button variant="outline" size="lg" asChild onClick={() => setMenuOpen(false)}>

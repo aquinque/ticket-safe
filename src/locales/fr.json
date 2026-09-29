@@ -130,7 +130,8 @@
     "newPasswordPlaceholder": "Entrez un nouveau mot de passe",
     "saveChanges": "Enregistrer les modifications",
     "languageEnglish": "Anglais",
-    "languageFrench": "Français"
+    "languageFrench": "Français",
+    "languageSpanish": "Espagnol"
   },
   "toast": {
     "settingsSaved": "Paramètres enregistrés !",

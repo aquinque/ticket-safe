@@ -1,8 +1,9 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import enTranslations from '@/locales/en.json';
 import frTranslations from '@/locales/fr.json';
+import esTranslations from '@/locales/es.json';
 
-type Language = 'en' | 'fr';
+type Language = 'en' | 'fr' | 'es';
 type Translations = typeof enTranslations;
 
 interface I18nContextType {
@@ -16,32 +17,37 @@ const I18nContext = createContext<I18nContextType | undefined>(undefined);
 const translations: Record<Language, Translations> = {
   en: enTranslations,
   fr: frTranslations,
+  es: esTranslations,
 };
+
+const isLanguage = (v: string | null): v is Language => v === 'en' || v === 'fr' || v === 'es';
 
 const detectBrowserLanguage = (): Language => {
   const browserLang = navigator.language.toLowerCase();
-  return browserLang.startsWith('fr') ? 'fr' : 'en';
+  if (browserLang.startsWith('es')) return 'es';
+  if (browserLang.startsWith('fr')) return 'fr';
+  if (browserLang.startsWith('en')) return 'en';
+  // FR is the default language (spec: FR par défaut) when the browser's
+  // language isn't one we have a translation for.
+  return 'fr';
 };
 
 const getLanguageFromUrl = (): Language | null => {
   const params = new URLSearchParams(window.location.search);
   const urlLang = params.get('lang');
-  if (urlLang === 'en' || urlLang === 'fr') {
-    return urlLang;
-  }
-  return null;
+  return isLanguage(urlLang) ? urlLang : null;
 };
 
 export const I18nProvider = ({ children }: { children: ReactNode }) => {
   const [language, setLanguageState] = useState<Language>(() => {
-    // Priority: URL param > localStorage > default to English
+    // Priority: URL param > localStorage > browser language > FR default
     const urlLang = getLanguageFromUrl();
     if (urlLang) return urlLang;
-    
-    const storedLang = localStorage.getItem('lang') as Language;
-    if (storedLang === 'en' || storedLang === 'fr') return storedLang;
-    
-    return 'en'; // Default to English
+
+    const storedLang = localStorage.getItem('lang');
+    if (isLanguage(storedLang)) return storedLang;
+
+    return detectBrowserLanguage();
   });
 
   useEffect(() => {
@@ -73,8 +79,9 @@ export const I18nProvider = ({ children }: { children: ReactNode }) => {
       if (value && typeof value === 'object' && k in value) {
         value = (value as Record<string, unknown>)[k];
       } else {
-        // Fallback to English if key not found in current language
-        value = translations.en;
+        // Fallback to French (the default language) if the key is missing
+        // in the current language.
+        value = translations.fr;
         for (const fallbackKey of keys) {
           if (value && typeof value === 'object' && fallbackKey in value) {
             value = (value as Record<string, unknown>)[fallbackKey];
