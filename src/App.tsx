@@ -15,7 +15,6 @@ import Auth from "./pages/Auth";
 
 // Lazy: every other route. Each gets its own chunk loaded on demand.
 const Tickets = lazy(() => import("./pages/Tickets"));
-const Index = lazy(() => import("./pages/Index"));
 const Events = lazy(() => import("./pages/Events"));
 const Marketplace = lazy(() => import("./pages/Marketplace"));
 const EventDetail = lazy(() => import("./pages/EventDetail"));
@@ -91,7 +90,7 @@ const App = () => (
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/tickets" element={<Tickets />} />
-        <Route path="/resale" element={<Index />} />
+        <Route path="/resale" element={<Navigate to="/marketplace/buy" replace />} />
         <Route path="/marketplace" element={<Navigate to="/tickets" replace />} />
         <Route path="/catalog" element={<Navigate to="/tickets" replace />} />
         <Route path="/events" element={<Events />} />

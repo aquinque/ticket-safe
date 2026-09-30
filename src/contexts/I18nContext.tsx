@@ -22,16 +22,10 @@ const translations: Record<Language, Translations> = {
 
 const isLanguage = (v: string | null): v is Language => v === 'en' || v === 'fr' || v === 'es';
 
-const detectBrowserLanguage = (): Language => {
-  const browserLang = navigator.language.toLowerCase();
-  if (browserLang.startsWith('es')) return 'es';
-  if (browserLang.startsWith('fr')) return 'fr';
-  if (browserLang.startsWith('en')) return 'en';
-  // FR is the default language (spec: FR par défaut) when the browser's
-  // language isn't one we have a translation for.
-  return 'fr';
-};
-
+// EN is the unconditional default — the site no longer auto-switches based
+// on browser language. Visitors can still pick FR/ES themselves via the
+// language switcher (or a ?lang= URL param), and that explicit choice is
+// remembered in localStorage.
 const getLanguageFromUrl = (): Language | null => {
   const params = new URLSearchParams(window.location.search);
   const urlLang = params.get('lang');
@@ -40,14 +34,14 @@ const getLanguageFromUrl = (): Language | null => {
 
 export const I18nProvider = ({ children }: { children: ReactNode }) => {
   const [language, setLanguageState] = useState<Language>(() => {
-    // Priority: URL param > localStorage > browser language > FR default
+    // Priority: URL param > localStorage > EN default
     const urlLang = getLanguageFromUrl();
     if (urlLang) return urlLang;
 
     const storedLang = localStorage.getItem('lang');
     if (isLanguage(storedLang)) return storedLang;
 
-    return detectBrowserLanguage();
+    return 'en';
   });
 
   useEffect(() => {
@@ -79,9 +73,9 @@ export const I18nProvider = ({ children }: { children: ReactNode }) => {
       if (value && typeof value === 'object' && k in value) {
         value = (value as Record<string, unknown>)[k];
       } else {
-        // Fallback to French (the default language) if the key is missing
+        // Fallback to English (the default language) if the key is missing
         // in the current language.
-        value = translations.fr;
+        value = translations.en;
         for (const fallbackKey of keys) {
           if (value && typeof value === 'object' && fallbackKey in value) {
             value = (value as Record<string, unknown>)[fallbackKey];

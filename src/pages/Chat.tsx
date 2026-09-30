@@ -19,7 +19,7 @@ const Chat = () => {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: "assistant",
-      content: "Salut ! Je suis Claude, votre assistant IA pour le développement. Posez-moi des questions sur le code, demandez de l'aide pour déboguer, ou générez du code. Comment puis-je vous aider ?"
+      content: "Hi! I'm Claude, your AI development assistant. Ask me questions about code, request debugging help, or generate code. How can I help?"
     }
   ]);
   const [input, setInput] = useState("");
@@ -34,7 +34,7 @@ const Chat = () => {
     setLoading(true);
 
     try {
-      const systemPrompt = "Vous êtes un assistant de codage expert. Fournissez des réponses claires, concises et précises sur le code, les technologies web, React, TypeScript, et les meilleures pratiques. Utilisez des exemples de code quand approprié.";
+      const systemPrompt = "You are an expert coding assistant. Provide clear, concise, and accurate answers about code, web technologies, React, TypeScript, and best practices. Use code examples when appropriate.";
       const conversationMessages = messages.concat(userMessage).map(msg => ({
         role: msg.role as "user" | "assistant",
         content: msg.content
@@ -47,14 +47,14 @@ const Chat = () => {
       });
       const assistantMessage: Message = {
         role: "assistant",
-        content: response.content[0]?.type === "text" ? response.content[0].text : "Désolé, je n'ai pas pu générer une réponse.",
+        content: response.content[0]?.type === "text" ? response.content[0].text : "Sorry, I couldn't generate a response.",
       };
       setMessages((prev) => [...prev, assistantMessage]);
     } catch (error) {
-      console.error("Erreur:", error);
+      console.error("Error:", error);
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: "Erreur : Impossible de se connecter à Claude." },
+        { role: "assistant", content: "Error: couldn't connect to Claude." },
       ]);
     } finally {
       setLoading(false);

@@ -29,41 +29,41 @@ import type { EventData } from "@/data/eventsData";
 const HOW_IT_WORKS = [
   {
     icon: GraduationCap,
-    title: "Vérifie ton email étudiant",
-    desc: "Inscription en 30 secondes avec l'email de ton école. Réservé aux étudiants.",
+    title: "Verify your student email",
+    desc: "Sign up in 30 seconds with your school email. Students only.",
   },
   {
     icon: Repeat2,
-    title: "Achète ou revends",
-    desc: "Billets officiels de ton BDE, ou trouve/liste un billet sur la revente.",
+    title: "Buy or resell",
+    desc: "Official tickets from your student union, or find/list a ticket on resale.",
   },
   {
     icon: QrCode,
-    title: "QR unique, paiement libéré",
-    desc: "Le QR arrive dans ta boîte mail. Le paiement n'est débloqué qu'une fois le billet validé.",
+    title: "Unique QR, protected payment",
+    desc: "The QR lands in your inbox. Payment is only released once the ticket is validated.",
   },
 ];
 
 const FAQS = [
   {
-    q: "C'est réservé à mon école ?",
-    a: "Oui — l'inscription se fait avec ton email étudiant. Chaque campus a son propre espace, pas de comptes non vérifiés.",
+    q: "Is it limited to my school?",
+    a: "Yes — sign-up requires your student email. Each campus has its own space, no unverified accounts.",
   },
   {
-    q: "Comment je sais que mon billet revendu est vrai ?",
-    a: "Chaque billet a un QR unique vérifié avant d'être mis en vente. Le paiement reste bloqué jusqu'à la validation du transfert.",
+    q: "How do I know a resold ticket is real?",
+    a: "Every ticket has a unique QR, verified before it's listed for sale. Payment stays held until the transfer is confirmed.",
   },
   {
-    q: "Combien ça coûte ?",
-    a: "Achat direct : frais inclus dans le prix affiché. Revente : petite commission prélevée au retrait, jamais à l'achat.",
+    q: "How much does it cost?",
+    a: "Direct purchase: fees included in the displayed price. Resale: a small commission taken at withdrawal, never at purchase.",
   },
   {
-    q: "Et si l'event est annulé ?",
-    a: "Remboursement automatique intégral, frais de plateforme inclus, sans avoir à ouvrir de ticket support.",
+    q: "What if the event is cancelled?",
+    a: "Full automatic refund, platform fees included, no support ticket needed.",
   },
   {
-    q: "Comment je suis payé si je revends ?",
-    a: "Le paiement est débloqué dès que l'acheteur confirme la réception du billet, puis tu le retires par virement bancaire.",
+    q: "How do I get paid if I resell?",
+    a: "Payment is released as soon as the buyer confirms they received the ticket, then you withdraw it by bank transfer.",
   },
 ];
 
@@ -101,15 +101,15 @@ const Home = () => {
   // Counters section: only real, verifiable numbers. Hidden individually
   // when null rather than showing a fabricated placeholder value.
   const counters = [
-    { value: ticketsSold, label: "billets vendus en toute sécurité" },
-    { value: null, label: "campus actifs" }, // TODO_DATA: no live "active campuses" count yet
+    { value: ticketsSold, label: "tickets sold safely" },
+    { value: null, label: "active campuses" }, // TODO_DATA: no live "active campuses" count yet
   ].filter((c) => c.value != null) as { value: number; label: string }[];
 
   return (
     <div className="theme-night min-h-screen flex flex-col bg-background">
       <SEOHead
-        title="TicketSafe — Tes soirées étudiantes. Zéro arnaque."
-        description="Achète tes places directement auprès de ton BDE, ou revends la tienne en toute sécurité."
+        title="TicketSafe — Your student nights. Zero scams."
+        description="Buy tickets directly from your student union, or resell yours safely."
       />
 
       <HeaderNight />
@@ -136,60 +136,60 @@ const Home = () => {
                 className="font-display font-bold text-foreground text-[40px] leading-[1.05] md:text-7xl lg:text-8xl mb-4 md:mb-6"
                 style={{ letterSpacing: "-0.02em" }}
               >
-                Tes soirées étudiantes.
+                Your student nights.
                 <br />
-                Zéro arnaque.
+                Zero scams.
               </h1>
               <p className="text-base md:text-xl text-muted-foreground mb-7 md:mb-9 max-w-lg">
-                Achète tes places directement auprès de ton BDE, ou revends la tienne en toute sécurité.
+                Buy tickets directly from your student union, or resell yours safely.
               </p>
 
               <div className="flex flex-col sm:flex-row gap-3 mb-7 md:mb-9">
                 <Button variant="buy" size="lg" asChild>
                   <Link to="/tickets">
-                    Voir les events
+                    View events
                     <ArrowRight className="w-4 h-4" />
                   </Link>
                 </Button>
                 <Button variant="outline" size="lg" asChild className="border-white/25 text-foreground hover:bg-white/5">
-                  <Link to="/sell">Revendre mon billet</Link>
+                  <Link to="/sell">Resell my ticket</Link>
                 </Button>
               </div>
 
               <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs md:text-sm text-muted-foreground">
                 <span className="inline-flex items-center gap-1.5">
                   <QrCode className="w-4 h-4 text-primary" />
-                  QR vérifiés
+                  Verified QR codes
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                   <ShieldCheck className="w-4 h-4 text-primary" />
-                  Paiement sécurisé
+                  Secure payment
                 </span>
                 <span className="inline-flex items-center gap-1.5">
                   <Lock className="w-4 h-4 text-primary" />
-                  Conforme RGPD
+                  GDPR compliant
                 </span>
               </div>
             </div>
           </div>
         </section>
 
-        {/* ============ CARROUSEL — Prochains events ============ */}
+        {/* ============ CAROUSEL — Upcoming events ============ */}
         <section className="py-12 md:py-16 border-t border-border">
           <div className="container mx-auto px-4">
             <div className="flex items-center justify-between mb-5 md:mb-6">
               <h2 className="font-display font-bold text-2xl md:text-3xl text-foreground" style={{ letterSpacing: "-0.02em" }}>
-                Prochains events
+                Upcoming events
               </h2>
               <Link to="/tickets" className="text-sm font-semibold text-primary hover:underline inline-flex items-center gap-1 shrink-0">
-                Tout voir
+                See all
                 <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
 
             {!eventsLoading && carouselEvents.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                Aucun event avec billets pour l'instant — reviens bientôt.
+                No events with tickets yet — check back soon.
               </p>
             ) : (
               <EventCarousel
@@ -201,7 +201,7 @@ const Home = () => {
           </div>
         </section>
 
-        {/* ============ PREUVE SOCIALE ============ */}
+        {/* ============ SOCIAL PROOF ============ */}
         {(partnerLogos.length > 0 || counters.length > 0) && (
           <section className="py-10 md:py-12 border-t border-border">
             <div className="container mx-auto px-4">
@@ -228,11 +228,11 @@ const Home = () => {
           </section>
         )}
 
-        {/* ============ COMMENT ÇA MARCHE ============ */}
+        {/* ============ HOW IT WORKS ============ */}
         <section className="py-14 md:py-20 border-t border-border">
           <div className="container mx-auto px-4">
             <h2 className="font-display font-bold text-2xl md:text-3xl text-foreground text-center mb-10 md:mb-14" style={{ letterSpacing: "-0.02em" }}>
-              Comment ça marche
+              How it works
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-10 max-w-4xl mx-auto">
               {HOW_IT_WORKS.map((step, i) => {
@@ -254,35 +254,35 @@ const Home = () => {
           </div>
         </section>
 
-        {/* ============ SECTION ORGANISATEURS ============ */}
+        {/* ============ ORGANIZERS SECTION ============ */}
         <section className="py-14 md:py-20 bg-secondary/50 border-t border-border">
           <div className="container mx-auto px-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-16 items-center max-w-5xl mx-auto">
               <div>
                 <h2 className="font-display font-bold text-2xl md:text-4xl text-foreground mb-4" style={{ letterSpacing: "-0.02em" }}>
-                  Tu organises un event ?
+                  Running an event?
                 </h2>
                 <ul className="space-y-3 mb-6 text-sm md:text-base text-muted-foreground">
                   <li className="flex items-start gap-2.5">
                     <ShieldCheck className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                    Billetterie + revente sécurisée intégrée
+                    Ticketing + secure resale, built in
                   </li>
                   <li className="flex items-start gap-2.5">
                     <Repeat2 className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                    Liens de vente par membre du BDE
+                    Per-member sales links for your team
                   </li>
                   <li className="flex items-start gap-2.5">
                     <LayoutDashboard className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                    Dashboard temps réel — ventes, check-in, paiements
+                    Real-time dashboard — sales, check-in, payouts
                   </li>
                 </ul>
                 <p className="font-display font-bold text-3xl md:text-5xl text-foreground mb-1" style={{ letterSpacing: "-0.02em" }}>
-                  1,40&nbsp;€ par billet.
+                  €1.40 per ticket.
                 </p>
-                <p className="text-sm text-muted-foreground mb-6">C'est tout.</p>
+                <p className="text-sm text-muted-foreground mb-6">That's it.</p>
                 <Button variant="buy" size="lg" asChild>
                   <Link to="/organizers">
-                    Lancer mon event avec TicketSafe Studio
+                    Launch my event with TicketSafe Studio
                     <ArrowRight className="w-4 h-4" />
                   </Link>
                 </Button>
@@ -297,7 +297,7 @@ const Home = () => {
                   <span className="w-2.5 h-2.5 rounded-full bg-success/60" />
                 </div>
                 <div className="grid grid-cols-3 gap-2 mb-3">
-                  {["Billets vendus", "CA net", "Remplissage"].map((label) => (
+                  {["Tickets sold", "Net revenue", "Fill rate"].map((label) => (
                     <div key={label} className="rounded-md bg-secondary p-2.5">
                       <div className="h-2 w-10 rounded bg-muted-foreground/30 mb-2" />
                       <div className="h-4 w-14 rounded bg-foreground/20 tabular-nums" />
@@ -318,7 +318,7 @@ const Home = () => {
         <section className="py-14 md:py-20 border-t border-border">
           <div className="container mx-auto px-4 max-w-2xl">
             <h2 className="font-display font-bold text-2xl md:text-3xl text-foreground text-center mb-8 md:mb-10" style={{ letterSpacing: "-0.02em" }}>
-              Questions fréquentes
+              Frequently asked questions
             </h2>
             <Accordion type="single" collapsible>
               {FAQS.map((faq, i) => (

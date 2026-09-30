@@ -327,7 +327,7 @@ const StudioDashboard = () => {
           <div>
             <h1 className="text-xl md:text-2xl font-bold text-foreground">Dashboard</h1>
             <p className="text-sm text-muted-foreground mt-0.5">
-              Créez des events, vendez des billets, et faites-vous payer — le tout au même endroit.
+              Create events, sell tickets, and get paid — all in one place.
             </p>
           </div>
           <Link
@@ -335,22 +335,22 @@ const StudioDashboard = () => {
             className="inline-flex items-center justify-center gap-2 px-4 min-h-[44px] rounded-lg font-bold text-sm bg-primary text-primary-foreground hover:bg-primary-hover transition-colors self-start sm:self-auto"
           >
             <Plus className="w-4 h-4" />
-            Nouvel event
+            New event
           </Link>
         </div>
 
         {/* ===== KPI cards ===== */}
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
-          <KpiCard label="Billets vendus" value={stats.sold.toLocaleString("fr-FR")} icon={Users} />
-          <KpiCard label="CA brut" value={`€${(stats.revenue / 100).toLocaleString("fr-FR", { maximumFractionDigits: 0 })}`} icon={TrendingUp} />
+          <KpiCard label="Tickets sold" value={stats.sold.toLocaleString("en-GB")} icon={Users} />
+          <KpiCard label="Gross revenue" value={`€${(stats.revenue / 100).toLocaleString("en-GB", { maximumFractionDigits: 0 })}`} icon={TrendingUp} />
           <KpiCard
-            label="CA net (après frais)"
-            value={earnings ? `€${(earnings.net_earned_cents / 100).toLocaleString("fr-FR", { maximumFractionDigits: 0 })}` : "—"}
+            label="Net revenue (after fees)"
+            value={earnings ? `€${(earnings.net_earned_cents / 100).toLocaleString("en-GB", { maximumFractionDigits: 0 })}` : "—"}
             icon={Banknote}
           />
-          <KpiCard label="Taux de remplissage" value={fillRate != null ? `${fillRate}%` : "—"} icon={Calendar} />
+          <KpiCard label="Fill rate" value={fillRate != null ? `${fillRate}%` : "—"} icon={Calendar} />
           <KpiCard
-            label="Billets revendus"
+            label="Tickets resold"
             value={resoldCount != null ? String(resoldCount) : "—"}
             icon={Repeat2}
           />
@@ -358,10 +358,10 @@ const StudioDashboard = () => {
 
         {/* ===== Sales chart — gross, last 14 days ===== */}
         <div className="rounded-lg border border-border bg-card p-4 md:p-5 mb-6">
-          <div className="text-sm font-bold text-foreground mb-4">Ventes des 14 derniers jours</div>
+          <div className="text-sm font-bold text-foreground mb-4">Sales over the last 14 days</div>
           {dailySales ? (
             dailySales.every((d) => d.cents === 0) ? (
-              <p className="text-sm text-muted-foreground py-6 text-center">Aucune vente sur cette période.</p>
+              <p className="text-sm text-muted-foreground py-6 text-center">No sales in this period.</p>
             ) : (
               <div className="flex items-end gap-1 h-32">
                 {dailySales.map((d) => (
@@ -369,7 +369,7 @@ const StudioDashboard = () => {
                     <div
                       className="w-full rounded-sm bg-primary/70 hover:bg-primary transition-colors"
                       style={{ height: `${Math.max(2, (d.cents / maxDailyCents) * 100)}%` }}
-                      title={`${new Date(d.day).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })} — €${(d.cents / 100).toFixed(0)}`}
+                      title={`${new Date(d.day).toLocaleDateString("en-GB", { day: "numeric", month: "short" })} — €${(d.cents / 100).toFixed(0)}`}
                     />
                   </div>
                 ))}
@@ -392,10 +392,10 @@ const StudioDashboard = () => {
             </div>
             <div className="flex-1 min-w-0">
               <div className="font-bold text-sm md:text-base text-emerald-900">
-                €{(earnings.available_cents / 100).toFixed(2)} disponible — paiement versé sous 2-3 jours ouvrés une fois demandé
+                €{(earnings.available_cents / 100).toFixed(2)} available — paid out within 2-3 business days once requested
               </div>
               <div className="text-xs md:text-sm text-emerald-800">
-                IBAN SEPA uniquement — pas de compte Stripe, pas de SIREN, pas de KYC. Frais TicketSafe : 8% au retrait.
+                SEPA IBAN only — no Stripe account, no SIREN, no KYC. TicketSafe fee: 8% at withdrawal.
               </div>
             </div>
             <button
@@ -403,7 +403,7 @@ const StudioDashboard = () => {
               className="inline-flex items-center justify-center gap-1.5 px-4 min-h-[40px] rounded-lg font-bold text-sm bg-emerald-700 text-white hover:bg-emerald-800 shrink-0"
             >
               <ArrowRight className="w-4 h-4" />
-              Demander le paiement
+              Request payout
             </button>
           </div>
         )}
@@ -412,10 +412,10 @@ const StudioDashboard = () => {
             <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
             <div className="flex-1 min-w-0">
               <div className="text-sm font-bold text-foreground">
-                €{(earnings.claimed_cents / 100).toFixed(2)} — paiement en cours
+                €{(earnings.claimed_cents / 100).toFixed(2)} — payout in progress
               </div>
               <div className="text-xs text-muted-foreground">
-                Virement SEPA envoyé sous 2-3 jours ouvrés vers votre IBAN.
+                SEPA transfer sent within 2-3 business days to your IBAN.
               </div>
             </div>
           </div>

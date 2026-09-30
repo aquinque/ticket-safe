@@ -16,8 +16,9 @@
 import { useState, useRef, useEffect } from "react";
 import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import { z } from "zod";
-import Header from "@/components/Header";
+import HeaderNight from "@/components/HeaderNight";
 import Footer from "@/components/Footer";
+import { useThemeMode } from "@/hooks/useThemeMode";
 import { BackButton } from "@/components/BackButton";
 import { AnimatedNumber } from "@/components/AnimatedNumber";
 import { Button } from "@/components/ui/button";
@@ -97,6 +98,7 @@ const notesSchema = z
 // ---------------------------------------------------------------------------
 
 const Sell = () => {
+  useThemeMode("night");
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const { language } = useI18n();
@@ -790,9 +792,9 @@ const Sell = () => {
 
   if (createdListingId) {
     return (
-      <div className="min-h-screen bg-background flex flex-col">
+      <div className="theme-night min-h-screen bg-background flex flex-col">
         <SEOHead titleKey="marketplace.sell.title" descriptionKey="marketplace.sell.description" />
-        <Header />
+        <HeaderNight />
         <main className="flex-1 flex items-center justify-center py-16">
           <div className="container mx-auto px-4 max-w-md text-center">
             {/* Animated check — the moment lands with motion, not a static badge. */}
@@ -832,7 +834,7 @@ const Sell = () => {
                   )}
                 </div>
                 {studioTicket && (
-                  <div className="mt-3 pt-3 border-t border-border inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700">
+                  <div className="mt-3 pt-3 border-t border-border inline-flex items-center gap-1.5 text-xs font-medium text-success">
                     <CheckCircle2 className="w-3.5 h-3.5" />
                     Live on the marketplace
                   </div>
@@ -923,9 +925,9 @@ const Sell = () => {
   const activeStep = firstUndone === -1 ? steps.length - 1 : firstUndone;
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="theme-night min-h-screen bg-background flex flex-col">
       <SEOHead titleKey="marketplace.sell.title" descriptionKey="marketplace.sell.description" />
-      <Header />
+      <HeaderNight />
 
       {/* ===== Branded hero with step indicator =====
           Gradient strip on Ticket Safe blue. Title on the left, stepper on
@@ -934,7 +936,7 @@ const Sell = () => {
           clear sense of "where am I in the process" without being childish. */}
       <section
         className="relative text-white overflow-hidden"
-        style={{ background: "linear-gradient(135deg, hsl(220 100% 30%), hsl(210 100% 45%))" }}
+        style={{ background: "var(--gradient-hero)" }}
       >
         <div
           className="absolute inset-0 opacity-30 pointer-events-none"
@@ -1010,7 +1012,7 @@ const Sell = () => {
                   {/* Brand header strip — turns the form into a real ticket. */}
                   <div
                     className="px-5 py-3 flex items-center gap-2 text-white"
-                    style={{ background: "linear-gradient(135deg, hsl(220 100% 30%), hsl(210 100% 45%))" }}
+                    style={{ background: "var(--gradient-hero)" }}
                   >
                     <Zap className="w-4 h-4" />
                     <span className="text-[11px] font-bold uppercase tracking-wider">
@@ -1079,7 +1081,7 @@ const Sell = () => {
                     </div>
 
                     <div className="flex items-start gap-2 text-xs text-muted-foreground bg-muted/40 rounded-lg p-3">
-                      <ShieldCheck className="w-4 h-4 text-green-600 shrink-0 mt-0.5" />
+                      <ShieldCheck className="w-4 h-4 text-success shrink-0 mt-0.5" />
                       <span>
                         Your QR stays valid until it sells. The moment payment goes through, we
                         invalidate yours and issue a fresh one in the buyer's name — nothing else to do.
@@ -1340,8 +1342,8 @@ const Sell = () => {
                     </div>
                   ) : myTickets.length === 0 ? (
                     isStudioEvent ? (
-                      <div className="rounded-lg border border-dashed border-amber-300 bg-amber-50/60 dark:bg-amber-950/20 p-4 text-sm text-center">
-                        <p className="font-semibold text-amber-800 dark:text-amber-300">
+                      <div className="rounded-lg border border-dashed border-warning/40 bg-warning/10 p-4 text-sm text-center">
+                        <p className="font-semibold text-warning">
                           This is a Ticket Safe Studio event
                         </p>
                         <p className="text-muted-foreground mt-1">
@@ -1371,7 +1373,7 @@ const Sell = () => {
                         >
                           <div className="min-w-0">
                             <p className="text-sm font-medium truncate flex items-center gap-1.5">
-                              <ShieldCheck className="w-4 h-4 text-green-600 shrink-0" />
+                              <ShieldCheck className="w-4 h-4 text-success shrink-0" />
                               {t.tierName ?? "Ticket Safe verified ticket"}
                             </p>
                             {t.facePriceEuros != null && (

@@ -33,13 +33,13 @@ interface OrganizerLite {
 
 const NAV_ITEMS: { key: string; label: string; to: string; icon: typeof LayoutDashboard; soon?: boolean }[] = [
   { key: "dashboard", label: "Dashboard", to: "/studio", icon: LayoutDashboard },
-  { key: "events", label: "Événements", to: "/studio", icon: CalendarDays },
-  { key: "sales", label: "Ventes", to: "/studio", icon: LineChart, soon: true },
-  { key: "resale", label: "Revente", to: "/resale", icon: Repeat2 },
-  { key: "team", label: "Équipe / Vendeurs", to: "/studio", icon: Users, soon: true },
+  { key: "events", label: "Events", to: "/studio", icon: CalendarDays },
+  { key: "sales", label: "Sales", to: "/studio", icon: LineChart, soon: true },
+  { key: "resale", label: "Resale", to: "/resale", icon: Repeat2 },
+  { key: "team", label: "Team / Staff", to: "/studio", icon: Users, soon: true },
   { key: "checkin", label: "Check-in", to: "/organizer/scan", icon: QrCode },
-  { key: "payouts", label: "Paiements", to: "/studio", icon: Banknote },
-  { key: "settings", label: "Paramètres", to: "/studio/profile", icon: Settings },
+  { key: "payouts", label: "Payouts", to: "/studio", icon: Banknote },
+  { key: "settings", label: "Settings", to: "/studio/profile", icon: Settings },
 ];
 
 /**
@@ -88,14 +88,14 @@ export const StudioLayout = ({
               <div
                 key={item.key}
                 className="flex items-center gap-3 px-3 h-10 rounded-md text-sm font-medium text-muted-foreground/50 cursor-not-allowed"
-                title="Bientôt disponible"
+                title="Coming soon"
               >
                 <Icon className="w-4 h-4 shrink-0" />
                 {!collapsed && (
                   <span className="flex-1 truncate flex items-center justify-between gap-2">
                     {item.label}
                     <span className="text-[9px] font-bold uppercase tracking-wide bg-muted px-1.5 py-0.5 rounded">
-                      Bientôt
+                      Soon
                     </span>
                   </span>
                 )}
@@ -126,7 +126,7 @@ export const StudioLayout = ({
           className="hidden md:flex items-center gap-3 px-3 h-10 rounded-md text-sm font-medium text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors w-full"
         >
           {collapsed ? <ChevronsRight className="w-4 h-4" /> : <ChevronsLeft className="w-4 h-4" />}
-          {!collapsed && <span>Réduire</span>}
+          {!collapsed && <span>Collapse</span>}
         </button>
       </div>
     </>
@@ -199,13 +199,13 @@ export const StudioLayout = ({
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => navigate("/studio/profile")}>
                 <Settings className="w-4 h-4 mr-2" />
-                Paramètres
+                Settings
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate("/")}>Retour au site</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate("/")}>Back to site</DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleSignOut}>
                 <LogOut className="w-4 h-4 mr-2" />
-                Déconnexion
+                Sign out
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

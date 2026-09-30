@@ -1,14 +1,8 @@
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Search, ShieldCheck, GraduationCap, Rss } from "lucide-react";
+import { ArrowRight, Search } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useI18n } from "@/contexts/I18nContext";
 import heroImage from "@/assets/hero-bg.jpg";
-
-const trustPoints = [
-  { icon: Rss, label: "All campus events, one feed" },
-  { icon: ShieldCheck, label: "Escrow-protected payments" },
-  { icon: GraduationCap, label: "Verified students only" },
-];
 
 const Hero = () => {
   const { t } = useI18n();
@@ -68,19 +62,6 @@ const Hero = () => {
                 <ArrowRight className="w-5 h-5 md:w-6 md:h-6" />
               </Link>
             </Button>
-          </div>
-
-          {/* Trust strip — short, inline, no card grid */}
-          <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 max-w-2xl mx-auto text-xs md:text-sm font-medium text-muted-foreground">
-            {trustPoints.map(({ icon: Icon, label }, i) => (
-              <span key={label} className="inline-flex items-center gap-3">
-                <span className="inline-flex items-center gap-1.5">
-                  <Icon className="w-4 h-4 text-primary flex-shrink-0" />
-                  {label}
-                </span>
-                {i < trustPoints.length - 1 && <span className="text-border hidden sm:inline">·</span>}
-              </span>
-            ))}
           </div>
         </div>
       </div>

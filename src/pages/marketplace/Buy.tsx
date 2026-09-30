@@ -194,10 +194,10 @@ const PRICE_BUCKETS: { id: string; label: string; matches: (p: number) => boolea
 ];
 
 const CATEGORY_CHIPS: { id: string; label: string }[] = [
-  { id: "party",      label: "Soirées" },
+  { id: "party",      label: "Parties" },
   { id: "gala",       label: "Galas" },
-  { id: "conference", label: "Conférences" },
-  { id: "sports",     label: "Sport" },
+  { id: "conference", label: "Conferences" },
+  { id: "sports",     label: "Sports" },
 ];
 
 const Buy = () => {
@@ -319,14 +319,14 @@ const Buy = () => {
       return;
     }
     if (user.id === ticket.sellerId) {
-      toast.error("Tu ne peux pas faire une offre sur ton propre billet.");
+      toast.error("You can't make an offer on your own ticket.");
       return;
     }
     try {
       const convId = await getOrCreateConversation(ticket.id, user.id, ticket.sellerId);
       navigate(`/messages/${convId}`);
     } catch {
-      toast.error("Impossible de démarrer la conversation.");
+      toast.error("Couldn't start the conversation.");
     }
   };
 
@@ -372,7 +372,7 @@ const Buy = () => {
 
         <div className="relative container mx-auto max-w-6xl px-4 md:px-6 pt-12 md:pt-20 pb-10 md:pb-16">
           <p className="text-[10px] md:text-xs font-bold tracking-[0.3em] uppercase text-white/70 mb-5">
-            Le marketplace étudiant
+            The student marketplace
           </p>
 
           <h1
@@ -383,19 +383,19 @@ const Buy = () => {
               fontSize: "clamp(2.5rem, 7vw, 5.5rem)",
             }}
           >
-            Des billets, <br className="hidden sm:block" />
-            <span className="italic font-normal text-white/95">entre étudiants.</span>{" "}
-            <span className="text-white/75">Protégés.</span>
+            Tickets, <br className="hidden sm:block" />
+            <span className="italic font-normal text-white/95">student to student.</span>{" "}
+            <span className="text-white/75">Protected.</span>
           </h1>
 
           {/* KPI strip — three editorial metrics with animated count-up */}
           <div className="flex flex-wrap items-end gap-x-6 md:gap-x-10 gap-y-4 mb-8 md:mb-10">
             <div>
               <div className="text-3xl md:text-5xl font-black tabular-nums leading-none">
-                {displayTickets.toLocaleString("fr-FR")}
+                {displayTickets.toLocaleString("en-GB")}
               </div>
               <div className="text-[10px] md:text-xs uppercase tracking-[0.18em] font-bold text-white/65 mt-1.5">
-                billets dispos
+                tickets available
               </div>
             </div>
             <div className="h-10 w-px bg-white/20 hidden md:block" />
@@ -404,7 +404,7 @@ const Buy = () => {
                 {displayNew}
               </div>
               <div className="text-[10px] md:text-xs uppercase tracking-[0.18em] font-bold text-white/65 mt-1.5">
-                nouveaux aujourd'hui
+                new today
               </div>
             </div>
             <div className="h-10 w-px bg-white/20 hidden md:block" />
@@ -413,7 +413,7 @@ const Buy = () => {
                 €{displayAvg}
               </div>
               <div className="text-[10px] md:text-xs uppercase tracking-[0.18em] font-bold text-white/65 mt-1.5">
-                prix moyen
+                average price
               </div>
             </div>
           </div>
@@ -424,19 +424,41 @@ const Buy = () => {
             <Input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Cherche un événement, une école, un campus…"
+              placeholder="Search an event, a school, a campus…"
               className="h-14 md:h-16 pl-14 pr-32 md:pr-36 text-base md:text-lg bg-white text-foreground placeholder:text-muted-foreground/60 border-0 rounded-2xl shadow-[0_20px_60px_-20px_rgba(0,0,0,0.45)] focus-visible:ring-2 focus-visible:ring-white/70"
             />
             <button
               onClick={scrollToGrid}
               className="absolute right-2 top-1/2 -translate-y-1/2 h-10 md:h-12 px-4 md:px-5 inline-flex items-center gap-1.5 rounded-xl bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary-hover transition-colors"
             >
-              Explorer
+              Explore
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
         </div>
       </section>
+
+      {/* =================== SELL YOUR TICKET — always visible, not just on empty state =================== */}
+      <div className="border-b border-border bg-muted/20">
+        <div className="container mx-auto max-w-6xl px-4 md:px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-primary/10 flex items-center justify-center shrink-0">
+              <Ticket className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-foreground">Got a ticket to sell?</p>
+              <p className="text-xs text-muted-foreground">List it in a couple of minutes — protected, escrow payment.</p>
+            </div>
+          </div>
+          <button
+            onClick={() => navigate("/marketplace/sell")}
+            className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2.5 font-bold text-sm bg-primary text-primary-foreground hover:bg-primary-hover transition-colors"
+          >
+            Sell your ticket
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
 
       {/* =================== FILTER RAIL (sticky) =================== */}
       <div className="sticky top-16 md:top-20 z-30 bg-background/95 backdrop-blur-sm border-b border-border">
@@ -525,7 +547,7 @@ const Buy = () => {
                 className="shrink-0 ml-auto px-3 py-1.5 text-xs md:text-sm font-semibold text-muted-foreground hover:text-foreground inline-flex items-center gap-1 transition-colors"
               >
                 <X className="w-3.5 h-3.5" />
-                Réinitialiser
+                Reset
               </button>
             )}
           </div>
@@ -537,12 +559,12 @@ const Buy = () => {
         <div className="flex items-end justify-between gap-3 mb-5 md:mb-7">
           <div>
             <div className="text-[10px] md:text-xs uppercase tracking-[0.18em] font-bold text-muted-foreground">
-              {activeFilterCount > 0 ? "Résultats filtrés" : "Tous les billets"}
+              {activeFilterCount > 0 ? "Filtered results" : "All tickets"}
             </div>
             <div className="text-2xl md:text-3xl font-black tabular-nums text-foreground leading-tight mt-0.5">
               {filteredGroups.length}
               <span className="text-base md:text-lg font-bold text-muted-foreground ml-1.5">
-                événement{filteredGroups.length === 1 ? "" : "s"}
+                event{filteredGroups.length === 1 ? "" : "s"}
               </span>
             </div>
           </div>
@@ -551,9 +573,9 @@ const Buy = () => {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="relevance">Pertinence</SelectItem>
-              <SelectItem value="price-asc">Prix croissant</SelectItem>
-              <SelectItem value="date-asc">Date proche</SelectItem>
+              <SelectItem value="relevance">Relevance</SelectItem>
+              <SelectItem value="price-asc">Price: low to high</SelectItem>
+              <SelectItem value="date-asc">Closest date</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -677,14 +699,14 @@ function FeaturedCard({
         {days >= 0 && days <= 7 && (
           <div className="absolute top-4 right-4 inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/95 text-foreground font-bold text-[10px] uppercase tracking-wider shadow-md">
             <Clock className="w-3 h-3" />
-            {days === 0 ? "Ce soir" : days === 1 ? "Demain" : `Dans ${days}j`}
+            {days === 0 ? "Tonight" : days === 1 ? "Tomorrow" : `In ${days}d`}
           </div>
         )}
 
         {/* Title overlay bottom */}
         <div className="absolute inset-x-0 bottom-0 p-6 md:p-8 text-white">
           <div className="text-[10px] md:text-xs uppercase tracking-[0.2em] font-bold text-white/80 mb-2">
-            {group.eventUniversity || "Événement"} · {group.eventCategory || "Event"}
+            {group.eventUniversity || "Event"} · {group.eventCategory || "Event"}
           </div>
           <h2
             className="font-bold leading-[0.98] tracking-tight mb-3 max-w-2xl"
@@ -699,7 +721,7 @@ function FeaturedCard({
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs md:text-sm text-white/85">
             <span className="inline-flex items-center gap-1.5">
               <Calendar className="w-3.5 h-3.5" />
-              {new Date(group.eventDate).toLocaleDateString("fr-FR", {
+              {new Date(group.eventDate).toLocaleDateString("en-GB", {
                 weekday: "long",
                 day: "numeric",
                 month: "long",
@@ -719,25 +741,25 @@ function FeaturedCard({
       <div className="p-5 md:p-6 flex items-center justify-between gap-4">
         <div>
           <div className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">
-            À partir de
+            From
           </div>
           <div className="text-2xl md:text-3xl font-black text-foreground tabular-nums leading-none mt-0.5">
             €{group.minPrice.toFixed(0)}
           </div>
           <div className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-medium text-muted-foreground">
             <ShieldCheck className="w-3 h-3 text-primary/70" />
-            Protection TicketSafe incluse
+            TicketSafe protection included
           </div>
         </div>
         <div className="text-right">
           <div className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-2">
-            {group.totalAvailable} billet{group.totalAvailable === 1 ? "" : "s"}
+            {group.totalAvailable} ticket{group.totalAvailable === 1 ? "" : "s"}
           </div>
           <button
             onClick={onToggle}
             className="inline-flex items-center gap-1.5 px-4 md:px-5 py-2.5 rounded-lg font-bold text-sm bg-primary text-primary-foreground hover:bg-primary-hover transition-all hover:gap-2.5"
           >
-            {expanded ? "Masquer" : "Voir les billets"}
+            {expanded ? "Hide" : "View tickets"}
             <ArrowRight className="w-4 h-4" />
           </button>
         </div>
@@ -797,7 +819,7 @@ function StandardCard({
           {sellingFast && (
             <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-cta text-cta-foreground text-[10px] font-bold uppercase tracking-wider">
               <Flame className="w-3 h-3" />
-              Bientôt épuisé
+              Selling out
             </span>
           )}
         </div>
@@ -805,7 +827,7 @@ function StandardCard({
         {days >= 0 && days <= 7 && (
           <div className="absolute top-3 right-3 px-2.5 py-1 bg-white/95 text-foreground text-[10px] font-bold uppercase tracking-wider inline-flex items-center gap-1">
             <Clock className="w-3 h-3" />
-            {days === 0 ? "Ce soir" : days === 1 ? "Demain" : `Dans ${days}j`}
+            {days === 0 ? "Tonight" : days === 1 ? "Tomorrow" : `In ${days}d`}
           </div>
         )}
       </div>
@@ -813,7 +835,7 @@ function StandardCard({
       {/* Content */}
       <div className="flex-1 flex flex-col p-5">
         <div className="text-[10px] uppercase tracking-wider font-bold text-primary/80 mb-1">
-          {group.eventUniversity || "Événement"}
+          {group.eventUniversity || "Event"}
         </div>
         <h3
           className="font-bold text-foreground leading-tight mb-2.5 line-clamp-2"
@@ -828,7 +850,7 @@ function StandardCard({
         <div className="space-y-1.5 text-xs text-muted-foreground mb-4">
           <div className="inline-flex items-center gap-1.5">
             <Calendar className="w-3.5 h-3.5 shrink-0" />
-            {new Date(group.eventDate).toLocaleDateString("fr-FR", {
+            {new Date(group.eventDate).toLocaleDateString("en-GB", {
               day: "numeric",
               month: "short",
               year: "numeric",
@@ -845,21 +867,21 @@ function StandardCard({
         <div className="mt-auto flex items-end justify-between gap-3 pt-3 border-t border-border">
           <div>
             <div className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">
-              À partir de
+              From
             </div>
             <div className="text-xl font-black text-foreground tabular-nums leading-none mt-0.5">
               €{group.minPrice.toFixed(0)}
             </div>
             <div className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-medium text-muted-foreground">
               <ShieldCheck className="w-3 h-3 text-primary/70" />
-              Protection incluse
+              Protection included
             </div>
           </div>
           <button
             onClick={onToggle}
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg font-bold text-xs bg-primary text-primary-foreground hover:bg-primary-hover transition-all hover:gap-2"
           >
-            {expanded ? "Masquer" : "Voir"}
+            {expanded ? "Hide" : "View"}
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -897,26 +919,26 @@ function ExpandedTickets({
                 <span className="font-black text-xl text-foreground tabular-nums">
                   €{allIn.toFixed(2)}
                 </span>
-                <span className="text-[10px] text-muted-foreground -ml-0.5">tout compris</span>
+                <span className="text-[10px] text-muted-foreground -ml-0.5">all fees included</span>
                 {isBoosted(t) && (
-                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-100 text-amber-900 text-[10px] font-bold uppercase">
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-cta text-cta-foreground text-[10px] font-bold uppercase">
                     <Sparkles className="w-2.5 h-2.5" />
                     Featured
                   </span>
                 )}
                 {t.verified && (
-                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-green-100 text-green-900 text-[10px] font-bold uppercase">
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-success/15 text-success text-[10px] font-bold uppercase">
                     <ShieldCheck className="w-2.5 h-2.5" />
-                    Vérifié
+                    Verified
                   </span>
                 )}
                 <span className="text-[10px] text-muted-foreground">
-                  {t.quantity} dispo
+                  {t.quantity} left
                 </span>
               </div>
               <p className="text-[11px] text-muted-foreground mt-1 inline-flex items-center gap-1">
                 <GraduationCap className="w-3 h-3" />
-                Vendeur ESCP vérifié · paiement escrow
+                Verified student seller · escrow payment
               </p>
               {t.description && (
                 <p className="text-xs text-foreground/75 mt-1.5 line-clamp-2">{t.description}</p>
@@ -928,13 +950,13 @@ function ExpandedTickets({
                 className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-primary/30 text-primary font-semibold text-xs hover:bg-primary/5 transition-colors"
               >
                 <MessageSquare className="w-3.5 h-3.5" />
-                Offre
+                Offer
               </button>
               <button
                 onClick={() => onBuy(t)}
                 className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg font-bold text-xs bg-primary text-primary-foreground hover:bg-primary-hover transition-colors"
               >
-                Acheter
+                Buy
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -992,12 +1014,12 @@ function EmptyState({
         className="text-2xl font-bold text-foreground mb-2"
         style={{ fontFamily: "'Space Grotesk', Inter, system-ui, sans-serif", letterSpacing: "-0.02em" }}
       >
-        {hasAnyListing ? "Aucun billet ne correspond" : "Aucun billet pour l'instant"}
+        {hasAnyListing ? "No tickets match" : "No tickets yet"}
       </h3>
       <p className="text-sm text-muted-foreground mb-6">
         {hasAnyListing
-          ? "Essaie de réinitialiser tes filtres ou de chercher un autre événement."
-          : "Sois le premier à mettre un billet en vente."}
+          ? "Try resetting your filters or searching for another event."
+          : "Be the first to list a ticket for sale."}
       </p>
       <div className="flex flex-wrap justify-center gap-3">
         {hasAnyListing ? (
@@ -1005,14 +1027,14 @@ function EmptyState({
             onClick={onReset}
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg font-bold text-sm bg-primary text-primary-foreground hover:bg-primary-hover transition-colors"
           >
-            Réinitialiser les filtres
+            Reset filters
           </button>
         ) : (
           <button
             onClick={onSell}
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg font-bold text-sm bg-primary text-primary-foreground hover:bg-primary-hover transition-colors"
           >
-            Vendre mon billet
+            Sell my ticket
             <ArrowRight className="w-4 h-4" />
           </button>
         )}
