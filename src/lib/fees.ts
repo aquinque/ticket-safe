@@ -5,7 +5,9 @@
  *  - Buyer pays 6% on top of the listing price  (BUYER_FEE_RATE)
  *  - Seller pays 5% deducted at withdrawal       (SELLER_COMMISSION_RATE)
  *
- * (Studio primary sales use their own 5% buyer / 8% organizer model.)
+ * (Studio primary sales use their own model instead: a flat €1.40/ticket
+ * buyer-side fee, 0% from the organizer — see revolut-create-checkout and
+ * request-payout.)
  * All monetary calculations use integer cents to avoid floating-point drift.
  */
 

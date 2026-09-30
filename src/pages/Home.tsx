@@ -277,9 +277,11 @@ const Home = () => {
                   </li>
                 </ul>
                 <p className="font-display font-bold text-3xl md:text-5xl text-foreground mb-1" style={{ letterSpacing: "-0.02em" }}>
-                  €1.40 per ticket.
+                  0% commission.
                 </p>
-                <p className="text-sm text-muted-foreground mb-6">That's it.</p>
+                <p className="text-sm text-muted-foreground mb-6">
+                  You keep 100% of the ticket price — a small €1.40 fee is added at checkout, paid by the buyer, not you.
+                </p>
                 <Button variant="buy" size="lg" asChild>
                   <Link to="/organizers">
                     Launch my event with TicketSafe Studio

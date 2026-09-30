@@ -64,7 +64,7 @@ const steps = [
 ];
 
 const compareRows = [
-  { feature: "Fees", others: "Fixed per ticket + commission", us: "5% on what sells, nothing else" },
+  { feature: "Fees", others: "Fixed per ticket + commission", us: "0% commission — you keep every euro" },
   { feature: "Resale handling", others: "None — buyers go elsewhere", us: "Official resale built in" },
   { feature: "Event page", others: "Generic template", us: "Branded to your identity" },
   { feature: "Payout", others: "7–14 days after the event", us: "Within 24h, automatic" },

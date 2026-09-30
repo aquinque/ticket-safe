@@ -1,18 +1,12 @@
 /**
  * studio-create-checkout — Supabase Edge Function (Deno)
  *
- * Fee model:
- *   Buyer pays the listed ticket price + 5% service fee at checkout.
- *   That 5% is recorded as event_orders.fee_cents (the only fee taken at
- *   order time).
- *   The 8% organizer-side fee is applied LATER, when the organizer
- *   requests a payout — see request-payout for the math at that point.
- *
- *   Per €10 ticket:
- *     buyer pays           €10.50
- *     buyer fee (5%)       €0.50  → Ticket Safe immediately
- *     organizer balance    €10.00 (the gross they see in their dashboard)
- *     on withdrawal of €10 → 8% = €0.80 deducted, €9.20 wired to IBAN
+ * DORMANT — superseded by revolut-create-checkout (Revolut is the live
+ * Studio payment provider). Kept deployed only as an inert fallback; the
+ * frontend never calls this anymore. Fee model below is stale (the old
+ * 5%/8% Stripe-era pricing) — do not use it as a reference. The current
+ * model (flat €1.40/ticket from the buyer, 0% from the organizer) lives in
+ * revolut-create-checkout and request-payout.
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";

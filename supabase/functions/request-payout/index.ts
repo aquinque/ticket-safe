@@ -1,19 +1,20 @@
 /**
- * request-payout v2 — Supabase Edge Function (Deno)
+ * request-payout v3 — Supabase Edge Function (Deno)
  *
  * POST /functions/v1/request-payout
  * Authorization: Bearer <user-jwt>
  * Body: { organizer_id, amount_cents, iban, iban_holder }
  *
- * amount_cents = the GROSS amount the organizer wants to withdraw from
- * their dashboard balance. We apply the 8% Ticket Safe fee at this
- * point, save both gross/fee/net on the payout row, and SEPA-wire the
- * net to the IBAN within 2-3 business days.
+ * Ticket Safe takes NO fee from the organizer, at checkout or at
+ * withdrawal — the only fee anywhere in the Studio flow is the flat
+ * €1.40 per-ticket service tax the buyer pays at checkout (see
+ * revolut-create-checkout). amount_cents = the amount the organizer
+ * wants to withdraw from their dashboard balance; we SEPA-wire that
+ * exact amount to the IBAN within 2-3 business days.
  *
- * For €100 gross requested:
- *   gross_cents       = 10000
- *   fee_cents (8%)    =   800  (Ticket Safe keeps)
- *   amount_cents      =  9200  (the net SEPA wire amount sent to IBAN)
+ * gross_cents/fee_cents/amount_cents are kept on the payout row (fee_cents
+ * always 0 now) rather than dropped, so existing admin tooling and older
+ * payout rows that do carry a historical fee keep reading consistently.
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -23,7 +24,7 @@ const cors = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const ORGANIZER_FEE_PERCENT = 8;
+const ORGANIZER_FEE_PERCENT = 0;
 
 const PAYOUT_REVIEW_RECIPIENTS = [
   "achille.quinquenel@edu.escp.eu",
@@ -130,8 +131,6 @@ serve(async (req) => {
     return json({ error: insertErr?.message ?? "Could not record payout request." }, 500);
   }
 
-  const grossEur = `€${(grossCents / 100).toFixed(2)}`;
-  const feeEur = `€${(feeCents / 100).toFixed(2)}`;
   const netEur = `€${(netCents / 100).toFixed(2)}`;
   const ibanPretty = prettyIban(iban);
   const requestedAt = new Date(payout.requested_at).toLocaleString("en-GB", { dateStyle: "long", timeStyle: "short" });
@@ -146,11 +145,9 @@ serve(async (req) => {
     <h1 style="margin:8px 0 0;font-size:22px;font-weight:900;line-height:1.2">${netEur} to wire — ${esc(org.name)}</h1>
   </div>
   <div style="padding:28px 30px;color:#1e293b">
-    <p style="margin:0 0 14px;font-size:14px;line-height:1.55">Process this manual SEPA transfer from the Ticket Safe bank account. The amount below is already net of the 8% organizer fee.</p>
+    <p style="margin:0 0 14px;font-size:14px;line-height:1.55">Process this manual SEPA transfer from the Ticket Safe bank account. Ticket Safe takes no fee from organizers — wire the full amount.</p>
     <table style="width:100%;border-collapse:collapse;font-size:14px;margin:14px 0">
-      <tr><td style="padding:8px 0;color:#64748b;width:42%">Gross requested</td><td style="padding:8px 0;font-weight:600">${grossEur}</td></tr>
-      <tr><td style="padding:8px 0;color:#64748b;border-top:1px solid #e2e8f0">Ticket Safe fee (8%)</td><td style="padding:8px 0;color:#64748b;border-top:1px solid #e2e8f0">−${feeEur}</td></tr>
-      <tr><td style="padding:8px 0;color:#0f172a;font-weight:800;border-top:2px solid #0f172a">Wire this</td><td style="padding:8px 0;font-weight:800;color:#2440b6;font-size:18px;border-top:2px solid #0f172a">${netEur}</td></tr>
+      <tr><td style="padding:8px 0;color:#0f172a;font-weight:800;width:42%">Wire this</td><td style="padding:8px 0;font-weight:800;color:#2440b6;font-size:18px">${netEur}</td></tr>
       <tr><td style="padding:8px 0;color:#64748b;border-top:1px solid #e2e8f0">Beneficiary</td><td style="padding:8px 0;font-weight:700;border-top:1px solid #e2e8f0">${esc(ibanHolder)}</td></tr>
       <tr><td style="padding:8px 0;color:#64748b;border-top:1px solid #e2e8f0">IBAN</td><td style="padding:8px 0;font-family:ui-monospace,Menlo,monospace;font-weight:700;border-top:1px solid #e2e8f0">${esc(ibanPretty)}</td></tr>
       <tr><td style="padding:8px 0;color:#64748b;border-top:1px solid #e2e8f0">Reference</td><td style="padding:8px 0;font-family:ui-monospace,Menlo,monospace;border-top:1px solid #e2e8f0">${ref}</td></tr>
@@ -178,11 +175,9 @@ serve(async (req) => {
     <h1 style="margin:0;font-size:24px;font-weight:900;line-height:1.25">Hi ${esc(orgFirstName)},<br>${netEur} on its way to your IBAN</h1>
   </div>
   <div style="padding:26px 30px;color:#1e293b">
-    <p style="margin:0 0 14px;font-size:15px;line-height:1.55">We've received your withdrawal. Here's the breakdown:</p>
+    <p style="margin:0 0 14px;font-size:15px;line-height:1.55">We've received your withdrawal. Ticket Safe takes no fee from organizers — you get the full amount:</p>
     <table style="width:100%;border-collapse:collapse;font-size:14px;margin:14px 0">
-      <tr><td style="padding:8px 0;color:#64748b;width:55%">Gross withdrawal</td><td style="padding:8px 0;text-align:right">${grossEur}</td></tr>
-      <tr><td style="padding:8px 0;color:#64748b;border-top:1px solid #f1f5f9">Ticket Safe fee (8%)</td><td style="padding:8px 0;text-align:right;color:#64748b;border-top:1px solid #f1f5f9">−${feeEur}</td></tr>
-      <tr><td style="padding:10px 0;color:#0f172a;font-weight:800;border-top:2px solid #0f172a">You will receive</td><td style="padding:10px 0;text-align:right;font-weight:800;color:#2440b6;font-size:18px;border-top:2px solid #0f172a">${netEur}</td></tr>
+      <tr><td style="padding:10px 0;color:#0f172a;font-weight:800">You will receive</td><td style="padding:10px 0;text-align:right;font-weight:800;color:#2440b6;font-size:18px">${netEur}</td></tr>
     </table>
     <p style="margin:14px 0 14px;font-size:14px;line-height:1.55">The SEPA transfer will land on your IBAN ending in <strong>···· ${last4}</strong> within <strong>2-3 business days</strong>.</p>
     <table style="width:100%;border-collapse:collapse;font-size:13px;margin:18px 0;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0">
