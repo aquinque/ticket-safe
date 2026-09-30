@@ -415,7 +415,11 @@ const EventPublic = () => {
   const TS_GRADIENT = "linear-gradient(135deg, hsl(227 77% 56%), hsl(228 67% 43%))";
   const selected = tiers.find((t) => t.tier_id === selectedTier) ?? null;
   const totalCents = selected ? selected.price_cents * qty : 0;
-  const feeCents = Math.round(totalCents * 0.05);
+  // Flat €1.40 per-ticket service tax — must match revolut-create-checkout's
+  // SERVICE_TAX_CENTS exactly, since that edge function computes the real
+  // Revolut charge server-side. Ticket Safe takes no cut from the organizer.
+  const SERVICE_TAX_CENTS = 140;
+  const feeCents = SERVICE_TAX_CENTS * qty;
   const grandCents = totalCents + feeCents;
   // Lowest available price, for the "From €X" hero badge.
   const availablePrices = tiers.filter((t) => t.available_qty > 0).map((t) => t.price_cents);
@@ -525,7 +529,7 @@ const EventPublic = () => {
           </div>
           <div className="flex items-baseline justify-between text-sm">
             <span className="text-muted-foreground">
-              Service fee <span className="text-muted-foreground/70">(5%)</span>
+              Service fee <span className="text-muted-foreground/70">(€1.40 × {qty})</span>
             </span>
             <span className="tabular-nums font-medium text-foreground">€{(feeCents / 100).toFixed(2)}</span>
           </div>
