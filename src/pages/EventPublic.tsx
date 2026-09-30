@@ -55,6 +55,14 @@ interface PublicEvent {
   } | null;
 }
 
+interface AttendeeForm {
+  first_name: string;
+  last_name: string;
+  email: string;
+  confirm_email: string;
+  gender: "" | "female" | "male" | "other";
+}
+
 interface TierAvailability {
   tier_id: string;
   event_id: string;
@@ -84,7 +92,7 @@ const EventPublic = () => {
   const [qty, setQty] = useState(1);
   const [buying, setBuying] = useState(false);
   const [maxPerBuyer, setMaxPerBuyer] = useState<number | null>(null);
-  const [attendees, setAttendees] = useState<{ first_name: string; last_name: string; email: string }[]>([]);
+  const [attendees, setAttendees] = useState<AttendeeForm[]>([]);
   const [following, setFollowing] = useState(false);
   const [followBusy, setFollowBusy] = useState(false);
 
@@ -94,22 +102,24 @@ const EventPublic = () => {
   useEffect(() => {
     setAttendees((prev) => {
       const next = prev.slice(0, qty);
-      while (next.length < qty) next.push({ first_name: "", last_name: "", email: "" });
+      while (next.length < qty) next.push({ first_name: "", last_name: "", email: "", confirm_email: "", gender: "" });
       if (user && next[0] && !next[0].email) {
         const meta = (user.user_metadata as { full_name?: string } | undefined) ?? {};
         const fullName = (meta.full_name ?? "").trim();
         const parts = fullName.split(/\s+/);
         next[0] = {
+          ...next[0],
           first_name: parts[0] ?? "",
           last_name: parts.slice(1).join(" "),
           email: user.email ?? "",
+          confirm_email: user.email ?? "",
         };
       }
       return next;
     });
   }, [qty, user]);
 
-  const updateAttendee = (i: number, patch: Partial<{ first_name: string; last_name: string; email: string }>) => {
+  const updateAttendee = (i: number, patch: Partial<AttendeeForm>) => {
     setAttendees((prev) => prev.map((a, idx) => (idx === i ? { ...a, ...patch } : a)));
   };
 
@@ -291,14 +301,29 @@ const EventPublic = () => {
         toast.error(`Fill in the holder's first name, last name and email for ticket ${i + 1}.`);
         return;
       }
+      if (a.email.trim().toLowerCase() !== a.confirm_email.trim().toLowerCase()) {
+        toast.error(`The email addresses don't match for ticket ${i + 1}.`);
+        return;
+      }
+      if (a.gender !== "female" && a.gender !== "male" && a.gender !== "other") {
+        toast.error(`Please select a gender for ticket ${i + 1}.`);
+        return;
+      }
     }
     setBuying(true);
     try {
       // Revolut is the payment provider. studio-create-checkout stays deployed
       // as a dormant fallback but is no longer called, so the two never run
-      // together.
+      // together. confirm_email is a client-side-only typo check — strip it
+      // before sending; the server only cares about email + gender.
+      const attendeesPayload = attendees.map(({ first_name, last_name, email, gender }) => ({
+        first_name,
+        last_name,
+        email,
+        gender,
+      }));
       const { data, error } = await supabase.functions.invoke("revolut-create-checkout", {
-        body: { tier_id: selectedTier, quantity: qty, attendees },
+        body: { tier_id: selectedTier, quantity: qty, attendees: attendeesPayload },
       });
       if (error || !data?.url) {
         console.error("[event-public] checkout error:", error, data);
@@ -940,6 +965,41 @@ const EventPublic = () => {
                               autoComplete="email"
                               aria-label={qty > 1 ? `Ticket ${i + 1} email` : "Email"}
                             />
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold uppercase tracking-[0.16em] text-white/55 mb-1.5">Confirm email</label>
+                            <input
+                              type="email"
+                              value={a.confirm_email}
+                              onChange={(e) => updateAttendee(i, { confirm_email: e.target.value })}
+                              placeholder="name@example.com"
+                              className="ts-ticket-input w-full"
+                              style={
+                                a.confirm_email && a.confirm_email.trim().toLowerCase() !== a.email.trim().toLowerCase()
+                                  ? { borderColor: "rgba(248,113,113,0.9)" }
+                                  : undefined
+                              }
+                              maxLength={254}
+                              autoComplete="email"
+                              aria-label={qty > 1 ? `Ticket ${i + 1} confirm email` : "Confirm email"}
+                            />
+                            {a.confirm_email && a.confirm_email.trim().toLowerCase() !== a.email.trim().toLowerCase() && (
+                              <p className="text-[10px] text-rose-200 mt-1">Emails don't match</p>
+                            )}
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold uppercase tracking-[0.16em] text-white/55 mb-1.5">Gender</label>
+                            <select
+                              value={a.gender}
+                              onChange={(e) => updateAttendee(i, { gender: e.target.value as AttendeeForm["gender"] })}
+                              className="ts-ticket-input w-full"
+                              aria-label={qty > 1 ? `Ticket ${i + 1} gender` : "Gender"}
+                            >
+                              <option value="" disabled>Select…</option>
+                              <option value="female">Female</option>
+                              <option value="male">Male</option>
+                              <option value="other">Other</option>
+                            </select>
                           </div>
 
                           <div className="flex items-center justify-between pt-3 mt-1 border-t border-white/15">
