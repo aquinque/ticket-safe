@@ -146,7 +146,7 @@ const ChatRoom = () => {
     return (
       <div className="theme-night min-h-screen bg-background flex flex-col">
         <HeaderNight />
-        <main className="flex-1 py-12 flex items-center justify-center">
+        <main className="flex-1 pt-16 pb-12 md:pt-20 flex items-center justify-center">
           <p className="text-muted-foreground">Conversation not found.</p>
         </main>
         <Footer />
@@ -165,7 +165,7 @@ const ChatRoom = () => {
     <div className="h-dvh bg-background flex flex-col overflow-hidden">
       <SEOHead titleKey="common.appName" descriptionKey="common.appName" />
       <HeaderNight />
-      <main className="flex-1 flex flex-col overflow-hidden">
+      <main className="flex-1 flex flex-col overflow-hidden pt-16 md:pt-20">
         <div className="container mx-auto px-4 max-w-2xl flex flex-col flex-1 py-4 overflow-hidden">
           {/* Top bar */}
           <div className="flex items-center gap-3 mb-4">

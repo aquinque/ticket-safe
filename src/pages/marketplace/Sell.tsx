@@ -840,7 +840,7 @@ const Sell = () => {
       <div className="theme-night min-h-screen bg-background flex flex-col">
         <SEOHead titleKey="marketplace.sell.title" descriptionKey="marketplace.sell.description" />
         <HeaderNight />
-        <main className="flex-1 flex items-center justify-center py-16">
+        <main className="flex-1 flex items-center justify-center pt-20 pb-16 md:pt-24">
           <div className="container mx-auto px-4 max-w-md text-center">
             {/* Animated check — the moment lands with motion, not a static badge. */}
             <div className="relative w-20 h-20 mx-auto mb-6 animate-in zoom-in-50 duration-500 ease-out">
@@ -990,7 +990,7 @@ const Sell = () => {
               "radial-gradient(circle at 15% 20%, rgba(255,255,255,.30), transparent 45%), radial-gradient(circle at 85% 80%, rgba(255,255,255,.12), transparent 50%)",
           }}
         />
-        <div className="relative container mx-auto px-4 max-w-4xl pt-8 pb-10 md:pt-12 md:pb-14">
+        <div className="relative container mx-auto px-4 max-w-4xl pt-20 pb-10 md:pt-24 md:pb-14">
           <div className="mb-5">
             <BackButton />
           </div>

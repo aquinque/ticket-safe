@@ -204,7 +204,7 @@ const MyTickets = () => {
     return (
       <div className="theme-night min-h-screen bg-background flex flex-col">
         <HeaderNight />
-        <main className="flex-1 flex items-center justify-center p-6">
+        <main className="flex-1 flex items-center justify-center pt-20 p-6 md:pt-24">
           <div className="text-center max-w-md">
             <h1 className="text-2xl font-black mb-2">Order not found</h1>
             <p className="text-sm text-muted-foreground mb-5">
@@ -245,7 +245,7 @@ const MyTickets = () => {
       />
       <HeaderNight />
 
-      <main className="flex-1 py-6 md:py-10">
+      <main className="flex-1 pt-20 pb-6 md:pt-24 md:pb-10">
         <div className="container mx-auto px-4 max-w-xl">
           <div className="mb-4">
             <BackButton fallbackPath="/my-tickets" />

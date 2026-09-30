@@ -27,7 +27,7 @@ const CheckoutCancel = () => {
     <div className="theme-night min-h-screen bg-background flex flex-col">
       <SEOHead titleKey="common.appName" descriptionKey="common.appName" />
       <HeaderNight />
-      <main className="flex-1 flex items-center justify-center py-16">
+      <main className="flex-1 flex items-center justify-center pt-16 pb-16 md:pt-20">
         <div className="container mx-auto px-4 max-w-lg text-center">
           <div className="mb-4 text-left">
             <BackButton fallbackPath="/tickets" />

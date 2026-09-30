@@ -92,7 +92,7 @@ const PersonalInformation = () => {
     <div className="theme-night min-h-screen bg-background flex flex-col">
       <SEOHead titleKey="nav.settings" descriptionKey="settings.description" />
       <HeaderNight />
-      <main className="py-6 md:py-10 flex-1">
+      <main className="pt-20 pb-6 md:pt-24 md:pb-10 flex-1">
         <div className="container mx-auto px-4 max-w-3xl">
           <div className="mb-5">
             <BackButton fallbackPath="/settings" />

@@ -392,7 +392,7 @@ const EventPublic = () => {
     return (
       <div className="theme-night min-h-screen flex flex-col bg-background">
         <HeaderNight />
-        <div className="flex-1 flex items-center justify-center p-6">
+        <div className="flex-1 flex items-center justify-center p-6 pt-20 md:pt-24">
         <div className="text-center max-w-md bg-card border border-border rounded-2xl p-8 shadow-sm">
           <div className="w-14 h-14 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-4">
             <Ticket className="w-7 h-7 text-muted-foreground" strokeWidth={1.5} />

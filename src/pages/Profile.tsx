@@ -260,7 +260,7 @@ const Profile = () => {
     return (
       <div className="theme-night min-h-screen bg-background flex flex-col">
         <HeaderNight />
-        <main className="py-16 flex-1 flex items-center justify-center">
+        <main className="pt-20 pb-16 md:pt-24 flex-1 flex items-center justify-center">
           <div className="text-center">
             <div className="animate-spin rounded-[9999px] h-10 w-10 border-b-2 border-primary mx-auto mb-3" />
             <p className="text-sm text-muted-foreground">{t("profile.loadingProfile")}</p>
@@ -321,7 +321,7 @@ const Profile = () => {
     <div className="theme-night min-h-screen bg-background flex flex-col">
       <SEOHead titleKey="nav.profile" descriptionKey="settings.description" />
       <HeaderNight />
-      <main className="flex-1 pb-16">
+      <main className="flex-1 pt-20 pb-16 md:pt-24">
         {/* Identity hero */}
         <div className="relative overflow-hidden bg-gradient-hero text-white">
           <div

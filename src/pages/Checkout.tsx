@@ -130,7 +130,7 @@ const Checkout = () => {
       <div className="theme-night min-h-screen bg-background flex flex-col">
         <SEOHead titleKey="common.appName" descriptionKey="common.appName" />
         <HeaderNight />
-        <main className="flex-1 py-12">
+        <main className="flex-1 pt-16 pb-12 md:pt-20">
           <div className="container mx-auto px-4 max-w-2xl">
             <Skeleton className="h-9 w-24 mb-6" />
             <Card>
@@ -170,7 +170,7 @@ const Checkout = () => {
       <div className="theme-night min-h-screen bg-background flex flex-col">
         <SEOHead titleKey="common.error" descriptionKey="common.error" />
         <HeaderNight />
-        <main className="flex-1 py-12">
+        <main className="flex-1 pt-16 pb-12 md:pt-20">
           <div className="container mx-auto px-4 max-w-2xl">
             <Card>
               <CardContent className="pt-6 text-center">
@@ -296,7 +296,7 @@ const Checkout = () => {
     <div className="theme-night min-h-screen bg-background flex flex-col">
       <SEOHead titleKey="common.appName" descriptionKey="common.appName" />
       <HeaderNight />
-      <main className="flex-1 py-12">
+      <main className="flex-1 pt-16 pb-12 md:pt-20">
         <div className="container mx-auto px-4 max-w-2xl">
           <div className="mb-6">
             <BackButton />

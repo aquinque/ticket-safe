@@ -341,7 +341,7 @@ const MyTicketsHub = () => {
       <SEOHead title="My tickets — Ticket Safe" description="All your tickets in one place." />
       <HeaderNight />
 
-      <main className="flex-1 py-6 md:py-10">
+      <main className="flex-1 pt-20 pb-6 md:pt-24 md:pb-10">
         <div className="container mx-auto px-4 max-w-4xl">
           <div className="mb-4">
             <BackButton />

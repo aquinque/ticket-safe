@@ -364,7 +364,7 @@ const MyListings = () => {
     return (
       <div className="theme-night min-h-screen bg-background">
         <HeaderNight />
-        <main className="py-16 flex items-center justify-center">
+        <main className="pt-20 pb-16 md:pt-24 flex items-center justify-center">
           <div className="text-center">
             <div className="animate-spin rounded-[9999px] h-12 w-12 border-b-2 border-primary mx-auto mb-4" />
             <p className="text-muted-foreground">Loading your listings…</p>
@@ -380,7 +380,7 @@ const MyListings = () => {
   return (
     <div className="theme-night min-h-screen bg-background flex flex-col">
       <HeaderNight />
-      <main className="flex-1 py-10">
+      <main className="flex-1 pt-20 pb-10 md:pt-24">
         <div className="container mx-auto px-4 max-w-5xl">
           <div className="mb-6">
             <BackButton />
