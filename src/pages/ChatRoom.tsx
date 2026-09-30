@@ -34,8 +34,8 @@ interface ConversationMeta {
     quantity: number;
     event: { id: string; title: string; date: string; image_url: string | null; category: string } | null;
   } | null;
-  buyer: { full_name: string } | null;
-  seller: { full_name: string } | null;
+  buyer_name: string | null;
+  seller_name: string | null;
 }
 
 const ChatRoom = () => {
@@ -67,23 +67,34 @@ const ChatRoom = () => {
     }
   }, [user, authLoading, navigate]);
 
-  // Fetch conversation metadata
+  // Fetch conversation metadata. Participant display names come from the
+  // conversation_participant_names view (not a direct profiles embed) — see
+  // 20260930100000_fix_profiles_counterparty_iban_leak.sql: profiles RLS no
+  // longer lets a chat counterparty read the other party's full row.
   useEffect(() => {
     if (!conversationId) return;
-    supabase
-      .from("conversations")
-      .select(
-        `id, buyer_id, seller_id, ticket_id,
-         ticket:tickets(id, selling_price, quantity, event:events(id, title, date, image_url, category)),
-         buyer:profiles!conversations_buyer_id_fkey(full_name),
-         seller:profiles!conversations_seller_id_fkey(full_name)`
-      )
-      .eq("id", conversationId)
-      .single()
-      .then(({ data, error }) => {
-        if (error) console.error("Conversation fetch error:", error);
-        setMeta(data as unknown as ConversationMeta);
-      });
+    Promise.all([
+      supabase
+        .from("conversations")
+        .select(
+          `id, buyer_id, seller_id, ticket_id,
+           ticket:tickets(id, selling_price, quantity, event:events(id, title, date, image_url, category))`
+        )
+        .eq("id", conversationId)
+        .single(),
+      supabase
+        .from("conversation_participant_names")
+        .select("buyer_name, seller_name")
+        .eq("conversation_id", conversationId)
+        .maybeSingle(),
+    ]).then(([{ data, error }, { data: names }]) => {
+      if (error) console.error("Conversation fetch error:", error);
+      setMeta(
+        data
+          ? ({ ...data, buyer_name: names?.buyer_name ?? null, seller_name: names?.seller_name ?? null } as unknown as ConversationMeta)
+          : null
+      );
+    });
   }, [conversationId]);
 
   // Auto-scroll on new messages
@@ -154,8 +165,8 @@ const ChatRoom = () => {
 
   const isBuyer = userId === meta?.buyer_id;
   const otherName = isBuyer
-    ? meta?.seller?.full_name ?? "Seller"
-    : meta?.buyer?.full_name ?? "Buyer";
+    ? meta?.seller_name ?? "Seller"
+    : meta?.buyer_name ?? "Buyer";
   const event = meta?.ticket?.event;
   const listPrice = meta?.ticket?.selling_price ?? 0;
 

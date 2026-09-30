@@ -131,8 +131,8 @@ const ChatBubble = () => {
             {conversations.map((conv) => {
               const isBuyer = conv.buyer_id === user?.id;
               const otherName = isBuyer
-                ? conv.seller?.full_name ?? "Seller"
-                : conv.buyer?.full_name ?? "Buyer";
+                ? conv.seller_name ?? "Seller"
+                : conv.buyer_name ?? "Buyer";
               const event = conv.ticket?.event;
               const timeAgo = formatTimeAgo(conv.last_message_at);
 

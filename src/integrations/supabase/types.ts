@@ -874,6 +874,13 @@ export type Database = {
             foreignKeyName: "messages_conversation_id_fkey"
             columns: ["conversation_id"]
             isOneToOne: false
+            referencedRelation: "conversation_participant_names"
+            referencedColumns: ["conversation_id"]
+          },
+          {
+            foreignKeyName: "messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
             referencedRelation: "conversations"
             referencedColumns: ["id"]
           },
@@ -915,6 +922,13 @@ export type Database = {
           status?: Database["public"]["Enums"]["offer_status"] | null
         }
         Relationships: [
+          {
+            foreignKeyName: "offers_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversation_participant_names"
+            referencedColumns: ["conversation_id"]
+          },
           {
             foreignKeyName: "offers_conversation_id_fkey"
             columns: ["conversation_id"]
@@ -1718,6 +1732,14 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      conversation_participant_names: {
+        Row: {
+          buyer_name: string | null
+          conversation_id: string | null
+          seller_name: string | null
+        }
+        Relationships: []
       }
       events_with_active_tickets: {
         Row: {
