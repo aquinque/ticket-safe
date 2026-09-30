@@ -51,6 +51,10 @@ interface TierDraft {
   salesEndAt: string;
   /** Per-order cap; empty string falls back to the event-wide limit. */
   maxPerOrder: string;
+  /** 'table' tiers are still just a tier — quantity is still person-count,
+   * capacityPerUnit is purely a buyer-facing hint ("Table for 6"). */
+  kind: "ticket" | "table";
+  capacityPerUnit: string;
 }
 
 const makeTier = (over: Partial<TierDraft> = {}): TierDraft => ({
@@ -61,6 +65,8 @@ const makeTier = (over: Partial<TierDraft> = {}): TierDraft => ({
   salesStartAt: "",
   salesEndAt: "",
   maxPerOrder: "",
+  kind: "ticket",
+  capacityPerUnit: "1",
   ...over,
 });
 
@@ -320,6 +326,8 @@ const StudioEventNew = () => {
         // leaves the per-order cap blank, fall back to 10 — sending null would
         // violate the not-null constraint and the whole tier insert fails.
         max_per_order:  t.maxPerOrder.trim() ? Math.max(1, Number(t.maxPerOrder)) : 10,
+        kind: t.kind,
+        capacity_per_unit: t.kind === "table" ? Math.max(1, Number(t.capacityPerUnit) || 1) : 1,
       }));
       const { error: tErr } = await supabase.from("event_tiers").insert(tierRows);
       if (tErr) {
@@ -616,6 +624,36 @@ const StudioEventNew = () => {
                             />
                             <p className="text-[10px] text-muted-foreground mt-1">e.g. "2" for VIP, leave blank otherwise.</p>
                           </div>
+                        </div>
+
+                        <div className="mt-3 pt-3 border-t border-border">
+                          <label className="flex items-start gap-3 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={t.kind === "table"}
+                              onChange={(e) => updateTier(i, { kind: e.target.checked ? "table" : "ticket" })}
+                              className="mt-0.5 w-4 h-4"
+                            />
+                            <div className="flex-1">
+                              <div className="font-bold text-sm text-foreground">This is a table, not a single ticket</div>
+                              <div className="text-xs text-muted-foreground mt-0.5">
+                                e.g. bottle-service table. Price above is still per person seated at it.
+                              </div>
+                            </div>
+                          </label>
+                          {t.kind === "table" && (
+                            <div className="mt-2 max-w-[160px]">
+                              <label className="text-xs font-bold text-muted-foreground mb-1 block">People per table</label>
+                              <input
+                                type="number"
+                                value={t.capacityPerUnit}
+                                onChange={(e) => updateTier(i, { capacityPerUnit: e.target.value })}
+                                className="ts-input"
+                                min="2"
+                                max="30"
+                              />
+                            </div>
+                          )}
                         </div>
                       </details>
                     </div>

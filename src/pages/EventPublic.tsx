@@ -95,6 +95,8 @@ const EventPublic = () => {
   const [attendees, setAttendees] = useState<AttendeeForm[]>([]);
   const [following, setFollowing] = useState(false);
   const [followBusy, setFollowBusy] = useState(false);
+  const [promoCode, setPromoCode] = useState("");
+  const [showPromoInput, setShowPromoInput] = useState(false);
 
   // Keep the attendees array sized to the current quantity. When quantity grows,
   // we add empty slots; when it shrinks, we trim. The first slot auto-fills from
@@ -329,6 +331,7 @@ const EventPublic = () => {
           tier_id: selectedTier,
           quantity: qty,
           attendees: attendeesPayload,
+          ...(promoCode.trim() ? { promo_code: promoCode.trim() } : {}),
           ...(user ? {} : { guest: { name: `${first.first_name} ${first.last_name}`.trim(), email: first.email } }),
         },
       });
@@ -540,6 +543,41 @@ const EventPublic = () => {
             </span>
             <span className="tabular-nums font-medium text-foreground">€{(feeCents / 100).toFixed(2)}</span>
           </div>
+        </div>
+
+        <div className="mb-4">
+          {showPromoInput ? (
+            <div className="flex gap-2">
+              <input
+                value={promoCode}
+                onChange={(e) => setPromoCode(e.target.value)}
+                placeholder="Promo code"
+                className="flex-1 min-w-0 px-3 py-2 rounded-lg border border-border bg-background text-sm uppercase"
+              />
+              {promoCode && (
+                <button
+                  type="button"
+                  onClick={() => { setPromoCode(""); setShowPromoInput(false); }}
+                  className="text-xs font-semibold text-muted-foreground hover:text-foreground shrink-0"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowPromoInput(true)}
+              className="text-xs font-semibold text-primary hover:underline"
+            >
+              Have a promo code?
+            </button>
+          )}
+          {promoCode && (
+            <p className="text-[11px] text-muted-foreground mt-1.5">
+              Applied at payment — the discount shows on the final Revolut screen.
+            </p>
+          )}
         </div>
 
         <div className="flex items-baseline justify-between mb-5">

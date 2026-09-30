@@ -48,6 +48,8 @@ import EventStatusBadge from "@/components/studio/EventStatusBadge";
 import EventPreviewCard from "@/components/studio/EventPreviewCard";
 import { ExternalTicketsSection } from "@/components/studio/ExternalTickets";
 import { ScanStaffPanel } from "@/components/studio/ScanStaffPanel";
+import { PromoCodesPanel } from "@/components/studio/PromoCodesPanel";
+import { GuestlistsPanel } from "@/components/studio/GuestlistsPanel";
 
 interface EventRow {
   id: string;
@@ -947,6 +949,10 @@ const StudioEventEdit = () => {
           {/* Door-scan access for staff/volunteers — no login needed, see
               src/components/studio/ScanStaffPanel.tsx */}
           <ScanStaffPanel eventId={event.id} />
+
+          <PromoCodesPanel eventId={event.id} />
+
+          <GuestlistsPanel eventId={event.id} />
       </div>
 
       {/* Cancel-event confirmation dialog. Surfaces the real impact (buyer
