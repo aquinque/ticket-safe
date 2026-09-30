@@ -10,7 +10,32 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.1"
+    PostgrestVersion: "14.5"
+  }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
   }
   public: {
     Tables: {
@@ -348,6 +373,65 @@ export type Database = {
           },
         ]
       }
+      event_scanners: {
+        Row: {
+          created_at: string
+          event_id: string
+          id: string
+          invited_by: string
+          organizer_id: string
+          revoked_at: string | null
+          scanner_email: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          id?: string
+          invited_by: string
+          organizer_id: string
+          revoked_at?: string | null
+          scanner_email: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          id?: string
+          invited_by?: string
+          organizer_id?: string
+          revoked_at?: string | null
+          scanner_email?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_scanners_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_scanners_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events_with_active_tickets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_scanners_organizer_id_fkey"
+            columns: ["organizer_id"]
+            isOneToOne: false
+            referencedRelation: "organizer_earnings"
+            referencedColumns: ["organizer_id"]
+          },
+          {
+            foreignKeyName: "event_scanners_organizer_id_fkey"
+            columns: ["organizer_id"]
+            isOneToOne: false
+            referencedRelation: "organizer_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_tickets: {
         Row: {
           buyer_id: string
@@ -358,6 +442,7 @@ export type Database = {
           external_provider: string | null
           holder_email: string | null
           holder_first_name: string | null
+          holder_gender: string | null
           holder_last_name: string | null
           id: string
           order_id: string
@@ -378,6 +463,7 @@ export type Database = {
           external_provider?: string | null
           holder_email?: string | null
           holder_first_name?: string | null
+          holder_gender?: string | null
           holder_last_name?: string | null
           id?: string
           order_id: string
@@ -398,6 +484,7 @@ export type Database = {
           external_provider?: string | null
           holder_email?: string | null
           holder_first_name?: string | null
+          holder_gender?: string | null
           holder_last_name?: string | null
           id?: string
           order_id?: string
@@ -524,6 +611,7 @@ export type Database = {
       }
       events: {
         Row: {
+          banner_fit: string
           banner_url: string | null
           base_price: number | null
           campus: string | null
@@ -537,6 +625,7 @@ export type Database = {
           external_id: string | null
           external_source: string | null
           followers_notified_at: string | null
+          gallery_urls: string[]
           id: string
           image_url: string | null
           is_active: boolean
@@ -561,6 +650,7 @@ export type Database = {
           url: string | null
         }
         Insert: {
+          banner_fit?: string
           banner_url?: string | null
           base_price?: number | null
           campus?: string | null
@@ -574,6 +664,7 @@ export type Database = {
           external_id?: string | null
           external_source?: string | null
           followers_notified_at?: string | null
+          gallery_urls?: string[]
           id?: string
           image_url?: string | null
           is_active?: boolean
@@ -598,6 +689,7 @@ export type Database = {
           url?: string | null
         }
         Update: {
+          banner_fit?: string
           banner_url?: string | null
           base_price?: number | null
           campus?: string | null
@@ -611,6 +703,7 @@ export type Database = {
           external_id?: string | null
           external_source?: string | null
           followers_notified_at?: string | null
+          gallery_urls?: string[]
           id?: string
           image_url?: string | null
           is_active?: boolean
@@ -1776,6 +1869,7 @@ export type Database = {
       search_events: {
         Args: { max_results?: number; query: string }
         Returns: {
+          banner_fit: string
           banner_url: string | null
           base_price: number | null
           campus: string | null
@@ -1789,6 +1883,7 @@ export type Database = {
           external_id: string | null
           external_source: string | null
           followers_notified_at: string | null
+          gallery_urls: string[]
           id: string
           image_url: string | null
           is_active: boolean
@@ -1871,12 +1966,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1900,11 +1995,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1925,11 +2020,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1950,11 +2045,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1967,11 +2062,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -1981,6 +2076,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       app_role: ["admin", "user"],

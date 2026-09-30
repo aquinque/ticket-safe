@@ -104,9 +104,12 @@ interface AttendeeRow {
   holder_first_name: string | null;
   holder_last_name: string | null;
   holder_email: string | null;
+  holder_gender: string | null;
   status: string;
   scanned_at: string | null;
 }
+
+const GENDER_LABEL: Record<string, string> = { female: "Female", male: "Male", other: "Other" };
 
 // CSV export for door staff. We never leak qr_token in the export — that
 // would let anyone with the file walk anyone in. Just the buyer, the
@@ -124,7 +127,7 @@ function exportAttendeesCsv(
     return s;
   };
   const rows: string[] = [];
-  rows.push(["Attendee name", "Email on file", "Tier", "Buyer email", "Order ref", "Status", "Scanned at"].join(","));
+  rows.push(["Attendee name", "Email on file", "Gender", "Tier", "Buyer email", "Order ref", "Status", "Scanned at"].join(","));
   for (const o of orders) {
     if (o.status === "refunded" || o.status === "cancelled") continue;
     const tier = tiers.find((t) => t.id === o.tier_id);
@@ -133,6 +136,7 @@ function exportAttendeesCsv(
       rows.push([
         esc("(unnamed)"),
         esc(o.buyer_email),
+        esc(""),
         esc(tier?.name ?? ""),
         esc(o.buyer_email),
         esc(o.id.slice(0, 8)),
@@ -144,6 +148,7 @@ function exportAttendeesCsv(
         rows.push([
           esc([a.holder_first_name, a.holder_last_name].filter(Boolean).join(" ") || "(unnamed)"),
           esc(a.holder_email ?? ""),
+          esc(a.holder_gender ?? ""),
           esc(tier?.name ?? ""),
           esc(o.buyer_email),
           esc(o.id.slice(0, 8)),
@@ -201,7 +206,7 @@ const StudioEventEdit = () => {
         .limit(500),
       supabase
         .from("event_tickets")
-        .select("id, order_id, holder_first_name, holder_last_name, holder_email, status, scanned_at")
+        .select("id, order_id, holder_first_name, holder_last_name, holder_email, holder_gender, status, scanned_at")
         .eq("event_id", id)
         .order("created_at", { ascending: false })
         .limit(2000),
@@ -413,6 +418,20 @@ const StudioEventEdit = () => {
     arr.push(a);
     attendeesByOrder.set(a.order_id, arr);
   }
+
+  // Gender breakdown — only counts active tickets (cancelled/refunded excluded,
+  // same convention as the door-list CSV export above).
+  const genderEligible = attendees.filter((a) => a.status !== "cancelled" && a.status !== "refunded");
+  const genderCounts = genderEligible.reduce(
+    (acc, a) => {
+      const g = a.holder_gender;
+      if (g === "female" || g === "male" || g === "other") acc[g] += 1;
+      else acc.unspecified += 1;
+      return acc;
+    },
+    { female: 0, male: 0, other: 0, unspecified: 0 } as Record<"female" | "male" | "other" | "unspecified", number>,
+  );
+  const genderTotal = genderEligible.length;
 
   return (
     <StudioLayout active="events" organizer={organizer ? { name: organizer.name, logo_url: organizer.logo_url } : null}>
@@ -758,6 +777,44 @@ const StudioEventEdit = () => {
             </section>
           )}
 
+          {/* Attendee demographics — gender breakdown from the nominative
+              purchase form, so organizers can see who's actually coming. */}
+          {genderTotal > 0 && (
+            <section className="bg-card border border-border rounded-2xl p-5 md:p-6 mb-6">
+              <h2 className="text-lg font-bold mb-4">Attendee demographics</h2>
+              <div className="space-y-3">
+                {(
+                  [
+                    ["female", "Female"],
+                    ["male", "Male"],
+                    ["other", "Other"],
+                    ["unspecified", "Not specified"],
+                  ] as const
+                ).map(([key, label]) => {
+                  const count = genderCounts[key];
+                  if (count === 0) return null;
+                  const pct = Math.round((count / genderTotal) * 100);
+                  return (
+                    <div key={key}>
+                      <div className="flex items-center justify-between text-sm mb-1">
+                        <span className="font-bold">{label}</span>
+                        <span className="text-muted-foreground">
+                          {count} · {pct}%
+                        </span>
+                      </div>
+                      <div className="h-2 rounded-full bg-muted overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-[width] duration-500"
+                          style={{ width: `${pct}%`, background: event.primary_color ?? "#3a5fe6" }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
           {/* Tiers manager */}
           <section className="bg-card border border-border rounded-2xl p-5 md:p-6 mb-6">
             <div className="flex items-center justify-between mb-4">
@@ -873,6 +930,9 @@ const StudioEventEdit = () => {
                               {[a.holder_first_name, a.holder_last_name].filter(Boolean).join(" ") ||
                                 a.holder_email ||
                                 "Unnamed ticket"}
+                              {a.holder_gender && GENDER_LABEL[a.holder_gender] && (
+                                <span className="opacity-70">· {GENDER_LABEL[a.holder_gender]}</span>
+                              )}
                             </span>
                           ))}
                         </div>
