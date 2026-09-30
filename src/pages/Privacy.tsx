@@ -284,7 +284,7 @@ export default function Privacy() {
                   <div>
                     <h3 className="font-semibold text-foreground text-lg mb-2">2.3 Data from Third Parties</h3>
                     <ul className="list-disc pl-6 space-y-1">
-                      <li><strong>Payment Processors:</strong> Transaction confirmation from Revolut/Stripe</li>
+                      <li><strong>Payment Processors:</strong> Transaction confirmation from Revolut</li>
                       <li><strong>Authentication:</strong> Login verification from Supabase</li>
                       <li><strong>Event Data:</strong> Event information from organizers</li>
                     </ul>
@@ -351,7 +351,7 @@ export default function Privacy() {
                   <h3 className="font-semibold text-foreground text-lg">4.1 Who We Share Data With</h3>
                   <ul className="list-disc pl-6 space-y-2">
                     <li><strong>Other Users:</strong> Profile info and listings are visible to verified students</li>
-                    <li><strong>Payment Processors:</strong> Stripe receives the data needed to process your payment</li>
+                    <li><strong>Payment Processors:</strong> Revolut receives the data needed to process your payment</li>
                     <li><strong>Sub-processors:</strong> see the full list in §4.2 below — each one is bound by a written Data Processing Agreement (DPA) under GDPR Article 28</li>
                     <li><strong>Legal Authorities:</strong> When required by law or to protect rights</li>
                   </ul>
@@ -372,10 +372,10 @@ export default function Privacy() {
                       </thead>
                       <tbody className="align-top">
                         <tr className="border-b border-border/50">
-                          <td className="py-3 pr-3 font-medium text-foreground">Stripe Payments Europe Ltd.</td>
-                          <td className="py-3 pr-3">Ireland (EU)</td>
-                          <td className="py-3 pr-3">Card payments, escrow, payouts to sellers/organisers (Stripe Connect)</td>
-                          <td className="py-3">Email, name, transaction amount, payment intent metadata. Card details go straight to Stripe — we never see or store them.</td>
+                          <td className="py-3 pr-3 font-medium text-foreground">Revolut Payments UAB</td>
+                          <td className="py-3 pr-3">Lithuania (EU)</td>
+                          <td className="py-3 pr-3">Card payments, escrow, payouts to sellers/organisers</td>
+                          <td className="py-3">Email, name, transaction amount, payment metadata. Card details go straight to Revolut — we never see or store them.</td>
                         </tr>
                         <tr className="border-b border-border/50">
                           <td className="py-3 pr-3 font-medium text-foreground">Supabase Inc.</td>

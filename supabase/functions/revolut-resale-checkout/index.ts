@@ -4,9 +4,16 @@
  * accepted-offer price (or listing price) + a tiered fee (6%, or 7% when the
  * unit price is >= 50 EUR). Completion (mark sold, transfer ticket) is handled
  * by revolut-webhook.
+ *
+ * Guest checkout: no Ticket Safe account required to buy. With a valid
+ * Authorization header we use the signed-in user as normal; otherwise the
+ * request must carry `guest: { name, email }` and we resolve (or silently
+ * create) a passwordless shadow account for that email via
+ * getOrCreateGuestAccount — mirrors revolut-create-checkout.
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getOrCreateGuestAccount } from "../_shared/getOrCreateGuestAccount.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -41,22 +48,37 @@ serve(async (req) => {
 
   try {
     const authHeader = req.headers.get("Authorization") ?? "";
-    if (!authHeader.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
-    const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.slice(7));
-    if (authError || !user) return json({ error: "Session expired. Please log in again." }, 401);
-
-    try {
-      const { data: rlOk } = await supabase.rpc("rate_limit_consume", { p_bucket: "resale_checkout", p_key: user.id, p_max_hits: 12, p_window_sec: 60 });
-      if (rlOk === false) return json({ error: "Too many checkout attempts. Please wait a minute and try again." }, 429);
-    } catch { /* fail open */ }
+    let user: { id: string; email?: string | null } | null = null;
+    if (authHeader.startsWith("Bearer ")) {
+      const { data } = await supabase.auth.getUser(authHeader.slice(7));
+      user = data?.user ?? null;
+    }
 
     let listingId: string;
+    let guestIn: { name?: string; email?: string } | undefined;
     try {
       const body = await req.json();
       listingId = body.listingId;
+      guestIn = body.guest;
     } catch { return json({ error: "Invalid request." }, 400); }
     if (!listingId || typeof listingId !== "string") return json({ error: "listingId is required." }, 400);
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(listingId)) return json({ error: "Invalid listing identifier." }, 400);
+
+    if (!user) {
+      const guestName = (guestIn?.name ?? "").trim();
+      const guestEmail = (guestIn?.email ?? "").trim().toLowerCase();
+      if (guestName.length < 1 || guestName.length > 200) return json({ error: "Please enter your name." }, 400);
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guestEmail) || guestEmail.length > 254) return json({ error: "Please enter a valid email address." }, 400);
+      const guestUserId = await getOrCreateGuestAccount(supabase, guestEmail, guestName);
+      if (!guestUserId) return json({ error: "Could not start checkout. Please try again." }, 500);
+      user = { id: guestUserId, email: guestEmail };
+    }
+
+    const rateLimitKey = user.id;
+    try {
+      const { data: rlOk } = await supabase.rpc("rate_limit_consume", { p_bucket: "resale_checkout", p_key: rateLimitKey, p_max_hits: 12, p_window_sec: 60 });
+      if (rlOk === false) return json({ error: "Too many checkout attempts. Please wait a minute and try again." }, 429);
+    } catch { /* fail open */ }
 
     const cutoff = new Date(Date.now() - RESERVATION_TTL_MS).toISOString();
     await supabase.from("tickets").update({ status: "available" }).eq("status", "reserved").lt("updated_at", cutoff);

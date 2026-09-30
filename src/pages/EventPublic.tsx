@@ -289,10 +289,11 @@ const EventPublic = () => {
 
   const handleBuy = async () => {
     if (!selectedTier) return;
-    if (!user) {
-      navigate(`/auth?mode=signup&next=/e/${slug}`);
-      return;
-    }
+    // No account required to buy — the server creates a passwordless shadow
+    // account from the first attendee's email (getOrCreateGuestAccount) when
+    // there's no Authorization header, so guest orders still have a real
+    // buyer_id for event_orders/event_tickets/RLS. Signed-in users still go
+    // through the normal authenticated path.
     // Validate the nominative form before opening checkout — the server will
     // re-validate (defense in depth) but a clear inline error is friendlier.
     for (let i = 0; i < attendees.length; i++) {
@@ -322,8 +323,14 @@ const EventPublic = () => {
         email,
         gender,
       }));
+      const first = attendees[0];
       const { data, error } = await supabase.functions.invoke("revolut-create-checkout", {
-        body: { tier_id: selectedTier, quantity: qty, attendees: attendeesPayload },
+        body: {
+          tier_id: selectedTier,
+          quantity: qty,
+          attendees: attendeesPayload,
+          ...(user ? {} : { guest: { name: `${first.first_name} ${first.last_name}`.trim(), email: first.email } }),
+        },
       });
       if (error || !data?.url) {
         console.error("[event-public] checkout error:", error, data);
@@ -557,14 +564,14 @@ const EventPublic = () => {
                 </>
               ) : (
                 <>
-                  {user ? "Continue to payment" : "Sign in & continue"}
+                  Continue to payment
                   <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
                 </>
               )}
             </button>
             {!user && (
               <p className="text-[11px] text-muted-foreground text-center mt-2">
-                You'll create an account or sign in before paying.
+                No account needed — your ticket goes straight to the email above.
               </p>
             )}
             <div className="flex justify-center mt-3">
@@ -1176,7 +1183,7 @@ const EventPublic = () => {
               className="flex-shrink-0 inline-flex items-center justify-center gap-1.5 min-h-[44px] px-5 rounded-lg font-semibold text-white text-sm disabled:opacity-60 transition-all hover:shadow-md"
               style={{ background: primary, boxShadow: buying ? "none" : `0 4px 12px ${primary}30` }}
             >
-              {buying ? <Loader2 className="w-4 h-4 animate-spin" /> : <>{user ? "Continue" : "Sign in"} <ArrowRight className="w-4 h-4" /></>}
+              {buying ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Continue <ArrowRight className="w-4 h-4" /></>}
             </button>
           </div>
         </div>

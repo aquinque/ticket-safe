@@ -8,6 +8,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   CreditCard,
   Calendar,
@@ -63,13 +65,9 @@ const Checkout = () => {
   // precedence over the listing price so the displayed total matches what the
   // server charges, no matter how the buyer reached this page.
   const [offerPrice, setOfferPrice] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (!authLoading && !user) {
-      const next = `/checkout${window.location.search}`;
-      navigate(`/auth?next=${encodeURIComponent(next)}`);
-    }
-  }, [user, authLoading, navigate]);
+  // Guest checkout — no account required. Only used when !user.
+  const [guestName, setGuestName] = useState("");
+  const [guestEmail, setGuestEmail] = useState("");
 
   // Fetch the listing directly from Supabase
   useEffect(() => {
@@ -238,19 +236,29 @@ const Checkout = () => {
     }
   };
 
-  // --- Revolut Checkout ---
+  // --- Revolut Checkout — no account required (guest checkout) ---
   const handleCheckout = async () => {
-    if (!user || !listingId) return;
+    if (!listingId) return;
+    if (!user) {
+      if (!guestName.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guestEmail)) {
+        setPaymentError("Please enter your name and a valid email address.");
+        return;
+      }
+    }
     setIsProcessing(true);
     setPaymentError(null);
 
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
-      if (!token) {
-        toast.error("Session expired. Please log in again.");
-        navigate(`/auth?next=${encodeURIComponent(`/checkout${window.location.search}`)}`);
-        return;
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (user) {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData.session?.access_token;
+        if (!token) {
+          toast.error("Session expired. Please log in again.");
+          navigate(`/auth?next=${encodeURIComponent(`/checkout${window.location.search}`)}`);
+          return;
+        }
+        headers.Authorization = `Bearer ${token}`;
       }
 
       // Revolut is the payment provider now (Stripe set aside). Same response
@@ -259,11 +267,12 @@ const Checkout = () => {
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/revolut-resale-checkout`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ listingId, ...(agreedPrice ? { agreedPrice } : {}) }),
+          headers,
+          body: JSON.stringify({
+            listingId,
+            ...(agreedPrice ? { agreedPrice } : {}),
+            ...(user ? {} : { guest: { name: guestName.trim(), email: guestEmail.trim() } }),
+          }),
         }
       );
 
@@ -326,6 +335,40 @@ const Checkout = () => {
               />
 
               <Separator />
+
+              {/* Guest checkout — no account required. Your ticket + receipt
+                  go straight to this email. */}
+              {!user && (
+                <div className="space-y-3 p-4 rounded-lg border border-border bg-muted/20">
+                  <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                    Your details
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="guest-name">Full name</Label>
+                      <Input
+                        id="guest-name"
+                        value={guestName}
+                        onChange={(e) => setGuestName(e.target.value)}
+                        placeholder="Jamie Smith"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="guest-email">Email</Label>
+                      <Input
+                        id="guest-email"
+                        type="email"
+                        value={guestEmail}
+                        onChange={(e) => setGuestEmail(e.target.value)}
+                        placeholder="you@example.com"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    No account needed — your ticket and receipt go straight to this email.
+                  </p>
+                </div>
+              )}
 
               {/* Order summary */}
               <div className="space-y-2">

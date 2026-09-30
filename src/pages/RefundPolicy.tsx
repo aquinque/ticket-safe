@@ -410,7 +410,7 @@ const RefundPolicy = () => {
 
                     <h3 className="font-semibold text-foreground text-lg mt-4">7.2 Payment Processing Fees</h3>
                     <p>
-                      Please note that payment processor fees (Revolut/Stripe) are non-refundable. These fees are charged by third parties and are typically less than 2% of the transaction.
+                      Please note that payment processor fees (Revolut) are non-refundable. These fees are charged by third parties and are typically less than 2% of the transaction.
                     </p>
 
                     <h3 className="font-semibold text-foreground text-lg mt-4">7.3 Currency Conversion</h3>
