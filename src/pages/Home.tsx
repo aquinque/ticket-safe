@@ -116,7 +116,7 @@ const Home = () => {
 
       <main className="flex-1">
         {/* ============ HERO ============ */}
-        <section className="relative min-h-[100svh] flex items-end md:items-center overflow-hidden">
+        <section className="relative flex items-center md:min-h-[100svh] overflow-hidden">
           {/* Placeholder gradient background — swap for a real event photo/video
               once supplied. Expected location: public/hero/ (e.g.
               public/hero/home.jpg or .mp4), see TODO_DATA.md. */}
@@ -130,7 +130,7 @@ const Home = () => {
           {/* ~70% darkening overlay, ready for when a real photo sits behind it */}
           <div className="absolute inset-0 bg-black/70" />
 
-          <div className="relative container mx-auto px-4 pb-10 pt-28 md:pt-0 md:pb-0">
+          <div className="relative container mx-auto px-4 pb-10 pt-24 md:pt-0 md:pb-0">
             <div className="max-w-2xl">
               <h1
                 className="font-display font-bold text-foreground text-[40px] leading-[1.05] md:text-7xl lg:text-8xl mb-4 md:mb-6"
