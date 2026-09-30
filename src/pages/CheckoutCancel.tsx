@@ -10,28 +10,30 @@
  */
 
 import { Link, useSearchParams } from "react-router-dom";
-import Header from "@/components/Header";
+import HeaderNight from "@/components/HeaderNight";
 import Footer from "@/components/Footer";
+import { useThemeMode } from "@/hooks/useThemeMode";
 import { BackButton } from "@/components/BackButton";
 import { Button } from "@/components/ui/button";
 import { XCircle } from "lucide-react";
 import { SEOHead } from "@/components/SEOHead";
 
 const CheckoutCancel = () => {
+  useThemeMode("night");
   const [searchParams] = useSearchParams();
   const listingId = searchParams.get("listing_id");
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="theme-night min-h-screen bg-background flex flex-col">
       <SEOHead titleKey="common.appName" descriptionKey="common.appName" />
-      <Header />
+      <HeaderNight />
       <main className="flex-1 flex items-center justify-center py-16">
         <div className="container mx-auto px-4 max-w-lg text-center">
           <div className="mb-4 text-left">
             <BackButton fallbackPath="/tickets" />
           </div>
-          <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <XCircle className="w-10 h-10 text-red-600" />
+          <div className="w-20 h-20 bg-danger/15 rounded-full flex items-center justify-center mx-auto mb-6">
+            <XCircle className="w-10 h-10 text-danger" />
           </div>
 
           <h1 className="text-3xl font-bold mb-4">Payment Cancelled</h1>

@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import Header from "@/components/Header";
+import HeaderNight from "@/components/HeaderNight";
 import Footer from "@/components/Footer";
+import { useThemeMode } from "@/hooks/useThemeMode";
 import { BackButton } from "@/components/BackButton";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -44,6 +45,7 @@ interface ListingData {
 }
 
 const Checkout = () => {
+  useThemeMode("night");
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const { language } = useI18n();
@@ -127,9 +129,9 @@ const Checkout = () => {
   // --- Loading ---
   if (loading || authLoading) {
     return (
-      <div className="min-h-screen bg-background flex flex-col">
+      <div className="theme-night min-h-screen bg-background flex flex-col">
         <SEOHead titleKey="common.appName" descriptionKey="common.appName" />
-        <Header />
+        <HeaderNight />
         <main className="flex-1 py-12">
           <div className="container mx-auto px-4 max-w-2xl">
             <Skeleton className="h-9 w-24 mb-6" />
@@ -167,9 +169,9 @@ const Checkout = () => {
   // --- Not found ---
   if (notFound || !listing || !listing.event) {
     return (
-      <div className="min-h-screen bg-background flex flex-col">
+      <div className="theme-night min-h-screen bg-background flex flex-col">
         <SEOHead titleKey="common.error" descriptionKey="common.error" />
-        <Header />
+        <HeaderNight />
         <main className="flex-1 py-12">
           <div className="container mx-auto px-4 max-w-2xl">
             <Card>
@@ -177,8 +179,8 @@ const Checkout = () => {
                 <p className="text-muted-foreground mb-4">
                   This ticket is no longer available.
                 </p>
-                <Button onClick={() => navigate("/marketplace")}>
-                  Browse Events
+                <Button onClick={() => navigate("/marketplace/buy")}>
+                  Browse Tickets
                 </Button>
               </CardContent>
             </Card>
@@ -282,9 +284,9 @@ const Checkout = () => {
 
   // --- Render ---
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="theme-night min-h-screen bg-background flex flex-col">
       <SEOHead titleKey="common.appName" descriptionKey="common.appName" />
-      <Header />
+      <HeaderNight />
       <main className="flex-1 py-12">
         <div className="container mx-auto px-4 max-w-2xl">
           <div className="mb-6">
@@ -328,11 +330,11 @@ const Checkout = () => {
               {/* Order summary */}
               <div className="space-y-2">
                 {negotiatedPrice && negotiatedPrice !== listing.selling_price && (
-                  <div className="p-3 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-md mb-2">
-                    <p className="text-sm font-medium text-green-800 dark:text-green-200">
+                  <div className="p-3 bg-success/10 border border-success/30 rounded-md mb-2">
+                    <p className="text-sm font-medium text-success">
                       Negotiated price: €{negotiatedPrice.toFixed(2)}
                     </p>
-                    <p className="text-xs text-green-600 dark:text-green-400">
+                    <p className="text-xs text-success/80">
                       Original listing: €{listing.selling_price.toFixed(2)}
                     </p>
                   </div>

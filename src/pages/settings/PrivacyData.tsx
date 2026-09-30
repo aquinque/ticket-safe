@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import Header from "@/components/Header";
+import HeaderNight from "@/components/HeaderNight";
+import { useThemeMode } from "@/hooks/useThemeMode";
 import Footer from "@/components/Footer";
 import { BackButton } from "@/components/BackButton";
 import { PageHeader } from "@/components/PageHeader";
@@ -44,6 +45,7 @@ import {
  *   accident or via a hijacked session click.
  */
 const PrivacyData = () => {
+  useThemeMode("night");
   const { user, signOut, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
@@ -148,9 +150,9 @@ const PrivacyData = () => {
     deleteConfirmEmail.trim().toLowerCase() === (user.email ?? "").toLowerCase();
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="theme-night min-h-screen bg-background flex flex-col">
       <SEOHead titleKey="nav.settings" descriptionKey="settings.description" />
-      <Header />
+      <HeaderNight />
       <main className="py-16 flex-1">
         <div className="container mx-auto px-4 max-w-3xl">
           <div className="mb-5">

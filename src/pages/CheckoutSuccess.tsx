@@ -10,8 +10,9 @@
 
 import { useEffect } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import Header from "@/components/Header";
+import HeaderNight from "@/components/HeaderNight";
 import Footer from "@/components/Footer";
+import { useThemeMode } from "@/hooks/useThemeMode";
 import { BackButton } from "@/components/BackButton";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, Sparkles, Mail, Ticket } from "lucide-react";
@@ -31,7 +32,7 @@ async function fireConfetti(): Promise<void> {
     );
     const confetti = (mod as { default?: (opts: unknown) => void }).default
       ?? (mod as unknown as (opts: unknown) => void);
-    const colours = ["#3a5fe6", "#2440b6", "#aec6ff", "#D4FF3A", "#ffffff"];
+    const colours = ["#3a5fe6", "#2440b6", "#aec6ff", "#ffffff"];
     // Three timed bursts: a big one straight up, then two from the sides
     // for a "fountain" feel. Matches the Stripe / Pretix success vibe.
     confetti({
@@ -68,6 +69,7 @@ async function fireConfetti(): Promise<void> {
 }
 
 const CheckoutSuccess = () => {
+  useThemeMode("night");
   const [searchParams] = useSearchParams();
   // session_id is available if needed for future order lookup
   const _sessionId = searchParams.get("session_id");
@@ -110,9 +112,9 @@ const CheckoutSuccess = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="theme-night min-h-screen bg-background flex flex-col">
       <SEOHead titleKey="common.appName" descriptionKey="common.appName" />
-      <Header />
+      <HeaderNight />
       <main className="flex-1 flex items-center justify-center py-12 md:py-16">
         <div className="container mx-auto px-4 max-w-lg text-center">
           <div className="mb-4 text-left">

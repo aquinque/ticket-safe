@@ -1,6 +1,7 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
-import Header from "@/components/Header";
+import HeaderNight from "@/components/HeaderNight";
+import { useThemeMode } from "@/hooks/useThemeMode";
 import Footer from "@/components/Footer";
 import { BackButton } from "@/components/BackButton";
 import { Card, CardContent } from "@/components/ui/card";
@@ -38,6 +39,7 @@ interface Listing {
 }
 
 const EventTicketsMarketplace = () => {
+  useThemeMode("night");
   const { eventId } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -139,8 +141,8 @@ const EventTicketsMarketplace = () => {
     return (
       <>
         <SEOHead titleKey="nav.home" descriptionKey="hero.subtitle" />
-        <Header />
-        <main className="min-h-screen bg-background py-8">
+        <HeaderNight />
+        <main className="theme-night min-h-screen bg-background py-8">
           <div className="container mx-auto px-4 max-w-7xl">
             <div className="mb-6"><BackButton /></div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -168,8 +170,8 @@ const EventTicketsMarketplace = () => {
   if (notFound || !event) {
     return (
       <>
-        <Header />
-        <main className="min-h-screen bg-background py-8">
+        <HeaderNight />
+        <main className="theme-night min-h-screen bg-background py-8">
           <div className="container mx-auto px-4 max-w-7xl">
             <div className="mb-6"><BackButton /></div>
             <Alert className="max-w-2xl mx-auto">
@@ -186,8 +188,8 @@ const EventTicketsMarketplace = () => {
   return (
     <>
       <SEOHead titleKey="nav.home" descriptionKey="hero.subtitle" />
-      <Header />
-      <main className="min-h-screen bg-background py-8">
+      <HeaderNight />
+      <main className="theme-night min-h-screen bg-background py-8">
         <div className="container mx-auto px-4 max-w-7xl">
           <div className="mb-6">
             <BackButton />

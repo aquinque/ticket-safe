@@ -1,5 +1,6 @@
 import { useState } from "react";
-import Header from "@/components/Header";
+import HeaderNight from "@/components/HeaderNight";
+import { useThemeMode } from "@/hooks/useThemeMode";
 import Footer from "@/components/Footer";
 import { BackButton } from "@/components/BackButton";
 import { PageHeader } from "@/components/PageHeader";
@@ -22,6 +23,7 @@ import {
 } from "lucide-react";
 
 const PersonalInformation = () => {
+  useThemeMode("night");
   const { t } = useI18n();
   const { user } = useAuth();
   // Name + email are read-only by design (anti-fraud). We display whatever
@@ -87,9 +89,9 @@ const PersonalInformation = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="theme-night min-h-screen bg-background flex flex-col">
       <SEOHead titleKey="nav.settings" descriptionKey="settings.description" />
-      <Header />
+      <HeaderNight />
       <main className="py-6 md:py-10 flex-1">
         <div className="container mx-auto px-4 max-w-3xl">
           <div className="mb-5">

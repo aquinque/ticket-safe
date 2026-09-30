@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { BackButton } from "@/components/BackButton";
 import { useNavigate } from "react-router-dom";
-import Header from "@/components/Header";
+import HeaderNight from "@/components/HeaderNight";
+import { useThemeMode } from "@/hooks/useThemeMode";
 import Footer from "@/components/Footer";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -64,6 +65,7 @@ interface TxRow {
 const CAMPUSES = ["Paris", "London", "Madrid", "Berlin", "Turin"] as const;
 
 const Profile = () => {
+  useThemeMode("night");
   const [userData, setUserData] = useState({ name: "", email: "", school: "", campus: "" });
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
@@ -256,8 +258,8 @@ const Profile = () => {
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen bg-background flex flex-col">
-        <Header />
+      <div className="theme-night min-h-screen bg-background flex flex-col">
+        <HeaderNight />
         <main className="py-16 flex-1 flex items-center justify-center">
           <div className="text-center">
             <div className="animate-spin rounded-[9999px] h-10 w-10 border-b-2 border-primary mx-auto mb-3" />
@@ -316,9 +318,9 @@ const Profile = () => {
     new Date(s).toLocaleDateString(dateLocale, { day: "numeric", month: "short", year: "numeric" });
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="theme-night min-h-screen bg-background flex flex-col">
       <SEOHead titleKey="nav.profile" descriptionKey="settings.description" />
-      <Header />
+      <HeaderNight />
       <main className="flex-1 pb-16">
         {/* Identity hero */}
         <div className="relative overflow-hidden bg-gradient-hero text-white">

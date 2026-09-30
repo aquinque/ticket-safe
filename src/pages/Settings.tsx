@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import Header from "@/components/Header";
+import HeaderNight from "@/components/HeaderNight";
+import { useThemeMode } from "@/hooks/useThemeMode";
 import Footer from "@/components/Footer";
 import { BackButton } from "@/components/BackButton";
 import { Card, CardContent } from "@/components/ui/card";
@@ -20,6 +21,7 @@ import {
 } from "lucide-react";
 
 const Settings = () => {
+  useThemeMode("night");
   const navigate = useNavigate();
   const { user } = useAuth();
 
@@ -86,9 +88,9 @@ const Settings = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="theme-night min-h-screen bg-background flex flex-col">
       <SEOHead titleKey="nav.settings" descriptionKey="settings.description" />
-      <Header />
+      <HeaderNight />
       <main className="py-6 md:py-10 flex-1">
         <div className="container mx-auto px-4 max-w-4xl">
           <div className="mb-5">
@@ -106,24 +108,24 @@ const Settings = () => {
           <button
             type="button"
             onClick={() => navigate("/settings/listings")}
-            className="w-full text-left mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-5 md:p-6 hover:shadow-md transition-all group"
+            className="w-full text-left mb-4 rounded-2xl border border-success/30 bg-success/10 p-5 md:p-6 hover:shadow-md transition-all group"
           >
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0">
-                  <Banknote className="w-6 h-6 text-emerald-700" />
+                <div className="w-12 h-12 rounded-xl bg-success/15 flex items-center justify-center shrink-0">
+                  <Banknote className="w-6 h-6 text-success" />
                 </div>
                 <div className="min-w-0">
-                  <div className="text-xs font-bold uppercase tracking-wider text-emerald-800/80">Your wallet</div>
-                  <div className="text-2xl md:text-3xl font-black tabular-nums leading-tight text-emerald-900">
+                  <div className="text-xs font-bold uppercase tracking-wider text-success/80">Your wallet</div>
+                  <div className="text-2xl md:text-3xl font-black tabular-nums leading-tight text-success">
                     {walletCents === null ? "€—" : `€${(walletCents / 100).toFixed(2)}`}
                   </div>
-                  <div className="text-xs text-emerald-800/80">
+                  <div className="text-xs text-success/80">
                     {walletCents && walletCents > 0 ? "available to withdraw — tap to get paid" : "from your resale sales — tap to view"}
                   </div>
                 </div>
               </div>
-              <ArrowRight className="w-5 h-5 text-emerald-700 group-hover:translate-x-0.5 transition-transform shrink-0" />
+              <ArrowRight className="w-5 h-5 text-success group-hover:translate-x-0.5 transition-transform shrink-0" />
             </div>
           </button>
 

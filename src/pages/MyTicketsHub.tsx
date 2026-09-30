@@ -12,7 +12,8 @@ import {
   ShieldCheck,
   Tag,
 } from "lucide-react";
-import Header from "@/components/Header";
+import HeaderNight from "@/components/HeaderNight";
+import { useThemeMode } from "@/hooks/useThemeMode";
 import Footer from "@/components/Footer";
 import { BackButton } from "@/components/BackButton";
 import { SEOHead } from "@/components/SEOHead";
@@ -47,6 +48,7 @@ interface OrderCard {
 }
 
 const MyTicketsHub = () => {
+  useThemeMode("night");
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const [orders, setOrders] = useState<OrderCard[]>([]);
@@ -335,9 +337,9 @@ const MyTicketsHub = () => {
   const pastOrUsed = orders.filter((o) => !isAvailable(o));
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="theme-night min-h-screen bg-background flex flex-col">
       <SEOHead title="My tickets — Ticket Safe" description="All your tickets in one place." />
-      <Header />
+      <HeaderNight />
 
       <main className="flex-1 py-6 md:py-10">
         <div className="container mx-auto px-4 max-w-4xl">

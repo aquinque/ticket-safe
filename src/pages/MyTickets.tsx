@@ -7,7 +7,8 @@ import {
   ShieldCheck,
   Download,
 } from "lucide-react";
-import Header from "@/components/Header";
+import HeaderNight from "@/components/HeaderNight";
+import { useThemeMode } from "@/hooks/useThemeMode";
 import Footer from "@/components/Footer";
 import { BackButton } from "@/components/BackButton";
 import { SEOHead } from "@/components/SEOHead";
@@ -54,6 +55,7 @@ interface TicketRow {
 }
 
 const MyTickets = () => {
+  useThemeMode("night");
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
@@ -200,8 +202,8 @@ const MyTickets = () => {
 
   if (!order) {
     return (
-      <div className="min-h-screen bg-background flex flex-col">
-        <Header />
+      <div className="theme-night min-h-screen bg-background flex flex-col">
+        <HeaderNight />
         <main className="flex-1 flex items-center justify-center p-6">
           <div className="text-center max-w-md">
             <h1 className="text-2xl font-black mb-2">Order not found</h1>
@@ -236,12 +238,12 @@ const MyTickets = () => {
     : "";
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="theme-night min-h-screen bg-background flex flex-col">
       <SEOHead
         title={`Your tickets — ${order.event?.title ?? "Order"}`}
         description="Show this at the door. Each QR is single-use."
       />
-      <Header />
+      <HeaderNight />
 
       <main className="flex-1 py-6 md:py-10">
         <div className="container mx-auto px-4 max-w-xl">
