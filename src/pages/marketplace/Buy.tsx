@@ -359,14 +359,6 @@ const Buy = () => {
         className="relative overflow-hidden text-white pt-16 md:pt-20"
         style={{ background: "var(--gradient-hero)" }}
       >
-        {/* Film grain overlay — editorial paper feel */}
-        <div
-          className="absolute inset-0 pointer-events-none opacity-[0.06] mix-blend-overlay"
-          style={{
-            backgroundImage:
-              "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>\")",
-          }}
-        />
         {/* Vignette glow — brand blues, was a stray blue/purple mix */}
         <div
           className="absolute -top-32 -right-32 w-[36rem] h-[36rem] rounded-full opacity-40 blur-3xl pointer-events-none"
