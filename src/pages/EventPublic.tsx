@@ -41,6 +41,7 @@ interface PublicEvent {
   status: string;
   primary_color: string;
   banner_url: string | null;
+  video_url: string | null;
   logo_url: string | null;
   og_image_url: string | null;
   seo_description: string | null;
@@ -132,7 +133,7 @@ const EventPublic = () => {
     const { data: ev } = await supabase
       .from("events")
       .select(
-        `id, title, description, date, ends_at, location, category, slug, status, primary_color, banner_url, logo_url, og_image_url, seo_description, organizer_id, max_tickets_per_buyer,
+        `id, title, description, date, ends_at, location, category, slug, status, primary_color, banner_url, video_url, logo_url, og_image_url, seo_description, organizer_id, max_tickets_per_buyer,
          organizer:organizer_profiles!events_organizer_id_fkey(id, user_id, name, slug, logo_url, primary_color, website)`,
       )
       .eq("slug", slug)
@@ -676,7 +677,16 @@ const EventPublic = () => {
         <div className="bg-background">
           <div className="container mx-auto max-w-5xl sm:px-4 sm:pt-4">
             <div className="relative w-full aspect-[16/9] sm:rounded-2xl overflow-hidden bg-black/20 sm:ring-1 sm:ring-white/10">
-              {event.banner_url ? (
+              {event.video_url ? (
+                <video
+                  src={event.video_url}
+                  className="absolute inset-0 w-full h-full object-cover animate-in fade-in duration-700"
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                />
+              ) : event.banner_url ? (
                 <img
                   src={event.banner_url}
                   alt={event.title}
