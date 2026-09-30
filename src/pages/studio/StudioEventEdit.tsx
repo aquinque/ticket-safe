@@ -87,6 +87,8 @@ interface TierRow {
   // 'external' tiers are imported partner/club allocations — managed in the
   // dedicated External tickets section, not the native tier editor below.
   source: "platform" | "external" | null;
+  kind: "ticket" | "table";
+  capacity_per_unit: number;
 }
 
 interface OrderRow {
@@ -98,6 +100,8 @@ interface OrderRow {
   status: string;
   created_at: string;
   tier_id: string;
+  promo_code_id: string | null;
+  discount_cents: number | null;
 }
 
 interface AttendeeRow {
@@ -202,7 +206,7 @@ const StudioEventEdit = () => {
       supabase.from("event_tiers").select("*").eq("event_id", id).order("sort_order"),
       supabase
         .from("event_orders")
-        .select("id, buyer_email, quantity, total_cents, fee_cents, status, created_at, tier_id")
+        .select("id, buyer_email, quantity, total_cents, fee_cents, status, created_at, tier_id, promo_code_id, discount_cents")
         .eq("event_id", id)
         .order("created_at", { ascending: false })
         .limit(500),
@@ -775,6 +779,36 @@ const StudioEventEdit = () => {
                     </div>
                   );
                 })}
+              </div>
+            </section>
+          )}
+
+          {/* Tables & promo codes — quick aggregate stats, full management in
+              the panels further down (tables are just tiers flagged "table",
+              see event_tiers.kind; promo codes in PromoCodesPanel). */}
+          {(tiers.some((t) => t.kind === "table") || orders.some((o) => o.promo_code_id)) && (
+            <section className="bg-card border border-border rounded-2xl p-5 md:p-6 mb-6">
+              <h2 className="text-lg font-bold mb-4">Tables & promo codes</h2>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {(() => {
+                  const tableTiers = tiers.filter((t) => t.kind === "table");
+                  const tablesSold = tableTiers.reduce((a, t) => a + t.sold_qty, 0);
+                  const peopleViaTables = tableTiers.reduce((a, t) => a + t.sold_qty * (t.capacity_per_unit || 1), 0);
+                  const promoOrders = orders.filter((o) => o.promo_code_id && o.status === "paid");
+                  const totalDiscountCents = promoOrders.reduce((a, o) => a + (o.discount_cents ?? 0), 0);
+                  const cards = [
+                    { label: "Tables sold", value: tablesSold },
+                    { label: "People via tables", value: peopleViaTables },
+                    { label: "Orders with a code", value: promoOrders.length },
+                    { label: "Total discounted", value: `€${(totalDiscountCents / 100).toFixed(0)}` },
+                  ];
+                  return cards.map((c) => (
+                    <div key={c.label} className="rounded-xl bg-muted/40 border border-border p-3 text-center">
+                      <div className="text-xl font-black tabular-nums">{c.value}</div>
+                      <div className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mt-0.5">{c.label}</div>
+                    </div>
+                  ));
+                })()}
               </div>
             </section>
           )}
@@ -1734,6 +1768,8 @@ const TierEditor = ({
     sales_start_at: toLocalInput(tier.sales_start_at),
     sales_end_at: toLocalInput(tier.sales_end_at),
     max_per_order: tier.max_per_order != null ? String(tier.max_per_order) : "",
+    kind: tier.kind ?? "ticket",
+    capacity_per_unit: String(tier.capacity_per_unit ?? 1),
   });
   const dirty =
     draft.name !== tier.name ||
@@ -1743,7 +1779,9 @@ const TierEditor = ({
     draft.is_active !== tier.is_active ||
     draft.sales_start_at !== toLocalInput(tier.sales_start_at) ||
     draft.sales_end_at !== toLocalInput(tier.sales_end_at) ||
-    draft.max_per_order !== (tier.max_per_order != null ? String(tier.max_per_order) : "");
+    draft.max_per_order !== (tier.max_per_order != null ? String(tier.max_per_order) : "") ||
+    draft.kind !== (tier.kind ?? "ticket") ||
+    draft.capacity_per_unit !== String(tier.capacity_per_unit ?? 1);
 
   const available = tier.total_qty - tier.sold_qty - tier.reserved_qty;
 
@@ -1839,6 +1877,34 @@ const TierEditor = ({
             <p className="text-[10px] text-muted-foreground mt-1">e.g. "2" for VIP, leave blank otherwise.</p>
           </div>
         </div>
+
+        <div className="mt-3 pt-3 border-t border-border">
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={draft.kind === "table"}
+              onChange={(e) => setDraft((d) => ({ ...d, kind: e.target.checked ? "table" : "ticket" }))}
+              className="mt-0.5 w-4 h-4"
+            />
+            <div className="flex-1">
+              <div className="font-bold text-sm text-foreground">This is a table, not a single ticket</div>
+              <div className="text-xs text-muted-foreground mt-0.5">Price above is still per person seated at it.</div>
+            </div>
+          </label>
+          {draft.kind === "table" && (
+            <div className="mt-2 max-w-[160px]">
+              <label className="text-xs font-bold text-muted-foreground mb-1 block">People per table</label>
+              <input
+                type="number"
+                value={draft.capacity_per_unit}
+                onChange={(e) => setDraft((d) => ({ ...d, capacity_per_unit: e.target.value }))}
+                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm"
+                min="2"
+                max="30"
+              />
+            </div>
+          )}
+        </div>
       </details>
 
       <div className="flex items-center justify-between gap-3 mt-3">
@@ -1866,6 +1932,8 @@ const TierEditor = ({
                 max_per_order: draft.max_per_order.trim()
                   ? Math.max(1, Math.min(50, Number(draft.max_per_order)))
                   : 10,
+                kind: draft.kind,
+                capacity_per_unit: draft.kind === "table" ? Math.max(1, Number(draft.capacity_per_unit) || 1) : 1,
               })
             }
             className="inline-flex items-center gap-1.5 px-3 min-h-[36px] rounded-lg text-sm font-bold bg-primary text-primary-foreground"
