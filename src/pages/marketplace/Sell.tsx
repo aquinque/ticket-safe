@@ -890,7 +890,7 @@ const Sell = () => {
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <Button variant="hero" asChild className="h-11">
                 <Link to="/settings/listings">
-                  View my listings
+                  View my wallet
                   <ArrowRight className="w-4 h-4 ml-1" />
                 </Link>
               </Button>

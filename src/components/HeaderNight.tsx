@@ -27,9 +27,9 @@ import {
  * quick access to My Tickets / My Wallet / Studio for logged-in users.
  */
 const NAV_LINKS = [
-  { to: "/tickets", labelKey: "nav.events" as const },
-  { to: "/resale", labelKey: "nav.resale" as const },
-  { to: "/organizers", labelKey: "nav.organizers" as const },
+  { key: "tickets", to: "/tickets", labelKey: "nav.events" as const },
+  { key: "resale", to: "/resale", labelKey: "nav.resale" as const },
+  { key: "organizers", to: "/organizers", labelKey: "nav.organizers" as const },
 ];
 
 const LANGUAGES: { code: "fr" | "en" | "es"; label: string }[] = [
@@ -76,6 +76,14 @@ const HeaderNight = () => {
 
   const isActive = (path: string) => location.pathname === path;
 
+  // Once an account already has Studio access, the "Organizers" tab should
+  // drop them straight into their dashboard instead of the public pitch
+  // page (apply CTA + "How it works") meant for people who don't have
+  // access yet.
+  const navLinks = NAV_LINKS.map((link) =>
+    link.key === "organizers" && isStudioOrganizer ? { ...link, to: "/studio" } : link,
+  );
+
   return (
     <>
       <header
@@ -89,9 +97,9 @@ const HeaderNight = () => {
           </Link>
 
           <nav className="hidden md:flex items-center gap-1">
-            {NAV_LINKS.map((link) => (
+            {navLinks.map((link) => (
               <Link
-                key={link.to}
+                key={link.key}
                 to={link.to}
                 className={`px-3.5 py-2 rounded-md text-sm font-semibold transition-colors ${
                   isActive(link.to) ? "text-foreground" : "text-muted-foreground hover:text-foreground"
@@ -199,9 +207,9 @@ const HeaderNight = () => {
           </div>
 
           <nav className="flex-1 flex flex-col justify-center gap-2 px-6">
-            {NAV_LINKS.map((link) => (
+            {navLinks.map((link) => (
               <Link
-                key={link.to}
+                key={link.key}
                 to={link.to}
                 onClick={() => setMenuOpen(false)}
                 className="font-display text-3xl font-bold text-foreground py-3"

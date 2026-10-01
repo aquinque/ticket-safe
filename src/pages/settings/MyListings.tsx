@@ -389,8 +389,8 @@ const MyListings = () => {
           {/* Page title */}
           <div className="flex items-center justify-between mb-8">
             <div>
-              <h1 className="text-3xl font-bold">My Listings</h1>
-              <p className="text-muted-foreground mt-1">Manage all your ticket listings</p>
+              <h1 className="text-3xl font-bold">My Wallet</h1>
+              <p className="text-muted-foreground mt-1">Your resale listings, earnings, and withdrawals.</p>
             </div>
             <Button variant="hero" onClick={() => navigate("/marketplace/sell")} className="gap-2">
               <Plus className="w-4 h-4" />
@@ -403,31 +403,31 @@ const MyListings = () => {
               the price of every completed resale (the 6% buyer fee was already
               taken at checkout); Ticket Safe takes 5% when you withdraw. ===== */}
           <section className="mb-6">
-            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 md:p-6">
+            <div className="rounded-2xl border border-success/30 bg-success/10 p-5 md:p-6">
               <div className="flex items-start justify-between gap-4 flex-wrap">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0">
-                    <Banknote className="w-6 h-6 text-emerald-700" />
+                  <div className="w-12 h-12 rounded-xl bg-success/15 flex items-center justify-center shrink-0">
+                    <Banknote className="w-6 h-6 text-success" />
                   </div>
                   <div>
-                    <div className="text-xs font-bold uppercase tracking-wider text-emerald-800/80">Your wallet</div>
-                    <div className="text-3xl font-black tabular-nums leading-tight text-emerald-900">
+                    <div className="text-xs font-bold uppercase tracking-wider text-success/80">Your wallet</div>
+                    <div className="text-3xl font-black tabular-nums leading-tight text-success">
                       €{((earnings?.available_cents ?? 0) / 100).toFixed(2)}
                     </div>
-                    <div className="text-xs text-emerald-800/80">available to withdraw</div>
+                    <div className="text-xs text-success/80">available to withdraw</div>
                   </div>
                 </div>
                 <Button
                   variant="default"
                   onClick={() => setPayoutModalOpen(true)}
                   disabled={!earnings || earnings.available_cents <= 0}
-                  className="inline-flex items-center gap-1.5 bg-emerald-700 text-white hover:bg-emerald-800 disabled:opacity-50 shrink-0"
+                  className="inline-flex items-center gap-1.5 bg-success text-success-foreground hover:bg-success/90 disabled:opacity-50 shrink-0"
                 >
                   <ArrowRight className="w-4 h-4" />
                   Get paid
                 </Button>
               </div>
-              <div className="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-emerald-200/70">
+              <div className="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-success/20">
                 <div>
                   <div className="text-sm font-bold tabular-nums">€{((earnings?.net_earned_cents ?? 0) / 100).toFixed(2)}</div>
                   <div className="text-[11px] text-muted-foreground">Total earned</div>
@@ -451,24 +451,24 @@ const MyListings = () => {
 
           {/* Stats strip */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <Card className="border-0 bg-green-500/8">
+            <Card className="border-0 bg-success/10">
               <CardContent className="p-4 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-green-500/15 flex items-center justify-center flex-shrink-0">
-                  <Clock className="w-5 h-5 text-green-600" />
+                <div className="w-10 h-10 rounded-xl bg-success/15 flex items-center justify-center flex-shrink-0">
+                  <Clock className="w-5 h-5 text-success" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-green-600">{stats.active}</p>
+                  <p className="text-2xl font-bold text-success">{stats.active}</p>
                   <p className="text-xs text-muted-foreground">Active</p>
                 </div>
               </CardContent>
             </Card>
-            <Card className="border-0 bg-blue-500/8">
+            <Card className="border-0 bg-blue-500/10">
               <CardContent className="p-4 flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-blue-500/15 flex items-center justify-center flex-shrink-0">
-                  <CheckCircle2 className="w-5 h-5 text-blue-600" />
+                  <CheckCircle2 className="w-5 h-5 text-blue-400" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-blue-600">{stats.sold}</p>
+                  <p className="text-2xl font-bold text-blue-400">{stats.sold}</p>
                   <p className="text-xs text-muted-foreground">Sold</p>
                 </div>
               </CardContent>
@@ -681,7 +681,7 @@ const MyListings = () => {
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  className="gap-1.5 text-xs h-8 text-amber-700 border-amber-300 hover:bg-amber-50"
+                                  className="gap-1.5 text-xs h-8 text-amber-400 border-amber-500/30 hover:bg-amber-500/10"
                                   onClick={() => {
                                     setBoostListingId(listing.id);
                                     setBoostDays(7);
@@ -967,9 +967,9 @@ const SellerPayoutModal = ({
 
         <div className="px-6 py-5 space-y-5">
           <div className="grid grid-cols-3 gap-2 text-center">
-            <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3">
-              <div className="text-[10px] uppercase tracking-wider font-bold text-emerald-700">Available</div>
-              <div className="text-lg font-black text-emerald-900">€{(available / 100).toFixed(2)}</div>
+            <div className="rounded-xl bg-success/10 border border-success/30 p-3">
+              <div className="text-[10px] uppercase tracking-wider font-bold text-success/80">Available</div>
+              <div className="text-lg font-black text-success">€{(available / 100).toFixed(2)}</div>
             </div>
             <div className="rounded-xl bg-muted border border-border p-3">
               <div className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">In progress</div>
@@ -1002,7 +1002,7 @@ const SellerPayoutModal = ({
               <div>
                 <label className="text-xs font-bold text-muted-foreground mb-1 block">IBAN</label>
                 <input value={iban} onChange={(e) => setIban(e.target.value.toUpperCase())} className="w-full px-3 py-2.5 rounded-lg border border-border bg-background text-sm font-mono" placeholder="FR76 3000 4000 0312 3456 7890 143" maxLength={40} />
-                {iban && !ibanValid && (<p className="text-xs text-amber-700 mt-1">IBAN format looks off — double-check the digits.</p>)}
+                {iban && !ibanValid && (<p className="text-xs text-amber-400 mt-1">IBAN format looks off — double-check the digits.</p>)}
               </div>
               <div>
                 <label className="text-xs font-bold text-muted-foreground mb-1 block">Amount to withdraw (EUR)</label>
@@ -1010,7 +1010,7 @@ const SellerPayoutModal = ({
                   <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} step="0.01" min="1" max={(available / 100).toFixed(2)} className="flex-1 px-3 py-2.5 rounded-lg border border-border bg-background text-sm" />
                   <button type="button" onClick={() => setAmount(((available || 0) / 100).toFixed(2))} className="px-3 py-2.5 rounded-lg border border-border text-xs font-bold hover:bg-muted">Max</button>
                 </div>
-                {!amountValid && (<p className="text-xs text-amber-700 mt-1">Amount must be between €1.00 and €{(available / 100).toFixed(2)}.</p>)}
+                {!amountValid && (<p className="text-xs text-amber-400 mt-1">Amount must be between €1.00 and €{(available / 100).toFixed(2)}.</p>)}
               </div>
 
               {amountValid && cents > 0 && (

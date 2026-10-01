@@ -26,7 +26,7 @@ const Settings = () => {
   const { user } = useAuth();
 
   // Live seller wallet balance, shown right on the hub so it's as obvious as
-  // a Vinted balance — even before opening "My Listings".
+  // a Vinted balance — even before opening "My Wallet".
   const [walletCents, setWalletCents] = useState<number | null>(null);
   useEffect(() => {
     if (!user) return;
@@ -51,7 +51,7 @@ const Settings = () => {
       description: "Customize theme, brightness, and display settings",
       icon: Monitor,
       path: "/settings/interface",
-      color: "text-blue-600 bg-blue-50 dark:bg-blue-950/30"
+      color: "text-blue-400 bg-blue-500/10"
     },
     {
       id: "personal",
@@ -59,7 +59,7 @@ const Settings = () => {
       description: "View your identity, change your password",
       icon: User,
       path: "/settings/personal",
-      color: "text-purple-600 bg-purple-50 dark:bg-purple-950/30"
+      color: "text-purple-400 bg-purple-500/10"
     },
     {
       id: "purchases",
@@ -67,15 +67,15 @@ const Settings = () => {
       description: "View all your ticket purchases and transactions",
       icon: ShoppingBag,
       path: "/settings/purchases",
-      color: "text-green-600 bg-green-50 dark:bg-green-950/30"
+      color: "text-success bg-success/10"
     },
     {
       id: "listings",
-      title: "My Listings",
+      title: "My Wallet",
       description: "Resale listings, earnings, and SEPA payouts",
       icon: Tag,
       path: "/settings/listings",
-      color: "text-rose-600 bg-rose-50 dark:bg-rose-950/30"
+      color: "text-rose-400 bg-rose-500/10"
     },
     {
       id: "privacy",
@@ -83,7 +83,7 @@ const Settings = () => {
       description: "Download, anonymize, or permanently delete your account",
       icon: ShieldCheck,
       path: "/settings/privacy",
-      color: "text-amber-600 bg-amber-50 dark:bg-amber-950/30"
+      color: "text-amber-400 bg-amber-500/10"
     }
   ];
 
@@ -104,7 +104,7 @@ const Settings = () => {
           />
 
           {/* Seller wallet — Vinted-style balance, front and centre. Tap to open
-              My Listings where you withdraw to your IBAN. */}
+              My Wallet where you withdraw to your IBAN. */}
           <button
             type="button"
             onClick={() => navigate("/settings/listings")}

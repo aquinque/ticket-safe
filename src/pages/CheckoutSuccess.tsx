@@ -180,7 +180,7 @@ const CheckoutSuccess = () => {
             {isBoost ? (
               <>
                 <Button variant="hero" asChild className="h-11 text-base font-semibold">
-                  <Link to="/settings/listings">View my listings</Link>
+                  <Link to="/settings/listings">View my wallet</Link>
                 </Button>
                 <Button variant="outline" asChild className="h-11">
                   <Link to="/marketplace/buy">View marketplace</Link>
