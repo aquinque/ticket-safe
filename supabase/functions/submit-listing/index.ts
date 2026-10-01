@@ -158,10 +158,15 @@ serve(async (req) => {
     const qrHash = await sha256hex(trimmedQR);
     const { data: duplicate } = await supabase.from("tickets").select("id, status, seller_id").eq("qr_hash", qrHash).not("status", "eq", "cancelled").maybeSingle();
     if (duplicate) {
-      if (duplicate.seller_id === user.id) {
-        await supabase.from("tickets").delete().eq("id", duplicate.id);
-      } else if (duplicate.status === "sold") {
+      if (duplicate.status === "sold") {
+        // Never delete a sold listing, even for its own seller re-submitting
+        // the same QR — it has a completed transaction (and the seller's
+        // earnings) attached. Deleting it would cascade-delete that
+        // transaction and silently erase money already credited.
         return jsonResponse({ code: "ALREADY_LISTED", message: "This ticket has already been sold on the marketplace" }, 409);
+      } else if (duplicate.seller_id === user.id) {
+        // Stale re-list of their own not-yet-sold listing — safe to replace.
+        await supabase.from("tickets").delete().eq("id", duplicate.id).eq("status", duplicate.status).neq("status", "sold");
       } else {
         return jsonResponse({ code: "ALREADY_LISTED", message: "This ticket is already listed on the marketplace by another seller" }, 409);
       }

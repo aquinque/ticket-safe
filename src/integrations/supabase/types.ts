@@ -252,6 +252,95 @@ export type Database = {
         }
         Relationships: []
       }
+      event_guestlist_entries: {
+        Row: {
+          added_by: string | null
+          checked_in_at: string | null
+          checked_in_by: string | null
+          created_at: string
+          email: string | null
+          first_name: string
+          gender: string | null
+          guestlist_id: string
+          id: string
+          last_name: string
+        }
+        Insert: {
+          added_by?: string | null
+          checked_in_at?: string | null
+          checked_in_by?: string | null
+          created_at?: string
+          email?: string | null
+          first_name: string
+          gender?: string | null
+          guestlist_id: string
+          id?: string
+          last_name: string
+        }
+        Update: {
+          added_by?: string | null
+          checked_in_at?: string | null
+          checked_in_by?: string | null
+          created_at?: string
+          email?: string | null
+          first_name?: string
+          gender?: string | null
+          guestlist_id?: string
+          id?: string
+          last_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_guestlist_entries_guestlist_id_fkey"
+            columns: ["guestlist_id"]
+            isOneToOne: false
+            referencedRelation: "event_guestlists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      event_guestlists: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          event_id: string
+          gender_restriction: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          event_id: string
+          gender_restriction?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          event_id?: string
+          gender_restriction?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_guestlists_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_guestlists_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events_with_active_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_orders: {
         Row: {
           attendees: Json | null
@@ -260,6 +349,7 @@ export type Database = {
           cancelled_at: string | null
           created_at: string
           currency: string
+          discount_cents: number
           event_id: string
           expires_at: string
           fee_cents: number
@@ -268,6 +358,7 @@ export type Database = {
           paid_at: string | null
           paid_out_at: string | null
           paid_out_transfer_id: string | null
+          promo_code_id: string | null
           quantity: number
           refunded_at: string | null
           status: string
@@ -285,6 +376,7 @@ export type Database = {
           cancelled_at?: string | null
           created_at?: string
           currency?: string
+          discount_cents?: number
           event_id: string
           expires_at?: string
           fee_cents?: number
@@ -293,6 +385,7 @@ export type Database = {
           paid_at?: string | null
           paid_out_at?: string | null
           paid_out_transfer_id?: string | null
+          promo_code_id?: string | null
           quantity: number
           refunded_at?: string | null
           status?: string
@@ -310,6 +403,7 @@ export type Database = {
           cancelled_at?: string | null
           created_at?: string
           currency?: string
+          discount_cents?: number
           event_id?: string
           expires_at?: string
           fee_cents?: number
@@ -318,6 +412,7 @@ export type Database = {
           paid_at?: string | null
           paid_out_at?: string | null
           paid_out_transfer_id?: string | null
+          promo_code_id?: string | null
           quantity?: number
           refunded_at?: string | null
           status?: string
@@ -358,6 +453,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "event_orders_promo_code_id_fkey"
+            columns: ["promo_code_id"]
+            isOneToOne: false
+            referencedRelation: "event_promo_codes"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "event_orders_tier_id_fkey"
             columns: ["tier_id"]
             isOneToOne: false
@@ -370,6 +472,63 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "tier_inventory"
             referencedColumns: ["tier_id"]
+          },
+        ]
+      }
+      event_promo_codes: {
+        Row: {
+          code: string
+          created_at: string
+          created_by: string | null
+          discount_type: string
+          discount_value: number
+          event_id: string
+          expires_at: string | null
+          id: string
+          is_active: boolean
+          max_uses: number | null
+          used_count: number
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          created_by?: string | null
+          discount_type?: string
+          discount_value: number
+          event_id: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          max_uses?: number | null
+          used_count?: number
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          discount_type?: string
+          discount_value?: number
+          event_id?: string
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          max_uses?: number | null
+          used_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_promo_codes_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_promo_codes_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events_with_active_tickets"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -536,12 +695,14 @@ export type Database = {
       }
       event_tiers: {
         Row: {
+          capacity_per_unit: number
           created_at: string
           currency: string
           description: string | null
           event_id: string
           id: string
           is_active: boolean
+          kind: string
           max_per_order: number
           name: string
           price_cents: number
@@ -555,12 +716,14 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          capacity_per_unit?: number
           created_at?: string
           currency?: string
           description?: string | null
           event_id: string
           id?: string
           is_active?: boolean
+          kind?: string
           max_per_order?: number
           name: string
           price_cents: number
@@ -574,12 +737,14 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          capacity_per_unit?: number
           created_at?: string
           currency?: string
           description?: string | null
           event_id?: string
           id?: string
           is_active?: boolean
+          kind?: string
           max_per_order?: number
           name?: string
           price_cents?: number
@@ -648,6 +813,7 @@ export type Database = {
           university: string | null
           updated_at: string | null
           url: string | null
+          video_url: string | null
         }
         Insert: {
           banner_fit?: string
@@ -687,6 +853,7 @@ export type Database = {
           university?: string | null
           updated_at?: string | null
           url?: string | null
+          video_url?: string | null
         }
         Update: {
           banner_fit?: string
@@ -726,6 +893,7 @@ export type Database = {
           university?: string | null
           updated_at?: string | null
           url?: string | null
+          video_url?: string | null
         }
         Relationships: [
           {
@@ -1477,6 +1645,7 @@ export type Database = {
           id: string
           needs_review: boolean
           notes: string | null
+          photo_url: string | null
           qr_hash: string | null
           qr_verified: boolean
           quantity: number
@@ -1487,6 +1656,7 @@ export type Database = {
           updated_at: string | null
           verification_errors: Json | null
           verification_status: string
+          video_url: string | null
         }
         Insert: {
           boosted_until?: string | null
@@ -1498,6 +1668,7 @@ export type Database = {
           id?: string
           needs_review?: boolean
           notes?: string | null
+          photo_url?: string | null
           qr_hash?: string | null
           qr_verified?: boolean
           quantity?: number
@@ -1508,6 +1679,7 @@ export type Database = {
           updated_at?: string | null
           verification_errors?: Json | null
           verification_status?: string
+          video_url?: string | null
         }
         Update: {
           boosted_until?: string | null
@@ -1519,6 +1691,7 @@ export type Database = {
           id?: string
           needs_review?: boolean
           notes?: string | null
+          photo_url?: string | null
           qr_hash?: string | null
           qr_verified?: boolean
           quantity?: number
@@ -1529,6 +1702,7 @@ export type Database = {
           updated_at?: string | null
           verification_errors?: Json | null
           verification_status?: string
+          video_url?: string | null
         }
         Relationships: [
           {
@@ -1928,6 +2102,7 @@ export type Database = {
           university: string | null
           updated_at: string | null
           url: string | null
+          video_url: string | null
         }[]
         SetofOptions: {
           from: "*"
