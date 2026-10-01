@@ -34,8 +34,8 @@ export interface Conversation {
     quantity: number;
     event: { id: string; title: string; date: string; image_url: string | null; category: string } | null;
   } | null;
-  buyer: { full_name: string } | null;
-  seller: { full_name: string } | null;
+  buyer_name: string | null;
+  seller_name: string | null;
 }
 
 /** Fetch all conversations for the current user.
@@ -49,18 +49,30 @@ export function useConversations(enabled = true) {
     if (!user) return;
     setLoading(true);
 
-    const { data } = await supabase
-      .from("conversations")
-      .select(
-        `id, ticket_id, buyer_id, seller_id, last_message_at, created_at,
-         ticket:tickets(id, selling_price, quantity, event:events(id, title, date, image_url, category)),
-         buyer:profiles!conversations_buyer_id_fkey(full_name),
-         seller:profiles!conversations_seller_id_fkey(full_name)`
-      )
-      .or(`buyer_id.eq.${user.id},seller_id.eq.${user.id}`)
-      .order("last_message_at", { ascending: false });
+    // Participant display names come from the conversation_participant_names
+    // view, not a direct profiles embed — see
+    // 20260930100000_fix_profiles_counterparty_iban_leak.sql: profiles RLS no
+    // longer lets a chat counterparty read the other party's full row.
+    const [{ data }, { data: names }] = await Promise.all([
+      supabase
+        .from("conversations")
+        .select(
+          `id, ticket_id, buyer_id, seller_id, last_message_at, created_at,
+           ticket:tickets(id, selling_price, quantity, event:events(id, title, date, image_url, category))`
+        )
+        .or(`buyer_id.eq.${user.id},seller_id.eq.${user.id}`)
+        .order("last_message_at", { ascending: false }),
+      supabase.from("conversation_participant_names").select("conversation_id, buyer_name, seller_name"),
+    ]);
 
-    setConversations((data as unknown as Conversation[]) ?? []);
+    const namesByConvo = new Map((names ?? []).map((n) => [n.conversation_id, n]));
+    const merged = (data ?? []).map((c) => ({
+      ...c,
+      buyer_name: namesByConvo.get(c.id)?.buyer_name ?? null,
+      seller_name: namesByConvo.get(c.id)?.seller_name ?? null,
+    }));
+
+    setConversations((merged as unknown as Conversation[]) ?? []);
     setLoading(false);
   }, [user]);
 

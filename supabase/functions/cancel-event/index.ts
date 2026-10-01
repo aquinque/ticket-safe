@@ -30,6 +30,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
+import { planResaleAwareRefund, refundResaleBuyers } from "../_shared/resaleAwareRefund.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -110,6 +111,8 @@ serve(async (req) => {
       apiVersion: "2024-06-20",
       httpClient: Stripe.createFetchHttpClient(),
     }) : null;
+    const revolutCredsForResale = revolutSecret ? { secret: revolutSecret, base: revolutBase, apiVersion: revolutApiVersion } : null;
+    const stripeForResale = stripe;
 
     /**
      * Refund a single paid order through the right provider.
@@ -239,7 +242,7 @@ serve(async (req) => {
     // transition that won its race is automatically included here.)
     const { data: orders } = await supabase
       .from("event_orders")
-      .select("id, buyer_email, total_cents, currency, stripe_payment_intent_id, stripe_checkout_session_id, status")
+      .select("id, buyer_email, total_cents, currency, quantity, unit_price_cents, fee_cents, stripe_payment_intent_id, stripe_checkout_session_id, status")
       .eq("event_id", eventId)
       .eq("status", "paid");
 
@@ -248,7 +251,19 @@ serve(async (req) => {
     const failures: { order_id: string; reason: string }[] = [];
 
     for (const order of orders ?? []) {
-      const result = await refundOrder(order);
+      // Some of this order's tickets may have been resold since purchase —
+      // the resale buyer paid via a separate transaction, not this order,
+      // so they need their own refund and the original buyer must NOT be
+      // refunded for a seat they already sold and were paid for.
+      const { keptCount, originalBuyerRefundCents, resaleRefunds } = await planResaleAwareRefund(supabase, order);
+      const resaleRefundResults = await refundResaleBuyers(resaleRefunds, revolutCredsForResale, stripeForResale, "cancel_event");
+      for (const r of resaleRefundResults) {
+        if (!r.ok) console.error("[cancel-event] resale buyer refund failed:", r.transactionId, r.details);
+      }
+
+      const result = keptCount === 0
+        ? { ok: true as const }
+        : await refundOrder({ ...order, total_cents: originalBuyerRefundCents });
       if (!result.ok) {
         console.error("[cancel-event] refund failed for order", order.id, result.reason);
         failures.push({ order_id: order.id, reason: result.reason });
@@ -275,14 +290,16 @@ serve(async (req) => {
         p_meta: {
           event_id: eventId,
           provider: (order.stripe_checkout_session_id ?? "").startsWith("revolut:") ? "revolut" : "stripe",
+          original_buyer_refund_cents: originalBuyerRefundCents,
+          resale_refunds: resaleRefundResults.map((r) => ({ transaction_id: r.transactionId, amount_cents: r.amountCents, ok: r.ok })),
         },
         p_actor_id: user.id,
       });
 
       refundedCount += 1;
-      refundedTotalCents += order.total_cents;
+      refundedTotalCents += originalBuyerRefundCents + resaleRefundResults.filter((r) => r.ok).reduce((a, r) => a + r.amountCents, 0);
 
-      if (resendKey && order.buyer_email) {
+      if (resendKey && order.buyer_email && originalBuyerRefundCents > 0) {
         fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
@@ -292,11 +309,31 @@ serve(async (req) => {
             subject: `${ev.title} cancelled — refund issued`,
             html: buyerCancellationEmail({
               evTitle: ev.title,
-              refundAmount: order.total_cents / 100,
+              refundAmount: originalBuyerRefundCents / 100,
               reason,
             }),
           }),
         }).catch((err) => console.warn("[cancel-event] buyer email failed:", err));
+      }
+
+      // Notify each resold ticket's current holder (best effort).
+      if (resendKey) {
+        for (const r of resaleRefundResults) {
+          if (!r.ok) continue;
+          const { data: buyerAuth } = await supabase.auth.admin.getUserById(r.buyerId);
+          const resaleBuyerEmail = buyerAuth?.user?.email;
+          if (!resaleBuyerEmail) continue;
+          fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              from: "Ticket Safe <noreply@ticket-safe.eu>",
+              to: [resaleBuyerEmail],
+              subject: `${ev.title} cancelled — refund issued`,
+              html: buyerCancellationEmail({ evTitle: ev.title, refundAmount: r.amountCents / 100, reason }),
+            }),
+          }).catch((err) => console.warn("[cancel-event] resale buyer email failed:", err));
+        }
       }
     }
 

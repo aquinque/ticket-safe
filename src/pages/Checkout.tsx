@@ -206,36 +206,6 @@ const Checkout = () => {
     { month: "long", day: "numeric", year: "numeric" }
   );
 
-  const isDev = import.meta.env.DEV;
-
-  // --- Dev: simulate purchase without a real payment (skips Revolut) ---
-  const handleSimulate = async () => {
-    if (!user || !listingId) return;
-    setIsProcessing(true);
-    setPaymentError(null);
-    try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
-      if (!token) { navigate("/auth"); return; }
-
-      const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/dev-simulate-purchase`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ listingId, ...(agreedPrice ? { agreedPrice } : {}) }),
-        }
-      );
-      const data = await res.json();
-      if (!res.ok) { setPaymentError(data.error ?? "Simulation failed"); return; }
-      navigate(`/checkout/success?session_id=dev_${data.transactionId}`);
-    } catch {
-      setPaymentError("Network error.");
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
   // --- Revolut Checkout — no account required (guest checkout) ---
   const handleCheckout = async () => {
     if (!listingId) return;
@@ -413,45 +383,29 @@ const Checkout = () => {
               )}
 
               {/* Pay button */}
-              {isDev ? (
-                <Button
-                  variant="hero"
-                  size="lg"
-                  className="w-full bg-orange-500 hover:bg-orange-600"
-                  onClick={handleSimulate}
-                  disabled={isProcessing}
-                >
-                  {isProcessing ? (
+              <Button
+                variant="hero"
+                size="lg"
+                className="w-full"
+                onClick={handleCheckout}
+                disabled={isProcessing}
+              >
+                {isProcessing ? (
+                  <>
                     <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  ) : (
-                    "[DEV] Simulate Purchase — skip Revolut"
-                  )}
-                </Button>
-              ) : (
-                <Button
-                  variant="hero"
-                  size="lg"
-                  className="w-full"
-                  onClick={handleCheckout}
-                  disabled={isProcessing}
-                >
-                  {isProcessing ? (
-                    <>
-                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                      Redirecting to Revolut…
-                    </>
-                  ) : (
-                    <>
-                      <CreditCard className="w-5 h-5 mr-2" />
-                      Pay €{total.toFixed(2)}
-                    </>
-                  )}
-                </Button>
-              )}
+                    Redirecting to Revolut…
+                  </>
+                ) : (
+                  <>
+                    <CreditCard className="w-5 h-5 mr-2" />
+                    Pay €{total.toFixed(2)}
+                  </>
+                )}
+              </Button>
 
               <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
                 <ShieldCheck className="w-3.5 h-3.5" />
-                {isDev ? "Dev mode — Revolut disabled" : "Secure payment powered by Revolut"}
+                Secure payment powered by Revolut
               </div>
             </CardContent>
           </Card>

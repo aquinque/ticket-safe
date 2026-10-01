@@ -1,10 +1,11 @@
 /**
  * OrganizerScan — ticket validation page for event organizers.
  *
- * Supports three ticket types automatically:
- *  - Platform JWT tickets  → validated via validate-scan (secure_tickets table)
- *  - Studio primary tickets → validated via validate-event-ticket (event_tickets table, hex qr_token)
- *  - Marketplace tickets   → validated via check-ticket-entry (tickets table, qr_hash)
+ * Supports two ticket types automatically:
+ *  - Studio tickets (direct purchase or transferred resale) → validated via
+ *    validate-event-ticket (event_tickets table; handles both the signed
+ *    JWT qr_token and the legacy hex fallback)
+ *  - Marketplace tickets → validated via check-ticket-entry (tickets table, qr_hash)
  *
  * Input methods: camera QR scan, image upload, or manual paste.
  */
@@ -154,16 +155,6 @@ const OrganizerScan = () => {
   const [scanHistory, setScanHistory] = useState<ScanResult[]>([]);
   const [cameraActive, setCameraActive] = useState(true);
 
-  // Stable device ID for rate-limit tracking (JWT path)
-  const [deviceId] = useState(() => {
-    let id = localStorage.getItem("scanner_device_id");
-    if (!id) {
-      id = `device-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-      localStorage.setItem("scanner_device_id", id);
-    }
-    return id;
-  });
-
   // Redirect if not logged in
   useEffect(() => {
     if (!authLoading && !user) navigate("/auth?next=/organizer/scan");
@@ -246,13 +237,18 @@ const OrganizerScan = () => {
       if (!session) throw new Error("Not authenticated");
 
       const cleaned = qrText.trim();
-      const isJWT = JWT_RE.test(cleaned);
-      const isStudio = !isJWT && STUDIO_TOKEN_RE.test(cleaned);
+      // JWT-shaped (current format, signed via TICKET_SIGNING_SECRET) and the
+      // legacy hex fallback both land in event_tickets and are validated the
+      // same way — validate-event-ticket already handles both shapes itself
+      // (looksLikeJWT). There is no separate "platform JWT" backend; routing
+      // JWTs to a different (non-existent) function here used to make every
+      // current Studio/resale ticket unscannable.
+      const isStudioOrJWT = JWT_RE.test(cleaned) || STUDIO_TOKEN_RE.test(cleaned);
 
       let result: ScanResult;
 
-      if (isStudio) {
-        // ── Studio primary-sale QR → validate-event-ticket ──────────────────
+      if (isStudioOrJWT) {
+        // ── Studio primary-sale / transferred QR → validate-event-ticket ────
         const res = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/validate-event-ticket`,
           {
@@ -286,46 +282,6 @@ const OrganizerScan = () => {
                 holder_email: data.ticket_info.holder_email,
               }
             : undefined,
-          scanned_at: new Date().toISOString(),
-        };
-      } else if (isJWT) {
-        // ── Platform JWT → validate-scan ────────────────────────────────────
-        let location: { latitude?: number; longitude?: number } | undefined;
-        if (navigator.geolocation) {
-          await new Promise<void>((resolve) => {
-            navigator.geolocation.getCurrentPosition(
-              (p) => { location = { latitude: p.coords.latitude, longitude: p.coords.longitude }; resolve(); },
-              () => resolve()
-            );
-          });
-        }
-
-        const res = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/validate-scan`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${session.access_token}`,
-              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            },
-            body: JSON.stringify({
-              ticket_token: qrText.trim(),
-              event_id: selectedEventId,
-              scanner_device_id: deviceId,
-              scanner_location: location,
-              timestamp: new Date().toISOString(),
-            }),
-          }
-        );
-        const data = await res.json();
-        result = {
-          valid: data.valid ?? false,
-          result: data.result ?? "INVALID",
-          message: data.message ?? "Unknown error",
-          ticket_info: data.ticket_info,
-          risk_level: data.risk_level,
-          fraud_signals: data.fraud_signals,
           scanned_at: new Date().toISOString(),
         };
       } else {

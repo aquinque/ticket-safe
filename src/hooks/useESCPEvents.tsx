@@ -43,6 +43,7 @@ export function useESCPEvents(options: UseESCPEventsOptions = {}) {
         .from('events')
         .select('*')
         .eq('is_active', true)
+        .eq('status', 'published')
         .gt('base_price', 0)
         .gte('date', new Date().toISOString())
         .order('date', { ascending: true });

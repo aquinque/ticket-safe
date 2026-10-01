@@ -84,11 +84,13 @@ serve(async (req) => {
     await supabase.from("tickets").update({ status: "available" }).eq("status", "reserved").lt("updated_at", cutoff);
     await supabase.from("tickets").update({ status: "available" }).eq("id", listingId).eq("status", "reserved");
 
-    const { data: listing, error: listingError } = await supabase.from("tickets").select("*, events(id, title, description, date, location)").eq("id", listingId).eq("status", "available").maybeSingle();
+    // verification_status gate: an external/unverified listing (pending admin
+    // review) must not be payable with real money before it's been checked.
+    const { data: listing, error: listingError } = await supabase.from("tickets").select("*, events(id, title, description, date, location)").eq("id", listingId).eq("status", "available").eq("verification_status", "verified").maybeSingle();
     if (listingError || !listing) return json({ error: "This ticket is no longer available." }, 404);
     if (listing.seller_id === user.id) return json({ error: "You cannot purchase your own ticket." }, 400);
 
-    const { data: reserved } = await supabase.from("tickets").update({ status: "reserved" }).eq("id", listingId).eq("status", "available").select("id");
+    const { data: reserved } = await supabase.from("tickets").update({ status: "reserved" }).eq("id", listingId).eq("status", "available").eq("verification_status", "verified").select("id");
     if (!reserved || reserved.length === 0) return json({ error: "This ticket was just purchased by someone else." }, 409);
     reservedListingId = listingId;
 
