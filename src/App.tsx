@@ -54,6 +54,8 @@ const StudioEventNew = lazy(() => import("./pages/studio/StudioEventNew"));
 const StudioEventEdit = lazy(() => import("./pages/studio/StudioEventEdit"));
 const StudioEventAttendees = lazy(() => import("./pages/studio/StudioEventAttendees"));
 const StudioProfile = lazy(() => import("./pages/studio/StudioProfile"));
+const StudioSales = lazy(() => import("./pages/studio/StudioSales"));
+const StudioTeam = lazy(() => import("./pages/studio/StudioTeam"));
 const EventPublic = lazy(() => import("./pages/EventPublic"));
 const MyTickets = lazy(() => import("./pages/MyTickets"));
 const MyTicketsHub = lazy(() => import("./pages/MyTicketsHub"));
@@ -130,6 +132,8 @@ const App = () => (
         <Route path="/organizers" element={<Organizers />} />
         <Route path="/organizers/apply" element={<OrganizerApply />} />
         <Route path="/studio" element={<StudioDashboard />} />
+        <Route path="/studio/sales" element={<StudioSales />} />
+        <Route path="/studio/team" element={<StudioTeam />} />
         <Route path="/studio/profile" element={<StudioProfile />} />
         <Route path="/studio/events/new" element={<StudioEventNew />} />
         <Route path="/studio/events/:id" element={<StudioEventEdit />} />

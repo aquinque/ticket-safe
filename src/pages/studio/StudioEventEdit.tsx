@@ -448,7 +448,7 @@ const StudioEventEdit = () => {
       <div className="p-4 md:p-6 max-w-5xl mx-auto">
           <div className="mb-4">
             <Link to="/studio" className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-primary">
-              ← Retour au dashboard
+              ← Back to dashboard
             </Link>
           </div>
 
@@ -754,104 +754,92 @@ const StudioEventEdit = () => {
             )}
           </section>
 
-          {/* Tier breakdown — quick visual of how each tier is selling */}
-          {tiers.length > 0 && (
-            <section className="bg-card border border-border rounded-2xl p-5 md:p-6 mb-6">
-              <h2 className="text-lg font-bold mb-4">Tier breakdown</h2>
-              <div className="space-y-3">
-                {tiers.map((t) => {
-                  const pct = t.total_qty > 0 ? Math.round((t.sold_qty / t.total_qty) * 100) : 0;
-                  return (
-                    <div key={t.id}>
-                      <div className="flex items-center justify-between text-sm mb-1">
-                        <span className="font-bold">{t.name}</span>
-                        <span className="text-muted-foreground">
-                          {t.sold_qty}/{t.total_qty} sold · €{(t.sold_qty * t.price_cents / 100).toFixed(0)}
-                        </span>
-                      </div>
-                      <div className="h-2 rounded-full bg-muted overflow-hidden">
-                        <div
-                          className="h-full rounded-full transition-[width] duration-500"
-                          style={{
-                            width: `${pct}%`,
-                            background: event.primary_color ?? "#3a5fe6",
-                          }}
+          {/* Event statistics — one consolidated table instead of scattered
+              cards: ticket types, tables, promo codes, demographics. */}
+          {(tiers.length > 0 || genderTotal > 0) && (() => {
+            const tableTiers = tiers.filter((t) => t.kind === "table");
+            const tablesSold = tableTiers.reduce((a, t) => a + t.sold_qty, 0);
+            const peopleViaTables = tableTiers.reduce((a, t) => a + t.sold_qty * (t.capacity_per_unit || 1), 0);
+            const promoOrders = orders.filter((o) => o.promo_code_id && o.status === "paid");
+            const totalDiscountCents = promoOrders.reduce((a, o) => a + (o.discount_cents ?? 0), 0);
+            const GroupRow = ({ label }: { label: string }) => (
+              <tr>
+                <td colSpan={2} className="pt-5 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-primary first:pt-0">
+                  {label}
+                </td>
+              </tr>
+            );
+            const StatRow = ({ label, value, bar }: { label: string; value: string; bar?: number }) => (
+              <tr className="border-t border-border/60 first:border-t-0">
+                <td className="py-2 pr-4 text-sm text-muted-foreground align-top">
+                  {label}
+                  {bar != null && (
+                    <div className="h-1.5 w-32 rounded-full bg-muted overflow-hidden mt-1.5">
+                      <div className="h-full rounded-full" style={{ width: `${bar}%`, background: event.primary_color ?? "#3a5fe6" }} />
+                    </div>
+                  )}
+                </td>
+                <td className="py-2 text-sm font-bold text-foreground text-right tabular-nums align-top">{value}</td>
+              </tr>
+            );
+            return (
+              <section className="bg-card border border-border rounded-2xl p-5 md:p-6 mb-6">
+                <h2 className="text-lg font-bold mb-2">Event statistics</h2>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <tbody>
+                      <GroupRow label="Ticket types" />
+                      {tiers.map((t) => (
+                        <StatRow
+                          key={t.id}
+                          label={`${t.name}${t.kind === "table" ? ` (table, ${t.capacity_per_unit}/unit)` : ""}`}
+                          value={`${t.sold_qty}/${t.total_qty} · €${(t.sold_qty * t.price_cents / 100).toFixed(0)}`}
+                          bar={t.total_qty > 0 ? Math.round((t.sold_qty / t.total_qty) * 100) : 0}
                         />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-          )}
+                      ))}
 
-          {/* Tables & promo codes — quick aggregate stats, full management in
-              the panels further down (tables are just tiers flagged "table",
-              see event_tiers.kind; promo codes in PromoCodesPanel). */}
-          {(tiers.some((t) => t.kind === "table") || orders.some((o) => o.promo_code_id)) && (
-            <section className="bg-card border border-border rounded-2xl p-5 md:p-6 mb-6">
-              <h2 className="text-lg font-bold mb-4">Tables & promo codes</h2>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {(() => {
-                  const tableTiers = tiers.filter((t) => t.kind === "table");
-                  const tablesSold = tableTiers.reduce((a, t) => a + t.sold_qty, 0);
-                  const peopleViaTables = tableTiers.reduce((a, t) => a + t.sold_qty * (t.capacity_per_unit || 1), 0);
-                  const promoOrders = orders.filter((o) => o.promo_code_id && o.status === "paid");
-                  const totalDiscountCents = promoOrders.reduce((a, o) => a + (o.discount_cents ?? 0), 0);
-                  const cards = [
-                    { label: "Tables sold", value: tablesSold },
-                    { label: "People via tables", value: peopleViaTables },
-                    { label: "Orders with a code", value: promoOrders.length },
-                    { label: "Total discounted", value: `€${(totalDiscountCents / 100).toFixed(0)}` },
-                  ];
-                  return cards.map((c) => (
-                    <div key={c.label} className="rounded-xl bg-muted/40 border border-border p-3 text-center">
-                      <div className="text-xl font-black tabular-nums">{c.value}</div>
-                      <div className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mt-0.5">{c.label}</div>
-                    </div>
-                  ));
-                })()}
-              </div>
-            </section>
-          )}
+                      {(tablesSold > 0 || promoOrders.length > 0) && (
+                        <>
+                          <GroupRow label="Tables & promo codes" />
+                          {tablesSold > 0 && (
+                            <>
+                              <StatRow label="Tables sold" value={String(tablesSold)} />
+                              <StatRow label="People via tables" value={String(peopleViaTables)} />
+                            </>
+                          )}
+                          {promoOrders.length > 0 && (
+                            <>
+                              <StatRow label="Orders with a promo code" value={String(promoOrders.length)} />
+                              <StatRow label="Total discounted" value={`€${(totalDiscountCents / 100).toFixed(0)}`} />
+                            </>
+                          )}
+                        </>
+                      )}
 
-          {/* Attendee demographics — gender breakdown from the nominative
-              purchase form, so organizers can see who's actually coming. */}
-          {genderTotal > 0 && (
-            <section className="bg-card border border-border rounded-2xl p-5 md:p-6 mb-6">
-              <h2 className="text-lg font-bold mb-4">Attendee demographics</h2>
-              <div className="space-y-3">
-                {(
-                  [
-                    ["female", "Female"],
-                    ["male", "Male"],
-                    ["other", "Other"],
-                    ["unspecified", "Not specified"],
-                  ] as const
-                ).map(([key, label]) => {
-                  const count = genderCounts[key];
-                  if (count === 0) return null;
-                  const pct = Math.round((count / genderTotal) * 100);
-                  return (
-                    <div key={key}>
-                      <div className="flex items-center justify-between text-sm mb-1">
-                        <span className="font-bold">{label}</span>
-                        <span className="text-muted-foreground">
-                          {count} · {pct}%
-                        </span>
-                      </div>
-                      <div className="h-2 rounded-full bg-muted overflow-hidden">
-                        <div
-                          className="h-full rounded-full transition-[width] duration-500"
-                          style={{ width: `${pct}%`, background: event.primary_color ?? "#3a5fe6" }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-          )}
+                      {genderTotal > 0 && (
+                        <>
+                          <GroupRow label="Attendee demographics" />
+                          {(
+                            [
+                              ["female", "Female"],
+                              ["male", "Male"],
+                              ["other", "Other"],
+                              ["unspecified", "Not specified"],
+                            ] as const
+                          ).map(([key, label]) => {
+                            const count = genderCounts[key];
+                            if (count === 0) return null;
+                            const pct = Math.round((count / genderTotal) * 100);
+                            return <StatRow key={key} label={label} value={`${count} · ${pct}%`} bar={pct} />;
+                          })}
+                        </>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            );
+          })()}
 
           {/* Tiers manager */}
           <section className="bg-card border border-border rounded-2xl p-5 md:p-6 mb-6">

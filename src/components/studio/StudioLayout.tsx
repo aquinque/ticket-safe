@@ -34,9 +34,9 @@ interface OrganizerLite {
 const NAV_ITEMS: { key: string; label: string; to: string; icon: typeof LayoutDashboard; soon?: boolean }[] = [
   { key: "dashboard", label: "Dashboard", to: "/studio", icon: LayoutDashboard },
   { key: "events", label: "Events", to: "/studio", icon: CalendarDays },
-  { key: "sales", label: "Sales", to: "/studio", icon: LineChart, soon: true },
+  { key: "sales", label: "Sales", to: "/studio/sales", icon: LineChart },
   { key: "resale", label: "Resale", to: "/resale", icon: Repeat2 },
-  { key: "team", label: "Team / Staff", to: "/studio", icon: Users, soon: true },
+  { key: "team", label: "Team / Staff", to: "/studio/team", icon: Users },
   { key: "checkin", label: "Check-in", to: "/organizer/scan", icon: QrCode },
   { key: "payouts", label: "Payouts", to: "/studio", icon: Banknote },
   { key: "settings", label: "Settings", to: "/studio/profile", icon: Settings },
@@ -46,11 +46,6 @@ const NAV_ITEMS: { key: string; label: string; to: string; icon: typeof LayoutDa
  * App-shell layout for TicketSafe Studio: left sidebar (collapsible on
  * desktop, drawer on mobile) + topbar with org identity and account menu.
  * Renders in `.theme-studio` — light, sober, brand-500 primary, no lime.
- *
- * A few nav items (Ventes, Équipe/Vendeurs) don't have a dedicated screen
- * yet — no query/table exists to back them, so per the brief they're
- * marked "Bientôt" instead of linking to an invented empty page. See
- * TODO_DATA.md.
  */
 export const StudioLayout = ({
   children,

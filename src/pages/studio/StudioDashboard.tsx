@@ -340,14 +340,9 @@ const StudioDashboard = () => {
         </div>
 
         {/* ===== KPI cards ===== */}
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
           <KpiCard label="Tickets sold" value={stats.sold.toLocaleString("en-GB")} icon={Users} />
           <KpiCard label="Gross revenue" value={`€${(stats.revenue / 100).toLocaleString("en-GB", { maximumFractionDigits: 0 })}`} icon={TrendingUp} />
-          <KpiCard
-            label="Net revenue (after fees)"
-            value={earnings ? `€${(earnings.net_earned_cents / 100).toLocaleString("en-GB", { maximumFractionDigits: 0 })}` : "—"}
-            icon={Banknote}
-          />
           <KpiCard label="Fill rate" value={fillRate != null ? `${fillRate}%` : "—"} icon={Calendar} />
           <KpiCard
             label="Tickets resold"
