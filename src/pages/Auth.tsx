@@ -3,6 +3,7 @@ import { BackButton } from "@/components/BackButton";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Footer from "@/components/Footer";
+import { useThemeMode } from "@/hooks/useThemeMode";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,6 +30,7 @@ const SCHOOLS = [
 const CAMPUSES = ["Paris", "London", "Madrid", "Berlin", "Turin"];
 
 const Auth = () => {
+  useThemeMode("night");
   const [searchParams] = useSearchParams();
   const mode = searchParams.get('mode');
   const [isLogin, setIsLogin] = useState(mode !== 'signup');
@@ -336,7 +338,7 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="theme-night min-h-screen bg-background flex flex-col">
       <div className="absolute top-4 left-4">
         <BackButton />
       </div>

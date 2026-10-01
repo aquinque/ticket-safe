@@ -41,6 +41,7 @@ interface PublicEvent {
   status: string;
   primary_color: string;
   banner_url: string | null;
+  video_url: string | null;
   logo_url: string | null;
   og_image_url: string | null;
   seo_description: string | null;
@@ -95,6 +96,8 @@ const EventPublic = () => {
   const [attendees, setAttendees] = useState<AttendeeForm[]>([]);
   const [following, setFollowing] = useState(false);
   const [followBusy, setFollowBusy] = useState(false);
+  const [promoCode, setPromoCode] = useState("");
+  const [showPromoInput, setShowPromoInput] = useState(false);
 
   // Keep the attendees array sized to the current quantity. When quantity grows,
   // we add empty slots; when it shrinks, we trim. The first slot auto-fills from
@@ -130,7 +133,7 @@ const EventPublic = () => {
     const { data: ev } = await supabase
       .from("events")
       .select(
-        `id, title, description, date, ends_at, location, category, slug, status, primary_color, banner_url, logo_url, og_image_url, seo_description, organizer_id, max_tickets_per_buyer,
+        `id, title, description, date, ends_at, location, category, slug, status, primary_color, banner_url, video_url, logo_url, og_image_url, seo_description, organizer_id, max_tickets_per_buyer,
          organizer:organizer_profiles!events_organizer_id_fkey(id, user_id, name, slug, logo_url, primary_color, website)`,
       )
       .eq("slug", slug)
@@ -289,10 +292,11 @@ const EventPublic = () => {
 
   const handleBuy = async () => {
     if (!selectedTier) return;
-    if (!user) {
-      navigate(`/auth?mode=signup&next=/e/${slug}`);
-      return;
-    }
+    // No account required to buy — the server creates a passwordless shadow
+    // account from the first attendee's email (getOrCreateGuestAccount) when
+    // there's no Authorization header, so guest orders still have a real
+    // buyer_id for event_orders/event_tickets/RLS. Signed-in users still go
+    // through the normal authenticated path.
     // Validate the nominative form before opening checkout — the server will
     // re-validate (defense in depth) but a clear inline error is friendlier.
     for (let i = 0; i < attendees.length; i++) {
@@ -322,8 +326,15 @@ const EventPublic = () => {
         email,
         gender,
       }));
+      const first = attendees[0];
       const { data, error } = await supabase.functions.invoke("revolut-create-checkout", {
-        body: { tier_id: selectedTier, quantity: qty, attendees: attendeesPayload },
+        body: {
+          tier_id: selectedTier,
+          quantity: qty,
+          attendees: attendeesPayload,
+          ...(promoCode.trim() ? { promo_code: promoCode.trim() } : {}),
+          ...(user ? {} : { guest: { name: `${first.first_name} ${first.last_name}`.trim(), email: first.email } }),
+        },
       });
       if (error || !data?.url) {
         console.error("[event-public] checkout error:", error, data);
@@ -385,7 +396,7 @@ const EventPublic = () => {
     return (
       <div className="theme-night min-h-screen flex flex-col bg-background">
         <HeaderNight />
-        <div className="flex-1 flex items-center justify-center p-6">
+        <div className="flex-1 flex items-center justify-center p-6 pt-20 md:pt-24">
         <div className="text-center max-w-md bg-card border border-border rounded-2xl p-8 shadow-sm">
           <div className="w-14 h-14 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-4">
             <Ticket className="w-7 h-7 text-muted-foreground" strokeWidth={1.5} />
@@ -535,6 +546,41 @@ const EventPublic = () => {
           </div>
         </div>
 
+        <div className="mb-4">
+          {showPromoInput ? (
+            <div className="flex gap-2">
+              <input
+                value={promoCode}
+                onChange={(e) => setPromoCode(e.target.value)}
+                placeholder="Promo code"
+                className="flex-1 min-w-0 px-3 py-2 rounded-lg border border-border bg-background text-sm uppercase"
+              />
+              {promoCode && (
+                <button
+                  type="button"
+                  onClick={() => { setPromoCode(""); setShowPromoInput(false); }}
+                  className="text-xs font-semibold text-muted-foreground hover:text-foreground shrink-0"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowPromoInput(true)}
+              className="text-xs font-semibold text-primary hover:underline"
+            >
+              Have a promo code?
+            </button>
+          )}
+          {promoCode && (
+            <p className="text-[11px] text-muted-foreground mt-1.5">
+              Applied at payment — the discount shows on the final Revolut screen.
+            </p>
+          )}
+        </div>
+
         <div className="flex items-baseline justify-between mb-5">
           <span className="text-base md:text-lg font-semibold tracking-tight text-foreground">Total</span>
           <span style={{ color: primary }} className="text-3xl md:text-4xl font-semibold tracking-tight leading-none">
@@ -557,14 +603,14 @@ const EventPublic = () => {
                 </>
               ) : (
                 <>
-                  {user ? "Continue to payment" : "Sign in & continue"}
+                  Continue to payment
                   <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
                 </>
               )}
             </button>
             {!user && (
               <p className="text-[11px] text-muted-foreground text-center mt-2">
-                You'll create an account or sign in before paying.
+                No account needed — your ticket goes straight to the email above.
               </p>
             )}
             <div className="flex justify-center mt-3">
@@ -631,7 +677,16 @@ const EventPublic = () => {
         <div className="bg-background">
           <div className="container mx-auto max-w-5xl sm:px-4 sm:pt-4">
             <div className="relative w-full aspect-[16/9] sm:rounded-2xl overflow-hidden bg-black/20 sm:ring-1 sm:ring-white/10">
-              {event.banner_url ? (
+              {event.video_url ? (
+                <video
+                  src={event.video_url}
+                  className="absolute inset-0 w-full h-full object-cover animate-in fade-in duration-700"
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                />
+              ) : event.banner_url ? (
                 <img
                   src={event.banner_url}
                   alt={event.title}
@@ -1176,7 +1231,7 @@ const EventPublic = () => {
               className="flex-shrink-0 inline-flex items-center justify-center gap-1.5 min-h-[44px] px-5 rounded-lg font-semibold text-white text-sm disabled:opacity-60 transition-all hover:shadow-md"
               style={{ background: primary, boxShadow: buying ? "none" : `0 4px 12px ${primary}30` }}
             >
-              {buying ? <Loader2 className="w-4 h-4 animate-spin" /> : <>{user ? "Continue" : "Sign in"} <ArrowRight className="w-4 h-4" /></>}
+              {buying ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Continue <ArrowRight className="w-4 h-4" /></>}
             </button>
           </div>
         </div>

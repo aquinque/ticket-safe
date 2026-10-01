@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
-import Header from "@/components/Header";
+import HeaderNight from "@/components/HeaderNight";
+import { useThemeMode } from "@/hooks/useThemeMode";
 import Footer from "@/components/Footer";
 import { BackButton } from "@/components/BackButton";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,6 +13,7 @@ import { getEventImage } from "@/lib/eventImages";
 import { useEffect } from "react";
 
 const Messages = () => {
+  useThemeMode("night");
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const { conversations, loading } = useConversations();
@@ -21,10 +23,10 @@ const Messages = () => {
   }, [user, authLoading, navigate]);
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="theme-night min-h-screen bg-background flex flex-col">
       <SEOHead titleKey="common.appName" descriptionKey="common.appName" />
-      <Header />
-      <main className="flex-1 py-8">
+      <HeaderNight />
+      <main className="flex-1 pt-20 pb-8 md:pt-24">
         <div className="container mx-auto px-4 max-w-3xl">
           <div className="mb-6">
             <BackButton />

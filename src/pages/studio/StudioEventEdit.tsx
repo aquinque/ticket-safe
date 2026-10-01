@@ -28,6 +28,7 @@ import {
   Check,
   Share2,
   Sparkles,
+  Video,
 } from "lucide-react";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { StudioLayout } from "@/components/studio/StudioLayout";
@@ -48,6 +49,8 @@ import EventStatusBadge from "@/components/studio/EventStatusBadge";
 import EventPreviewCard from "@/components/studio/EventPreviewCard";
 import { ExternalTicketsSection } from "@/components/studio/ExternalTickets";
 import { ScanStaffPanel } from "@/components/studio/ScanStaffPanel";
+import { PromoCodesPanel } from "@/components/studio/PromoCodesPanel";
+import { GuestlistsPanel } from "@/components/studio/GuestlistsPanel";
 
 interface EventRow {
   id: string;
@@ -61,6 +64,7 @@ interface EventRow {
   slug: string | null;
   primary_color: string | null;
   banner_url: string | null;
+  video_url: string | null;
   organizer_id: string;
   published_at: string | null;
   max_tickets_per_buyer: number | null;
@@ -85,6 +89,8 @@ interface TierRow {
   // 'external' tiers are imported partner/club allocations — managed in the
   // dedicated External tickets section, not the native tier editor below.
   source: "platform" | "external" | null;
+  kind: "ticket" | "table";
+  capacity_per_unit: number;
 }
 
 interface OrderRow {
@@ -96,6 +102,8 @@ interface OrderRow {
   status: string;
   created_at: string;
   tier_id: string;
+  promo_code_id: string | null;
+  discount_cents: number | null;
 }
 
 interface AttendeeRow {
@@ -200,7 +208,7 @@ const StudioEventEdit = () => {
       supabase.from("event_tiers").select("*").eq("event_id", id).order("sort_order"),
       supabase
         .from("event_orders")
-        .select("id, buyer_email, quantity, total_cents, fee_cents, status, created_at, tier_id")
+        .select("id, buyer_email, quantity, total_cents, fee_cents, status, created_at, tier_id, promo_code_id, discount_cents")
         .eq("event_id", id)
         .order("created_at", { ascending: false })
         .limit(500),
@@ -777,6 +785,36 @@ const StudioEventEdit = () => {
             </section>
           )}
 
+          {/* Tables & promo codes — quick aggregate stats, full management in
+              the panels further down (tables are just tiers flagged "table",
+              see event_tiers.kind; promo codes in PromoCodesPanel). */}
+          {(tiers.some((t) => t.kind === "table") || orders.some((o) => o.promo_code_id)) && (
+            <section className="bg-card border border-border rounded-2xl p-5 md:p-6 mb-6">
+              <h2 className="text-lg font-bold mb-4">Tables & promo codes</h2>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {(() => {
+                  const tableTiers = tiers.filter((t) => t.kind === "table");
+                  const tablesSold = tableTiers.reduce((a, t) => a + t.sold_qty, 0);
+                  const peopleViaTables = tableTiers.reduce((a, t) => a + t.sold_qty * (t.capacity_per_unit || 1), 0);
+                  const promoOrders = orders.filter((o) => o.promo_code_id && o.status === "paid");
+                  const totalDiscountCents = promoOrders.reduce((a, o) => a + (o.discount_cents ?? 0), 0);
+                  const cards = [
+                    { label: "Tables sold", value: tablesSold },
+                    { label: "People via tables", value: peopleViaTables },
+                    { label: "Orders with a code", value: promoOrders.length },
+                    { label: "Total discounted", value: `€${(totalDiscountCents / 100).toFixed(0)}` },
+                  ];
+                  return cards.map((c) => (
+                    <div key={c.label} className="rounded-xl bg-muted/40 border border-border p-3 text-center">
+                      <div className="text-xl font-black tabular-nums">{c.value}</div>
+                      <div className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mt-0.5">{c.label}</div>
+                    </div>
+                  ));
+                })()}
+              </div>
+            </section>
+          )}
+
           {/* Attendee demographics — gender breakdown from the nominative
               purchase form, so organizers can see who's actually coming. */}
           {genderTotal > 0 && (
@@ -947,6 +985,10 @@ const StudioEventEdit = () => {
           {/* Door-scan access for staff/volunteers — no login needed, see
               src/components/studio/ScanStaffPanel.tsx */}
           <ScanStaffPanel eventId={event.id} />
+
+          <PromoCodesPanel eventId={event.id} />
+
+          <GuestlistsPanel eventId={event.id} />
       </div>
 
       {/* Cancel-event confirmation dialog. Surfaces the real impact (buyer
@@ -1329,6 +1371,9 @@ const EventDetailsEditor = ({
   const [slug, setSlug] = useState(event.slug ?? "");
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [bannerPreview, setBannerPreview] = useState<string | null>(event.banner_url ?? null);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [videoPreview, setVideoPreview] = useState<string | null>(event.video_url ?? null);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
   const [cropSrc, setCropSrc] = useState<string | null>(null);
   const [cropOpen, setCropOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -1345,6 +1390,8 @@ const EventDetailsEditor = ({
     setSlug(event.slug ?? "");
     setBannerPreview(event.banner_url ?? null);
     setBannerFile(null);
+    setVideoPreview(event.video_url ?? null);
+    setVideoFile(null);
   }, [event]);
 
   const onCropped = (file: File) => {
@@ -1361,6 +1408,18 @@ const EventDetailsEditor = ({
     }
     setCropSrc(URL.createObjectURL(f));
     setCropOpen(true);
+    e.target.value = "";
+  };
+
+  const onVideoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (f.size > 50 * 1024 * 1024) {
+      toast.error("Video must be under 50 MB.");
+      return;
+    }
+    setVideoFile(f);
+    setVideoPreview(URL.createObjectURL(f));
     e.target.value = "";
   };
 
@@ -1396,6 +1455,21 @@ const EventDetailsEditor = ({
         bannerUrl = pub.publicUrl;
       }
 
+      // Upload a new promo video if the user picked one
+      let videoUrl = event.video_url;
+      if (videoFile && userId) {
+        setUploadingVideo(true);
+        const ext = videoFile.name.split(".").pop()?.toLowerCase() ?? "mp4";
+        const path = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const { error: vidErr } = await supabase.storage
+          .from("event-media")
+          .upload(path, videoFile, { cacheControl: "3600", upsert: false, contentType: videoFile.type || "video/mp4" });
+        setUploadingVideo(false);
+        if (vidErr) throw new Error(`Video upload failed: ${vidErr.message}`);
+        const { data: pub } = supabase.storage.from("event-media").getPublicUrl(path);
+        videoUrl = pub.publicUrl;
+      }
+
       // Check slug uniqueness if it changed
       const finalSlug = slug;
       if (finalSlug !== event.slug) {
@@ -1421,6 +1495,7 @@ const EventDetailsEditor = ({
         primary_color: primaryColor.toUpperCase(),
         slug: finalSlug,
         banner_url: bannerUrl,
+        video_url: videoUrl,
       };
 
       const { error: updErr } = await supabase
@@ -1576,6 +1651,39 @@ const EventDetailsEditor = ({
 
           <ImageCropDialog src={cropSrc} open={cropOpen} onOpenChange={setCropOpen} onCropped={onCropped} />
 
+          <Field label="Promo video (optional)" icon={Video} hint="Autoplays muted on your event page. Max 50 MB.">
+            {videoPreview ? (
+              <div className="relative rounded-xl overflow-hidden">
+                <video src={videoPreview} className="w-full aspect-[16/9] object-cover" muted loop autoPlay playsInline />
+                <div className="absolute top-2 right-2 flex gap-2">
+                  <label className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-black/60 text-white text-xs font-bold cursor-pointer hover:bg-black/75">
+                    <Pencil className="w-3 h-3" />
+                    Replace
+                    <input type="file" accept="video/mp4,video/webm,video/quicktime" onChange={onVideoChange} className="hidden" />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => { setVideoFile(null); setVideoPreview(null); }}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-black/60 text-white text-xs font-bold hover:bg-black/75"
+                  >
+                    Remove
+                  </button>
+                </div>
+                {uploadingVideo && (
+                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                    <Loader2 className="w-6 h-6 text-white animate-spin" />
+                  </div>
+                )}
+              </div>
+            ) : (
+              <label className="flex flex-col items-center justify-center aspect-[16/9] rounded-xl border-2 border-dashed border-border bg-muted/30 cursor-pointer hover:border-primary/50">
+                <Video className="w-7 h-7 text-muted-foreground mb-1" />
+                <span className="text-sm font-semibold text-muted-foreground">Click to upload a promo video</span>
+                <input type="file" accept="video/mp4,video/webm,video/quicktime" onChange={onVideoChange} className="hidden" />
+              </label>
+            )}
+          </Field>
+
           <Field
             label="Public URL slug"
             icon={Tag}
@@ -1728,6 +1836,8 @@ const TierEditor = ({
     sales_start_at: toLocalInput(tier.sales_start_at),
     sales_end_at: toLocalInput(tier.sales_end_at),
     max_per_order: tier.max_per_order != null ? String(tier.max_per_order) : "",
+    kind: tier.kind ?? "ticket",
+    capacity_per_unit: String(tier.capacity_per_unit ?? 1),
   });
   const dirty =
     draft.name !== tier.name ||
@@ -1737,7 +1847,9 @@ const TierEditor = ({
     draft.is_active !== tier.is_active ||
     draft.sales_start_at !== toLocalInput(tier.sales_start_at) ||
     draft.sales_end_at !== toLocalInput(tier.sales_end_at) ||
-    draft.max_per_order !== (tier.max_per_order != null ? String(tier.max_per_order) : "");
+    draft.max_per_order !== (tier.max_per_order != null ? String(tier.max_per_order) : "") ||
+    draft.kind !== (tier.kind ?? "ticket") ||
+    draft.capacity_per_unit !== String(tier.capacity_per_unit ?? 1);
 
   const available = tier.total_qty - tier.sold_qty - tier.reserved_qty;
 
@@ -1833,6 +1945,34 @@ const TierEditor = ({
             <p className="text-[10px] text-muted-foreground mt-1">e.g. "2" for VIP, leave blank otherwise.</p>
           </div>
         </div>
+
+        <div className="mt-3 pt-3 border-t border-border">
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={draft.kind === "table"}
+              onChange={(e) => setDraft((d) => ({ ...d, kind: e.target.checked ? "table" : "ticket" }))}
+              className="mt-0.5 w-4 h-4"
+            />
+            <div className="flex-1">
+              <div className="font-bold text-sm text-foreground">This is a table, not a single ticket</div>
+              <div className="text-xs text-muted-foreground mt-0.5">Price above is still per person seated at it.</div>
+            </div>
+          </label>
+          {draft.kind === "table" && (
+            <div className="mt-2 max-w-[160px]">
+              <label className="text-xs font-bold text-muted-foreground mb-1 block">People per table</label>
+              <input
+                type="number"
+                value={draft.capacity_per_unit}
+                onChange={(e) => setDraft((d) => ({ ...d, capacity_per_unit: e.target.value }))}
+                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm"
+                min="2"
+                max="30"
+              />
+            </div>
+          )}
+        </div>
       </details>
 
       <div className="flex items-center justify-between gap-3 mt-3">
@@ -1860,6 +2000,8 @@ const TierEditor = ({
                 max_per_order: draft.max_per_order.trim()
                   ? Math.max(1, Math.min(50, Number(draft.max_per_order)))
                   : 10,
+                kind: draft.kind,
+                capacity_per_unit: draft.kind === "table" ? Math.max(1, Number(draft.capacity_per_unit) || 1) : 1,
               })
             }
             className="inline-flex items-center gap-1.5 px-3 min-h-[36px] rounded-lg text-sm font-bold bg-primary text-primary-foreground"

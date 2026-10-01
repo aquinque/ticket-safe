@@ -37,6 +37,9 @@ export interface TicketListing {
   basePrice: number | null;
   /** ISO timestamp until which the listing is a paid "Featured" boost, or null. */
   boostedUntil: string | null;
+  /** Seller-uploaded listing photo/video (listing-media bucket), or null — falls back to the brand-gradient placeholder. */
+  photoUrl: string | null;
+  videoUrl: string | null;
 }
 
 interface TicketListingsContextType {
@@ -70,6 +73,8 @@ interface RawListingRow {
   qr_verified: boolean | null;
   created_at: string;
   boosted_until: string | null;
+  photo_url: string | null;
+  video_url: string | null;
   event: {
     id: string;
     title: string;
@@ -98,6 +103,8 @@ async function fetchAvailableListings(): Promise<TicketListing[]> {
       qr_verified,
       created_at,
       boosted_until,
+      photo_url,
+      video_url,
       event:events (
         id,
         title,
@@ -155,6 +162,8 @@ async function fetchAvailableListings(): Promise<TicketListing[]> {
       campus: ev?.campus ?? null,
       basePrice: ev?.base_price ?? null,
       boostedUntil: row.boosted_until ?? null,
+      photoUrl: row.photo_url ?? null,
+      videoUrl: row.video_url ?? null,
     };
   });
 }

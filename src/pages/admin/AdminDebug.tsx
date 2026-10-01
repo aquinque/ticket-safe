@@ -164,14 +164,14 @@ const AdminDebug = () => {
               <HealthCard label="Pending tx (live)" value={health.pending_transactions} bad={health.pending_transactions > 5} />
               <HealthCard label="Listings awaiting review" value={health.pending_reviews} bad={false} cta={{ label: "Open queue", href: "/admin/review" }} />
               <HealthCard label="SEPA payouts requested" value={health.pending_payouts} bad={false} cta={{ label: "Open payouts", href: "/admin/payouts" }} />
-              <HealthCard label="Total webhook deliveries" value={webhooks.length} bad={false} hint="Showing last 40" />
+              <HealthCard label="Stripe webhook deliveries (legacy)" value={webhooks.length} bad={false} hint="Historical — Stripe is inactive since the Revolut migration" />
             </div>
           )}
 
           {/* Webhook events */}
           <section className="bg-card border border-border rounded-2xl p-5 md:p-6 mb-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-black inline-flex items-center gap-2"><Webhook className="w-4 h-4" />Stripe webhook deliveries</h2>
+              <h2 className="text-lg font-black inline-flex items-center gap-2"><Webhook className="w-4 h-4" />Stripe webhook deliveries (legacy — inactive since the Revolut migration)</h2>
               <span className="text-xs text-muted-foreground">{webhooks.length} shown</span>
             </div>
             {webhooks.length === 0 ? (

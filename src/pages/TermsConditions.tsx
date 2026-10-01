@@ -148,7 +148,7 @@ const TermsConditions = () => {
                     </p>
                     <ul className="list-disc pl-6 space-y-2">
                       <li>You enter into a binding contract with the seller</li>
-                      <li>Payment is processed securely through our payment partner (Revolut/Stripe)</li>
+                      <li>Payment is processed securely through our payment partner (Revolut)</li>
                       <li>Funds are held in escrow until ticket transfer is confirmed</li>
                       <li>You agree to pay the ticket price plus a 6% platform fee</li>
                     </ul>
@@ -241,7 +241,7 @@ const TermsConditions = () => {
 
                     <h3 className="font-semibold text-foreground text-lg mt-4">6.2 Payment Processing</h3>
                     <p>
-                      Payments are processed through our secure payment partners (Revolut Business/Stripe). By using TicketSafe, you agree to their respective terms of service.
+                      Payments are processed through our secure payment partner (Revolut Business). By using TicketSafe, you agree to their terms of service.
                     </p>
 
                     <h3 className="font-semibold text-foreground text-lg mt-4">6.3 Escrow System</h3>

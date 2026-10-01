@@ -15,11 +15,7 @@ import Auth from "./pages/Auth";
 
 // Lazy: every other route. Each gets its own chunk loaded on demand.
 const Tickets = lazy(() => import("./pages/Tickets"));
-const Events = lazy(() => import("./pages/Events"));
-const Marketplace = lazy(() => import("./pages/Marketplace"));
-const EventDetail = lazy(() => import("./pages/EventDetail"));
 const EventTicketsMarketplace = lazy(() => import("./pages/EventTicketsMarketplace"));
-const BuyTicket = lazy(() => import("./pages/BuyTicket"));
 const Sell = lazy(() => import("./pages/Sell"));
 const MarketplaceBuy = lazy(() => import("./pages/marketplace/Buy"));
 const MarketplaceSell = lazy(() => import("./pages/marketplace/Sell"));
@@ -93,11 +89,11 @@ const App = () => (
         <Route path="/resale" element={<Navigate to="/marketplace/buy" replace />} />
         <Route path="/marketplace" element={<Navigate to="/tickets" replace />} />
         <Route path="/catalog" element={<Navigate to="/tickets" replace />} />
-        <Route path="/events" element={<Events />} />
-        <Route path="/events/:id" element={<Events />} />
-        <Route path="/event/:eventId" element={<EventDetail />} />
+        <Route path="/events" element={<Navigate to="/tickets" replace />} />
+        <Route path="/events/:id" element={<Navigate to="/tickets" replace />} />
+        <Route path="/event/:eventId" element={<Navigate to="/tickets" replace />} />
         <Route path="/event/:eventId/tickets" element={<EventTicketsMarketplace />} />
-        <Route path="/buy-ticket/:listingId" element={<BuyTicket />} />
+        <Route path="/buy-ticket/:listingId" element={<Navigate to="/marketplace/buy" replace />} />
         <Route path="/sell" element={<Sell />} />
         <Route path="/marketplace/buy" element={<MarketplaceBuy />} />
         <Route path="/marketplace/sell" element={<MarketplaceSell />} />

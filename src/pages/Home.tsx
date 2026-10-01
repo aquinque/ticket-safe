@@ -5,7 +5,6 @@ import {
   QrCode,
   ShieldCheck,
   Lock,
-  GraduationCap,
   Repeat2,
   LayoutDashboard,
 } from "lucide-react";
@@ -25,24 +24,6 @@ import { useThemeMode } from "@/hooks/useThemeMode";
 import { partnerLogos } from "@/config/partnerLogos";
 import { supabase } from "@/integrations/supabase/client";
 import type { EventData } from "@/data/eventsData";
-
-const HOW_IT_WORKS = [
-  {
-    icon: GraduationCap,
-    title: "Verify your student email",
-    desc: "Sign up in 30 seconds with your school email. Students only.",
-  },
-  {
-    icon: Repeat2,
-    title: "Buy or resell",
-    desc: "Official tickets from your student union, or find/list a ticket on resale.",
-  },
-  {
-    icon: QrCode,
-    title: "Unique QR, protected payment",
-    desc: "The QR lands in your inbox. Payment is only released once the ticket is validated.",
-  },
-];
 
 const FAQS = [
   {
@@ -108,15 +89,15 @@ const Home = () => {
   return (
     <div className="theme-night min-h-screen flex flex-col bg-background">
       <SEOHead
-        title="TicketSafe — Your student nights. Zero scams."
-        description="Buy tickets directly from your student union, or resell yours safely."
+        title="TicketSafe — Your student nights."
+        description="Buy tickets directly from your student union, or organization, or resell yours safely."
       />
 
       <HeaderNight />
 
       <main className="flex-1">
         {/* ============ HERO ============ */}
-        <section className="relative min-h-[100svh] flex items-end md:items-center overflow-hidden">
+        <section className="relative flex items-center md:min-h-[100svh] overflow-hidden">
           {/* Placeholder gradient background — swap for a real event photo/video
               once supplied. Expected location: public/hero/ (e.g.
               public/hero/home.jpg or .mp4), see TODO_DATA.md. */}
@@ -130,18 +111,16 @@ const Home = () => {
           {/* ~70% darkening overlay, ready for when a real photo sits behind it */}
           <div className="absolute inset-0 bg-black/70" />
 
-          <div className="relative container mx-auto px-4 pb-10 pt-28 md:pt-0 md:pb-0">
+          <div className="relative container mx-auto px-4 pb-10 pt-24 md:pt-0 md:pb-0">
             <div className="max-w-2xl">
               <h1
                 className="font-display font-bold text-foreground text-[40px] leading-[1.05] md:text-7xl lg:text-8xl mb-4 md:mb-6"
                 style={{ letterSpacing: "-0.02em" }}
               >
                 Your student nights.
-                <br />
-                Zero scams.
               </h1>
               <p className="text-base md:text-xl text-muted-foreground mb-7 md:mb-9 max-w-lg">
-                Buy tickets directly from your student union, or resell yours safely.
+                Buy tickets directly from your student union, or organization, or resell your ticket safely.
               </p>
 
               <div className="flex flex-col sm:flex-row gap-3 mb-7 md:mb-9">
@@ -152,7 +131,7 @@ const Home = () => {
                   </Link>
                 </Button>
                 <Button variant="outline" size="lg" asChild className="border-white/25 text-foreground hover:bg-white/5">
-                  <Link to="/sell">Resell my ticket</Link>
+                  <Link to="/marketplace/buy">Resell my ticket</Link>
                 </Button>
               </div>
 
@@ -228,31 +207,6 @@ const Home = () => {
           </section>
         )}
 
-        {/* ============ HOW IT WORKS ============ */}
-        <section className="py-14 md:py-20 border-t border-border">
-          <div className="container mx-auto px-4">
-            <h2 className="font-display font-bold text-2xl md:text-3xl text-foreground text-center mb-10 md:mb-14" style={{ letterSpacing: "-0.02em" }}>
-              How it works
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-10 max-w-4xl mx-auto">
-              {HOW_IT_WORKS.map((step, i) => {
-                const Icon = step.icon;
-                return (
-                  <div key={step.title} className="text-center">
-                    <div className="w-14 h-14 rounded-full bg-secondary flex items-center justify-center mx-auto mb-4">
-                      <Icon className="w-6 h-6 text-primary" />
-                    </div>
-                    <div className="text-xs font-bold text-primary mb-1.5">{`0${i + 1}`}</div>
-                    <h3 className="font-display font-bold text-lg text-foreground mb-2" style={{ letterSpacing: "-0.02em" }}>
-                      {step.title}
-                    </h3>
-                    <p className="text-sm text-muted-foreground leading-relaxed">{step.desc}</p>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </section>
 
         {/* ============ ORGANIZERS SECTION ============ */}
         <section className="py-14 md:py-20 bg-secondary/50 border-t border-border">
@@ -277,9 +231,11 @@ const Home = () => {
                   </li>
                 </ul>
                 <p className="font-display font-bold text-3xl md:text-5xl text-foreground mb-1" style={{ letterSpacing: "-0.02em" }}>
-                  €1.40 per ticket.
+                  0% commission.
                 </p>
-                <p className="text-sm text-muted-foreground mb-6">That's it.</p>
+                <p className="text-sm text-muted-foreground mb-6">
+                  You keep 100% of the ticket price — 0% fees for organizers, always.
+                </p>
                 <Button variant="buy" size="lg" asChild>
                   <Link to="/organizers">
                     Launch my event with TicketSafe Studio

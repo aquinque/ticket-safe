@@ -273,11 +273,10 @@ const CookiePolicy = () => {
                       </div>
 
                       <div className="bg-muted/50 p-4 rounded-lg">
-                        <h4 className="font-semibold text-foreground mb-2">Revolut Business / Stripe (Payment Processing)</h4>
+                        <h4 className="font-semibold text-foreground mb-2">Revolut Business (Payment Processing)</h4>
                         <p className="text-sm mb-2">Purpose: Secure payment processing and transaction handling</p>
                         <p className="text-xs">
-                          Revolut Privacy: <a href="https://www.revolut.com/legal/privacy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">revolut.com/legal/privacy</a><br/>
-                          Stripe Privacy: <a href="https://stripe.com/privacy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">stripe.com/privacy</a>
+                          Revolut Privacy: <a href="https://www.revolut.com/legal/privacy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">revolut.com/legal/privacy</a>
                         </p>
                       </div>
 

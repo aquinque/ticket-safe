@@ -17,6 +17,13 @@
  *   passwordless shadow account for that email via getOrCreateGuestAccount,
  *   so every downstream table (event_orders, event_tickets, RLS) keeps
  *   working exactly as it does for a logged-in buyer.
+ *
+ * Promo codes (optional `promo_code` in the body):
+ *   Validated against event_promo_codes for this event, discounts the
+ *   ticket subtotal only (never the flat €1.40 buyer fee), capped so the
+ *   discount can never exceed the subtotal. used_count is bumped
+ *   optimistically (same pattern as reserve_tier) and rolled back on any
+ *   later failure.
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -59,6 +66,14 @@ serve(async (req) => {
   const releaseReservation = async () => {
     if (reservedTierId && reservedQty > 0) await supabase.rpc("release_tier_reservation", { p_tier_id: reservedTierId, p_qty: reservedQty });
   };
+  let promoCodeId: string | null = null;
+  let usedPromoCode = false;
+  const releasePromoUse = async () => {
+    if (usedPromoCode && promoCodeId) {
+      const { data: current } = await supabase.from("event_promo_codes").select("used_count").eq("id", promoCodeId).maybeSingle();
+      if (current) await supabase.from("event_promo_codes").update({ used_count: Math.max(0, current.used_count - 1) }).eq("id", promoCodeId);
+    }
+  };
 
   try {
     const authHeader = req.headers.get("Authorization");
@@ -70,7 +85,7 @@ serve(async (req) => {
 
     interface AttendeeIn { first_name?: string; last_name?: string; email?: string; gender?: string; }
     interface GuestIn { name?: string; email?: string; }
-    let body: { tier_id?: string; quantity?: number; attendees?: AttendeeIn[]; guest?: GuestIn };
+    let body: { tier_id?: string; quantity?: number; attendees?: AttendeeIn[]; guest?: GuestIn; promo_code?: string };
     try { body = await req.json(); } catch { return json({ error: "Invalid JSON" }, 400); }
 
     let buyerId: string;
@@ -154,12 +169,44 @@ serve(async (req) => {
     reservedTierId = tierId;
     reservedQty = quantity;
 
-    // Fee math: a flat €1.40 service tax per ticket for the buyer.
-    // Ticket Safe takes no fee from the organizer, at checkout or withdrawal.
+    // Promo code (optional) — discounts the ticket price only, never the
+    // flat buyer service tax. Validated against this event specifically.
+    let discountCents = 0;
+    const rawPromoCode = (body.promo_code ?? "").trim().toUpperCase();
+    if (rawPromoCode) {
+      const { data: promo } = await supabase
+        .from("event_promo_codes")
+        .select("id, discount_type, discount_value, max_uses, used_count, is_active, expires_at")
+        .eq("event_id", ev.id)
+        .eq("code", rawPromoCode)
+        .maybeSingle();
+      if (!promo || !promo.is_active || (promo.expires_at && new Date(promo.expires_at).getTime() < Date.now()) || (promo.max_uses != null && promo.used_count >= promo.max_uses)) {
+        await releaseReservation();
+        return json({ error: "This promo code is invalid or has expired." }, 400);
+      }
+      const subtotalForDiscount = tier.price_cents * quantity;
+      discountCents = promo.discount_type === "percent"
+        ? Math.round(subtotalForDiscount * (promo.discount_value / 100))
+        : Math.min(promo.discount_value, subtotalForDiscount);
+      promoCodeId = promo.id;
+      // Optimistic increment, mirroring reserve_tier's optimistic hold — rolled
+      // back via releasePromoUse() if anything downstream fails.
+      const { error: incErr } = await supabase
+        .from("event_promo_codes")
+        .update({ used_count: promo.used_count + 1 })
+        .eq("id", promo.id)
+        .eq("used_count", promo.used_count);
+      if (incErr) { await releaseReservation(); return json({ error: "This promo code was just claimed by someone else. Please try again." }, 409); }
+      usedPromoCode = true;
+    }
+
+    // Fee math: a flat €1.40 service tax per ticket for the buyer, on top of
+    // the ticket price minus any promo discount. Ticket Safe takes no fee
+    // from the organizer, at checkout or withdrawal.
     const unitPrice = tier.price_cents;
     const subtotal = unitPrice * quantity;
     const buyerFeeCents = SERVICE_TAX_CENTS * quantity;
-    const totalCents = subtotal + buyerFeeCents;
+    const totalCents = subtotal - discountCents + buyerFeeCents;
     const orderFeeCents = buyerFeeCents;
 
     const { data: order, error: orderErr } = await supabase
@@ -169,9 +216,10 @@ serve(async (req) => {
         quantity, unit_price_cents: unitPrice, total_cents: totalCents, fee_cents: orderFeeCents,
         currency: tier.currency ?? "EUR", status: "pending", buyer_email: buyerEmail,
         attendees: attendees.length > 0 ? attendees : null,
+        promo_code_id: promoCodeId, discount_cents: discountCents,
       })
       .select("id").single();
-    if (orderErr || !order) { await releaseReservation(); return json({ error: "Could not create order." }, 500); }
+    if (orderErr || !order) { await releaseReservation(); await releasePromoUse(); return json({ error: "Could not create order." }, 500); }
     orderId = order.id;
 
     // Create the Revolut order (hosted checkout). We verify completion later
@@ -200,6 +248,7 @@ serve(async (req) => {
     if (!revRes.ok || !revOrder.checkout_url || !revOrder.id) {
       console.error("[revolut-create-checkout] revolut order failed:", revRes.status, revText);
       await releaseReservation();
+      await releasePromoUse();
       if (orderId) await supabase.from("event_orders").update({ status: "cancelled", cancelled_at: new Date().toISOString() }).eq("id", orderId);
       return json({ error: "Could not start the Revolut checkout. Please try again." }, 502);
     }
@@ -211,6 +260,7 @@ serve(async (req) => {
   } catch (err) {
     console.error("[revolut-create-checkout] unexpected:", err);
     await releaseReservation();
+    await releasePromoUse();
     if (orderId) await supabase.from("event_orders").update({ status: "cancelled", cancelled_at: new Date().toISOString() }).eq("id", orderId);
     return json({ error: err instanceof Error ? err.message : "Unexpected error" }, 500);
   }

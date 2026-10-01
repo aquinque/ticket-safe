@@ -80,10 +80,20 @@ serve(async (req) => {
     let body: Record<string, unknown>;
     try { body = await req.json(); } catch { return jsonResponse({ code: "INVALID_FORMAT", message: "Request body must be valid JSON" }, 400); }
 
-    const { eventId, sellingPrice, quantity, notes, qrText, extractedText, fileBase64, fileName } = body as {
+    const { eventId, sellingPrice, quantity, notes, qrText, extractedText, fileBase64, fileName, photoUrl, videoUrl } = body as {
       eventId?: unknown; sellingPrice?: unknown; quantity?: unknown; notes?: unknown; qrText?: unknown;
       extractedText?: unknown; fileBase64?: unknown; fileName?: unknown; fileMimeType?: unknown;
+      photoUrl?: unknown; videoUrl?: unknown;
     };
+
+    // Photo/video are already-uploaded public URLs (client uploads straight to
+    // the listing-media storage bucket, owner-scoped by RLS) — we just trust
+    // and store the URL here, same pattern as event banner uploads. Reject
+    // anything that isn't actually our own bucket to stop this becoming an
+    // open URL-injection field.
+    const LISTING_MEDIA_RE = /^https:\/\/[a-z0-9-]+\.supabase\.co\/storage\/v1\/object\/public\/listing-media\//;
+    const sanitizedPhotoUrl = typeof photoUrl === "string" && LISTING_MEDIA_RE.test(photoUrl) ? photoUrl : null;
+    const sanitizedVideoUrl = typeof videoUrl === "string" && LISTING_MEDIA_RE.test(videoUrl) ? videoUrl : null;
 
     if (!eventId || typeof eventId !== "string" || eventId.trim() === "") return jsonResponse({ code: "INVALID_FORMAT", message: "eventId is required" }, 400);
     if (!qrText || typeof qrText !== "string" || qrText.trim() === "") return jsonResponse({ code: "INVALID_FORMAT", message: "QR code text is required" }, 400);
@@ -248,8 +258,10 @@ serve(async (req) => {
         needs_review: needsReview,
         verification_status: isStudioResale ? "verified" : "pending",
         studio_ticket_id: linkedStudioTicketId,
+        photo_url: sanitizedPhotoUrl,
+        video_url: sanitizedVideoUrl,
       })
-      .select("id, event_id, seller_id, selling_price, quantity, notes, status, qr_verified, needs_review, created_at, updated_at, event:events(id, title, date, location, category, university, campus)")
+      .select("id, event_id, seller_id, selling_price, quantity, notes, status, qr_verified, needs_review, created_at, updated_at, photo_url, video_url, event:events(id, title, date, location, category, university, campus)")
       .single();
     if (fullInsert.error) {
       if (fullInsert.error.code === "23505") return jsonResponse({ code: "ALREADY_LISTED", message: "This ticket is already listed on the marketplace" }, 409);

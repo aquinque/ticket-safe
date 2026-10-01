@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import Header from "@/components/Header";
+import HeaderNight from "@/components/HeaderNight";
+import { useThemeMode } from "@/hooks/useThemeMode";
 import Footer from "@/components/Footer";
 import { BackButton } from "@/components/BackButton";
 import { useAuth } from "@/hooks/useAuth";
@@ -114,6 +115,7 @@ const StatusBadge = ({ status }: { status: string }) => {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 const MyListings = () => {
+  useThemeMode("night");
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -360,9 +362,9 @@ const MyListings = () => {
   // ── Loading / auth guard ───────────────────────────────────────────────────
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen bg-background">
-        <Header />
-        <main className="py-16 flex items-center justify-center">
+      <div className="theme-night min-h-screen bg-background">
+        <HeaderNight />
+        <main className="pt-20 pb-16 md:pt-24 flex items-center justify-center">
           <div className="text-center">
             <div className="animate-spin rounded-[9999px] h-12 w-12 border-b-2 border-primary mx-auto mb-4" />
             <p className="text-muted-foreground">Loading your listings…</p>
@@ -376,9 +378,9 @@ const MyListings = () => {
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <Header />
-      <main className="flex-1 py-10">
+    <div className="theme-night min-h-screen bg-background flex flex-col">
+      <HeaderNight />
+      <main className="flex-1 pt-20 pb-10 md:pt-24">
         <div className="container mx-auto px-4 max-w-5xl">
           <div className="mb-6">
             <BackButton />

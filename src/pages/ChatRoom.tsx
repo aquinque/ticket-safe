@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import Header from "@/components/Header";
+import HeaderNight from "@/components/HeaderNight";
+import { useThemeMode } from "@/hooks/useThemeMode";
 import Footer from "@/components/Footer";
 import { BackButton } from "@/components/BackButton";
 import { Card, CardContent } from "@/components/ui/card";
@@ -39,6 +40,7 @@ interface ConversationMeta {
 }
 
 const ChatRoom = () => {
+  useThemeMode("night");
   const { conversationId } = useParams();
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
@@ -153,9 +155,9 @@ const ChatRoom = () => {
 
   if (!conversationId || (!loading && !meta)) {
     return (
-      <div className="min-h-screen bg-background flex flex-col">
-        <Header />
-        <main className="flex-1 py-12 flex items-center justify-center">
+      <div className="theme-night min-h-screen bg-background flex flex-col">
+        <HeaderNight />
+        <main className="flex-1 pt-16 pb-12 md:pt-20 flex items-center justify-center">
           <p className="text-muted-foreground">Conversation not found.</p>
         </main>
         <Footer />
@@ -173,8 +175,8 @@ const ChatRoom = () => {
   return (
     <div className="h-dvh bg-background flex flex-col overflow-hidden">
       <SEOHead titleKey="common.appName" descriptionKey="common.appName" />
-      <Header />
-      <main className="flex-1 flex flex-col overflow-hidden">
+      <HeaderNight />
+      <main className="flex-1 flex flex-col overflow-hidden pt-16 md:pt-20">
         <div className="container mx-auto px-4 max-w-2xl flex flex-col flex-1 py-4 overflow-hidden">
           {/* Top bar */}
           <div className="flex items-center gap-3 mb-4">
@@ -200,12 +202,12 @@ const ChatRoom = () => {
 
           {/* Accepted offer banner */}
           {acceptedOffer && (
-            <div className="mb-3 p-3 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg flex items-center justify-between gap-3">
+            <div className="mb-3 p-3 bg-success/10 border border-success/30 rounded-lg flex items-center justify-between gap-3">
               <div>
-                <p className="text-sm font-semibold text-green-800 dark:text-green-200">
+                <p className="text-sm font-semibold text-success">
                   Offer accepted — €{acceptedOffer.price.toFixed(2)}
                 </p>
-                <p className="text-xs text-green-600 dark:text-green-400">
+                <p className="text-xs text-success/80">
                   {isBuyer ? "Proceed to checkout to complete your purchase." : "Waiting for buyer to complete payment."}
                 </p>
               </div>
@@ -220,8 +222,8 @@ const ChatRoom = () => {
 
           {/* Pending offer banner */}
           {latestPendingOffer && !acceptedOffer && (
-            <div className="mb-3 p-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg">
-              <p className="text-sm font-semibold text-amber-800 dark:text-amber-200 mb-2">
+            <div className="mb-3 p-3 bg-warning/10 border border-warning/30 rounded-lg">
+              <p className="text-sm font-semibold text-warning mb-2">
                 {latestPendingOffer.proposer_id === userId ? "You" : otherName} proposed €
                 {latestPendingOffer.price.toFixed(2)}
               </p>
@@ -238,7 +240,7 @@ const ChatRoom = () => {
                 </div>
               )}
               {latestPendingOffer.proposer_id === userId && (
-                <p className="text-xs text-amber-600 dark:text-amber-400">
+                <p className="text-xs text-warning/80">
                   Waiting for {otherName} to respond...
                 </p>
               )}

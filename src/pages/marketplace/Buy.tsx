@@ -145,6 +145,8 @@ interface EventGroup {
   minPrice: number;
   totalAvailable: number;
   hasBoosted: boolean;
+  photoUrl: string | null;
+  videoUrl: string | null;
 }
 
 function groupByEvent(listings: TicketListing[]): EventGroup[] {
@@ -164,6 +166,8 @@ function groupByEvent(listings: TicketListing[]): EventGroup[] {
         minPrice: Infinity,
         totalAvailable: 0,
         hasBoosted: false,
+        photoUrl: null,
+        videoUrl: null,
       });
     }
     const g = map.get(eid)!;
@@ -172,13 +176,16 @@ function groupByEvent(listings: TicketListing[]): EventGroup[] {
     if (l.sellingPrice < g.minPrice) g.minPrice = l.sellingPrice;
     if (isBoosted(l)) g.hasBoosted = true;
   }
-  // Sort tickets within each group: boosted first, then cheapest.
+  // Sort tickets within each group: boosted first, then cheapest. The first
+  // ticket with real media wins the card's hero image/video.
   for (const g of map.values()) {
     g.tickets.sort((a, b) => {
       const ab = Number(isBoosted(b)) - Number(isBoosted(a));
       if (ab !== 0) return ab;
       return a.sellingPrice - b.sellingPrice;
     });
+    g.photoUrl = g.tickets.find((t) => t.photoUrl)?.photoUrl ?? null;
+    g.videoUrl = g.tickets.find((t) => t.videoUrl)?.videoUrl ?? null;
   }
   return Array.from(map.values());
 }
@@ -352,14 +359,6 @@ const Buy = () => {
         className="relative overflow-hidden text-white pt-16 md:pt-20"
         style={{ background: "var(--gradient-hero)" }}
       >
-        {/* Film grain overlay — editorial paper feel */}
-        <div
-          className="absolute inset-0 pointer-events-none opacity-[0.06] mix-blend-overlay"
-          style={{
-            backgroundImage:
-              "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>\")",
-          }}
-        />
         {/* Vignette glow — brand blues, was a stray blue/purple mix */}
         <div
           className="absolute -top-32 -right-32 w-[36rem] h-[36rem] rounded-full opacity-40 blur-3xl pointer-events-none"
@@ -677,13 +676,17 @@ function FeaturedCard({
       className="ts-fade-up sm:col-span-2 lg:col-span-2 lg:row-span-2 relative rounded-2xl overflow-hidden bg-card border border-border shadow-sm group"
       style={{ animationDelay: `${index * 50}ms` }}
     >
-      {/* Hero image — no real banner data on grouped listings yet, so this
-          is always the brand-gradient fallback (same treatment as the
-          shared poster EventCard: gradient + name, never a category icon). */}
+      {/* Hero image — seller's real photo/video when they uploaded one,
+          otherwise the brand-gradient fallback (never a category icon). */}
       <div
         className="relative aspect-[16/10] sm:aspect-[16/9] overflow-hidden"
-        style={{ background: fallbackGradient(group.eventId) }}
+        style={group.photoUrl || group.videoUrl ? undefined : { background: fallbackGradient(group.eventId) }}
       >
+        {group.videoUrl ? (
+          <video src={group.videoUrl} className="absolute inset-0 w-full h-full object-cover" autoPlay muted loop playsInline />
+        ) : group.photoUrl ? (
+          <img src={group.photoUrl} alt={group.eventTitle} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+        ) : null}
         {/* Dark scrim for legibility */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/15 to-transparent" />
 
@@ -797,11 +800,16 @@ function StandardCard({
       className="ts-fade-up flex flex-col rounded-2xl overflow-hidden bg-card border border-border hover:border-primary/30 hover:shadow-[0_18px_40px_-20px_hsl(227_77%_56%/0.25)] transition-all duration-300"
       style={{ animationDelay: `${index * 50}ms` }}
     >
-      {/* Image — brand-gradient fallback, see FeaturedCard comment above. */}
+      {/* Image — seller's real photo/video when present, see FeaturedCard comment above. */}
       <div
         className="relative aspect-[16/10] overflow-hidden"
-        style={{ background: fallbackGradient(group.eventId) }}
+        style={group.photoUrl || group.videoUrl ? undefined : { background: fallbackGradient(group.eventId) }}
       >
+        {group.videoUrl ? (
+          <video src={group.videoUrl} className="absolute inset-0 w-full h-full object-cover" autoPlay muted loop playsInline />
+        ) : group.photoUrl ? (
+          <img src={group.photoUrl} alt={group.eventTitle} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+        ) : null}
         <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
 
         {/* Top badges */}

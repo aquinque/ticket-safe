@@ -58,6 +58,8 @@ import {
   Ticket,
   Calendar,
   MapPin,
+  Image as ImageIcon,
+  Video,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Event } from "@/integrations/supabase/types/events";
@@ -157,6 +159,43 @@ const Sell = () => {
 
   // Success state
   const [createdListingId, setCreatedListingId] = useState<string | null>(null);
+
+  // Listing photo/video — optional, shown on the marketplace card instead of
+  // the brand-gradient placeholder. Uploaded straight to the public
+  // listing-media bucket (owner-scoped by RLS); we only ever store the URL.
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
+
+  const uploadListingMedia = async (file: File, kind: "photo" | "video") => {
+    if (!user) return;
+    const maxBytes = kind === "photo" ? 8 * 1024 * 1024 : 25 * 1024 * 1024;
+    if (file.size > maxBytes) {
+      toast.error(`${kind === "photo" ? "Photo" : "Video"} must be under ${kind === "photo" ? "8" : "25"} MB.`);
+      return;
+    }
+    const setUploading = kind === "photo" ? setUploadingPhoto : setUploadingVideo;
+    setUploading(true);
+    try {
+      const ext = (file.name.split(".").pop() || (kind === "photo" ? "jpg" : "mp4")).toLowerCase();
+      const path = `${user.id}/${kind}-${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from("listing-media").upload(path, file, {
+        cacheControl: "3600",
+        upsert: true,
+        contentType: file.type || (kind === "photo" ? "image/jpeg" : "video/mp4"),
+      });
+      if (upErr) {
+        toast.error(`Upload failed: ${upErr.message}`);
+        return;
+      }
+      const { data } = supabase.storage.from("listing-media").getPublicUrl(path);
+      if (kind === "photo") setPhotoUrl(data.publicUrl);
+      else setVideoUrl(data.publicUrl);
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const [formData, setFormData] = useState({
     eventId: "",
@@ -677,6 +716,8 @@ const Sell = () => {
             verification_status: "verified",
             needs_review: false,
             studio_ticket_id: studioTicket.id,
+            photo_url: photoUrl,
+            video_url: videoUrl,
           })
           .select("id")
           .single();
@@ -730,6 +771,8 @@ const Sell = () => {
         fileBase64,
         fileName,
         fileMimeType,
+        photoUrl: photoUrl || undefined,
+        videoUrl: videoUrl || undefined,
       };
       const res = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/submit-listing`,
@@ -768,6 +811,8 @@ const Sell = () => {
         toast.success("Ticket submitted — pending admin approval.");
         // Reset form
         setFormData({ eventId: "", sellingPrice: "", quantity: "1", notes: "" });
+        setPhotoUrl(null);
+        setVideoUrl(null);
         setSelectedEvent(null);
         setQrText("");
         setQrImageFile(null);
@@ -795,7 +840,7 @@ const Sell = () => {
       <div className="theme-night min-h-screen bg-background flex flex-col">
         <SEOHead titleKey="marketplace.sell.title" descriptionKey="marketplace.sell.description" />
         <HeaderNight />
-        <main className="flex-1 flex items-center justify-center py-16">
+        <main className="flex-1 flex items-center justify-center pt-20 pb-16 md:pt-24">
           <div className="container mx-auto px-4 max-w-md text-center">
             {/* Animated check — the moment lands with motion, not a static badge. */}
             <div className="relative w-20 h-20 mx-auto mb-6 animate-in zoom-in-50 duration-500 ease-out">
@@ -945,7 +990,7 @@ const Sell = () => {
               "radial-gradient(circle at 15% 20%, rgba(255,255,255,.30), transparent 45%), radial-gradient(circle at 85% 80%, rgba(255,255,255,.12), transparent 50%)",
           }}
         />
-        <div className="relative container mx-auto px-4 max-w-4xl pt-8 pb-10 md:pt-12 md:pb-14">
+        <div className="relative container mx-auto px-4 max-w-4xl pt-20 pb-10 md:pt-24 md:pb-14">
           <div className="mb-5">
             <BackButton />
           </div>
@@ -1644,6 +1689,82 @@ const Sell = () => {
                     <p className="text-xs text-muted-foreground mt-1">
                       {formData.notes.length}/1000 characters
                     </p>
+                  </div>
+
+                  <div>
+                    <Label>Photo or video (optional)</Label>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      A real photo of the venue or ticket stands out more than a plain gradient card on the marketplace.
+                    </p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <label
+                        htmlFor="listing-photo"
+                        className="relative flex flex-col items-center justify-center gap-1.5 aspect-video rounded-lg border border-dashed border-border hover:border-primary/50 cursor-pointer transition-colors overflow-hidden bg-muted/20"
+                      >
+                        {photoUrl ? (
+                          <>
+                            <img src={photoUrl} alt="Listing preview" className="absolute inset-0 w-full h-full object-cover" />
+                            <button
+                              type="button"
+                              onClick={(e) => { e.preventDefault(); setPhotoUrl(null); }}
+                              className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/80"
+                              aria-label="Remove photo"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </>
+                        ) : uploadingPhoto ? (
+                          <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                        ) : (
+                          <>
+                            <ImageIcon className="w-5 h-5 text-muted-foreground" />
+                            <span className="text-xs text-muted-foreground">Add photo</span>
+                          </>
+                        )}
+                        <input
+                          id="listing-photo"
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          className="hidden"
+                          disabled={uploadingPhoto}
+                          onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadListingMedia(f, "photo"); e.target.value = ""; }}
+                        />
+                      </label>
+
+                      <label
+                        htmlFor="listing-video"
+                        className="relative flex flex-col items-center justify-center gap-1.5 aspect-video rounded-lg border border-dashed border-border hover:border-primary/50 cursor-pointer transition-colors overflow-hidden bg-muted/20"
+                      >
+                        {videoUrl ? (
+                          <>
+                            <video src={videoUrl} className="absolute inset-0 w-full h-full object-cover" muted />
+                            <button
+                              type="button"
+                              onClick={(e) => { e.preventDefault(); setVideoUrl(null); }}
+                              className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/80"
+                              aria-label="Remove video"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </>
+                        ) : uploadingVideo ? (
+                          <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                        ) : (
+                          <>
+                            <Video className="w-5 h-5 text-muted-foreground" />
+                            <span className="text-xs text-muted-foreground">Add video</span>
+                          </>
+                        )}
+                        <input
+                          id="listing-video"
+                          type="file"
+                          accept="video/mp4,video/webm,video/quicktime"
+                          className="hidden"
+                          disabled={uploadingVideo}
+                          onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadListingMedia(f, "video"); e.target.value = ""; }}
+                        />
+                      </label>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
