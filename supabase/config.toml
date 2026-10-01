@@ -30,6 +30,13 @@ verify_jwt = false
 [functions.revolut-create-checkout]
 verify_jwt = false
 
+# Resale checkout via Revolut Merchant — same guest-checkout path as
+# revolut-create-checkout (no account required to buy); the gateway must not
+# reject unauthenticated requests before the function's own guest-or-user
+# logic gets to run.
+[functions.revolut-resale-checkout]
+verify_jwt = false
+
 # Organizer notification emails. Authenticated; auth-handled inside the
 # function (owner for new_application, admin for approve/reject).
 [functions.organizer-notify]
@@ -61,4 +68,17 @@ verify_jwt = false
 # New-event alerts — invoked by a DB trigger (pg_net) when an event is
 # published. Emails users who follow the organizer.
 [functions.notify-event-followers]
+verify_jwt = false
+
+# Revolut's own webhook call — never carries a Supabase user JWT. The
+# function verifies completion itself (GET /orders/{id} against Revolut,
+# no shared secret needed), so gateway JWT verification only risks
+# rejecting genuine Revolut deliveries before they're ever checked.
+[functions.revolut-webhook]
+verify_jwt = false
+
+# Same reasoning — Stripe's webhook signs its own payload; it carries no
+# Supabase JWT either. Dormant fallback today, but should never gateway-401
+# if Stripe is ever reactivated.
+[functions.stripe-webhook]
 verify_jwt = false
