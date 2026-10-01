@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, type ReactNode } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import {
   Calendar,
@@ -19,7 +19,6 @@ import {
   FileText,
   Pencil,
   QrCode,
-  ArrowRight,
   BarChart3,
   CheckCircle2,
   Banknote,
@@ -177,6 +176,16 @@ function exportAttendeesCsv(
   a.remove();
   URL.revokeObjectURL(url);
 }
+
+// Thin visual divider between dashboard sections, so related cards (setup,
+// performance, sales, door access) read as groups instead of one long,
+// undifferentiated stack.
+const GroupLabel = ({ children }: { children: ReactNode }) => (
+  <div className="flex items-center gap-3 mt-9 mb-3 first:mt-0">
+    <h3 className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/70 shrink-0">{children}</h3>
+    <div className="flex-1 h-px bg-border" />
+  </div>
+);
 
 const StudioEventEdit = () => {
   useThemeMode("studio");
@@ -538,29 +547,7 @@ const StudioEventEdit = () => {
             </div>
           </div>
 
-          {/* Door-scanning CTA — made prominent so whoever is on the door can
-              jump straight into the scanner for this event. */}
-          {event.status === "published" && (
-            <Link
-              to={`/organizer/scan?event_id=${event.id}`}
-              className="group flex items-center gap-4 rounded-2xl border border-emerald-300/70 bg-emerald-50 p-4 md:p-5 mb-6 hover:shadow-md transition-all"
-            >
-              <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-sm">
-                <QrCode className="w-6 h-6 md:w-7 md:h-7" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-base md:text-lg font-black text-emerald-900 leading-tight">Scan tickets at the door</div>
-                <div className="text-xs md:text-sm text-emerald-800/80 mt-0.5">
-                  Opens the scanner with this event pre-selected — check guests in, in seconds.
-                </div>
-              </div>
-              <span className="hidden sm:inline-flex items-center gap-1.5 px-4 h-10 rounded-lg bg-emerald-600 text-white font-bold text-sm shrink-0 group-hover:bg-emerald-700 transition-colors">
-                Open scanner
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-              </span>
-              <ArrowRight className="sm:hidden w-5 h-5 text-emerald-700 shrink-0" />
-            </Link>
-          )}
+          <GroupLabel>Setup</GroupLabel>
 
           {/* Editable event details (draft only) */}
           <EventDetailsEditor
@@ -572,6 +559,54 @@ const StudioEventEdit = () => {
             organizerLogoUrl={organizer?.logo_url}
             priceFromEuros={tiers.length ? Math.min(...tiers.map((t) => t.price_cents)) / 100 : null}
           />
+
+          {/* Tiers manager */}
+          <section className="bg-card border border-border rounded-2xl p-5 md:p-6 mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold">Ticket tiers</h2>
+              <button
+                onClick={addTier}
+                className="inline-flex items-center gap-1.5 text-sm font-bold text-primary hover:underline"
+              >
+                <Plus className="w-4 h-4" />
+                Add tier
+              </button>
+            </div>
+
+            {tiers.filter((t) => t.source !== "external").length === 0 ? (
+              <p className="text-sm text-muted-foreground">No tiers yet. Add at least one before publishing.</p>
+            ) : (
+              <div className="space-y-3">
+                {/* External (imported) tiers are managed in the External tickets
+                    section below — exclude them here so their auto-synced
+                    capacity isn't edited by hand. */}
+                {tiers.filter((t) => t.source !== "external").map((t) => (
+                  <TierEditor
+                    key={t.id}
+                    tier={t}
+                    onChange={(patch) => updateTier(t.id, patch)}
+                    onRemove={() => removeTier(t.id)}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+
+          {/* External ticket import — partner/nightclub allocations resold via
+              Ticket Safe. Lives attached to this event. */}
+          <ExternalTicketsSection
+            eventId={event.id}
+            eventPublished={event.status === "published"}
+            onChanged={load}
+          />
+
+          {/* Per-buyer limit — editable at any status (only affects new purchases) */}
+          <PerBuyerLimitControl event={event} onSaved={(patch) => setEvent({ ...event, ...patch })} />
+
+          {/* Social sharing — per-event OG image + meta description so the
+              link preview when a BDE drops the URL in WhatsApp / Instagram /
+              email reads as intentional rather than generic. */}
+          <SocialSharingControl event={event} onSaved={(patch) => setEvent({ ...event, ...patch })} />
 
           {/* ===== Share link box — only when the event is published =====
               Built so an organizer can drop the URL in an Instagram story,
@@ -663,6 +698,8 @@ const StudioEventEdit = () => {
               </section>
             );
           })()}
+
+          <GroupLabel>Performance</GroupLabel>
 
           {/* Highlights — 4 KPI cards at a glance */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-5">
@@ -841,53 +878,7 @@ const StudioEventEdit = () => {
             );
           })()}
 
-          {/* Tiers manager */}
-          <section className="bg-card border border-border rounded-2xl p-5 md:p-6 mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold">Ticket tiers</h2>
-              <button
-                onClick={addTier}
-                className="inline-flex items-center gap-1.5 text-sm font-bold text-primary hover:underline"
-              >
-                <Plus className="w-4 h-4" />
-                Add tier
-              </button>
-            </div>
-
-            {tiers.filter((t) => t.source !== "external").length === 0 ? (
-              <p className="text-sm text-muted-foreground">No tiers yet. Add at least one before publishing.</p>
-            ) : (
-              <div className="space-y-3">
-                {/* External (imported) tiers are managed in the External tickets
-                    section below — exclude them here so their auto-synced
-                    capacity isn't edited by hand. */}
-                {tiers.filter((t) => t.source !== "external").map((t) => (
-                  <TierEditor
-                    key={t.id}
-                    tier={t}
-                    onChange={(patch) => updateTier(t.id, patch)}
-                    onRemove={() => removeTier(t.id)}
-                  />
-                ))}
-              </div>
-            )}
-          </section>
-
-          {/* External ticket import — partner/nightclub allocations resold via
-              Ticket Safe. Lives attached to this event. */}
-          <ExternalTicketsSection
-            eventId={event.id}
-            eventPublished={event.status === "published"}
-            onChanged={load}
-          />
-
-          {/* Per-buyer limit — editable at any status (only affects new purchases) */}
-          <PerBuyerLimitControl event={event} onSaved={(patch) => setEvent({ ...event, ...patch })} />
-
-          {/* Social sharing — per-event OG image + meta description so the
-              link preview when a BDE drops the URL in WhatsApp / Instagram /
-              email reads as intentional rather than generic. */}
-          <SocialSharingControl event={event} onSaved={(patch) => setEvent({ ...event, ...patch })} />
+          <GroupLabel>Sales</GroupLabel>
 
           {/* Buyers — every order, with the named attendees that order issued */}
           <section className="bg-card border border-border rounded-2xl p-5 md:p-6">
@@ -970,11 +961,13 @@ const StudioEventEdit = () => {
             )}
           </section>
 
+          <PromoCodesPanel eventId={event.id} />
+
+          <GroupLabel>Door & access</GroupLabel>
+
           {/* Door-scan access for staff/volunteers — no login needed, see
               src/components/studio/ScanStaffPanel.tsx */}
           <ScanStaffPanel eventId={event.id} />
-
-          <PromoCodesPanel eventId={event.id} />
 
           <GuestlistsPanel eventId={event.id} />
       </div>
