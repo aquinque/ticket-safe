@@ -103,8 +103,6 @@ async function fetchAvailableListings(): Promise<TicketListing[]> {
       qr_verified,
       created_at,
       boosted_until,
-      photo_url,
-      video_url,
       event:events (
         id,
         title,

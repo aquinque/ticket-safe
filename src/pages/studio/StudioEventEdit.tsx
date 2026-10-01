@@ -208,7 +208,7 @@ const StudioEventEdit = () => {
       supabase.from("event_tiers").select("*").eq("event_id", id).order("sort_order"),
       supabase
         .from("event_orders")
-        .select("id, buyer_email, quantity, total_cents, fee_cents, status, created_at, tier_id, promo_code_id, discount_cents")
+        .select("id, buyer_email, quantity, total_cents, fee_cents, status, created_at, tier_id")
         .eq("event_id", id)
         .order("created_at", { ascending: false })
         .limit(500),

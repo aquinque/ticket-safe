@@ -133,7 +133,7 @@ const EventPublic = () => {
     const { data: ev } = await supabase
       .from("events")
       .select(
-        `id, title, description, date, ends_at, location, category, slug, status, primary_color, banner_url, video_url, logo_url, og_image_url, seo_description, organizer_id, max_tickets_per_buyer,
+        `id, title, description, date, ends_at, location, category, slug, status, primary_color, banner_url, logo_url, og_image_url, seo_description, organizer_id, max_tickets_per_buyer,
          organizer:organizer_profiles!events_organizer_id_fkey(id, user_id, name, slug, logo_url, primary_color, website)`,
       )
       .eq("slug", slug)
