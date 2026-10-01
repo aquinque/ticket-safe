@@ -23,6 +23,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
+import { planResaleAwareRefund, refundResaleBuyers } from "../_shared/resaleAwareRefund.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -89,7 +90,7 @@ serve(async (req) => {
 
     const { data: order } = await supabase
       .from("event_orders")
-      .select("id, event_id, buyer_email, total_cents, currency, stripe_payment_intent_id, stripe_checkout_session_id, status")
+      .select("id, event_id, buyer_email, total_cents, currency, quantity, unit_price_cents, fee_cents, stripe_payment_intent_id, stripe_checkout_session_id, status")
       .eq("id", orderId)
       .maybeSingle();
     if (!order) return json({ error: "Order not found" }, 404);
@@ -130,15 +131,31 @@ serve(async (req) => {
       .eq("order_id", order.id)
       .eq("status", "scanned");
 
+    // Some of this order's tickets may have been resold since purchase —
+    // the resale buyer paid via a separate transaction, not this order, so
+    // they need their own refund and the original buyer must NOT be
+    // refunded for a seat they already sold and were paid for.
+    const { keptCount, originalBuyerRefundCents, resaleRefunds } = await planResaleAwareRefund(supabase, order);
+    const revolutCredsForResale = revolutSecret ? { secret: revolutSecret, base: revolutBase, apiVersion: revolutApiVersion } : null;
+    const stripeForResale = stripeKey ? new Stripe(stripeKey, { apiVersion: "2024-06-20", httpClient: Stripe.createFetchHttpClient() }) : null;
+    const resaleRefundResults = await refundResaleBuyers(resaleRefunds, revolutCredsForResale, stripeForResale, "admin_refund");
+    for (const r of resaleRefundResults) {
+      if (!r.ok) console.error("[admin-refund-order] resale buyer refund failed:", r.transactionId, r.details);
+    }
+
     // Issue refund via the right provider. Idempotency keys are bound to the
     // order id so a retried HTTP request hits the same provider transaction.
+    // Amount is prorated down to only the tickets still held by this buyer
+    // (see planResaleAwareRefund) — resold tickets are refunded above instead.
     const sid = order.stripe_checkout_session_id ?? "";
     const idemKey = `admin_refund_${order.id}`;
     let provider: "revolut" | "stripe";
-    let providerOk = false;
+    let providerOk = keptCount === 0; // nothing owed to the original buyer
     let providerFailureDetails = "";
 
-    if (sid.startsWith("revolut:")) {
+    if (keptCount === 0) {
+      provider = sid.startsWith("revolut:") ? "revolut" : "stripe";
+    } else if (sid.startsWith("revolut:")) {
       provider = "revolut";
       if (!revolutSecret) {
         providerFailureDetails = "REVOLUT_MERCHANT_SECRET_KEY missing";
@@ -155,7 +172,7 @@ serve(async (req) => {
               "Idempotency-Key": idemKey,
             },
             body: JSON.stringify({
-              amount: order.total_cents,
+              amount: originalBuyerRefundCents,
               currency: (order.currency || "EUR").toUpperCase(),
               merchant_order_ext_ref: `ts_admin_${order.id}`,
             }),
@@ -179,6 +196,7 @@ serve(async (req) => {
       try {
         await stripe.refunds.create({
           payment_intent: order.stripe_payment_intent_id,
+          amount: originalBuyerRefundCents,
           metadata: {
             source: "admin_refund_order",
             order_id: order.id,
@@ -234,14 +252,17 @@ serve(async (req) => {
         provider,
         reason,
         event_id: order.event_id,
-        total_cents: order.total_cents,
+        original_buyer_refund_cents: originalBuyerRefundCents,
+        resale_refunds: resaleRefundResults.map((r) => ({ transaction_id: r.transactionId, amount_cents: r.amountCents, ok: r.ok })),
         scanned_tickets_at_refund: scannedCount ?? 0,
       },
       p_actor_id: user.id,
     });
 
-    // Notify the buyer (best effort)
-    if (resendKey && order.buyer_email) {
+    // Notify the original buyer (best effort) — only if they're actually
+    // owed something; if every ticket on this order was resold, they
+    // already have nothing left to be refunded for.
+    if (resendKey && order.buyer_email && originalBuyerRefundCents > 0) {
       fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
@@ -251,18 +272,39 @@ serve(async (req) => {
           subject: `Refund issued for ${eventTitle}`,
           html: buyerRefundEmail({
             evTitle: eventTitle,
-            refundAmount: order.total_cents / 100,
+            refundAmount: originalBuyerRefundCents / 100,
             reason,
           }),
         }),
       }).catch((err) => console.warn("[admin-refund-order] buyer email failed:", err));
     }
 
+    // Notify each resold ticket's current holder (best effort).
+    if (resendKey) {
+      for (const r of resaleRefundResults) {
+        if (!r.ok) continue;
+        const { data: buyerAuth } = await supabase.auth.admin.getUserById(r.buyerId);
+        const resaleBuyerEmail = buyerAuth?.user?.email;
+        if (!resaleBuyerEmail) continue;
+        fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            from: "Ticket Safe <noreply@ticket-safe.eu>",
+            to: [resaleBuyerEmail],
+            subject: `Refund issued for ${eventTitle}`,
+            html: buyerRefundEmail({ evTitle: eventTitle, refundAmount: r.amountCents / 100, reason }),
+          }),
+        }).catch((err) => console.warn("[admin-refund-order] resale buyer email failed:", err));
+      }
+    }
+
     return json({
       ok: true,
       order_id: order.id,
       provider,
-      refunded_amount_cents: order.total_cents,
+      refunded_amount_cents: originalBuyerRefundCents,
+      resale_refunds: resaleRefundResults.map((r) => ({ transaction_id: r.transactionId, amount_cents: r.amountCents, ok: r.ok })),
       scanned_tickets_at_refund: scannedCount ?? 0,
     });
   } catch (err) {
