@@ -69,6 +69,16 @@ export interface OrderSummaryData {
   organizerName: string;
   ticketId: string;
 
+  /**
+   * Optional ticket-price / service-fee split, in cents. When both are
+   * provided the table shows "Ticket price" + "Service fee" as two lines
+   * instead of one lumped "unitPrice" row — required so the receipt
+   * states what the buyer actually paid TicketSafe vs. the organizer.
+   * Omit to keep the single-line layout (older callers).
+   */
+  ticketPriceCents?: number;
+  serviceFeeCents?: number;
+
   /** Optional overrides. */
   supportEmail?: string;
   websiteUrl?: string;
@@ -171,15 +181,18 @@ export async function generateOrderSummaryPDF(d: OrderSummaryData): Promise<Uint
   drawText(page, d.eventLocation, {
     x: colRightX, y: fromTopMM(78), font: fontReg, size: 10, color: MUTED,
   });
-  drawText(page, `Organised by ${d.organizerName}`, {
+  drawText(page, `Seller: ${d.organizerName}`, {
     x: colRightX, y: fromTopMM(83), font: fontReg, size: 10, color: MUTED,
   });
+  drawText(page, "TicketSafe: payment & ticketing intermediary", {
+    x: colRightX, y: fromTopMM(87.5), font: fontReg, size: 8, color: FAINT,
+  });
 
-  hairline(page, 14, 92, A4_W - 28 * MM);
+  hairline(page, 14, 97, A4_W - 28 * MM);
 
   // ─── 4. LINE ITEMS TABLE ─────────────────────────────────────────────
   // Column header row
-  let tableY = 102;
+  let tableY = 107;
   const colItemX  = 14 * MM;
   const colQtyX   = 130 * MM;
   const colUnitX  = 155 * MM;
@@ -193,19 +206,41 @@ export async function generateOrderSummaryPDF(d: OrderSummaryData): Promise<Uint
   hairline(page, 14, tableY + 3, A4_W - 28 * MM);
 
   tableY += 11;
-  drawText(page, `${d.eventName} — ${d.ticketType}`, {
-    x: colItemX, y: fromTopMM(tableY), font: fontReg, size: 11, color: INK,
-    maxWidth: colQtyX - colItemX - 4,
-  });
-  drawText(page, String(d.quantity), {
-    x: colQtyX, y: fromTopMM(tableY), font: fontReg, size: 11, color: INK,
-  });
-  drawText(page, d.unitPrice, {
-    x: colUnitX, y: fromTopMM(tableY), font: fontReg, size: 11, color: INK,
-  });
-  drawText(page, d.totalPaid, {
-    x: colTotalX, y: fromTopMM(tableY), font: fontBold, size: 11, color: INK, anchor: "right",
-  });
+  // Two layouts: if the ticket-price/service-fee split is provided, show
+  // "ticket price" and "service fee" as two distinct lines (required so
+  // the receipt states what went to the organizer vs. to TicketSafe);
+  // otherwise fall back to the single lumped line older callers still use.
+  const hasFeeSplit = d.ticketPriceCents != null && d.serviceFeeCents != null;
+  if (hasFeeSplit) {
+    const ticketPriceStr = `${(d.ticketPriceCents! / 100).toFixed(2)}€`;
+    const feeStr = `${(d.serviceFeeCents! / 100).toFixed(2)}€`;
+    drawText(page, `${d.eventName} — ${d.ticketType}`, {
+      x: colItemX, y: fromTopMM(tableY), font: fontReg, size: 11, color: INK,
+      maxWidth: colQtyX - colItemX - 4,
+    });
+    drawText(page, String(d.quantity), { x: colQtyX, y: fromTopMM(tableY), font: fontReg, size: 11, color: INK });
+    drawText(page, ticketPriceStr, { x: colUnitX, y: fromTopMM(tableY), font: fontReg, size: 11, color: INK });
+    drawText(page, ticketPriceStr, { x: colTotalX, y: fromTopMM(tableY), font: fontReg, size: 11, color: INK, anchor: "right" });
+    tableY += 8;
+    drawText(page, "TicketSafe service fee", {
+      x: colItemX, y: fromTopMM(tableY), font: fontReg, size: 10, color: MUTED,
+    });
+    drawText(page, feeStr, { x: colTotalX, y: fromTopMM(tableY), font: fontReg, size: 10, color: MUTED, anchor: "right" });
+  } else {
+    drawText(page, `${d.eventName} — ${d.ticketType}`, {
+      x: colItemX, y: fromTopMM(tableY), font: fontReg, size: 11, color: INK,
+      maxWidth: colQtyX - colItemX - 4,
+    });
+    drawText(page, String(d.quantity), {
+      x: colQtyX, y: fromTopMM(tableY), font: fontReg, size: 11, color: INK,
+    });
+    drawText(page, d.unitPrice, {
+      x: colUnitX, y: fromTopMM(tableY), font: fontReg, size: 11, color: INK,
+    });
+    drawText(page, d.totalPaid, {
+      x: colTotalX, y: fromTopMM(tableY), font: fontBold, size: 11, color: INK, anchor: "right",
+    });
+  }
 
   hairline(page, 14, tableY + 6, A4_W - 28 * MM);
 
@@ -219,7 +254,7 @@ export async function generateOrderSummaryPDF(d: OrderSummaryData): Promise<Uint
   });
 
   // ─── 5. PAYMENT block ────────────────────────────────────────────────
-  const payY = 150;
+  const payY = 158;
   page.drawRectangle({
     x: 14 * MM, y: A4_H - (payY + 38) * MM,
     width: A4_W - 28 * MM, height: 36 * MM,

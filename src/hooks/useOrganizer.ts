@@ -19,6 +19,12 @@ export interface OrganizerProfile {
   approved_at: string | null;
   created_at: string;
   updated_at: string;
+  siren: string | null;
+  rna_number: string | null;
+  billing_address_line1: string | null;
+  billing_postal_code: string | null;
+  billing_city: string | null;
+  billing_country: string | null;
 }
 
 /** Returns the current user's organizer profile (if any). */

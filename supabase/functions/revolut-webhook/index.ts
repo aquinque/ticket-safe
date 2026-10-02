@@ -267,6 +267,12 @@ serve(async (req) => {
             quantity: 1,
             unitPrice: pricePaidEuro,
             totalPaid: pricePaidEuro,
+            // tx.fee_amount is the buyer-side service fee charged on top of
+            // the listing price (tx.amount - tx.fee_amount = what the
+            // seller actually listed it for) — shown as its own line so
+            // the receipt states what went to TicketSafe vs. the seller.
+            ticketPriceCents: Math.round((Number(tx.amount ?? 0) - Number(tx.fee_amount ?? 0)) * 100),
+            serviceFeeCents: Math.round(Number(tx.fee_amount ?? 0) * 100),
             paymentMethod: "Card (Revolut)",
             paymentStatus: "Paid",
             transactionId: `revolut:${revOrderId}`,

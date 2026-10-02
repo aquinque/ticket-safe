@@ -12,6 +12,8 @@ import {
   Pencil,
   AlertCircle,
   CheckCircle2,
+  Receipt,
+  MapPin,
 } from "lucide-react";
 import { StudioLayout } from "@/components/studio/StudioLayout";
 import { SEOHead } from "@/components/SEOHead";
@@ -35,6 +37,14 @@ const StudioProfile = () => {
   const [primaryColor, setPrimaryColor] = useState("#3a5fe6");
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  // Billing identity — shown on sales statements / service invoices (see
+  // /studio/sales "Download receipt"). Optional: most organizers won't
+  // have filled this in yet, invoices just omit the missing fields.
+  const [siren, setSiren] = useState("");
+  const [rnaNumber, setRnaNumber] = useState("");
+  const [billingAddress, setBillingAddress] = useState("");
+  const [billingPostalCode, setBillingPostalCode] = useState("");
+  const [billingCity, setBillingCity] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -55,6 +65,11 @@ const StudioProfile = () => {
       setAbout(organizer.about ?? "");
       setPrimaryColor(organizer.primary_color ?? "#3a5fe6");
       setLogoPreview(organizer.logo_url ?? null);
+      setSiren(organizer.siren ?? "");
+      setRnaNumber(organizer.rna_number ?? "");
+      setBillingAddress(organizer.billing_address_line1 ?? "");
+      setBillingPostalCode(organizer.billing_postal_code ?? "");
+      setBillingCity(organizer.billing_city ?? "");
     }
   }, [organizer, orgLoading, authLoading, navigate]);
 
@@ -79,6 +94,7 @@ const StudioProfile = () => {
     if (!/\S+@\S+\.\S+/.test(contactEmail)) return "Contact email is not valid.";
     if (website && !/^https?:\/\//.test(website)) return "Website must start with http:// or https://";
     if (!/^#[0-9A-Fa-f]{6}$/.test(primaryColor)) return "Primary color must be hex like #3a5fe6.";
+    if (siren.trim() && !/^\d{9}$/.test(siren.trim())) return "SIREN must be exactly 9 digits.";
     return null;
   };
 
@@ -114,6 +130,11 @@ const StudioProfile = () => {
           about: about.trim() || null,
           primary_color: primaryColor.toUpperCase(),
           logo_url: logoUrl,
+          siren: siren.trim() || null,
+          rna_number: rnaNumber.trim() || null,
+          billing_address_line1: billingAddress.trim() || null,
+          billing_postal_code: billingPostalCode.trim() || null,
+          billing_city: billingCity.trim() || null,
         })
         .eq("id", organizer.id);
       if (updErr) throw updErr;
@@ -207,6 +228,44 @@ const StudioProfile = () => {
                 </label>
               </div>
             </Field>
+
+          </section>
+
+          {/* Billing identity — printed on sales statements / service
+              invoices (see /studio/sales). Optional, but the "Client"
+              block on those documents stays blank without it. */}
+          <section className="bg-card border border-border rounded-2xl p-5 md:p-7 space-y-5 mt-6">
+            <div>
+              <h2 className="text-base font-bold flex items-center gap-1.5">
+                <Receipt className="w-4 h-4 text-primary" />
+                Billing details
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Used on your sales statements and TicketSafe service invoices. Optional, but we recommend filling it in.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Field label="SIREN (if registered)" icon={Building2}>
+                <input value={siren} onChange={(e) => setSiren(e.target.value.replace(/\D/g, ""))} className="ts-prof font-mono" placeholder="123456789" maxLength={9} />
+              </Field>
+              <Field label="RNA number (if a loi 1901 association)" icon={FileText}>
+                <input value={rnaNumber} onChange={(e) => setRnaNumber(e.target.value)} className="ts-prof font-mono" placeholder="W123456789" maxLength={20} />
+              </Field>
+            </div>
+
+            <Field label="Billing address" icon={MapPin}>
+              <input value={billingAddress} onChange={(e) => setBillingAddress(e.target.value)} className="ts-prof" placeholder="12 rue de l'Université" maxLength={200} />
+            </Field>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Field label="Postal code" icon={MapPin}>
+                <input value={billingPostalCode} onChange={(e) => setBillingPostalCode(e.target.value)} className="ts-prof" placeholder="75016" maxLength={20} />
+              </Field>
+              <Field label="City" icon={MapPin}>
+                <input value={billingCity} onChange={(e) => setBillingCity(e.target.value)} className="ts-prof" placeholder="Paris" maxLength={100} />
+              </Field>
+            </div>
 
             {error && (
               <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-sm">

@@ -272,6 +272,18 @@ const TermsConditions = () => {
                       <li>Change of mind or schedule conflicts do not qualify for refunds</li>
                       <li>Sellers may cancel listings before purchase without penalty</li>
                     </ul>
+                    {/* À VALIDER PAR UN JURISTE — draft mention, not yet
+                        reviewed by counsel. Flagged separately in the
+                        delivery report; do not treat as final legal text. */}
+                    <p className="pt-2">
+                      <strong className="text-foreground">No right of withdrawal.</strong> Tickets sold on TicketSafe
+                      (whether sold directly by an organizer or resold between users) are leisure services supplied on
+                      a specific date. In accordance with article L221-28, 12° of the French Consumer Code
+                      (<em>Code de la consommation</em>), the right of withdrawal does not apply to the supply of
+                      accommodation, transport, catering, or leisure services which must be provided on a specific
+                      date or at a specific frequency. Purchases are therefore final once confirmed, subject only to
+                      the refund cases listed above.
+                    </p>
                   </div>
                 </section>
 

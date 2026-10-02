@@ -182,6 +182,12 @@ const RefundPolicy = () => {
                         <li><strong>Personal emergencies:</strong> Medical issues, family emergencies, or other personal reasons</li>
                         <li><strong>Resale attempts:</strong> You tried to resell but couldn't find a buyer</li>
                       </ul>
+                      {/* À VALIDER PAR UN JURISTE — draft mention, not yet reviewed by counsel. */}
+                      <p className="text-muted-foreground mt-3 text-sm">
+                        Under article L221-28, 12° of the French Consumer Code, there is no statutory right of
+                        withdrawal for leisure services supplied on a specific date — ticket purchases are final
+                        once confirmed, outside the eligible cases listed above.
+                      </p>
                       <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 mt-4">
                         <p className="text-sm text-amber-900 dark:text-amber-100">
                           <AlertCircle className="w-4 h-4 inline mr-1" />
