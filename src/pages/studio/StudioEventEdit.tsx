@@ -668,11 +668,6 @@ const StudioEventEdit = () => {
             const refundCount = refundedOrders.reduce((a, o) => a + o.quantity, 0);
             const refundCents = refundedOrders.reduce((a, o) => a + o.total_cents, 0);
             const checkedInPct = totalSold > 0 ? Math.round((scannedCount / totalSold) * 100) : 0;
-            const scannedByTier = new Map<string, number>();
-            for (const o of orders) {
-              const scanned = (attendeesByOrder.get(o.id) ?? []).filter((a) => a.scanned_at != null).length;
-              if (scanned > 0) scannedByTier.set(o.tier_id, (scannedByTier.get(o.tier_id) ?? 0) + scanned);
-            }
             const GroupRow = ({ label }: { label: string }) => (
               <tr>
                 <td colSpan={2} className="pt-5 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-primary first:pt-0">
@@ -693,75 +688,126 @@ const StudioEventEdit = () => {
                 <td className="py-2 text-sm font-bold text-foreground text-right tabular-nums align-top">{value}</td>
               </tr>
             );
+            const barColor = event.primary_color ?? "#3a5fe6";
+            const hasCapacity = totalCapacity > 0;
+            const hasCheckInBase = totalSold > 0;
+            const hasSecondary = refundCount > 0 || tablesSold > 0 || promoOrders.length > 0 || genderTotal > 0;
             return (
               <section className="bg-card border border-border rounded-2xl p-5 md:p-6 mb-6">
-                <h2 className="text-lg font-bold mb-2">Event statistics</h2>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <tbody>
-                      <GroupRow label="Overview" />
-                      <StatRow label="Gross revenue" value={`€${(grossCents / 100).toFixed(0)}`} />
-                      <StatRow label="TicketSafe fee" value={`− €${(feeTotalCents / 100).toFixed(0)}`} />
-                      <StatRow label="Net to organizer" value={`€${(payoutCents / 100).toFixed(0)}`} />
-                      <StatRow label="Paid orders" value={String(paidOrders.length)} />
-                      <StatRow label="Tickets sold" value={`${totalSold}/${totalCapacity} · ${pctSold}%`} bar={pctSold} />
-                      <StatRow label="Checked in" value={`${scannedCount}/${totalSold} · ${checkedInPct}%`} bar={checkedInPct} />
-                      {refundCount > 0 && (
-                        <StatRow label="Refunds" value={`${refundCount} · €${(refundCents / 100).toFixed(0)}`} />
-                      )}
+                <h2 className="text-lg font-bold mb-4">Event statistics</h2>
 
-                      <GroupRow label="Ticket types" />
+                {/* Money */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
+                  <KpiCard label="Gross revenue" value={`€${(grossCents / 100).toFixed(0)}`} />
+                  <KpiCard label="TicketSafe fee" value={`− €${(feeTotalCents / 100).toFixed(0)}`} muted />
+                  <KpiCard label="Net to organizer" value={`€${(payoutCents / 100).toFixed(0)}`} emphasize />
+                </div>
+
+                {/* Activity */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 mt-3 md:mt-4">
+                  <KpiCard label="Paid orders" value={String(paidOrders.length)} />
+                  <KpiCard
+                    label="Tickets sold"
+                    value={`${totalSold} / ${totalCapacity}`}
+                    sub={
+                      <>
+                        <MiniBar pct={pctSold} color={barColor} />
+                        <div className="text-xs text-muted-foreground mt-1.5">{hasCapacity ? `${pctSold}%` : "—"}</div>
+                      </>
+                    }
+                  />
+                  <KpiCard
+                    label="Checked in"
+                    value={`${scannedCount} / ${totalSold}`}
+                    sub={
+                      <>
+                        <MiniBar pct={hasCheckInBase ? checkedInPct : 0} color={barColor} />
+                        <div className="text-xs text-muted-foreground mt-1.5">{hasCheckInBase ? `${checkedInPct}%` : "—"}</div>
+                      </>
+                    }
+                  />
+                </div>
+
+                {/* Ticket types — one card per tier, dynamic */}
+                {tiers.length > 0 && (
+                  <>
+                    <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground mt-5 mb-2">
+                      Ticket types
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
                       {tiers.map((t) => {
-                        const checkedIn = scannedByTier.get(t.id) ?? 0;
+                        const typePct = t.total_qty > 0 ? Math.round((t.sold_qty / t.total_qty) * 100) : 0;
+                        const typeRevenue = (t.sold_qty * t.price_cents) / 100;
                         return (
-                          <StatRow
+                          <KpiCard
                             key={t.id}
-                            label={`${t.name}${t.kind === "table" ? ` (table, ${t.capacity_per_unit}/unit)` : ""}`}
-                            value={`${t.sold_qty}/${t.total_qty} · €${(t.sold_qty * t.price_cents / 100).toFixed(0)}${checkedIn > 0 ? ` · ${checkedIn} in` : ""}`}
-                            bar={t.total_qty > 0 ? Math.round((t.sold_qty / t.total_qty) * 100) : 0}
+                            label={`${t.name}${t.kind === "table" ? " (table)" : ""}`}
+                            value={`${t.sold_qty} / ${t.total_qty}`}
+                            sub={
+                              <>
+                                <MiniBar pct={typePct} color={barColor} />
+                                <div className="text-xs text-muted-foreground mt-1.5">€{typeRevenue.toFixed(0)} revenue</div>
+                              </>
+                            }
                           />
                         );
                       })}
+                    </div>
+                  </>
+                )}
 
-                      {(tablesSold > 0 || promoOrders.length > 0) && (
-                        <>
-                          <GroupRow label="Tables & promo codes" />
-                          {tablesSold > 0 && (
-                            <>
-                              <StatRow label="Tables sold" value={String(tablesSold)} />
-                              <StatRow label="People via tables" value={String(peopleViaTables)} />
-                            </>
-                          )}
-                          {promoOrders.length > 0 && (
-                            <>
-                              <StatRow label="Orders with a promo code" value={String(promoOrders.length)} />
-                              <StatRow label="Total discounted" value={`€${(totalDiscountCents / 100).toFixed(0)}`} />
-                            </>
-                          )}
-                        </>
-                      )}
+                {/* Secondary detail — refunds, tables & promo codes, demographics */}
+                {hasSecondary && (
+                  <div className="overflow-x-auto mt-5">
+                    <table className="w-full">
+                      <tbody>
+                        {refundCount > 0 && (
+                          <>
+                            <GroupRow label="Refunds" />
+                            <StatRow label="Refunded" value={`${refundCount} · €${(refundCents / 100).toFixed(0)}`} />
+                          </>
+                        )}
 
-                      {genderTotal > 0 && (
-                        <>
-                          <GroupRow label="Attendee demographics" />
-                          {(
-                            [
-                              ["female", "Female"],
-                              ["male", "Male"],
-                              ["other", "Other"],
-                              ["unspecified", "Not specified"],
-                            ] as const
-                          ).map(([key, label]) => {
-                            const count = genderCounts[key];
-                            if (count === 0) return null;
-                            const pct = Math.round((count / genderTotal) * 100);
-                            return <StatRow key={key} label={label} value={`${count} · ${pct}%`} bar={pct} />;
-                          })}
-                        </>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                        {(tablesSold > 0 || promoOrders.length > 0) && (
+                          <>
+                            <GroupRow label="Tables & promo codes" />
+                            {tablesSold > 0 && (
+                              <>
+                                <StatRow label="Tables sold" value={String(tablesSold)} />
+                                <StatRow label="People via tables" value={String(peopleViaTables)} />
+                              </>
+                            )}
+                            {promoOrders.length > 0 && (
+                              <>
+                                <StatRow label="Orders with a promo code" value={String(promoOrders.length)} />
+                                <StatRow label="Total discounted" value={`€${(totalDiscountCents / 100).toFixed(0)}`} />
+                              </>
+                            )}
+                          </>
+                        )}
+
+                        {genderTotal > 0 && (
+                          <>
+                            <GroupRow label="Attendee demographics" />
+                            {(
+                              [
+                                ["female", "Female"],
+                                ["male", "Male"],
+                                ["other", "Other"],
+                                ["unspecified", "Not specified"],
+                              ] as const
+                            ).map(([key, label]) => {
+                              const count = genderCounts[key];
+                              if (count === 0) return null;
+                              const pct = Math.round((count / genderTotal) * 100);
+                              return <StatRow key={key} label={label} value={`${count} · ${pct}%`} bar={pct} />;
+                            })}
+                          </>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </section>
             );
           })()}
@@ -1838,6 +1884,46 @@ const Highlight = ({
     </div>
   );
 };
+
+// Plain KPI card for the "Event statistics" grid — label + big number + an
+// optional sub line (progress bar, %, revenue). No icon by design: this
+// section is read at a glance, an icon per card would just add noise.
+const MiniBar = ({ pct, color }: { pct: number; color: string }) => (
+  <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+    <div
+      className="h-full rounded-full"
+      style={{ width: `${Math.min(100, Math.max(0, pct))}%`, background: color }}
+    />
+  </div>
+);
+
+const KpiCard = ({
+  label,
+  value,
+  sub,
+  emphasize,
+  muted,
+}: {
+  label: string;
+  value: string;
+  sub?: ReactNode;
+  emphasize?: boolean;
+  muted?: boolean;
+}) => (
+  <div className={`rounded-xl px-4 py-4 border ${emphasize ? "bg-primary/5 border-primary/30" : "bg-card border-border"}`}>
+    <div className={`text-[11px] uppercase tracking-wider font-bold mb-1.5 ${emphasize ? "text-primary" : "text-muted-foreground"}`}>
+      {label}
+    </div>
+    <div
+      className={`text-2xl md:text-3xl font-black tabular-nums leading-tight ${
+        muted ? "text-muted-foreground" : emphasize ? "text-primary" : "text-foreground"
+      }`}
+    >
+      {value}
+    </div>
+    {sub && <div className="mt-2">{sub}</div>}
+  </div>
+);
 
 const StatusBadge = ({ status }: { status: string }) => {
   const map: Record<string, string> = {
