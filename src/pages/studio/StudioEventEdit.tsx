@@ -478,14 +478,11 @@ const StudioEventEdit = () => {
             </Link>
           </div>
 
-          {/* Header strip */}
-          <div
-            className="rounded-2xl p-6 md:p-8 text-white mb-6"
-            style={{
-              background: "linear-gradient(135deg, #3a5fe6, #2440b6)",
-            }}
-          >
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          {/* Header strip — flat card, matching every other Studio page
+              (no gradient hero: that look is specific to the public
+              marketing pages, not the management UI). */}
+          <div className="bg-card border border-border rounded-2xl p-5 md:p-6 mb-6">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div className="min-w-0">
                 <div className="mb-2">
                   <EventStatusBadge
@@ -494,8 +491,8 @@ const StudioEventEdit = () => {
                     soldOut={totalCapacity > 0 && totalSold >= totalCapacity}
                   />
                 </div>
-                <h1 className="text-2xl md:text-3xl font-black truncate">{event.title}</h1>
-                <div className="text-sm opacity-90 mt-2 flex items-center gap-3 flex-wrap">
+                <h1 className="text-2xl md:text-3xl font-black text-foreground truncate">{event.title}</h1>
+                <div className="text-sm text-muted-foreground mt-2 flex items-center gap-3 flex-wrap">
                   <span className="inline-flex items-center gap-1">
                     <Calendar className="w-3.5 h-3.5" />
                     {new Date(event.date).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}
@@ -508,12 +505,12 @@ const StudioEventEdit = () => {
                   )}
                 </div>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 {event.status === "published" ? (
                   <button
                     onClick={unpublish}
                     disabled={saving}
-                    className="inline-flex items-center gap-2 px-4 min-h-[40px] rounded-lg font-bold bg-white/15 border border-white/20 hover:bg-white/25"
+                    className="inline-flex items-center gap-2 px-4 min-h-[40px] rounded-lg font-bold text-sm border border-border bg-background hover:bg-muted disabled:opacity-60"
                   >
                     <EyeOff className="w-4 h-4" />
                     Unpublish
@@ -522,7 +519,7 @@ const StudioEventEdit = () => {
                   <button
                     onClick={publish}
                     disabled={saving}
-                    className="inline-flex items-center gap-2 px-4 min-h-[40px] rounded-lg font-bold bg-white text-primary hover:bg-white/95"
+                    className="inline-flex items-center gap-2 px-4 min-h-[40px] rounded-lg font-bold text-sm bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-60"
                   >
                     <Eye className="w-4 h-4" />
                     Publish
@@ -533,7 +530,7 @@ const StudioEventEdit = () => {
                     href={`/e/${event.slug}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 px-4 min-h-[40px] rounded-lg font-bold bg-white text-primary hover:bg-white/95"
+                    className="inline-flex items-center gap-1.5 px-4 min-h-[40px] rounded-lg font-bold text-sm border border-border bg-background hover:bg-muted"
                   >
                     Public page
                     <ExternalLink className="w-3.5 h-3.5" />
@@ -542,7 +539,7 @@ const StudioEventEdit = () => {
                 {event.status === "published" && (
                   <Link
                     to={`/organizer/scan?event_id=${event.id}`}
-                    className="inline-flex items-center gap-2 px-4 min-h-[40px] rounded-lg font-black text-sm bg-white text-primary shadow-md hover:shadow-lg ring-2 ring-white/70"
+                    className="inline-flex items-center gap-2 px-4 min-h-[40px] rounded-lg font-bold text-sm bg-emerald-600 text-white hover:bg-emerald-700"
                     title="Open the door scanner with this event pre-selected"
                   >
                     <QrCode className="w-4 h-4" />
@@ -553,7 +550,7 @@ const StudioEventEdit = () => {
                   <button
                     onClick={openCancelDialog}
                     disabled={saving}
-                    className="inline-flex items-center gap-1.5 px-4 min-h-[40px] rounded-lg font-bold text-sm bg-red-500/20 border border-red-200/40 text-white hover:bg-red-500/30"
+                    className="inline-flex items-center gap-1.5 px-4 min-h-[40px] rounded-lg font-bold text-sm text-destructive border border-destructive/30 hover:bg-destructive/5 disabled:opacity-60"
                     title="Cancel event and refund all buyers"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -563,6 +560,211 @@ const StudioEventEdit = () => {
               </div>
             </div>
           </div>
+
+          <GroupLabel>Performance</GroupLabel>
+
+          {/* Highlights — 4 KPI cards at a glance */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-5">
+            <Highlight
+              icon={Banknote}
+              label="Revenue (paid)"
+              value={`€${(grossCents / 100).toFixed(0)}`}
+              sub={`€${(payoutCents / 100).toFixed(0)} payout · €${(feeTotalCents / 100).toFixed(0)} fee`}
+              accent="emerald"
+            />
+            <Highlight
+              icon={Users}
+              label="Tickets sold"
+              value={`${totalSold}/${totalCapacity}`}
+              sub={`${pctSold}% of capacity`}
+              accent="blue"
+            />
+            <Highlight
+              icon={CheckCircle2}
+              label="Checked in"
+              value={`${scannedCount}`}
+              sub={totalSold > 0 ? `${Math.round((scannedCount / totalSold) * 100)}% of sold` : "0% of sold"}
+              accent="violet"
+            />
+            <Highlight
+              icon={Calendar}
+              label={eventInPast ? "Event passed" : daysToGo === 0 ? "Today" : `${daysToGo}d to go`}
+              value={new Date(event.date).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+              sub={new Date(event.date).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
+              accent="amber"
+            />
+          </div>
+
+          {/* Sales over time chart */}
+          <section className="bg-card border border-border rounded-2xl p-5 md:p-6 mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <BarChart3 className="w-5 h-5 text-primary" />
+                <h2 className="text-lg font-bold">Sales over time</h2>
+              </div>
+              <span className="text-xs text-muted-foreground">
+                {salesSeries.length > 0 ? `${salesSeries.length} order${salesSeries.length > 1 ? "s" : ""}` : "Waiting for the first sale"}
+              </span>
+            </div>
+            {salesSeries.length === 0 ? (
+              <div className="h-40 flex items-center justify-center text-sm text-muted-foreground">
+                The chart fills in as orders come in.
+              </div>
+            ) : (
+              <div className="h-56">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={salesSeries} margin={{ top: 10, right: 8, left: -16, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="revGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={event.primary_color ?? "#3a5fe6"} stopOpacity={0.45} />
+                        <stop offset="100%" stopColor={event.primary_color ?? "#3a5fe6"} stopOpacity={0.02} />
+                      </linearGradient>
+                    </defs>
+                    <XAxis
+                      dataKey="label"
+                      tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <YAxis
+                      tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={(v) => `€${v}`}
+                      width={48}
+                    />
+                    <Tooltip
+                      contentStyle={{ borderRadius: 10, border: "1px solid hsl(var(--border))" }}
+                      labelStyle={{ fontSize: 11 }}
+                      formatter={(v: number, name: string) =>
+                        name === "cumRev" ? [`€${v}`, "Revenue"] : [v, "Tickets"]
+                      }
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="cumRev"
+                      stroke={event.primary_color ?? "#3a5fe6"}
+                      strokeWidth={2}
+                      fill="url(#revGradient)"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </section>
+
+          {/* Event statistics — one consolidated, detailed table: overview,
+              ticket types (with check-in rate), tables, promo codes,
+              demographics. This is the main reporting surface for the
+              event, so it leads with the numbers an organizer checks most
+              (revenue, net, check-in rate) before drilling into tiers. */}
+          {(tiers.length > 0 || genderTotal > 0) && (() => {
+            const tableTiers = tiers.filter((t) => t.kind === "table");
+            const tablesSold = tableTiers.reduce((a, t) => a + t.sold_qty, 0);
+            const peopleViaTables = tableTiers.reduce((a, t) => a + t.sold_qty * (t.capacity_per_unit || 1), 0);
+            const promoOrders = orders.filter((o) => o.promo_code_id && o.status === "paid");
+            const totalDiscountCents = promoOrders.reduce((a, o) => a + (o.discount_cents ?? 0), 0);
+            const refundedOrders = orders.filter((o) => o.status === "refunded");
+            const refundCount = refundedOrders.reduce((a, o) => a + o.quantity, 0);
+            const refundCents = refundedOrders.reduce((a, o) => a + o.total_cents, 0);
+            const checkedInPct = totalSold > 0 ? Math.round((scannedCount / totalSold) * 100) : 0;
+            const scannedByTier = new Map<string, number>();
+            for (const o of orders) {
+              const scanned = (attendeesByOrder.get(o.id) ?? []).filter((a) => a.scanned_at != null).length;
+              if (scanned > 0) scannedByTier.set(o.tier_id, (scannedByTier.get(o.tier_id) ?? 0) + scanned);
+            }
+            const GroupRow = ({ label }: { label: string }) => (
+              <tr>
+                <td colSpan={2} className="pt-5 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-primary first:pt-0">
+                  {label}
+                </td>
+              </tr>
+            );
+            const StatRow = ({ label, value, bar }: { label: string; value: string; bar?: number }) => (
+              <tr className="border-t border-border/60 first:border-t-0">
+                <td className="py-2 pr-4 text-sm text-muted-foreground align-top">
+                  {label}
+                  {bar != null && (
+                    <div className="h-1.5 w-32 rounded-full bg-muted overflow-hidden mt-1.5">
+                      <div className="h-full rounded-full" style={{ width: `${bar}%`, background: event.primary_color ?? "#3a5fe6" }} />
+                    </div>
+                  )}
+                </td>
+                <td className="py-2 text-sm font-bold text-foreground text-right tabular-nums align-top">{value}</td>
+              </tr>
+            );
+            return (
+              <section className="bg-card border border-border rounded-2xl p-5 md:p-6 mb-6">
+                <h2 className="text-lg font-bold mb-2">Event statistics</h2>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <tbody>
+                      <GroupRow label="Overview" />
+                      <StatRow label="Gross revenue" value={`€${(grossCents / 100).toFixed(0)}`} />
+                      <StatRow label="TicketSafe fee" value={`− €${(feeTotalCents / 100).toFixed(0)}`} />
+                      <StatRow label="Net to organizer" value={`€${(payoutCents / 100).toFixed(0)}`} />
+                      <StatRow label="Paid orders" value={String(paidOrders.length)} />
+                      <StatRow label="Tickets sold" value={`${totalSold}/${totalCapacity} · ${pctSold}%`} bar={pctSold} />
+                      <StatRow label="Checked in" value={`${scannedCount}/${totalSold} · ${checkedInPct}%`} bar={checkedInPct} />
+                      {refundCount > 0 && (
+                        <StatRow label="Refunds" value={`${refundCount} · €${(refundCents / 100).toFixed(0)}`} />
+                      )}
+
+                      <GroupRow label="Ticket types" />
+                      {tiers.map((t) => {
+                        const checkedIn = scannedByTier.get(t.id) ?? 0;
+                        return (
+                          <StatRow
+                            key={t.id}
+                            label={`${t.name}${t.kind === "table" ? ` (table, ${t.capacity_per_unit}/unit)` : ""}`}
+                            value={`${t.sold_qty}/${t.total_qty} · €${(t.sold_qty * t.price_cents / 100).toFixed(0)}${checkedIn > 0 ? ` · ${checkedIn} in` : ""}`}
+                            bar={t.total_qty > 0 ? Math.round((t.sold_qty / t.total_qty) * 100) : 0}
+                          />
+                        );
+                      })}
+
+                      {(tablesSold > 0 || promoOrders.length > 0) && (
+                        <>
+                          <GroupRow label="Tables & promo codes" />
+                          {tablesSold > 0 && (
+                            <>
+                              <StatRow label="Tables sold" value={String(tablesSold)} />
+                              <StatRow label="People via tables" value={String(peopleViaTables)} />
+                            </>
+                          )}
+                          {promoOrders.length > 0 && (
+                            <>
+                              <StatRow label="Orders with a promo code" value={String(promoOrders.length)} />
+                              <StatRow label="Total discounted" value={`€${(totalDiscountCents / 100).toFixed(0)}`} />
+                            </>
+                          )}
+                        </>
+                      )}
+
+                      {genderTotal > 0 && (
+                        <>
+                          <GroupRow label="Attendee demographics" />
+                          {(
+                            [
+                              ["female", "Female"],
+                              ["male", "Male"],
+                              ["other", "Other"],
+                              ["unspecified", "Not specified"],
+                            ] as const
+                          ).map(([key, label]) => {
+                            const count = genderCounts[key];
+                            if (count === 0) return null;
+                            const pct = Math.round((count / genderTotal) * 100);
+                            return <StatRow key={key} label={label} value={`${count} · ${pct}%`} bar={pct} />;
+                          })}
+                        </>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            );
+          })()}
 
           <GroupLabel>Setup</GroupLabel>
 
@@ -711,185 +913,6 @@ const StudioEventEdit = () => {
                     <Sparkles className="w-3 h-3 text-primary" />
                     Tip: pair it with a sticker like "Get your ticket 👇" — works great in Instagram stories.
                   </p>
-                </div>
-              </section>
-            );
-          })()}
-
-          <GroupLabel>Performance</GroupLabel>
-
-          {/* Highlights — 4 KPI cards at a glance */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-5">
-            <Highlight
-              icon={Banknote}
-              label="Revenue (paid)"
-              value={`€${(grossCents / 100).toFixed(0)}`}
-              sub={`€${(payoutCents / 100).toFixed(0)} payout · €${(feeTotalCents / 100).toFixed(0)} fee`}
-              accent="emerald"
-            />
-            <Highlight
-              icon={Users}
-              label="Tickets sold"
-              value={`${totalSold}/${totalCapacity}`}
-              sub={`${pctSold}% of capacity`}
-              accent="blue"
-            />
-            <Highlight
-              icon={CheckCircle2}
-              label="Checked in"
-              value={`${scannedCount}`}
-              sub={totalSold > 0 ? `${Math.round((scannedCount / totalSold) * 100)}% of sold` : "0% of sold"}
-              accent="violet"
-            />
-            <Highlight
-              icon={Calendar}
-              label={eventInPast ? "Event passed" : daysToGo === 0 ? "Today" : `${daysToGo}d to go`}
-              value={new Date(event.date).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
-              sub={new Date(event.date).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
-              accent="amber"
-            />
-          </div>
-
-          {/* Sales over time chart */}
-          <section className="bg-card border border-border rounded-2xl p-5 md:p-6 mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <BarChart3 className="w-5 h-5 text-primary" />
-                <h2 className="text-lg font-bold">Sales over time</h2>
-              </div>
-              <span className="text-xs text-muted-foreground">
-                {salesSeries.length > 0 ? `${salesSeries.length} order${salesSeries.length > 1 ? "s" : ""}` : "Waiting for the first sale"}
-              </span>
-            </div>
-            {salesSeries.length === 0 ? (
-              <div className="h-40 flex items-center justify-center text-sm text-muted-foreground">
-                The chart fills in as orders come in.
-              </div>
-            ) : (
-              <div className="h-56">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={salesSeries} margin={{ top: 10, right: 8, left: -16, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="revGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={event.primary_color ?? "#3a5fe6"} stopOpacity={0.45} />
-                        <stop offset="100%" stopColor={event.primary_color ?? "#3a5fe6"} stopOpacity={0.02} />
-                      </linearGradient>
-                    </defs>
-                    <XAxis
-                      dataKey="label"
-                      tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
-                      tickLine={false}
-                      axisLine={false}
-                    />
-                    <YAxis
-                      tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
-                      tickLine={false}
-                      axisLine={false}
-                      tickFormatter={(v) => `€${v}`}
-                      width={48}
-                    />
-                    <Tooltip
-                      contentStyle={{ borderRadius: 10, border: "1px solid hsl(var(--border))" }}
-                      labelStyle={{ fontSize: 11 }}
-                      formatter={(v: number, name: string) =>
-                        name === "cumRev" ? [`€${v}`, "Revenue"] : [v, "Tickets"]
-                      }
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="cumRev"
-                      stroke={event.primary_color ?? "#3a5fe6"}
-                      strokeWidth={2}
-                      fill="url(#revGradient)"
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-          </section>
-
-          {/* Event statistics — one consolidated table instead of scattered
-              cards: ticket types, tables, promo codes, demographics. */}
-          {(tiers.length > 0 || genderTotal > 0) && (() => {
-            const tableTiers = tiers.filter((t) => t.kind === "table");
-            const tablesSold = tableTiers.reduce((a, t) => a + t.sold_qty, 0);
-            const peopleViaTables = tableTiers.reduce((a, t) => a + t.sold_qty * (t.capacity_per_unit || 1), 0);
-            const promoOrders = orders.filter((o) => o.promo_code_id && o.status === "paid");
-            const totalDiscountCents = promoOrders.reduce((a, o) => a + (o.discount_cents ?? 0), 0);
-            const GroupRow = ({ label }: { label: string }) => (
-              <tr>
-                <td colSpan={2} className="pt-5 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-primary first:pt-0">
-                  {label}
-                </td>
-              </tr>
-            );
-            const StatRow = ({ label, value, bar }: { label: string; value: string; bar?: number }) => (
-              <tr className="border-t border-border/60 first:border-t-0">
-                <td className="py-2 pr-4 text-sm text-muted-foreground align-top">
-                  {label}
-                  {bar != null && (
-                    <div className="h-1.5 w-32 rounded-full bg-muted overflow-hidden mt-1.5">
-                      <div className="h-full rounded-full" style={{ width: `${bar}%`, background: event.primary_color ?? "#3a5fe6" }} />
-                    </div>
-                  )}
-                </td>
-                <td className="py-2 text-sm font-bold text-foreground text-right tabular-nums align-top">{value}</td>
-              </tr>
-            );
-            return (
-              <section className="bg-card border border-border rounded-2xl p-5 md:p-6 mb-6">
-                <h2 className="text-lg font-bold mb-2">Event statistics</h2>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <tbody>
-                      <GroupRow label="Ticket types" />
-                      {tiers.map((t) => (
-                        <StatRow
-                          key={t.id}
-                          label={`${t.name}${t.kind === "table" ? ` (table, ${t.capacity_per_unit}/unit)` : ""}`}
-                          value={`${t.sold_qty}/${t.total_qty} · €${(t.sold_qty * t.price_cents / 100).toFixed(0)}`}
-                          bar={t.total_qty > 0 ? Math.round((t.sold_qty / t.total_qty) * 100) : 0}
-                        />
-                      ))}
-
-                      {(tablesSold > 0 || promoOrders.length > 0) && (
-                        <>
-                          <GroupRow label="Tables & promo codes" />
-                          {tablesSold > 0 && (
-                            <>
-                              <StatRow label="Tables sold" value={String(tablesSold)} />
-                              <StatRow label="People via tables" value={String(peopleViaTables)} />
-                            </>
-                          )}
-                          {promoOrders.length > 0 && (
-                            <>
-                              <StatRow label="Orders with a promo code" value={String(promoOrders.length)} />
-                              <StatRow label="Total discounted" value={`€${(totalDiscountCents / 100).toFixed(0)}`} />
-                            </>
-                          )}
-                        </>
-                      )}
-
-                      {genderTotal > 0 && (
-                        <>
-                          <GroupRow label="Attendee demographics" />
-                          {(
-                            [
-                              ["female", "Female"],
-                              ["male", "Male"],
-                              ["other", "Other"],
-                              ["unspecified", "Not specified"],
-                            ] as const
-                          ).map(([key, label]) => {
-                            const count = genderCounts[key];
-                            if (count === 0) return null;
-                            const pct = Math.round((count / genderTotal) * 100);
-                            return <StatRow key={key} label={label} value={`${count} · ${pct}%`} bar={pct} />;
-                          })}
-                        </>
-                      )}
-                    </tbody>
-                  </table>
                 </div>
               </section>
             );
