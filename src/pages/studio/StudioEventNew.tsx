@@ -135,6 +135,10 @@ const StudioEventNew = () => {
   const onBannerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
+    if (!f.type.startsWith("image/")) {
+      toast.error("Please choose an image file.");
+      return;
+    }
     if (f.size > 5 * 1024 * 1024) {
       toast.error("Banner image must be under 5 MB.");
       return;

@@ -667,6 +667,8 @@ const EventPublic = () => {
                   src={event.banner_url ?? undefined}
                   alt={event.title}
                   className="absolute inset-0 w-full h-full object-cover"
+                  fetchPriority="high"
+                  decoding="async"
                 />
               )}
             </div>

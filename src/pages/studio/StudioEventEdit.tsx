@@ -1294,6 +1294,10 @@ const SocialSharingControl = ({
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please choose an image file.");
+      return;
+    }
     if (file.size > 5 * 1024 * 1024) {
       toast.error("Image must be under 5 MB.");
       return;
@@ -1497,6 +1501,10 @@ const EventDetailsEditor = ({
   const onBannerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
+    if (!f.type.startsWith("image/")) {
+      toast.error("Please choose an image file.");
+      return;
+    }
     if (f.size > 5 * 1024 * 1024) {
       toast.error("Banner image must be under 5 MB.");
       return;
@@ -1509,6 +1517,10 @@ const EventDetailsEditor = ({
   const onVideoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
+    if (!f.type.startsWith("video/")) {
+      toast.error("Please choose a video file.");
+      return;
+    }
     if (f.size > 50 * 1024 * 1024) {
       toast.error("Video must be under 50 MB.");
       return;

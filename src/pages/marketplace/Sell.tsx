@@ -170,6 +170,10 @@ const Sell = () => {
 
   const uploadListingMedia = async (file: File, kind: "photo" | "video") => {
     if (!user) return;
+    if (!file.type.startsWith(kind === "photo" ? "image/" : "video/")) {
+      toast.error(`Please choose a ${kind} file.`);
+      return;
+    }
     const maxBytes = kind === "photo" ? 8 * 1024 * 1024 : 25 * 1024 * 1024;
     if (file.size > maxBytes) {
       toast.error(`${kind === "photo" ? "Photo" : "Video"} must be under ${kind === "photo" ? "8" : "25"} MB.`);

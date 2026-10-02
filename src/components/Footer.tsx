@@ -3,7 +3,7 @@ import { Instagram, ShieldCheck, Lock, Ticket, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEffect, useRef, useState } from "react";
 import { useI18n } from "@/contexts/I18nContext";
-import { supabase } from "@/integrations/supabase/client";
+import { useTicketsSoldCount } from "@/hooks/useTicketsSoldCount";
 import { TrustItem } from "@/components/common/TrustItem";
 
 const Footer = () => {
@@ -11,17 +11,7 @@ const Footer = () => {
   const currentYear = new Date().getFullYear();
   const footerRef = useRef<HTMLElement>(null);
   const [isVisible, setIsVisible] = useState(false);
-  const [ticketsSold, setTicketsSold] = useState<number | null>(null);
-
-  useEffect(() => {
-    supabase
-      .from("transactions")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "completed")
-      .then(({ count }) => {
-        if (count && count >= 10) setTicketsSold(count);
-      });
-  }, []);
+  const ticketsSold = useTicketsSoldCount();
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -131,7 +121,7 @@ const Footer = () => {
               </li>
               <li>
                 <Link
-                  to="/campus-life"
+                  to="/tickets"
                   className="text-sm text-muted-foreground hover:text-primary transition-colors duration-300 hover:underline underline-offset-4"
                 >
                   Campus Life
@@ -162,7 +152,7 @@ const Footer = () => {
               </li>
               <li>
                 <Link
-                  to="/about#careers"
+                  to="/contact"
                   className="text-sm text-muted-foreground hover:text-primary transition-colors duration-300 hover:underline underline-offset-4"
                 >
                   Careers
@@ -178,7 +168,7 @@ const Footer = () => {
               </li>
               <li>
                 <Link
-                  to="/about#press"
+                  to="/contact"
                   className="text-sm text-muted-foreground hover:text-primary transition-colors duration-300 hover:underline underline-offset-4"
                 >
                   Press

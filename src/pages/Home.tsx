@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/accordion";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { partnerLogos } from "@/config/partnerLogos";
-import { supabase } from "@/integrations/supabase/client";
+import { useTicketsSoldCount } from "@/hooks/useTicketsSoldCount";
 import { fetchPublishedEvents, toEventData, type PublishedEvent } from "@/lib/publishedEvents";
 import type { EventData } from "@/data/eventsData";
 
@@ -53,17 +53,7 @@ const Home = () => {
   const navigate = useNavigate();
   const [upcomingEvents, setUpcomingEvents] = useState<PublishedEvent[]>([]);
   const [eventsLoading, setEventsLoading] = useState(true);
-  const [ticketsSold, setTicketsSold] = useState<number | null>(null);
-
-  useEffect(() => {
-    supabase
-      .from("transactions")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "completed")
-      .then(({ count }) => {
-        if (count && count >= 10) setTicketsSold(count);
-      });
-  }, []);
+  const ticketsSold = useTicketsSoldCount();
 
   // Same source of truth as /tickets (event_tiers inventory) — keeps the
   // homepage carousel from drifting out of sync with what's actually for
