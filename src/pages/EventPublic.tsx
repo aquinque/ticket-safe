@@ -11,8 +11,6 @@ import {
   ArrowRight,
   ArrowLeft,
   ShieldCheck,
-  Building2,
-  Check,
   Mail,
   QrCode,
   Info,
@@ -400,15 +398,15 @@ const EventPublic = () => {
             <div className="w-12 h-12 bg-muted flex items-center justify-center mx-auto mb-4">
               <Ticket className="w-6 h-6 text-muted-foreground" strokeWidth={1.5} />
             </div>
-            <h1 className="text-xl font-semibold mb-2 text-foreground">Événement introuvable</h1>
+            <h1 className="text-xl font-semibold mb-2 text-foreground">Event not found</h1>
             <p className="text-sm text-muted-foreground mb-6">
-              Cet événement a peut-être été dépublié, ou le lien est incorrect.
+              This event may have been unpublished, or the link is incorrect.
             </p>
             <Link
               to="/tickets"
               className="inline-flex items-center justify-center gap-1.5 px-5 py-3 bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary-hover transition-colors"
             >
-              Voir tous les événements
+              Browse all events
               <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
@@ -447,12 +445,12 @@ const EventPublic = () => {
     tiers.some((t) => t.available_qty > 0 && t.total_qty > 0 && t.available_qty / t.total_qty < 0.3);
   // Text-only status mark (no pill background) — colour carries the meaning.
   const statusText: { label: string; colorClass: string; pulse?: boolean } = isPast
-    ? { label: "Terminé", colorClass: "text-muted-foreground" }
+    ? { label: "Ended", colorClass: "text-muted-foreground" }
     : eventSoldOut
-    ? { label: "Épuisé", colorClass: "text-rose-400" }
+    ? { label: "Sold out", colorClass: "text-rose-400" }
     : sellingFast
-    ? { label: "Dernières places", colorClass: "text-primary", pulse: true }
-    : { label: "En vente", colorClass: "text-emerald-400" };
+    ? { label: "Selling fast", colorClass: "text-primary", pulse: true }
+    : { label: "On sale", colorClass: "text-emerald-400" };
 
   const fmtPrice = (cents: number) => `€${(cents / 100).toFixed(cents % 100 === 0 ? 0 : 2)}`;
 
@@ -462,10 +460,10 @@ const EventPublic = () => {
     if (eventSoldOut) {
       return (
         <div className="border border-border p-6">
-          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-rose-400 mb-4">Épuisé</p>
-          <h3 className="text-base font-medium text-foreground mb-2">Cet événement est complet</h3>
+          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-rose-400 mb-4">Sold out</p>
+          <h3 className="text-base font-medium text-foreground mb-2">This event is sold out</h3>
           <p className="text-sm text-muted-foreground mb-5">
-            Suivez l'organisateur pour être informé des prochains billets ou événements.
+            Follow the organizer to hear about new tickets or upcoming events.
           </p>
           {event.organizer && (
             <button
@@ -473,7 +471,7 @@ const EventPublic = () => {
               disabled={followBusy}
               className="w-full py-3 text-sm font-medium border border-border hover:bg-muted transition-colors disabled:opacity-60"
             >
-              {following ? "Suivi" : "Suivre l'organisateur"}
+              {following ? "Following" : "Follow organizer"}
             </button>
           )}
         </div>
@@ -484,16 +482,16 @@ const EventPublic = () => {
       return (
         <div className="border border-border p-6">
           <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground mb-4">
-            Récapitulatif
+            Order summary
           </p>
           {minPriceCents != null && (
             <p className="mb-2">
-              <span className="text-sm text-muted-foreground">À partir de </span>
+              <span className="text-sm text-muted-foreground">From </span>
               <span className="text-2xl font-semibold tabular-nums text-foreground">{fmtPrice(minPriceCents)}</span>
             </p>
           )}
           <p className="text-sm text-muted-foreground mb-5">
-            Choisissez un billet pour voir le total et continuer.
+            Pick a ticket to see the total and continue.
           </p>
           <div className="pt-5 border-t border-border">
             <ProtectionBadge />
@@ -505,7 +503,7 @@ const EventPublic = () => {
     return (
       <div className="border border-border p-6">
         <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground mb-5">
-          Récapitulatif
+          Order summary
         </p>
 
         <div className="space-y-2.5 mb-4 pb-4 border-b border-border">
@@ -518,7 +516,7 @@ const EventPublic = () => {
           </div>
           <div className="flex items-baseline justify-between text-sm">
             <span className="text-muted-foreground">
-              Frais de service <span className="text-muted-foreground/70">(€1,40 × {qty})</span>
+              Service fee <span className="text-muted-foreground/70">(€1.40 × {qty})</span>
             </span>
             <span className="tabular-nums text-foreground">{fmtPrice(feeCents)}</span>
           </div>
@@ -530,7 +528,7 @@ const EventPublic = () => {
               <input
                 value={promoCode}
                 onChange={(e) => setPromoCode(e.target.value)}
-                placeholder="Code promo"
+                placeholder="Promo code"
                 className="flex-1 min-w-0 px-3 py-2 border border-border bg-input text-sm uppercase text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary transition-shadow"
               />
               {promoCode && (
@@ -539,7 +537,7 @@ const EventPublic = () => {
                   onClick={() => { setPromoCode(""); setShowPromoInput(false); }}
                   className="text-xs font-medium text-muted-foreground hover:text-foreground shrink-0"
                 >
-                  Effacer
+                  Clear
                 </button>
               )}
             </div>
@@ -549,12 +547,12 @@ const EventPublic = () => {
               onClick={() => setShowPromoInput(true)}
               className="text-xs font-medium text-primary hover:underline"
             >
-              Vous avez un code promo ?
+              Have a promo code?
             </button>
           )}
           {promoCode && (
             <p className="text-[11px] text-muted-foreground mt-1.5">
-              Appliqué au paiement — la remise apparaît sur l'écran Revolut final.
+              Applied at payment — the discount shows on the final Revolut screen.
             </p>
           )}
         </div>
@@ -576,18 +574,18 @@ const EventPublic = () => {
               {buying ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Ouverture du paiement sécurisé
+                  Opening secure checkout
                 </>
               ) : (
                 <>
-                  Continuer vers le paiement
+                  Continue to payment
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}
             </button>
             {!user && (
               <p className="text-[11px] text-muted-foreground text-center mt-2.5">
-                Aucun compte requis — le billet part directement à l'adresse indiquée ci-dessus.
+                No account needed — the ticket goes straight to the email above.
               </p>
             )}
             <div className="mt-4">
@@ -598,7 +596,7 @@ const EventPublic = () => {
 
         {maxPerBuyer != null && qty >= maxPerBuyer && (
           <p className="text-[11px] text-muted-foreground text-center mt-3">
-            Limite atteinte — {maxPerBuyer} billet{maxPerBuyer > 1 ? "s" : ""} par personne.
+            Limit reached — {maxPerBuyer} ticket{maxPerBuyer > 1 ? "s" : ""} per person.
           </p>
         )}
       </div>
@@ -685,7 +683,7 @@ const EventPublic = () => {
             className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-6"
           >
             <ArrowLeft className="w-4 h-4" strokeWidth={1.5} />
-            Retour
+            Back
           </button>
 
           <div className="flex items-center gap-3 flex-wrap text-[11px] font-bold uppercase tracking-[0.12em] mb-3">
@@ -709,7 +707,7 @@ const EventPublic = () => {
           <div className="flex items-center gap-4 flex-wrap text-sm text-muted-foreground">
             <span className="inline-flex items-center gap-1.5">
               <Calendar className="w-4 h-4" strokeWidth={1.5} />
-              {new Date(event.date).toLocaleString("fr-FR", { dateStyle: "long", timeStyle: "short" })}
+              {new Date(event.date).toLocaleString("en-GB", { dateStyle: "long", timeStyle: "short" })}
             </span>
             {event.location && (
               <span className="inline-flex items-center gap-1.5">
@@ -720,7 +718,7 @@ const EventPublic = () => {
             {event.ends_at && (
               <span className="inline-flex items-center gap-1.5">
                 <Clock className="w-4 h-4" strokeWidth={1.5} />
-                Jusqu'à {new Date(event.ends_at).toLocaleString("fr-FR", { timeStyle: "short" })}
+                Until {new Date(event.ends_at).toLocaleString("en-GB", { timeStyle: "short" })}
               </span>
             )}
           </div>
@@ -734,20 +732,23 @@ const EventPublic = () => {
             {/* ===== LEFT: selection + event info ===== */}
             <div className="min-w-0">
               {/* Ticket picker */}
-              <Section title="Choisir un billet" first>
+              <Section title="Pick a ticket" first>
                 {eventSoldOut && (
                   <p className="flex items-start gap-2 text-sm text-rose-400 mb-5">
                     <Info className="w-4 h-4 mt-0.5 shrink-0" strokeWidth={1.5} />
-                    Cet événement est complet. Suivez l'organisateur ci-dessous pour être informé des prochaines dates.
+                    This event is sold out. Follow the organizer below to hear about new dates.
                   </p>
                 )}
 
                 {tiers.length === 0 ? (
                   <p className="text-sm text-muted-foreground py-6">
-                    Les billets seront bientôt en vente. Revenez un peu plus tard.
+                    Tickets will be on sale soon. Check back shortly.
                   </p>
                 ) : (
                   <div>
+                    {!eventSoldOut && (
+                      <p className="text-sm text-muted-foreground mb-4">Select a ticket to continue.</p>
+                    )}
                     {tiers.map((t) => {
                       const isSelected = selectedTier === t.tier_id;
                       const soldOut = t.available_qty <= 0;
@@ -763,25 +764,34 @@ const EventPublic = () => {
                             setQty(1);
                           }}
                           disabled={soldOut}
+                          aria-pressed={isSelected}
                           className={`w-full flex items-stretch gap-4 text-left border-t border-border first:border-t-0 transition-colors ${
                             soldOut ? "opacity-40 cursor-not-allowed" : "hover:bg-muted/30"
                           }`}
                         >
                           <span className={`w-[3px] shrink-0 ${isSelected && !soldOut ? "bg-primary" : "bg-transparent"}`} />
                           <span className="flex-1 flex items-center justify-between gap-4 py-4 min-w-0">
-                            <span className="min-w-0">
-                              <span className="flex items-center gap-2">
-                                <span className="font-medium text-foreground">{t.name}</span>
-                                {isSelected && !soldOut && <Check className="w-3.5 h-3.5 text-primary shrink-0" strokeWidth={2.5} />}
+                            <span className="flex items-center gap-3 min-w-0">
+                              {/* Radio-style indicator — makes it unambiguous that
+                                  each row is a selectable option, not just text. */}
+                              <span
+                                className={`w-4 h-4 rounded-full border shrink-0 flex items-center justify-center ${
+                                  isSelected && !soldOut ? "border-primary" : "border-muted-foreground/50"
+                                }`}
+                              >
+                                {isSelected && !soldOut && <span className="w-2 h-2 rounded-full bg-primary" />}
                               </span>
-                              {t.description && (
-                                <span className="block text-sm text-muted-foreground mt-0.5 line-clamp-2">{t.description}</span>
-                              )}
-                              {soldOut ? (
-                                <span className="block text-xs text-muted-foreground mt-1.5">Épuisé</span>
-                              ) : fewLeft ? (
-                                <span className="block text-xs text-primary mt-1.5">Dernières places</span>
-                              ) : null}
+                              <span className="min-w-0">
+                                <span className="font-medium text-foreground">{t.name}</span>
+                                {t.description && (
+                                  <span className="block text-sm text-muted-foreground mt-0.5 line-clamp-2">{t.description}</span>
+                                )}
+                                {soldOut ? (
+                                  <span className="block text-xs text-muted-foreground mt-1.5">Sold out</span>
+                                ) : fewLeft ? (
+                                  <span className="block text-xs text-primary mt-1.5">Few tickets left</span>
+                                ) : null}
+                              </span>
                             </span>
                             <span className="text-base font-semibold tabular-nums text-foreground shrink-0">
                               {fmtPrice(t.price_cents)}
@@ -798,7 +808,7 @@ const EventPublic = () => {
                     to={`/event/${event.id}/tickets`}
                     className="flex items-center justify-between gap-2 py-3 mt-1 border-t border-border text-sm text-foreground hover:text-primary transition-colors"
                   >
-                    <span>Revente disponible ({resaleCount} billet{resaleCount > 1 ? "s" : ""})</span>
+                    <span>Resale available ({resaleCount} ticket{resaleCount > 1 ? "s" : ""})</span>
                     <ArrowRight className="w-4 h-4 shrink-0" />
                   </Link>
                 )}
@@ -809,7 +819,7 @@ const EventPublic = () => {
                 <Section>
                   <div className="flex items-center justify-between mb-5">
                     <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                      {qty === 1 ? "Votre billet" : `Vos ${qty} billets`}
+                      {qty === 1 ? "Your ticket" : `Your ${qty} tickets`}
                     </h2>
                     <QtyStepper
                       qty={qty}
@@ -836,7 +846,7 @@ const EventPublic = () => {
                             <div className="min-w-0">
                               <div className="text-sm font-medium text-foreground truncate">{selected.name}</div>
                               {qty > 1 && (
-                                <div className="text-xs text-muted-foreground mt-0.5">Billet {i + 1} / {qty}</div>
+                                <div className="text-xs text-muted-foreground mt-0.5">Ticket {i + 1} of {qty}</div>
                               )}
                             </div>
                             <div className="text-sm font-semibold tabular-nums text-foreground shrink-0">
@@ -846,67 +856,67 @@ const EventPublic = () => {
 
                           <div className="space-y-3">
                             <div className="grid grid-cols-2 gap-3">
-                              <Field label="Prénom">
+                              <Field label="First name">
                                 <input
                                   value={a.first_name}
                                   onChange={(e) => updateAttendee(i, { first_name: e.target.value })}
-                                  placeholder="Prénom"
+                                  placeholder="First name"
                                   className="ts-field-input"
                                   maxLength={100}
                                   autoComplete="given-name"
-                                  aria-label={qty > 1 ? `Billet ${i + 1} — prénom` : "Prénom"}
+                                  aria-label={qty > 1 ? `Ticket ${i + 1} first name` : "First name"}
                                 />
                               </Field>
-                              <Field label="Nom">
+                              <Field label="Last name">
                                 <input
                                   value={a.last_name}
                                   onChange={(e) => updateAttendee(i, { last_name: e.target.value })}
-                                  placeholder="Nom"
+                                  placeholder="Last name"
                                   className="ts-field-input"
                                   maxLength={100}
                                   autoComplete="family-name"
-                                  aria-label={qty > 1 ? `Billet ${i + 1} — nom` : "Nom"}
+                                  aria-label={qty > 1 ? `Ticket ${i + 1} last name` : "Last name"}
                                 />
                               </Field>
                             </div>
-                            <Field label="Email (réception du billet)">
+                            <Field label="Email (ticket delivery)">
                               <input
                                 type="email"
                                 value={a.email}
                                 onChange={(e) => updateAttendee(i, { email: e.target.value })}
-                                placeholder="nom@exemple.com"
+                                placeholder="name@example.com"
                                 className="ts-field-input"
                                 maxLength={254}
                                 autoComplete="email"
-                                aria-label={qty > 1 ? `Billet ${i + 1} — email` : "Email"}
+                                aria-label={qty > 1 ? `Ticket ${i + 1} email` : "Email"}
                               />
                             </Field>
-                            <Field label="Confirmer l'email">
+                            <Field label="Confirm email">
                               <input
                                 type="email"
                                 value={a.confirm_email}
                                 onChange={(e) => updateAttendee(i, { confirm_email: e.target.value })}
-                                placeholder="nom@exemple.com"
+                                placeholder="name@example.com"
                                 className={`ts-field-input ${emailMismatch ? "border-rose-400" : ""}`}
                                 maxLength={254}
                                 autoComplete="email"
-                                aria-label={qty > 1 ? `Billet ${i + 1} — confirmer l'email` : "Confirmer l'email"}
+                                aria-label={qty > 1 ? `Ticket ${i + 1} confirm email` : "Confirm email"}
                               />
                               {emailMismatch && (
-                                <p className="text-[11px] text-rose-400 mt-1">Les emails ne correspondent pas</p>
+                                <p className="text-[11px] text-rose-400 mt-1">Emails don't match</p>
                               )}
                             </Field>
-                            <Field label="Genre">
+                            <Field label="Gender">
                               <select
                                 value={a.gender}
                                 onChange={(e) => updateAttendee(i, { gender: e.target.value as AttendeeForm["gender"] })}
                                 className="ts-field-input"
-                                aria-label={qty > 1 ? `Billet ${i + 1} — genre` : "Genre"}
+                                aria-label={qty > 1 ? `Ticket ${i + 1} gender` : "Gender"}
                               >
-                                <option value="" disabled>Sélectionner…</option>
-                                <option value="female">Femme</option>
-                                <option value="male">Homme</option>
-                                <option value="other">Autre</option>
+                                <option value="" disabled>Select…</option>
+                                <option value="female">Female</option>
+                                <option value="male">Male</option>
+                                <option value="other">Other</option>
                               </select>
                             </Field>
                           </div>
@@ -917,7 +927,7 @@ const EventPublic = () => {
 
                   {maxPerBuyer != null && qty >= maxPerBuyer && (
                     <p className="text-[11px] text-muted-foreground text-center mt-4">
-                      Limite atteinte — {maxPerBuyer} billet{maxPerBuyer > 1 ? "s" : ""} par personne.
+                      Limit reached — {maxPerBuyer} ticket{maxPerBuyer > 1 ? "s" : ""} per person.
                     </p>
                   )}
 
@@ -927,17 +937,17 @@ const EventPublic = () => {
               )}
 
               {/* When & where */}
-              <Section title="Quand et où">
+              <Section title="When & where">
                 <div className="space-y-4">
                   <div className="flex items-start gap-3">
                     <Calendar className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" strokeWidth={1.5} />
                     <div>
                       <div className="text-sm text-foreground">
-                        {new Date(event.date).toLocaleString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+                        {new Date(event.date).toLocaleString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
                       </div>
                       <div className="text-sm text-muted-foreground">
-                        {new Date(event.date).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
-                        {event.ends_at && <> – {new Date(event.ends_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</>}
+                        {new Date(event.date).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
+                        {event.ends_at && <> – {new Date(event.ends_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</>}
                       </div>
                     </div>
                   </div>
@@ -952,7 +962,7 @@ const EventPublic = () => {
                           rel="noopener noreferrer"
                           className="text-sm text-primary hover:underline"
                         >
-                          Voir sur la carte
+                          View on map
                         </a>
                       </div>
                     </div>
@@ -962,40 +972,40 @@ const EventPublic = () => {
 
               {/* About */}
               {event.description && (
-                <Section title="À propos">
+                <Section title="About this event">
                   <p className="text-sm text-foreground/85 leading-relaxed whitespace-pre-line">{event.description}</p>
                 </Section>
               )}
 
               {/* What happens after you pay */}
-              <Section title="Après le paiement">
+              <Section title="After you pay">
                 <ul className="space-y-3 text-sm">
                   <li className="flex items-start gap-3">
                     <CreditCard className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" strokeWidth={1.5} />
                     <span className="text-foreground/85">
-                      Paiement sécurisé via <span className="font-medium text-foreground">Revolut</span> — vos coordonnées bancaires ne transitent jamais par Ticket Safe.
+                      Secure payment via <span className="font-medium text-foreground">Revolut</span> — your card details never touch Ticket Safe.
                     </span>
                   </li>
                   <li className="flex items-start gap-3">
                     <Mail className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" strokeWidth={1.5} />
-                    <span className="text-foreground/85">Votre billet à QR code arrive par email, en image et en PDF.</span>
+                    <span className="text-foreground/85">Your QR ticket arrives by email, as an image and a PDF.</span>
                   </li>
                   <li className="flex items-start gap-3">
                     <QrCode className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" strokeWidth={1.5} />
                     <span className="text-foreground/85">
-                      Retrouvez-le dans <Link to="/my-tickets" className="font-medium text-primary hover:underline">Mes billets</Link> et présentez le QR à l'entrée.
+                      Find it anytime in <Link to="/my-tickets" className="font-medium text-primary hover:underline">My Tickets</Link> and show the QR at the door.
                     </span>
                   </li>
                   <li className="flex items-start gap-3">
                     <ShieldCheck className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" strokeWidth={1.5} />
-                    <span className="text-foreground/85">Remboursement automatique si l'organisateur annule l'événement.</span>
+                    <span className="text-foreground/85">Automatic refund if the organizer cancels the event.</span>
                   </li>
                 </ul>
               </Section>
 
               {/* Organizer */}
               {event.organizer && (
-                <Section title="Organisé par">
+                <Section title="Organized by">
                   <div className="flex items-center gap-3">
                     {event.organizer.logo_url ? (
                       <img src={event.organizer.logo_url} alt={event.organizer.name} className="w-11 h-11 rounded-full object-cover shrink-0" />
@@ -1007,7 +1017,7 @@ const EventPublic = () => {
                     <div className="flex-1 min-w-0">
                       <div className="font-medium text-foreground inline-flex items-center gap-1.5">
                         {event.organizer.name}
-                        <BadgeCheck className="w-4 h-4 text-primary" strokeWidth={1.75} aria-label="Organisateur vérifié" />
+                        <BadgeCheck className="w-4 h-4 text-primary" strokeWidth={1.75} aria-label="Verified organizer" />
                       </div>
                       {event.organizer.website && (
                         <a href={event.organizer.website} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">
@@ -1026,7 +1036,7 @@ const EventPublic = () => {
                       }`}
                       aria-pressed={following}
                     >
-                      {following ? "Suivi" : "Suivre"}
+                      {following ? "Following" : "Follow"}
                     </button>
                   </div>
                 </Section>
@@ -1034,12 +1044,12 @@ const EventPublic = () => {
 
               {/* Footer */}
               <div className="pt-8 pb-2 text-center text-xs text-muted-foreground">
-                Propulsé par{" "}
+                Powered by{" "}
                 <Link to="/" className="font-medium text-foreground hover:underline">Ticket Safe</Link>
                 {" · "}
-                <Link to="/terms" className="hover:underline">CGU</Link>
+                <Link to="/terms" className="hover:underline">Terms</Link>
                 {" · "}
-                <Link to="/privacy" className="hover:underline">Confidentialité</Link>
+                <Link to="/privacy" className="hover:underline">Privacy</Link>
               </div>
             </div>
 
@@ -1066,7 +1076,7 @@ const EventPublic = () => {
               disabled={buying}
               className="flex-shrink-0 inline-flex items-center justify-center gap-1.5 min-h-[44px] px-5 bg-primary text-primary-foreground font-semibold text-sm disabled:opacity-60 transition-colors hover:bg-primary-hover"
             >
-              {buying ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Continuer <ArrowRight className="w-4 h-4" /></>}
+              {buying ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Continue <ArrowRight className="w-4 h-4" /></>}
             </button>
           </div>
         </div>
@@ -1146,7 +1156,7 @@ const QtyStepper = ({
       onClick={onDecrease}
       disabled={disableDecrease}
       className="w-8 h-8 border border-border flex items-center justify-center hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-      aria-label="Retirer un billet"
+      aria-label="Remove a ticket"
     >
       <Minus className="w-3.5 h-3.5" strokeWidth={1.75} />
     </button>
@@ -1155,7 +1165,7 @@ const QtyStepper = ({
       onClick={onIncrease}
       disabled={disableIncrease}
       className="w-8 h-8 border border-border flex items-center justify-center hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-      aria-label="Ajouter un billet"
+      aria-label="Add a ticket"
     >
       <Plus className="w-3.5 h-3.5" strokeWidth={1.75} />
     </button>

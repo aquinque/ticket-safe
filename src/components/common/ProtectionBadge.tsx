@@ -14,6 +14,6 @@ export const ProtectionBadge = ({ className }: { className?: string }) => (
     )}
   >
     <ShieldCheck className="w-3.5 h-3.5 text-primary shrink-0" />
-    Protection TicketSafe incluse
+    TicketSafe Protection included
   </span>
 );
