@@ -56,6 +56,12 @@ verify_jwt = false
 [functions.validate-event-ticket]
 verify_jwt = false
 
+# Live "who's checked in" list for the door-scan screens. Same dual auth as
+# validate-event-ticket (organizer/admin JWT OR a staff_token with no
+# Supabase session) — the gateway must not reject the staff_token path.
+[functions.list-event-checkins]
+verify_jwt = false
+
 # Cancel event + refund all paid orders (organizer-only, Stripe refunds).
 [functions.cancel-event]
 verify_jwt = false

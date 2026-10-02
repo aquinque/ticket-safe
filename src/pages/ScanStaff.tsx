@@ -7,9 +7,9 @@
  * header nav, no event picker, nothing beyond "scan a ticket, see the
  * result".
  */
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
-import { Camera, Scan, Loader2, CheckCircle2, XCircle, AlertTriangle, RefreshCw, ShieldCheck } from "lucide-react";
+import { Camera, Scan, Loader2, CheckCircle2, XCircle, AlertTriangle, RefreshCw, ShieldCheck, Users, Clock } from "lucide-react";
 import { toast } from "sonner";
 import Logo from "@/components/Logo";
 import { Input } from "@/components/ui/input";
@@ -46,6 +46,13 @@ const RESULT_SEMANTICS: Record<ScanResultCode, { emphasis: "ok" | "warn" | "dang
   RATE_LIMITED: { emphasis: "warn", label: "Too many scans" },
 };
 
+interface CheckinRow {
+  id: string;
+  name: string;
+  tier_name: string | null;
+  scanned_at: string;
+}
+
 const ScanStaff = () => {
   const { token } = useParams<{ token: string }>();
   const [inputMode, setInputMode] = useState<"camera" | "manual">("camera");
@@ -54,6 +61,41 @@ const ScanStaff = () => {
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [cameraActive, setCameraActive] = useState(true);
   const [sessionCount, setSessionCount] = useState({ valid: 0, rejected: 0 });
+
+  // Live "who's been checked in" list — shared across every device scanning
+  // this event (polled, since this page has no Supabase Auth session for a
+  // Realtime subscription to authorize against).
+  const [checkins, setCheckins] = useState<CheckinRow[]>([]);
+  const [totals, setTotals] = useState<{ scanned: number; total: number } | null>(null);
+  const loadingRef = useRef(false);
+
+  const loadCheckins = async () => {
+    if (!token || loadingRef.current) return;
+    loadingRef.current = true;
+    try {
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/list-event-checkins`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
+        body: JSON.stringify({ staff_token: token }),
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        setCheckins(data.checkins ?? []);
+        setTotals({ scanned: data.total_scanned ?? 0, total: data.total_tickets ?? 0 });
+      }
+    } catch (err) {
+      console.error("[ScanStaff] checkins poll failed:", err);
+    } finally {
+      loadingRef.current = false;
+    }
+  };
+
+  useEffect(() => {
+    loadCheckins();
+    const interval = setInterval(loadCheckins, 4000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
 
   const validate = async (qrText: string) => {
     if (!token) return;
@@ -86,8 +128,12 @@ const ScanStaff = () => {
       };
       setScanResult(result);
       setSessionCount((c) => (result.valid ? { ...c, valid: c.valid + 1 } : { ...c, rejected: c.rejected + 1 }));
-      if (result.valid) toast.success(result.message);
-      else toast.error(result.message);
+      if (result.valid) {
+        toast.success(result.message);
+        loadCheckins(); // refresh the live list immediately instead of waiting for the next poll
+      } else {
+        toast.error(result.message);
+      }
     } catch (err) {
       console.error("[ScanStaff] error:", err);
       const r: ScanResult = { valid: false, result: "INVALID", message: "Network error — check your connection" };
@@ -139,7 +185,8 @@ const ScanStaff = () => {
       </header>
 
       <main className="flex-1 py-6">
-        <div className="container mx-auto px-4 max-w-md space-y-4">
+        <div className="container mx-auto px-4 max-w-5xl lg:grid lg:grid-cols-[minmax(0,420px)_320px] lg:gap-6 lg:items-start lg:justify-center">
+        <div className="max-w-md mx-auto lg:mx-0 space-y-4">
           <div className="flex items-center gap-3 text-xs text-muted-foreground justify-center">
             <span>Valid: <strong className="text-foreground">{sessionCount.valid}</strong></span>
             <span>·</span>
@@ -231,6 +278,46 @@ const ScanStaff = () => {
               </div>
             );
           })()}
+        </div>
+
+        {/* Live check-in list — shared across every device scanning this
+            event, polled every few seconds. */}
+        <div className="max-w-md mx-auto lg:mx-0 mt-6 lg:mt-0">
+          <div className="rounded-2xl border border-border bg-card p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-bold flex items-center gap-1.5">
+                <Users className="w-4 h-4 text-primary" />
+                Checked in
+              </h2>
+              {totals && (
+                <span className="text-xs font-bold text-muted-foreground tabular-nums">
+                  {totals.scanned}/{totals.total}
+                </span>
+              )}
+            </div>
+            {checkins.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-6">No one checked in yet.</p>
+            ) : (
+              <div className="space-y-1.5 max-h-[60vh] overflow-y-auto">
+                {checkins.map((c) => (
+                  <div key={c.id} className="flex items-center gap-2 px-2.5 py-2 rounded-lg bg-emerald-50 border border-emerald-200">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-semibold truncate">{c.name}</div>
+                      <div className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+                        {c.tier_name && <span className="truncate">{c.tier_name}</span>}
+                        <span className="inline-flex items-center gap-0.5 shrink-0">
+                          <Clock className="w-2.5 h-2.5" />
+                          {new Date(c.scanned_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
         </div>
       </main>
     </div>

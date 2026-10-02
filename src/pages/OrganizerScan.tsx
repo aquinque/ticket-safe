@@ -31,6 +31,7 @@ import {
   Loader2,
   Clock,
   RefreshCw,
+  Users,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
@@ -155,6 +156,14 @@ const OrganizerScan = () => {
   const [scanHistory, setScanHistory] = useState<ScanResult[]>([]);
   const [cameraActive, setCameraActive] = useState(true);
 
+  // Live "who's checked in" list for the selected event — shared across
+  // every device/staff link scanning it, not just this browser's session
+  // (unlike scanHistory above, which is local-only). Polled rather than
+  // pushed: simplest thing that reliably updates "in real time" from a
+  // human's perspective without fighting Realtime+RLS edge cases.
+  const [checkins, setCheckins] = useState<{ id: string; name: string; tier_name: string | null; scanned_at: string }[]>([]);
+  const [checkinTotals, setCheckinTotals] = useState<{ scanned: number; total: number } | null>(null);
+
   // Redirect if not logged in
   useEffect(() => {
     if (!authLoading && !user) navigate("/auth?next=/organizer/scan");
@@ -214,6 +223,47 @@ const OrganizerScan = () => {
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, eventIdFromUrl]);
+
+  // ---------------------------------------------------------------------------
+  // Live check-ins — polled for the selected event, every device/staff link
+  // scanning this event shows up here, not just this browser.
+  // ---------------------------------------------------------------------------
+
+  const loadCheckins = async () => {
+    if (!selectedEventId) return;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/list-event-checkins`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({ event_id: selectedEventId }),
+      });
+      const data = await res.json();
+      if (res.ok && data.ok) {
+        setCheckins(data.checkins ?? []);
+        setCheckinTotals({ scanned: data.total_scanned ?? 0, total: data.total_tickets ?? 0 });
+      }
+    } catch (err) {
+      console.error("[OrganizerScan] checkins poll failed:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (!selectedEventId) {
+      setCheckins([]);
+      setCheckinTotals(null);
+      return;
+    }
+    loadCheckins();
+    const interval = setInterval(loadCheckins, 4000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedEventId]);
 
   // ---------------------------------------------------------------------------
   // Validation
@@ -320,8 +370,12 @@ const OrganizerScan = () => {
       } else {
         playBeep(result.valid);
       }
-      if (result.valid) toast.success(result.message);
-      else toast.error(result.message);
+      if (result.valid) {
+        toast.success(result.message);
+        loadCheckins(); // refresh the live list immediately instead of waiting for the next poll
+      } else {
+        toast.error(result.message);
+      }
 
     } catch (err) {
       console.error("[OrganizerScan] error:", err);
@@ -835,6 +889,47 @@ const OrganizerScan = () => {
                     <span className="text-muted-foreground">Rejected</span>
                     <span className="font-semibold text-red-600">{invalidCount}</span>
                   </div>
+                </CardContent>
+              </Card>
+
+              {/* Live check-ins — event-wide, updates from every device/staff
+                  link scanning this event, not just this session. */}
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Users className="w-4 h-4" />
+                      Checked in
+                    </CardTitle>
+                    {checkinTotals && (
+                      <span className="text-xs font-bold text-muted-foreground tabular-nums">
+                        {checkinTotals.scanned}/{checkinTotals.total}
+                      </span>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {checkins.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">No one checked in yet</p>
+                  ) : (
+                    <div className="space-y-2 max-h-80 overflow-y-auto">
+                      {checkins.map((c) => (
+                        <div
+                          key={c.id}
+                          className="flex items-center gap-2 p-2 rounded text-sm bg-green-100 dark:bg-green-950/40"
+                        >
+                          <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium truncate">{c.name}</p>
+                            <p className="text-xs text-muted-foreground truncate">
+                              {c.tier_name ? `${c.tier_name} · ` : ""}
+                              {new Date(c.scanned_at).toLocaleTimeString("fr-FR")}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
