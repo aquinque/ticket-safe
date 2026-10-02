@@ -13,7 +13,6 @@ import {
   ShieldCheck,
   Building2,
   Check,
-  Sparkles,
   Mail,
   QrCode,
   Info,
@@ -79,7 +78,7 @@ interface TierAvailability {
 }
 
 const EventPublic = () => {
-  useThemeMode("night");
+  useThemeMode("checkout");
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const location = useLocation();
@@ -367,24 +366,24 @@ const EventPublic = () => {
   // ── Loading skeleton ──────────────────────────────────────────────────────
   if (loading || authLoading) {
     return (
-      <div className="theme-night min-h-screen bg-background">
+      <div className="theme-checkout min-h-screen bg-background">
         <HeaderNight />
         <div className="bg-background pt-16 md:pt-20">
-          <div className="container mx-auto max-w-4xl sm:px-4 sm:pt-4">
-            <div className="w-full aspect-[16/9] sm:rounded-2xl bg-white/5 animate-pulse" />
+          <div className="container mx-auto max-w-5xl sm:px-4 sm:pt-6">
+            <div className="w-full aspect-[16/9] bg-white/5 animate-pulse" />
           </div>
         </div>
-        <div className="container mx-auto max-w-5xl px-4 pt-6 space-y-5">
-          <div className="h-7 w-40 rounded-full bg-muted animate-pulse" />
-          <div className="h-10 w-3/4 rounded-lg bg-muted animate-pulse" />
-          <div className="h-6 w-1/2 rounded-full bg-muted animate-pulse" />
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-8 pt-4">
+        <div className="container mx-auto max-w-5xl px-4 pt-8 space-y-5">
+          <div className="h-4 w-24 bg-muted animate-pulse" />
+          <div className="h-10 w-3/4 bg-muted animate-pulse" />
+          <div className="h-5 w-1/2 bg-muted animate-pulse" />
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-10 pt-6">
             <div className="space-y-3">
               {[0, 1, 2].map((i) => (
-                <div key={i} className="h-20 rounded-xl bg-muted animate-pulse" />
+                <div key={i} className="h-16 bg-muted animate-pulse" />
               ))}
             </div>
-            <div className="h-64 rounded-2xl bg-muted animate-pulse" />
+            <div className="h-64 bg-muted animate-pulse" />
           </div>
         </div>
       </div>
@@ -394,36 +393,35 @@ const EventPublic = () => {
   // ── Event not found ───────────────────────────────────────────────────────
   if (!event) {
     return (
-      <div className="theme-night min-h-screen flex flex-col bg-background">
+      <div className="theme-checkout min-h-screen flex flex-col bg-background">
         <HeaderNight />
         <div className="flex-1 flex items-center justify-center p-6 pt-20 md:pt-24">
-        <div className="text-center max-w-md bg-card border border-border rounded-2xl p-8 shadow-sm">
-          <div className="w-14 h-14 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-4">
-            <Ticket className="w-7 h-7 text-muted-foreground" strokeWidth={1.5} />
+          <div className="text-center max-w-md border border-border p-8">
+            <div className="w-12 h-12 bg-muted flex items-center justify-center mx-auto mb-4">
+              <Ticket className="w-6 h-6 text-muted-foreground" strokeWidth={1.5} />
+            </div>
+            <h1 className="text-xl font-semibold mb-2 text-foreground">Événement introuvable</h1>
+            <p className="text-sm text-muted-foreground mb-6">
+              Cet événement a peut-être été dépublié, ou le lien est incorrect.
+            </p>
+            <Link
+              to="/tickets"
+              className="inline-flex items-center justify-center gap-1.5 px-5 py-3 bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary-hover transition-colors"
+            >
+              Voir tous les événements
+              <ArrowRight className="w-4 h-4" />
+            </Link>
           </div>
-          <h1 className="text-2xl font-black mb-2">Event not found</h1>
-          <p className="text-sm text-muted-foreground mb-5">
-            This event may have been unpublished or the link is incorrect.
-          </p>
-          <Link
-            to="/tickets"
-            className="inline-flex items-center justify-center gap-1.5 px-5 min-h-[44px] rounded-xl bg-primary text-primary-foreground font-bold hover:bg-primary-hover transition-colors"
-          >
-            Browse all events
-            <ArrowRight className="w-4 h-4" />
-          </Link>
-        </div>
         </div>
       </div>
     );
   }
 
   // Brand identity is non-negotiable: every event uses Ticket Safe blue,
-  // regardless of what colour the organizer set on their event/profile.
-  // Organizers can still bring their own banner + logo (photos), but colour
-  // discipline keeps the buyer experience consistent across the whole platform.
-  const primary = "#3a5fe6";
-  const TS_GRADIENT = "linear-gradient(135deg, hsl(227 77% 56%), hsl(228 67% 43%))";
+  // regardless of what colour the organizer set on their event/profile. The
+  // `primary` Tailwind token already resolves to that exact blue in every
+  // theme (including .theme-checkout below), so plain `text-primary` /
+  // `bg-primary` utilities give the same guarantee without hardcoding a hex.
   const selected = tiers.find((t) => t.tier_id === selectedTier) ?? null;
   const totalCents = selected ? selected.price_cents * qty : 0;
   // Flat €1.40 per-ticket service tax — must match revolut-create-checkout's
@@ -432,7 +430,7 @@ const EventPublic = () => {
   const SERVICE_TAX_CENTS = 140;
   const feeCents = SERVICE_TAX_CENTS * qty;
   const grandCents = totalCents + feeCents;
-  // Lowest available price, for the "From €X" hero badge.
+  // Lowest available price, for the summary placeholder.
   const availablePrices = tiers.filter((t) => t.available_qty > 0).map((t) => t.price_cents);
   const minPriceCents = availablePrices.length ? Math.min(...availablePrices) : null;
   const categoryLabel = event.category
@@ -447,55 +445,35 @@ const EventPublic = () => {
   const sellingFast =
     !eventSoldOut &&
     tiers.some((t) => t.available_qty > 0 && t.total_qty > 0 && t.available_qty / t.total_qty < 0.3);
-  const statusBadge: { label: string; cls: string; pulse?: boolean } = isPast
-    ? { label: "Ended", cls: "bg-slate-900/75 text-white" }
+  // Text-only status mark (no pill background) — colour carries the meaning.
+  const statusText: { label: string; colorClass: string; pulse?: boolean } = isPast
+    ? { label: "Terminé", colorClass: "text-muted-foreground" }
     : eventSoldOut
-    ? { label: "Sold out", cls: "bg-rose-600 text-white" }
+    ? { label: "Épuisé", colorClass: "text-rose-400" }
     : sellingFast
-    ? { label: "Selling fast", cls: "bg-cta text-cta-foreground", pulse: true }
-    : { label: "On sale", cls: "bg-emerald-500 text-white" };
+    ? { label: "Dernières places", colorClass: "text-primary", pulse: true }
+    : { label: "En vente", colorClass: "text-emerald-400" };
 
   const fmtPrice = (cents: number) => `€${(cents / 100).toFixed(cents % 100 === 0 ? 0 : 2)}`;
-
-  // Trust bullets reused in the summary placeholder + the full summary.
-  const trustBullets = (
-    <ul className="space-y-2 text-[12px] text-muted-foreground">
-      <li className="flex items-center gap-2">
-        <ShieldCheck className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-        Secure payment via Revolut
-      </li>
-      <li className="flex items-center gap-2">
-        <QrCode className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-        QR ticket delivered instantly by email
-      </li>
-      <li className="flex items-center gap-2">
-        <BadgeCheck className="w-3.5 h-3.5 text-primary flex-shrink-0" />
-        Refundable if the event is cancelled
-      </li>
-    </ul>
-  );
 
   // Order summary, rendered both in the desktop sticky rail (with CTA) and as a
   // mobile inline breakdown (without CTA — the sticky bottom bar carries that).
   const renderSummary = (showCta: boolean) => {
     if (eventSoldOut) {
       return (
-        <div className="rounded-2xl bg-card border border-border p-5 md:p-6 shadow-sm">
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-rose-50 text-rose-700 text-[11px] font-bold uppercase tracking-wide mb-3">
-            <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-            Sold out
-          </span>
-          <h3 className="text-lg font-bold mb-1">This event is sold out</h3>
-          <p className="text-sm text-muted-foreground mb-4">
-            Follow the organizer to be first to know when more tickets or new events drop.
+        <div className="border border-border p-6">
+          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-rose-400 mb-4">Épuisé</p>
+          <h3 className="text-base font-medium text-foreground mb-2">Cet événement est complet</h3>
+          <p className="text-sm text-muted-foreground mb-5">
+            Suivez l'organisateur pour être informé des prochains billets ou événements.
           </p>
           {event.organizer && (
             <button
               onClick={handleToggleFollow}
               disabled={followBusy}
-              className="w-full inline-flex items-center justify-center gap-1.5 min-h-[44px] rounded-xl text-sm font-bold border border-border hover:bg-muted transition-colors disabled:opacity-60"
+              className="w-full py-3 text-sm font-medium border border-border hover:bg-muted transition-colors disabled:opacity-60"
             >
-              {following ? <><Check className="w-4 h-4" /> Following</> : <><Plus className="w-4 h-4" /> Follow organizer</>}
+              {following ? "Suivi" : "Suivre l'organisateur"}
             </button>
           )}
         </div>
@@ -504,64 +482,64 @@ const EventPublic = () => {
 
     if (!selected) {
       return (
-        <div className="rounded-2xl bg-card border border-border p-5 md:p-6 shadow-sm">
-          <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-3">
-            Order summary
-          </div>
-          {minPriceCents != null && (
-            <div className="mb-1.5">
-              <span className="text-sm text-muted-foreground">From </span>
-              <span className="text-2xl font-black tracking-tight" style={{ color: primary }}>
-                {fmtPrice(minPriceCents)}
-              </span>
-            </div>
-          )}
-          <p className="text-sm text-muted-foreground mb-4">
-            Pick a ticket to see your total and continue to payment.
+        <div className="border border-border p-6">
+          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground mb-4">
+            Récapitulatif
           </p>
-          <div className="pt-4 border-t border-border">{trustBullets}</div>
+          {minPriceCents != null && (
+            <p className="mb-2">
+              <span className="text-sm text-muted-foreground">À partir de </span>
+              <span className="text-2xl font-semibold tabular-nums text-foreground">{fmtPrice(minPriceCents)}</span>
+            </p>
+          )}
+          <p className="text-sm text-muted-foreground mb-5">
+            Choisissez un billet pour voir le total et continuer.
+          </p>
+          <div className="pt-5 border-t border-border">
+            <ProtectionBadge />
+          </div>
         </div>
       );
     }
 
     return (
-      <div className="rounded-2xl bg-card border border-border p-5 md:p-6 shadow-sm">
-        <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-4">
-          Order summary
-        </div>
+      <div className="border border-border p-6">
+        <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground mb-5">
+          Récapitulatif
+        </p>
 
         <div className="space-y-2.5 mb-4 pb-4 border-b border-border">
           <div className="flex items-baseline justify-between text-sm">
             <span className="text-foreground min-w-0 pr-2">
-              <span className="font-medium">{selected.name}</span>
+              {selected.name}
               <span className="text-muted-foreground"> × {qty}</span>
             </span>
-            <span className="tabular-nums font-medium text-foreground">€{(totalCents / 100).toFixed(2)}</span>
+            <span className="tabular-nums text-foreground">{fmtPrice(totalCents)}</span>
           </div>
           <div className="flex items-baseline justify-between text-sm">
             <span className="text-muted-foreground">
-              Service fee <span className="text-muted-foreground/70">(€1.40 × {qty})</span>
+              Frais de service <span className="text-muted-foreground/70">(€1,40 × {qty})</span>
             </span>
-            <span className="tabular-nums font-medium text-foreground">€{(feeCents / 100).toFixed(2)}</span>
+            <span className="tabular-nums text-foreground">{fmtPrice(feeCents)}</span>
           </div>
         </div>
 
-        <div className="mb-4">
+        <div className="mb-5">
           {showPromoInput ? (
             <div className="flex gap-2">
               <input
                 value={promoCode}
                 onChange={(e) => setPromoCode(e.target.value)}
-                placeholder="Promo code"
-                className="flex-1 min-w-0 px-3 py-2 rounded-lg border border-border bg-background text-sm uppercase"
+                placeholder="Code promo"
+                className="flex-1 min-w-0 px-3 py-2 border border-border bg-input text-sm uppercase text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary transition-shadow"
               />
               {promoCode && (
                 <button
                   type="button"
                   onClick={() => { setPromoCode(""); setShowPromoInput(false); }}
-                  className="text-xs font-semibold text-muted-foreground hover:text-foreground shrink-0"
+                  className="text-xs font-medium text-muted-foreground hover:text-foreground shrink-0"
                 >
-                  Clear
+                  Effacer
                 </button>
               )}
             </div>
@@ -569,22 +547,22 @@ const EventPublic = () => {
             <button
               type="button"
               onClick={() => setShowPromoInput(true)}
-              className="text-xs font-semibold text-primary hover:underline"
+              className="text-xs font-medium text-primary hover:underline"
             >
-              Have a promo code?
+              Vous avez un code promo ?
             </button>
           )}
           {promoCode && (
             <p className="text-[11px] text-muted-foreground mt-1.5">
-              Applied at payment — the discount shows on the final Revolut screen.
+              Appliqué au paiement — la remise apparaît sur l'écran Revolut final.
             </p>
           )}
         </div>
 
         <div className="flex items-baseline justify-between mb-5">
-          <span className="text-base md:text-lg font-semibold tracking-tight text-foreground">Total</span>
-          <span style={{ color: primary }} className="text-3xl md:text-4xl font-semibold tracking-tight leading-none">
-            <AnimatedNumber value={grandCents / 100} prefix="€" />
+          <span className="text-sm font-medium text-foreground">Total</span>
+          <span className="text-3xl font-semibold tabular-nums leading-none text-foreground">
+            <AnimatedNumber value={grandCents / 100} prefix="€" durationMs={150} />
           </span>
         </div>
 
@@ -593,27 +571,26 @@ const EventPublic = () => {
             <button
               onClick={handleBuy}
               disabled={buying}
-              className="group w-full inline-flex items-center justify-center gap-2 min-h-[52px] px-6 rounded-xl font-semibold text-white text-base disabled:opacity-60 transition-all hover:shadow-md active:scale-[0.99]"
-              style={{ background: primary, boxShadow: buying ? "none" : `0 4px 14px ${primary}30` }}
+              className="w-full inline-flex items-center justify-center gap-2 py-3.5 px-6 bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-60 transition-colors hover:bg-primary-hover"
             >
               {buying ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Opening secure checkout
+                  Ouverture du paiement sécurisé
                 </>
               ) : (
                 <>
-                  Continue to payment
-                  <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+                  Continuer vers le paiement
+                  <ArrowRight className="w-4 h-4" />
                 </>
               )}
             </button>
             {!user && (
-              <p className="text-[11px] text-muted-foreground text-center mt-2">
-                No account needed — your ticket goes straight to the email above.
+              <p className="text-[11px] text-muted-foreground text-center mt-2.5">
+                Aucun compte requis — le billet part directement à l'adresse indiquée ci-dessus.
               </p>
             )}
-            <div className="flex justify-center mt-3">
+            <div className="mt-4">
               <ProtectionBadge />
             </div>
           </>
@@ -621,17 +598,15 @@ const EventPublic = () => {
 
         {maxPerBuyer != null && qty >= maxPerBuyer && (
           <p className="text-[11px] text-muted-foreground text-center mt-3">
-            Limit reached — {maxPerBuyer} ticket{maxPerBuyer > 1 ? "s" : ""} per person.
+            Limite atteinte — {maxPerBuyer} billet{maxPerBuyer > 1 ? "s" : ""} par personne.
           </p>
         )}
-
-        <div className="mt-4 pt-4 border-t border-border">{trustBullets}</div>
       </div>
     );
   };
 
   return (
-    <div className="theme-night min-h-screen flex flex-col bg-background" style={{ ["--studio-primary" as string]: primary }}>
+    <div className="theme-checkout min-h-screen flex flex-col bg-background">
       <HeaderNight />
       <SEOHead
         title={`${event.title} — ${event.organizer?.name ?? "Ticket Safe"}`}
@@ -672,167 +647,110 @@ const EventPublic = () => {
         }}
       />
 
-      {/* ===== Hero — clean banner + title (Eventbrite / Dice style) ===== */}
-      <section className="relative pt-16 md:pt-20">
-        <div className="bg-background">
-          <div className="container mx-auto max-w-5xl sm:px-4 sm:pt-4">
-            <div className="relative w-full aspect-[16/9] sm:rounded-2xl overflow-hidden bg-black/20 sm:ring-1 sm:ring-white/10">
+      {/* ===== Hero — image/video if there's one, no gradient placeholder
+          when there isn't. The caption (status, category, organizer, title,
+          date/place) sits on the page background below the image, not
+          layered on top of it. ===== */}
+      <section className="pt-16 md:pt-20">
+        {(event.video_url || event.banner_url) && (
+          <div className="container mx-auto max-w-5xl px-0 sm:px-4 sm:pt-6">
+            <div className="relative w-full aspect-[16/9] overflow-hidden bg-black/20">
               {event.video_url ? (
                 <video
                   src={event.video_url}
-                  className="absolute inset-0 w-full h-full object-cover animate-in fade-in duration-700"
+                  className="absolute inset-0 w-full h-full object-cover"
                   autoPlay
                   muted
                   loop
                   playsInline
                 />
-              ) : event.banner_url ? (
-                <img
-                  src={event.banner_url}
-                  alt={event.title}
-                  className="absolute inset-0 w-full h-full object-cover animate-in fade-in duration-700"
-                />
               ) : (
-                <div className="absolute inset-0 flex items-center justify-center" style={{ background: TS_GRADIENT }}>
-                  {event.organizer?.logo_url ? (
-                    <img src={event.organizer.logo_url} alt={event.organizer.name} className="max-h-[52%] max-w-[58%] object-contain" />
-                  ) : (
-                    <Ticket className="w-16 h-16 text-white/70" strokeWidth={1.5} />
-                  )}
-                </div>
+                <img
+                  src={event.banner_url ?? undefined}
+                  alt={event.title}
+                  className="absolute inset-0 w-full h-full object-cover"
+                />
               )}
-
-              {/* Bottom scrim so chips always read over busy photos */}
-              <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-black/55 to-transparent pointer-events-none" />
-
-              {/* Top row over the image: back + powered-by */}
-              <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (location.key && location.key !== "default") navigate(-1);
-                    else navigate("/tickets");
-                  }}
-                  className="group inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/45 ring-1 ring-white/20 hover:bg-black/60 transition-colors"
-                  aria-label="Back"
-                >
-                  <ArrowLeft className="w-4 h-4 text-white transition-transform group-hover:-translate-x-0.5" />
-                  <span className="text-xs font-bold text-white">Back</span>
-                </button>
-                <Link to="/" className="hidden sm:inline-flex px-3 py-1.5 rounded-full bg-black/40 ring-1 ring-white/15">
-                  <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/90">Powered by Ticket Safe</span>
-                </Link>
-              </div>
-
-              {/* Status + category + From price, bottom-left over the image */}
-              <div className="absolute bottom-3 left-3 right-3 flex flex-wrap items-center gap-2">
-                <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-black uppercase tracking-[0.12em] shadow-sm ${statusBadge.cls}`}>
-                  {statusBadge.pulse && <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />}
-                  {statusBadge.label}
-                </span>
-                {categoryLabel && (
-                  <span className="inline-flex items-center px-3 py-1.5 rounded-full bg-black/55 text-white text-[11px] font-bold uppercase tracking-[0.14em]">
-                    {categoryLabel}
-                  </span>
-                )}
-                {/* Always-dark text below: this pill is always on a white/light
-                    chip regardless of surrounding theme, so it can't use the
-                    theme-relative `foreground` token (would go white-on-white
-                    under .theme-night). */}
-                {minPriceCents != null && !eventSoldOut && (
-                  <span className="ml-auto inline-flex items-center px-3 py-1.5 rounded-full bg-white text-slate-900 text-xs font-black shadow-sm">
-                    From {fmtPrice(minPriceCents)}
-                  </span>
-                )}
-              </div>
             </div>
           </div>
-        </div>
+        )}
 
-        {/* Title block — clean, on the page background */}
-        <div className="container mx-auto max-w-5xl px-4 pt-5 md:pt-6">
-          {event.organizer && (
-            <div className="inline-flex items-center gap-2.5 mb-3 px-3 py-1.5 rounded-full bg-muted ring-1 ring-border">
-              {event.organizer.logo_url ? (
-                <img src={event.organizer.logo_url} alt={event.organizer.name} className="w-5 h-5 rounded-full object-cover" />
-              ) : (
-                <div className="w-5 h-5 rounded-full bg-primary/15 text-primary flex items-center justify-center text-[10px] font-black">
-                  {event.organizer.name[0]?.toUpperCase()}
-                </div>
-              )}
-              <span className="text-xs font-bold text-foreground leading-none">{event.organizer.name}</span>
-              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-primary leading-none">
-                <BadgeCheck className="w-3.5 h-3.5" />
-                Verified
+        <div className="container mx-auto max-w-5xl px-4 pt-6">
+          <button
+            type="button"
+            onClick={() => {
+              if (location.key && location.key !== "default") navigate(-1);
+              else navigate("/tickets");
+            }}
+            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-6"
+          >
+            <ArrowLeft className="w-4 h-4" strokeWidth={1.5} />
+            Retour
+          </button>
+
+          <div className="flex items-center gap-3 flex-wrap text-[11px] font-bold uppercase tracking-[0.12em] mb-3">
+            <span className={`inline-flex items-center gap-1.5 ${statusText.colorClass}`}>
+              {statusText.pulse && <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />}
+              {statusText.label}
+            </span>
+            {categoryLabel && <span className="text-muted-foreground">{categoryLabel}</span>}
+            {event.organizer && (
+              <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+                {event.organizer.name}
+                <BadgeCheck className="w-3.5 h-3.5 text-primary" strokeWidth={1.75} />
               </span>
-            </div>
-          )}
+            )}
+          </div>
 
-          <h1 className="text-3xl md:text-5xl font-black tracking-tight leading-[1.06] mb-3.5 text-foreground">
+          <h1 className="text-3xl md:text-5xl font-semibold tracking-tight leading-[1.08] mb-4 text-foreground">
             {event.title}
           </h1>
 
-          <div className="flex items-center gap-2 flex-wrap text-sm">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted text-foreground font-medium">
-              <Calendar className="w-4 h-4 text-primary" />
-              {new Date(event.date).toLocaleString("en-GB", { dateStyle: "long", timeStyle: "short" })}
+          <div className="flex items-center gap-4 flex-wrap text-sm text-muted-foreground">
+            <span className="inline-flex items-center gap-1.5">
+              <Calendar className="w-4 h-4" strokeWidth={1.5} />
+              {new Date(event.date).toLocaleString("fr-FR", { dateStyle: "long", timeStyle: "short" })}
             </span>
             {event.location && (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted text-foreground font-medium">
-                <MapPin className="w-4 h-4 text-primary" />
+              <span className="inline-flex items-center gap-1.5">
+                <MapPin className="w-4 h-4" strokeWidth={1.5} />
                 {event.location}
               </span>
             )}
             {event.ends_at && (
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted text-muted-foreground">
-                <Clock className="w-3.5 h-3.5" />
-                Ends {new Date(event.ends_at).toLocaleString("en-GB", { timeStyle: "short" })}
+              <span className="inline-flex items-center gap-1.5">
+                <Clock className="w-4 h-4" strokeWidth={1.5} />
+                Jusqu'à {new Date(event.ends_at).toLocaleString("fr-FR", { timeStyle: "short" })}
               </span>
             )}
           </div>
         </div>
       </section>
 
-      {/* pb-32 leaves room for the mobile sticky checkout bar so nothing is hidden behind it */}
-      <main className="flex-1 mt-6 md:mt-8 relative z-10 pb-32 lg:pb-12">
+      {/* pb-28 leaves room for the mobile sticky checkout bar so nothing is hidden behind it */}
+      <main className="flex-1 mt-8 md:mt-10 pb-28 lg:pb-14">
         <div className="container mx-auto px-4 max-w-5xl">
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-5 lg:gap-8 lg:items-start">
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-10 lg:gap-14 lg:items-start">
             {/* ===== LEFT: selection + event info ===== */}
-            <div className="space-y-5 min-w-0">
+            <div className="min-w-0">
               {/* Ticket picker */}
-              <section className="bg-card border border-border rounded-2xl p-5 md:p-7 shadow-sm">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: `${primary}15` }}>
-                      <Ticket className="w-5 h-5" style={{ color: primary }} />
-                    </div>
-                    <h2 className="text-lg md:text-xl font-bold">Pick your ticket</h2>
-                  </div>
-                  {tiers.length > 0 && (
-                    <span className="text-[11px] font-semibold text-muted-foreground">
-                      {tiers.length} option{tiers.length > 1 ? "s" : ""}
-                    </span>
-                  )}
-                </div>
-
+              <Section title="Choisir un billet" first>
                 {eventSoldOut && (
-                  <div className="flex items-start gap-2 px-4 py-3 mb-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-sm">
-                    <Info className="w-4 h-4 mt-0.5 shrink-0" />
-                    <span>This event is sold out. Follow the organizer below to hear about new releases.</span>
-                  </div>
+                  <p className="flex items-start gap-2 text-sm text-rose-400 mb-5">
+                    <Info className="w-4 h-4 mt-0.5 shrink-0" strokeWidth={1.5} />
+                    Cet événement est complet. Suivez l'organisateur ci-dessous pour être informé des prochaines dates.
+                  </p>
                 )}
 
                 {tiers.length === 0 ? (
-                  <div className="text-center py-8 text-sm text-muted-foreground">
-                    <Sparkles className="w-6 h-6 text-muted-foreground/40 mx-auto mb-2" />
-                    Tickets will be on sale soon. Come back shortly.
-                  </div>
+                  <p className="text-sm text-muted-foreground py-6">
+                    Les billets seront bientôt en vente. Revenez un peu plus tard.
+                  </p>
                 ) : (
-                  <div className="space-y-3">
+                  <div>
                     {tiers.map((t) => {
                       const isSelected = selectedTier === t.tier_id;
                       const soldOut = t.available_qty <= 0;
-                      const locked = soldOut;
                       // Buyers never see exact stock counts (Studio-only). We
                       // only surface a scarcity nudge when fewer than 30% remain.
                       const fewLeft = !soldOut && t.total_qty > 0 && t.available_qty / t.total_qty < 0.3;
@@ -840,62 +758,35 @@ const EventPublic = () => {
                         <button
                           key={t.tier_id}
                           onClick={() => {
-                            if (locked) return;
+                            if (soldOut) return;
                             setSelectedTier(t.tier_id);
                             setQty(1);
                           }}
-                          disabled={locked}
-                          className={`group relative w-full text-left p-4 md:p-5 rounded-xl border-2 transition-all flex items-center justify-between gap-3 ${
-                            locked
-                              ? "opacity-50 cursor-not-allowed border-border bg-muted/30"
-                              : isSelected
-                              ? "shadow-md scale-[1.01]"
-                              : "border-border hover:border-primary/50 hover:shadow-sm"
+                          disabled={soldOut}
+                          className={`w-full flex items-stretch gap-4 text-left border-t border-border first:border-t-0 transition-colors ${
+                            soldOut ? "opacity-40 cursor-not-allowed" : "hover:bg-muted/30"
                           }`}
-                          style={
-                            isSelected && !locked
-                              ? ({
-                                  borderColor: primary,
-                                  background: `${primary}0d`,
-                                  boxShadow: `0 0 0 4px ${primary}1a`,
-                                } as React.CSSProperties)
-                              : undefined
-                          }
                         >
-                          {isSelected && !locked && (
-                            <div
-                              className="absolute -top-2 -right-2 w-6 h-6 rounded-full flex items-center justify-center text-white shadow-md"
-                              style={{ background: primary }}
-                            >
-                              <Check className="w-3.5 h-3.5" strokeWidth={3} />
-                            </div>
-                          )}
-                          <div className="min-w-0">
-                            <div className="font-bold text-base md:text-lg leading-tight">{t.name}</div>
-                            {t.description && (
-                              <div className="text-xs md:text-sm text-muted-foreground mt-1 line-clamp-2">{t.description}</div>
-                            )}
-                            {(soldOut || fewLeft) && (
-                              <div className="mt-2.5">
-                                {soldOut ? (
-                                  <span className="text-[11px] font-semibold inline-flex items-center gap-1.5 text-muted-foreground">
-                                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-muted-foreground/50" />
-                                    Sold out
-                                  </span>
-                                ) : (
-                                  <span className="text-[11px] font-semibold inline-flex items-center gap-1.5 text-brand-200">
-                                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-brand-200 animate-pulse" />
-                                    Few tickets remaining
-                                  </span>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                          <div className="text-right shrink-0">
-                            <div className="text-2xl md:text-3xl font-black tracking-tight" style={{ color: locked ? "currentColor" : primary }}>
-                              €{(t.price_cents / 100).toFixed(2)}
-                            </div>
-                          </div>
+                          <span className={`w-[3px] shrink-0 ${isSelected && !soldOut ? "bg-primary" : "bg-transparent"}`} />
+                          <span className="flex-1 flex items-center justify-between gap-4 py-4 min-w-0">
+                            <span className="min-w-0">
+                              <span className="flex items-center gap-2">
+                                <span className="font-medium text-foreground">{t.name}</span>
+                                {isSelected && !soldOut && <Check className="w-3.5 h-3.5 text-primary shrink-0" strokeWidth={2.5} />}
+                              </span>
+                              {t.description && (
+                                <span className="block text-sm text-muted-foreground mt-0.5 line-clamp-2">{t.description}</span>
+                              )}
+                              {soldOut ? (
+                                <span className="block text-xs text-muted-foreground mt-1.5">Épuisé</span>
+                              ) : fewLeft ? (
+                                <span className="block text-xs text-primary mt-1.5">Dernières places</span>
+                              ) : null}
+                            </span>
+                            <span className="text-base font-semibold tabular-nums text-foreground shrink-0">
+                              {fmtPrice(t.price_cents)}
+                            </span>
+                          </span>
                         </button>
                       );
                     })}
@@ -905,271 +796,218 @@ const EventPublic = () => {
                 {resaleCount > 0 && (
                   <Link
                     to={`/event/${event.id}/tickets`}
-                    className="mt-3 flex items-center justify-between gap-2 px-4 py-3 border border-cta/40 bg-cta/10 hover:bg-cta/15 transition-colors"
+                    className="flex items-center justify-between gap-2 py-3 mt-1 border-t border-border text-sm text-foreground hover:text-primary transition-colors"
                   >
-                    <span className="text-sm font-semibold text-foreground">
-                      Resale available ({resaleCount} ticket{resaleCount > 1 ? "s" : ""})
-                    </span>
-                    <ArrowRight className="w-4 h-4 text-foreground shrink-0" />
+                    <span>Revente disponible ({resaleCount} billet{resaleCount > 1 ? "s" : ""})</span>
+                    <ArrowRight className="w-4 h-4 shrink-0" />
                   </Link>
                 )}
-              </section>
+              </Section>
 
-              {/* Attendee ticket cards — buyer writes their name "on the ticket" */}
+              {/* Attendee ticket forms — buyer writes the name "on the ticket" */}
               {selected && (
-                <section className="animate-in fade-in slide-in-from-bottom-2 duration-300">
-                  <div className="flex items-baseline justify-between mb-4 px-1">
-                    <h2 className="text-sm font-bold uppercase tracking-[0.18em] text-muted-foreground">
-                      {qty === 1 ? "Your ticket" : `Your ${qty} tickets`}
+                <Section>
+                  <div className="flex items-center justify-between mb-5">
+                    <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                      {qty === 1 ? "Votre billet" : `Vos ${qty} billets`}
                     </h2>
-                    <div className="inline-flex items-center gap-2">
-                      <button
-                        onClick={() => setQty((n) => Math.max(1, n - 1))}
-                        className="w-8 h-8 rounded-md border border-border flex items-center justify-center hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                        disabled={qty <= 1}
-                        aria-label="Remove a ticket"
-                      >
-                        <Minus className="w-3.5 h-3.5" />
-                      </button>
-                      <span className="w-6 text-center text-sm font-semibold tabular-nums">{qty}</span>
-                      <button
-                        onClick={() =>
-                          setQty((n) => {
-                            const hardCap = Math.min(10, selected.available_qty);
-                            const finalCap = maxPerBuyer ? Math.min(hardCap, maxPerBuyer) : hardCap;
-                            return Math.min(finalCap, n + 1);
-                          })
-                        }
-                        className="w-8 h-8 rounded-md border border-border flex items-center justify-center hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                        disabled={qty >= Math.min(10, selected.available_qty) || (maxPerBuyer != null && qty >= maxPerBuyer)}
-                        aria-label="Add a ticket"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
+                    <QtyStepper
+                      qty={qty}
+                      onDecrease={() => setQty((n) => Math.max(1, n - 1))}
+                      onIncrease={() =>
+                        setQty((n) => {
+                          const hardCap = Math.min(10, selected.available_qty);
+                          const finalCap = maxPerBuyer ? Math.min(hardCap, maxPerBuyer) : hardCap;
+                          return Math.min(finalCap, n + 1);
+                        })
+                      }
+                      disableDecrease={qty <= 1}
+                      disableIncrease={qty >= Math.min(10, selected.available_qty) || (maxPerBuyer != null && qty >= maxPerBuyer)}
+                    />
                   </div>
 
-                  <div className="space-y-3">
-                    {attendees.map((a, i) => (
-                      <div
-                        key={i}
-                        className="relative overflow-hidden rounded-2xl text-white shadow-lg ring-1 ring-white/10"
-                        style={{ background: TS_GRADIENT }}
-                      >
-                        {/* Perforation notches */}
-                        <div className="absolute top-1/2 -translate-y-1/2 -left-2.5 w-5 h-5 rounded-full bg-background z-10" />
-                        <div className="absolute top-1/2 -translate-y-1/2 -right-2.5 w-5 h-5 rounded-full bg-background z-10" />
-                        <div
-                          className="absolute inset-0 opacity-30 pointer-events-none"
-                          style={{
-                            backgroundImage:
-                              "radial-gradient(circle at 15% 15%, rgba(255,255,255,.30), transparent 45%), radial-gradient(circle at 85% 85%, rgba(255,255,255,.12), transparent 50%)",
-                          }}
-                        />
-
-                        <div className="relative px-5 md:px-6 pt-5 pb-3">
-                          <div className="flex items-center justify-between mb-3">
-                            <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/85">Ticket Safe</div>
-                            {qty > 1 && (
-                              <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/65">#{i + 1} of {qty}</div>
-                            )}
-                          </div>
-                          <div className="text-lg md:text-xl font-bold leading-tight mb-1 line-clamp-2">{event.title}</div>
-                          <div className="text-xs text-white/80">
-                            {new Date(event.date).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}
-                            {event.location && (
-                              <>
-                                <span className="mx-1.5 text-white/40">·</span>
-                                {event.location}
-                              </>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="relative h-2.5 mx-3 border-b border-dashed border-white/30" />
-
-                        <div className="relative px-5 md:px-6 pt-4 pb-5 space-y-3">
-                          <div>
-                            <label className="block text-[10px] font-bold uppercase tracking-[0.16em] text-white/55 mb-1.5">Holder name</label>
-                            <div className="grid grid-cols-2 gap-2">
-                              <input
-                                value={a.first_name}
-                                onChange={(e) => updateAttendee(i, { first_name: e.target.value })}
-                                placeholder="First"
-                                className="ts-ticket-input"
-                                maxLength={100}
-                                autoComplete="given-name"
-                                aria-label={qty > 1 ? `Ticket ${i + 1} first name` : "First name"}
-                              />
-                              <input
-                                value={a.last_name}
-                                onChange={(e) => updateAttendee(i, { last_name: e.target.value })}
-                                placeholder="Last"
-                                className="ts-ticket-input"
-                                maxLength={100}
-                                autoComplete="family-name"
-                                aria-label={qty > 1 ? `Ticket ${i + 1} last name` : "Last name"}
-                              />
+                  <div className="space-y-5">
+                    {attendees.map((a, i) => {
+                      const emailMismatch =
+                        a.confirm_email.length > 0 && a.confirm_email.trim().toLowerCase() !== a.email.trim().toLowerCase();
+                      return (
+                        <div key={i} className="border border-border p-5">
+                          <div className="flex items-center justify-between gap-3 mb-4 pb-4 border-b border-dashed border-border">
+                            <div className="min-w-0">
+                              <div className="text-sm font-medium text-foreground truncate">{selected.name}</div>
+                              {qty > 1 && (
+                                <div className="text-xs text-muted-foreground mt-0.5">Billet {i + 1} / {qty}</div>
+                              )}
+                            </div>
+                            <div className="text-sm font-semibold tabular-nums text-foreground shrink-0">
+                              {fmtPrice(selected.price_cents)}
                             </div>
                           </div>
-                          <div>
-                            <label className="block text-[10px] font-bold uppercase tracking-[0.16em] text-white/55 mb-1.5">Email (QR delivery)</label>
-                            <input
-                              type="email"
-                              value={a.email}
-                              onChange={(e) => updateAttendee(i, { email: e.target.value })}
-                              placeholder="name@example.com"
-                              className="ts-ticket-input w-full"
-                              maxLength={254}
-                              autoComplete="email"
-                              aria-label={qty > 1 ? `Ticket ${i + 1} email` : "Email"}
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-[10px] font-bold uppercase tracking-[0.16em] text-white/55 mb-1.5">Confirm email</label>
-                            <input
-                              type="email"
-                              value={a.confirm_email}
-                              onChange={(e) => updateAttendee(i, { confirm_email: e.target.value })}
-                              placeholder="name@example.com"
-                              className="ts-ticket-input w-full"
-                              style={
-                                a.confirm_email && a.confirm_email.trim().toLowerCase() !== a.email.trim().toLowerCase()
-                                  ? { borderColor: "rgba(248,113,113,0.9)" }
-                                  : undefined
-                              }
-                              maxLength={254}
-                              autoComplete="email"
-                              aria-label={qty > 1 ? `Ticket ${i + 1} confirm email` : "Confirm email"}
-                            />
-                            {a.confirm_email && a.confirm_email.trim().toLowerCase() !== a.email.trim().toLowerCase() && (
-                              <p className="text-[10px] text-rose-200 mt-1">Emails don't match</p>
-                            )}
-                          </div>
-                          <div>
-                            <label className="block text-[10px] font-bold uppercase tracking-[0.16em] text-white/55 mb-1.5">Gender</label>
-                            <select
-                              value={a.gender}
-                              onChange={(e) => updateAttendee(i, { gender: e.target.value as AttendeeForm["gender"] })}
-                              className="ts-ticket-input w-full"
-                              aria-label={qty > 1 ? `Ticket ${i + 1} gender` : "Gender"}
-                            >
-                              <option value="" disabled>Select…</option>
-                              <option value="female">Female</option>
-                              <option value="male">Male</option>
-                              <option value="other">Other</option>
-                            </select>
-                          </div>
 
-                          <div className="flex items-center justify-between pt-3 mt-1 border-t border-white/15">
-                            <div className="text-[11px] font-semibold tracking-wide text-white/85">{selected.name}</div>
-                            <div className="text-[11px] font-semibold tabular-nums text-white/85">€{(selected.price_cents / 100).toFixed(2)}</div>
+                          <div className="space-y-3">
+                            <div className="grid grid-cols-2 gap-3">
+                              <Field label="Prénom">
+                                <input
+                                  value={a.first_name}
+                                  onChange={(e) => updateAttendee(i, { first_name: e.target.value })}
+                                  placeholder="Prénom"
+                                  className="ts-field-input"
+                                  maxLength={100}
+                                  autoComplete="given-name"
+                                  aria-label={qty > 1 ? `Billet ${i + 1} — prénom` : "Prénom"}
+                                />
+                              </Field>
+                              <Field label="Nom">
+                                <input
+                                  value={a.last_name}
+                                  onChange={(e) => updateAttendee(i, { last_name: e.target.value })}
+                                  placeholder="Nom"
+                                  className="ts-field-input"
+                                  maxLength={100}
+                                  autoComplete="family-name"
+                                  aria-label={qty > 1 ? `Billet ${i + 1} — nom` : "Nom"}
+                                />
+                              </Field>
+                            </div>
+                            <Field label="Email (réception du billet)">
+                              <input
+                                type="email"
+                                value={a.email}
+                                onChange={(e) => updateAttendee(i, { email: e.target.value })}
+                                placeholder="nom@exemple.com"
+                                className="ts-field-input"
+                                maxLength={254}
+                                autoComplete="email"
+                                aria-label={qty > 1 ? `Billet ${i + 1} — email` : "Email"}
+                              />
+                            </Field>
+                            <Field label="Confirmer l'email">
+                              <input
+                                type="email"
+                                value={a.confirm_email}
+                                onChange={(e) => updateAttendee(i, { confirm_email: e.target.value })}
+                                placeholder="nom@exemple.com"
+                                className={`ts-field-input ${emailMismatch ? "border-rose-400" : ""}`}
+                                maxLength={254}
+                                autoComplete="email"
+                                aria-label={qty > 1 ? `Billet ${i + 1} — confirmer l'email` : "Confirmer l'email"}
+                              />
+                              {emailMismatch && (
+                                <p className="text-[11px] text-rose-400 mt-1">Les emails ne correspondent pas</p>
+                              )}
+                            </Field>
+                            <Field label="Genre">
+                              <select
+                                value={a.gender}
+                                onChange={(e) => updateAttendee(i, { gender: e.target.value as AttendeeForm["gender"] })}
+                                className="ts-field-input"
+                                aria-label={qty > 1 ? `Billet ${i + 1} — genre` : "Genre"}
+                              >
+                                <option value="" disabled>Sélectionner…</option>
+                                <option value="female">Femme</option>
+                                <option value="male">Homme</option>
+                                <option value="other">Autre</option>
+                              </select>
+                            </Field>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   {maxPerBuyer != null && qty >= maxPerBuyer && (
-                    <div className="text-[11px] text-muted-foreground text-center mt-3">
-                      Limit reached — {maxPerBuyer} ticket{maxPerBuyer > 1 ? "s" : ""} per person.
-                    </div>
+                    <p className="text-[11px] text-muted-foreground text-center mt-4">
+                      Limite atteinte — {maxPerBuyer} billet{maxPerBuyer > 1 ? "s" : ""} par personne.
+                    </p>
                   )}
 
                   {/* Mobile inline summary (desktop uses the sticky rail) */}
-                  <div className="lg:hidden mt-5">{renderSummary(false)}</div>
-                </section>
+                  <div className="lg:hidden mt-6">{renderSummary(false)}</div>
+                </Section>
               )}
 
               {/* When & where */}
-              <section className="bg-card border border-border rounded-2xl p-5 md:p-6 shadow-sm">
-                <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-4">When &amp; where</h2>
+              <Section title="Quand et où">
                 <div className="space-y-4">
                   <div className="flex items-start gap-3">
-                    <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${primary}12` }}>
-                      <Calendar className="w-4 h-4" style={{ color: primary }} />
-                    </div>
+                    <Calendar className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" strokeWidth={1.5} />
                     <div>
-                      <div className="font-semibold text-sm">
-                        {new Date(event.date).toLocaleString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+                      <div className="text-sm text-foreground">
+                        {new Date(event.date).toLocaleString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
                       </div>
                       <div className="text-sm text-muted-foreground">
-                        {new Date(event.date).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
-                        {event.ends_at && <> – {new Date(event.ends_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</>}
+                        {new Date(event.date).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                        {event.ends_at && <> – {new Date(event.ends_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}</>}
                       </div>
                     </div>
                   </div>
                   {event.location && (
                     <div className="flex items-start gap-3">
-                      <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: `${primary}12` }}>
-                        <MapPin className="w-4 h-4" style={{ color: primary }} />
-                      </div>
+                      <MapPin className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" strokeWidth={1.5} />
                       <div>
-                        <div className="font-semibold text-sm">{event.location}</div>
+                        <div className="text-sm text-foreground">{event.location}</div>
                         <a
                           href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-xs text-primary font-semibold hover:underline"
+                          className="text-sm text-primary hover:underline"
                         >
-                          View on map
+                          Voir sur la carte
                         </a>
                       </div>
                     </div>
                   )}
                 </div>
-              </section>
+              </Section>
 
               {/* About */}
               {event.description && (
-                <section className="bg-card border border-border rounded-2xl p-5 md:p-7 shadow-sm">
-                  <h2 className="text-base md:text-lg font-bold mb-3">About this event</h2>
-                  <p className="text-sm md:text-base text-foreground/85 leading-relaxed whitespace-pre-line">{event.description}</p>
-                </section>
+                <Section title="À propos">
+                  <p className="text-sm text-foreground/85 leading-relaxed whitespace-pre-line">{event.description}</p>
+                </Section>
               )}
 
               {/* What happens after you pay */}
-              <section className="bg-card border border-border rounded-2xl p-5 md:p-6 shadow-sm">
-                <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground mb-4">What happens after you pay</h2>
+              <Section title="Après le paiement">
                 <ul className="space-y-3 text-sm">
                   <li className="flex items-start gap-3">
-                    <CreditCard className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                    <span className="text-foreground/85">You pay securely via <span className="font-semibold">Revolut</span> — your card details never touch Ticket Safe.</span>
+                    <CreditCard className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" strokeWidth={1.5} />
+                    <span className="text-foreground/85">
+                      Paiement sécurisé via <span className="font-medium text-foreground">Revolut</span> — vos coordonnées bancaires ne transitent jamais par Ticket Safe.
+                    </span>
                   </li>
                   <li className="flex items-start gap-3">
-                    <Mail className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                    <span className="text-foreground/85">Your QR ticket arrives by email — as a scannable image and a PDF.</span>
+                    <Mail className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" strokeWidth={1.5} />
+                    <span className="text-foreground/85">Votre billet à QR code arrive par email, en image et en PDF.</span>
                   </li>
                   <li className="flex items-start gap-3">
-                    <QrCode className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                    <span className="text-foreground/85">Find it anytime in <Link to="/my-tickets" className="font-semibold text-primary hover:underline">My Tickets</Link> and show the QR at the door.</span>
+                    <QrCode className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" strokeWidth={1.5} />
+                    <span className="text-foreground/85">
+                      Retrouvez-le dans <Link to="/my-tickets" className="font-medium text-primary hover:underline">Mes billets</Link> et présentez le QR à l'entrée.
+                    </span>
                   </li>
                   <li className="flex items-start gap-3">
-                    <ShieldCheck className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                    <span className="text-foreground/85">If the organizer cancels the event, you're refunded automatically.</span>
+                    <ShieldCheck className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" strokeWidth={1.5} />
+                    <span className="text-foreground/85">Remboursement automatique si l'organisateur annule l'événement.</span>
                   </li>
                 </ul>
-              </section>
+              </Section>
 
               {/* Organizer */}
               {event.organizer && (
-                <section className="bg-card border border-border rounded-2xl p-5 md:p-6 shadow-sm">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Building2 className="w-4 h-4 text-muted-foreground" />
-                    <h2 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">Organized by</h2>
-                  </div>
+                <Section title="Organisé par">
                   <div className="flex items-center gap-3">
                     {event.organizer.logo_url ? (
-                      <img src={event.organizer.logo_url} alt={event.organizer.name} className="w-12 h-12 rounded-xl object-cover" />
+                      <img src={event.organizer.logo_url} alt={event.organizer.name} className="w-11 h-11 rounded-full object-cover shrink-0" />
                     ) : (
-                      <div className="w-12 h-12 rounded-xl flex items-center justify-center font-black text-white" style={{ background: primary }}>
+                      <div className="w-11 h-11 rounded-full flex items-center justify-center font-semibold text-primary-foreground bg-primary shrink-0">
                         {event.organizer.name[0]?.toUpperCase()}
                       </div>
                     )}
                     <div className="flex-1 min-w-0">
-                      <div className="font-bold inline-flex items-center gap-1.5">
+                      <div className="font-medium text-foreground inline-flex items-center gap-1.5">
                         {event.organizer.name}
-                        <BadgeCheck className="w-4 h-4 text-primary" aria-label="Verified organizer" />
+                        <BadgeCheck className="w-4 h-4 text-primary" strokeWidth={1.75} aria-label="Organisateur vérifié" />
                       </div>
                       {event.organizer.website && (
                         <a href={event.organizer.website} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">
@@ -1181,35 +1019,33 @@ const EventPublic = () => {
                       type="button"
                       onClick={handleToggleFollow}
                       disabled={followBusy}
-                      className={`flex-shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-colors disabled:opacity-60 ${
-                        following ? "bg-muted text-foreground hover:bg-muted/70" : "text-white hover:shadow-md"
+                      className={`flex-shrink-0 px-4 py-2 text-sm font-medium border transition-colors disabled:opacity-60 ${
+                        following
+                          ? "border-border text-foreground hover:bg-muted"
+                          : "border-primary bg-primary text-primary-foreground hover:bg-primary-hover"
                       }`}
-                      style={following ? undefined : { background: primary }}
                       aria-pressed={following}
                     >
-                      {following ? <><Check className="w-4 h-4" /> Following</> : <><Plus className="w-4 h-4" /> Follow</>}
+                      {following ? "Suivi" : "Suivre"}
                     </button>
                   </div>
-                  <p className="mt-3 text-[11px] text-muted-foreground">
-                    Follow to get an email whenever {event.organizer.name} publishes a new event.
-                  </p>
-                </section>
+                </Section>
               )}
 
               {/* Footer */}
-              <div className="text-center text-xs text-muted-foreground py-2">
-                Powered by{" "}
-                <Link to="/" className="font-bold text-primary hover:underline">Ticket Safe</Link>
+              <div className="pt-8 pb-2 text-center text-xs text-muted-foreground">
+                Propulsé par{" "}
+                <Link to="/" className="font-medium text-foreground hover:underline">Ticket Safe</Link>
                 {" · "}
-                <Link to="/terms" className="hover:underline">Terms</Link>
+                <Link to="/terms" className="hover:underline">CGU</Link>
                 {" · "}
-                <Link to="/privacy" className="hover:underline">Privacy</Link>
+                <Link to="/privacy" className="hover:underline">Confidentialité</Link>
               </div>
             </div>
 
             {/* ===== RIGHT: sticky order summary (desktop) ===== */}
             <aside className="hidden lg:block">
-              <div className="lg:sticky lg:top-6">{renderSummary(true)}</div>
+              <div className="lg:sticky lg:top-24">{renderSummary(true)}</div>
             </aside>
           </div>
         </div>
@@ -1217,69 +1053,113 @@ const EventPublic = () => {
 
       {/* ===== Sticky mobile checkout bar ===== */}
       {selected && !eventSoldOut && (
-        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/95 shadow-[0_-4px_24px_rgba(0,0,0,0.06)] px-4 pt-3 pb-[calc(0.75rem_+_env(safe-area-inset-bottom))] animate-in slide-in-from-bottom-2 duration-300">
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background px-4 pt-3 pb-[calc(0.75rem_+_env(safe-area-inset-bottom))]">
           <div className="container mx-auto max-w-4xl flex items-center gap-3">
             <div className="flex-1 min-w-0">
-              <div className="text-[11px] font-medium text-muted-foreground truncate">{qty} × {selected.name}</div>
-              <div className="text-lg font-semibold tabular-nums leading-tight tracking-tight" style={{ color: primary }}>
-                €{(grandCents / 100).toFixed(2)}
+              <div className="text-[11px] text-muted-foreground truncate">{qty} × {selected.name}</div>
+              <div className="text-lg font-semibold tabular-nums leading-tight text-foreground">
+                {fmtPrice(grandCents)}
               </div>
             </div>
             <button
               onClick={handleBuy}
               disabled={buying}
-              className="flex-shrink-0 inline-flex items-center justify-center gap-1.5 min-h-[44px] px-5 rounded-lg font-semibold text-white text-sm disabled:opacity-60 transition-all hover:shadow-md"
-              style={{ background: primary, boxShadow: buying ? "none" : `0 4px 12px ${primary}30` }}
+              className="flex-shrink-0 inline-flex items-center justify-center gap-1.5 min-h-[44px] px-5 bg-primary text-primary-foreground font-semibold text-sm disabled:opacity-60 transition-colors hover:bg-primary-hover"
             >
-              {buying ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Continue <ArrowRight className="w-4 h-4" /></>}
+              {buying ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Continuer <ArrowRight className="w-4 h-4" /></>}
             </button>
           </div>
         </div>
       )}
 
       <style>{`
-        /* Ticket inline inputs — sit ON the gradient ticket card itself.
-           Transparent fill, soft white hairline, white text, brand-tinted
-           focus ring. The buyer writes "on the ticket", not in a form. */
-        .ts-ticket-input {
-          padding: 10px 13px;
-          border: 1px solid rgba(255, 255, 255, 0.22);
-          border-radius: 10px;
-          background: rgba(255, 255, 255, 0.08);
+        .ts-field-input {
+          width: 100%;
+          padding: 10px 12px;
+          border: 1px solid hsl(var(--border));
+          background: hsl(var(--input));
+          color: hsl(var(--foreground));
           font-size: 14px;
           line-height: 1.4;
-          color: #fff;
-          font-weight: 500;
-          width: 100%;
-          transition: background .15s, border-color .15s, box-shadow .15s;
-          -webkit-backdrop-filter: blur(6px);
-          backdrop-filter: blur(6px);
+          transition: border-color 150ms, box-shadow 150ms;
         }
-        .ts-ticket-input::placeholder {
-          color: rgba(255, 255, 255, 0.5);
-          font-weight: 400;
-        }
-        .ts-ticket-input:hover {
-          background: rgba(255, 255, 255, 0.12);
-          border-color: rgba(255, 255, 255, 0.32);
-        }
-        .ts-ticket-input:focus {
+        .ts-field-input::placeholder { color: hsl(var(--muted-foreground)); }
+        .ts-field-input:focus {
           outline: none;
-          background: rgba(255, 255, 255, 0.16);
-          border-color: rgba(255, 255, 255, 0.6);
-          box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.18);
-        }
-        /* Kill the yellow Chrome autofill overlay on these dark inputs */
-        .ts-ticket-input:-webkit-autofill,
-        .ts-ticket-input:-webkit-autofill:hover,
-        .ts-ticket-input:-webkit-autofill:focus {
-          -webkit-text-fill-color: #fff;
-          -webkit-box-shadow: 0 0 0 1000px rgba(0, 51, 153, 0.85) inset;
-          caret-color: #fff;
+          border-color: hsl(var(--primary));
+          box-shadow: 0 0 0 1px hsl(var(--primary));
         }
       `}</style>
     </div>
   );
 };
+
+// ────────────────────────────────────────────────────────────────────────────
+// Presentational building blocks — reused across the sections above. Kept
+// local to this page since none of them encode any business rule.
+// ────────────────────────────────────────────────────────────────────────────
+
+/** A content block separated from the next one by a single hairline, with a
+ *  small-caps label — the page's whole "editorial" rhythm instead of
+ *  repeated bordered/shadowed cards. */
+const Section = ({
+  title,
+  children,
+  first = false,
+}: {
+  title?: string;
+  children: React.ReactNode;
+  first?: boolean;
+}) => (
+  <section className={`py-8 border-t border-border ${first ? "pt-0 border-t-0" : ""}`}>
+    {title && <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground mb-5">{title}</h2>}
+    {children}
+  </section>
+);
+
+/** Labelled field wrapper for the attendee form inputs. */
+const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
+  <label className="block">
+    <span className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground mb-1.5">
+      {label}
+    </span>
+    {children}
+  </label>
+);
+
+/** Square −/+ quantity control. */
+const QtyStepper = ({
+  qty,
+  onDecrease,
+  onIncrease,
+  disableDecrease,
+  disableIncrease,
+}: {
+  qty: number;
+  onDecrease: () => void;
+  onIncrease: () => void;
+  disableDecrease: boolean;
+  disableIncrease: boolean;
+}) => (
+  <div className="inline-flex items-center gap-3">
+    <button
+      onClick={onDecrease}
+      disabled={disableDecrease}
+      className="w-8 h-8 border border-border flex items-center justify-center hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+      aria-label="Retirer un billet"
+    >
+      <Minus className="w-3.5 h-3.5" strokeWidth={1.75} />
+    </button>
+    <span className="w-6 text-center text-sm font-medium tabular-nums text-foreground">{qty}</span>
+    <button
+      onClick={onIncrease}
+      disabled={disableIncrease}
+      className="w-8 h-8 border border-border flex items-center justify-center hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+      aria-label="Ajouter un billet"
+    >
+      <Plus className="w-3.5 h-3.5" strokeWidth={1.75} />
+    </button>
+  </div>
+);
 
 export default EventPublic;

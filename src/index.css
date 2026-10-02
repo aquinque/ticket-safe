@@ -213,6 +213,47 @@
     --shadow-glow: 0 0 32px hsl(227 77% 56% / 0.45);
   }
 
+  /* ===== .theme-checkout — the event ticket purchase page (EventPublic.tsx)
+     only. Editorial, restrained palette: one warm-neutral anthracite
+     background (lighter than .theme-night's near-black, per brief), one
+     surface tone, one accent (brand blue, unchanged — no second hue). No
+     shadows: separation comes from a single border tone, never glow. */
+  .theme-checkout {
+    --background: 240 5% 13%;        /* ~#1f1f21 */
+    --foreground: 0 0% 95%;
+
+    --card: 240 5% 17%;              /* ~#282829 — one surface tone up */
+    --card-foreground: 0 0% 95%;
+
+    --popover: 240 5% 17%;
+    --popover-foreground: 0 0% 95%;
+
+    --primary: 227 77% 56%;          /* brand-500 — the single accent */
+    --primary-foreground: 0 0% 100%;
+    --primary-hover: 228 67% 48%;
+
+    --secondary: 240 5% 17%;
+    --secondary-foreground: 0 0% 95%;
+
+    --accent: 240 5% 19%;
+    --accent-foreground: 0 0% 95%;
+
+    --muted: 240 5% 19%;
+    --muted-foreground: 0 0% 65%;
+
+    --border: 240 5% 24%;
+    --input: 240 5% 19%;
+    --ring: 227 77% 56%;
+
+    --destructive: 349 100% 65%;
+    --destructive-foreground: 0 0% 100%;
+
+    --shadow-soft: none;
+    --shadow-card: none;
+    --shadow-hover: none;
+    --shadow-glow: none;
+  }
+
   .dark {
     --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;
@@ -307,6 +348,18 @@
   p {
     @apply leading-7;
   }
+}
+
+/* ===== .theme-checkout typography override — Instrument Sans for headings
+   instead of the site-wide Space Grotesk, scoped to the event checkout
+   page only (EventPublic.tsx). Body copy stays Inter (already global). */
+.theme-checkout h1,
+.theme-checkout h2,
+.theme-checkout h3,
+.theme-checkout h4,
+.theme-checkout .font-checkout-display {
+  font-family: "Instrument Sans", "Inter", system-ui, sans-serif;
+  letter-spacing: -0.01em;
 }
 
 /* Respect prefers-reduced-motion globally — belt-and-braces on top of any
