@@ -24,7 +24,6 @@ import { SEOHead } from "@/components/SEOHead";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { getEventImage } from "@/lib/eventImages";
 import { SellerTrust } from "@/components/SellerTrust";
 import { calcBreakdown, buyerFeeRateFor } from "@/lib/fees";
 
@@ -41,7 +40,7 @@ interface ListingData {
     date: string;
     location: string | null;
     category: string;
-    image_url: string | null;
+    banner_url: string | null;
     base_price: number | null;
   } | null;
 }
@@ -83,7 +82,7 @@ const Checkout = () => {
       const { data, error } = await supabase
         .from("tickets")
         .select(
-          "id, seller_id, selling_price, quantity, notes, status, seller:profiles(full_name), event:events(id, title, date, location, category, image_url, base_price)"
+          "id, seller_id, selling_price, quantity, notes, status, seller:profiles(full_name), event:events(id, title, date, location, category, banner_url, base_price)"
         )
         .eq("id", listingId)
         .not("status", "in", "(sold,cancelled)")
@@ -274,11 +273,19 @@ const Checkout = () => {
 
           <Card className="overflow-hidden">
             {/* Event image */}
-            <img
-              src={getEventImage(event.image_url, event.category)}
-              alt={event.title}
-              className="w-full h-48 object-cover"
-            />
+            {event.banner_url ? (
+              <img
+                src={event.banner_url}
+                alt={event.title}
+                className="w-full h-48 object-cover"
+              />
+            ) : (
+              <div className="w-full h-48 bg-muted flex items-center justify-center p-4">
+                <span className="text-sm font-medium text-muted-foreground text-center line-clamp-3">
+                  {event.title}
+                </span>
+              </div>
+            )}
 
             <CardContent className="p-6 space-y-5">
               {/* Event info */}

@@ -21,7 +21,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { useChatRoom } from "@/hooks/useChat";
 import { supabase } from "@/integrations/supabase/client";
 import { SEOHead } from "@/components/SEOHead";
-import { getEventImage } from "@/lib/eventImages";
 import { toast } from "sonner";
 
 interface ConversationMeta {
@@ -33,7 +32,7 @@ interface ConversationMeta {
     id: string;
     selling_price: number;
     quantity: number;
-    event: { id: string; title: string; date: string; image_url: string | null; category: string } | null;
+    event: { id: string; title: string; date: string; banner_url: string | null; category: string } | null;
   } | null;
   buyer_name: string | null;
   seller_name: string | null;
@@ -80,7 +79,7 @@ const ChatRoom = () => {
         .from("conversations")
         .select(
           `id, buyer_id, seller_id, ticket_id,
-           ticket:tickets(id, selling_price, quantity, event:events(id, title, date, image_url, category))`
+           ticket:tickets(id, selling_price, quantity, event:events(id, title, date, banner_url, category))`
         )
         .eq("id", conversationId)
         .single(),
@@ -183,12 +182,20 @@ const ChatRoom = () => {
             <BackButton />
             <div className="flex items-center gap-3 flex-1 min-w-0">
               {event && (
-                <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">
-                  <img
-                    src={getEventImage(event.image_url, event.category)}
-                    alt=""
-                    className="w-full h-full object-cover"
-                  />
+                <div className="w-10 h-10 overflow-hidden flex-shrink-0 bg-muted">
+                  {event.banner_url ? (
+                    <img
+                      src={event.banner_url}
+                      alt=""
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <span className="text-[8px] font-medium text-muted-foreground text-center leading-tight px-0.5">
+                        {event.title}
+                      </span>
+                    </div>
+                  )}
                 </div>
               )}
               <div className="min-w-0">

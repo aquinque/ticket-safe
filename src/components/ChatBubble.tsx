@@ -4,7 +4,6 @@ import { MessageSquare, X } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useConversations } from "@/hooks/useChat";
 import { useUnreadMessages } from "@/hooks/useUnreadMessages";
-import { getEventImage } from "@/lib/eventImages";
 
 function formatTimeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -146,12 +145,20 @@ const ChatBubble = () => {
                   className="w-full px-4 py-3 flex items-center gap-3 hover:bg-muted/50 transition-colors text-left border-b border-border/50 last:border-0"
                 >
                   {/* Event image */}
-                  <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">
-                    <img
-                      src={getEventImage(event?.image_url ?? null, event?.category ?? "Other")}
-                      alt=""
-                      className="w-full h-full object-cover"
-                    />
+                  <div className="w-10 h-10 overflow-hidden flex-shrink-0 bg-muted">
+                    {event?.banner_url ? (
+                      <img
+                        src={event.banner_url}
+                        alt=""
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <span className="text-[8px] font-medium text-muted-foreground text-center leading-tight px-0.5">
+                          {event?.title ?? ""}
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Info */}

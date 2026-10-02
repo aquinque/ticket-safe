@@ -9,7 +9,6 @@ import { MessageSquare, Calendar, Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useConversations } from "@/hooks/useChat";
 import { SEOHead } from "@/components/SEOHead";
-import { getEventImage } from "@/lib/eventImages";
 import { useEffect } from "react";
 
 const Messages = () => {
@@ -67,12 +66,20 @@ const Messages = () => {
                 >
                   <CardContent className="p-4 flex gap-4 items-center">
                     {/* Event image */}
-                    <div className="w-14 h-14 rounded-lg overflow-hidden flex-shrink-0">
-                      <img
-                        src={getEventImage(event?.image_url ?? null, event?.category ?? "Other")}
-                        alt=""
-                        className="w-full h-full object-cover"
-                      />
+                    <div className="w-14 h-14 overflow-hidden flex-shrink-0 bg-muted">
+                      {event?.banner_url ? (
+                        <img
+                          src={event.banner_url}
+                          alt=""
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center p-1">
+                          <span className="text-[9px] font-medium text-muted-foreground text-center leading-tight line-clamp-3">
+                            {event?.title ?? ""}
+                          </span>
+                        </div>
+                      )}
                     </div>
 
                     {/* Info */}

@@ -12,7 +12,6 @@ import { Calendar, MapPin, User, ShoppingCart, Info, MessageSquare, HelpCircle, 
 import { useEventPriceIntel } from "@/hooks/useEventPriceIntel";
 import { supabase } from "@/integrations/supabase/client";
 import { SEOHead } from "@/components/SEOHead";
-import { getEventImage } from "@/lib/eventImages";
 import { useAuth } from "@/hooks/useAuth";
 import { useI18n } from "@/contexts/I18nContext";
 import { getOrCreateConversation } from "@/hooks/useChat";
@@ -25,7 +24,7 @@ interface EventInfo {
   date: string;
   location: string | null;
   category: string;
-  image_url: string | null;
+  banner_url: string | null;
 }
 
 interface Listing {
@@ -64,7 +63,7 @@ const EventTicketsMarketplace = () => {
       // Fetch event directly by ID (no base_price / is_active filter)
       const { data: eventData, error: eventErr } = await supabase
         .from("events")
-        .select("id, title, date, location, category, image_url")
+        .select("id, title, date, location, category, banner_url")
         .eq("id", eventId)
         .single();
 
@@ -198,12 +197,20 @@ const EventTicketsMarketplace = () => {
           {/* Event Header */}
           <div className="mb-8">
             <div className="flex flex-col md:flex-row gap-6 items-start">
-              <div className="relative w-full md:w-64 h-40 md:h-48 rounded-xl overflow-hidden flex-shrink-0">
-                <img
-                  src={getEventImage(event.image_url, event.category)}
-                  alt={event.title}
-                  className="w-full h-full object-cover"
-                />
+              <div className="relative w-full md:w-64 h-40 md:h-48 overflow-hidden flex-shrink-0 bg-muted">
+                {event.banner_url ? (
+                  <img
+                    src={event.banner_url}
+                    alt={event.title}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center p-4">
+                    <span className="text-sm font-medium text-muted-foreground text-center line-clamp-3">
+                      {event.title}
+                    </span>
+                  </div>
+                )}
               </div>
               <div className="flex-1">
                 <Badge variant="secondary" className="mb-2">

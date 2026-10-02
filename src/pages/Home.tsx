@@ -105,20 +105,7 @@ const Home = () => {
 
       <main className="flex-1">
         {/* ============ HERO ============ */}
-        <section className="relative flex items-center md:min-h-[100svh] overflow-hidden">
-          {/* Placeholder gradient background — swap for a real event photo/video
-              once supplied. Expected location: public/hero/ (e.g.
-              public/hero/home.jpg or .mp4), see TODO_DATA.md. */}
-          <div
-            className="absolute inset-0"
-            style={{
-              background:
-                "radial-gradient(ellipse at 30% 20%, hsl(227 77% 30% / 0.55), transparent 60%), radial-gradient(ellipse at 80% 70%, hsl(228 67% 25% / 0.5), transparent 55%), hsl(234 58% 6%)",
-            }}
-          />
-          {/* ~70% darkening overlay, ready for when a real photo sits behind it */}
-          <div className="absolute inset-0 bg-black/70" />
-
+        <section className="relative flex items-center md:min-h-[100svh] overflow-hidden bg-background">
           <div className="relative container mx-auto px-4 pb-10 pt-24 md:pt-0 md:pb-0">
             <div className="max-w-2xl">
               <h1
@@ -138,7 +125,7 @@ const Home = () => {
                     <ArrowRight className="w-4 h-4" />
                   </Link>
                 </Button>
-                <Button variant="outline" size="lg" asChild className="border-white/25 text-foreground hover:bg-white/5">
+                <Button variant="outline" size="lg" asChild className="border-border text-foreground hover:bg-accent">
                   <Link to="/marketplace/buy">Resell my ticket</Link>
                 </Button>
               </div>

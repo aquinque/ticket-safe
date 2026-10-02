@@ -76,7 +76,7 @@ interface TierAvailability {
 }
 
 const EventPublic = () => {
-  useThemeMode("checkout");
+  useThemeMode("night");
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const location = useLocation();
@@ -364,7 +364,7 @@ const EventPublic = () => {
   // ── Loading skeleton ──────────────────────────────────────────────────────
   if (loading || authLoading) {
     return (
-      <div className="theme-checkout min-h-screen bg-background">
+      <div className="theme-night min-h-screen bg-background">
         <HeaderNight />
         <div className="bg-background pt-16 md:pt-20">
           <div className="container mx-auto max-w-5xl sm:px-4 sm:pt-6">
@@ -391,7 +391,7 @@ const EventPublic = () => {
   // ── Event not found ───────────────────────────────────────────────────────
   if (!event) {
     return (
-      <div className="theme-checkout min-h-screen flex flex-col bg-background">
+      <div className="theme-night min-h-screen flex flex-col bg-background">
         <HeaderNight />
         <div className="flex-1 flex items-center justify-center p-6 pt-20 md:pt-24">
           <div className="text-center max-w-md border border-border p-8">
@@ -418,7 +418,7 @@ const EventPublic = () => {
   // Brand identity is non-negotiable: every event uses Ticket Safe blue,
   // regardless of what colour the organizer set on their event/profile. The
   // `primary` Tailwind token already resolves to that exact blue in every
-  // theme (including .theme-checkout below), so plain `text-primary` /
+  // theme (including .theme-night below), so plain `text-primary` /
   // `bg-primary` utilities give the same guarantee without hardcoding a hex.
   const selected = tiers.find((t) => t.tier_id === selectedTier) ?? null;
   const totalCents = selected ? selected.price_cents * qty : 0;
@@ -604,7 +604,7 @@ const EventPublic = () => {
   };
 
   return (
-    <div className="theme-checkout min-h-screen flex flex-col bg-background">
+    <div className="theme-night min-h-screen flex flex-col bg-background">
       <HeaderNight />
       <SEOHead
         title={`${event.title} — ${event.organizer?.name ?? "Ticket Safe"}`}

@@ -32,7 +32,7 @@ export interface Conversation {
     id: string;
     selling_price: number;
     quantity: number;
-    event: { id: string; title: string; date: string; image_url: string | null; category: string } | null;
+    event: { id: string; title: string; date: string; banner_url: string | null; category: string } | null;
   } | null;
   buyer_name: string | null;
   seller_name: string | null;
@@ -58,7 +58,7 @@ export function useConversations(enabled = true) {
         .from("conversations")
         .select(
           `id, ticket_id, buyer_id, seller_id, last_message_at, created_at,
-           ticket:tickets(id, selling_price, quantity, event:events(id, title, date, image_url, category))`
+           ticket:tickets(id, selling_price, quantity, event:events(id, title, date, banner_url, category))`
         )
         .or(`buyer_id.eq.${user.id},seller_id.eq.${user.id}`)
         .order("last_message_at", { ascending: false }),

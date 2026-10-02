@@ -73,14 +73,10 @@ const EventCard = ({ event, onClick }: EventCardProps) => {
           }`}
         />
       ) : (
-        // Generated fallback — just the brand gradient. The event name
-        // still reads "en gros Space Grotesk" via the h3 below, which every
-        // card (poster or not) already renders in the bottom overlay; a
-        // second copy of the title here was pure duplication.
-        <div
-          className="absolute inset-0"
-          style={{ background: "linear-gradient(150deg, hsl(227 77% 56%), hsl(228 67% 43%))" }}
-        />
+        // Flat fallback — surface color, no generated gradient. The event
+        // name still reads via the h3 below in the bottom overlay; a second
+        // copy of the title here would be pure duplication.
+        <div className="absolute inset-0 bg-muted" />
       )}
 
       {/* Bottom gradient — always present so the text stays legible over a
@@ -89,11 +85,11 @@ const EventCard = ({ event, onClick }: EventCardProps) => {
 
       {/* Top badges */}
       <div className="absolute top-3 left-3 right-3 flex flex-wrap items-center gap-1.5">
-        <Badge className="bg-black/55 text-white border-transparent backdrop-blur-sm text-[10px] uppercase tracking-wider font-bold">
+        <Badge className="bg-black/55 text-white border-transparent text-[10px] uppercase tracking-wider font-bold">
           {event.category}
         </Badge>
         {campusLabel && (
-          <Badge className="bg-black/40 text-white border-transparent backdrop-blur-sm text-[10px] uppercase tracking-wider font-bold">
+          <Badge className="bg-black/40 text-white border-transparent text-[10px] uppercase tracking-wider font-bold">
             {campusLabel}
           </Badge>
         )}

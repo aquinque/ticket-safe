@@ -323,33 +323,26 @@ const Profile = () => {
       <HeaderNight />
       <main className="flex-1 pt-20 pb-16 md:pt-24">
         {/* Identity hero */}
-        <div className="relative overflow-hidden bg-gradient-hero text-white">
-          <div
-            className="absolute inset-0 opacity-30"
-            style={{
-              backgroundImage:
-                "radial-gradient(circle at 20% 20%, rgba(255,255,255,.18), transparent 35%), radial-gradient(circle at 80% 60%, rgba(255,255,255,.12), transparent 40%)",
-            }}
-          />
+        <div className="relative overflow-hidden bg-card border-b border-border">
           <div className="relative container mx-auto px-4 max-w-3xl py-8 md:py-10">
             <div className="mb-5">
               <BackButton />
             </div>
             <div className="flex items-center gap-4 md:gap-5">
               <div
-                className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-white/15 ring-1 ring-white/30 flex items-center justify-center text-lg md:text-xl font-bold tracking-tight shadow-lg flex-shrink-0"
+                className="w-14 h-14 md:w-16 md:h-16 bg-primary/15 ring-1 ring-primary/30 flex items-center justify-center text-lg md:text-xl font-bold tracking-tight text-foreground flex-shrink-0"
                 aria-label={`${userData.name}'s initials`}
               >
                 {initials}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-[11px] md:text-xs font-semibold uppercase tracking-[0.18em] text-white/70">
+                <p className="text-[11px] md:text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                   {[userData.school, userData.campus].filter(Boolean).join(" · ") || "Ticket Safe"}
                 </p>
-                <h1 className="text-2xl md:text-3xl font-bold mt-0.5 leading-tight">
+                <h1 className="text-2xl md:text-3xl font-bold mt-0.5 leading-tight text-foreground">
                   {t("profile.hello", { name: firstName })}
                 </h1>
-                <p className="text-sm text-white/75 mt-0.5 truncate">{userData.email}</p>
+                <p className="text-sm text-muted-foreground mt-0.5 truncate">{userData.email}</p>
               </div>
             </div>
           </div>

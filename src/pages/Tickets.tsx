@@ -160,7 +160,7 @@ const Tickets = () => {
         </section>
 
         {/* ===================== STICKY FILTER BAR — org, campus, category, search ===================== */}
-        <section className="sticky top-16 md:top-20 z-20 bg-background/95 backdrop-blur-sm border-b border-border">
+        <section className="sticky top-16 md:top-20 z-20 bg-background border-b border-border">
           <div className="container mx-auto px-4 py-3 space-y-2.5">
             <div className="flex flex-wrap items-center gap-2">
               <DropdownMenu>
@@ -455,25 +455,22 @@ const Tickets = () => {
         {/* ===================== CTA ORGANIZER ===================== */}
         <section className="py-12 md:py-20">
           <div className="container mx-auto px-4">
-            <div
-              className="relative max-w-4xl mx-auto rounded-lg p-6 md:p-12 overflow-hidden text-white"
-              style={{ background: "var(--gradient-hero)" }}
-            >
+            <div className="relative max-w-4xl mx-auto bg-primary text-primary-foreground p-6 md:p-12 overflow-hidden">
               <div className="relative flex flex-col md:flex-row md:items-center gap-5 md:gap-10">
                 <div className="flex-1">
-                  <div className="text-[10px] md:text-xs uppercase tracking-[0.2em] font-bold text-white/80 mb-2">
+                  <div className="text-[10px] md:text-xs uppercase tracking-[0.2em] font-bold text-primary-foreground/80 mb-2">
                     For event organizers
                   </div>
                   <h3 className="text-xl md:text-3xl font-black mb-2 md:mb-3 leading-tight">
                     Selling tickets for your event?
                   </h3>
-                  <p className="text-white/85 text-sm md:text-base max-w-md leading-relaxed">
+                  <p className="text-primary-foreground/85 text-sm md:text-base max-w-md leading-relaxed">
                     Apply for Ticket Safe Studio — branded event pages, VIP tiers, real-time dashboard, and official resale built in.
                   </p>
                 </div>
                 <Link
                   to="/organizers"
-                  className="inline-flex items-center justify-center gap-2 px-6 min-h-[48px] rounded-xl font-bold bg-white text-primary hover:bg-white/95 transition-all shrink-0"
+                  className="inline-flex items-center justify-center gap-2 px-6 min-h-[48px] font-bold bg-primary-foreground text-primary hover:bg-primary-foreground/90 transition-colors shrink-0"
                 >
                   Apply for Studio
                   <ArrowRight className="w-4 h-4" />

@@ -1,10 +1,10 @@
 /**
- * Marketplace — Editorial Cinematic redesign.
+ * Marketplace — Editorial redesign, unified with the site-wide .theme-night
+ * tokens (flat navy surfaces, no gradients/glow/glassmorphism).
  *
  * Top-down anatomy:
- *   1. Full-bleed navy gradient hero with editorial serif headline,
- *      animated KPI strip (total billets / new today / avg price), and a
- *      prominent search input.
+ *   1. Flat editorial hero with headline, animated KPI strip (total
+ *      billets / new today / avg price), and a prominent search input.
  *   2. Sticky chip-filter rail (categories, price buckets, schools).
  *   3. Result bar with live count + sort dropdown.
  *   4. Bento grid: a Featured event card spans 2×2 (boosted listings float
@@ -76,16 +76,6 @@ const daysUntil = (iso: string): number => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   return Math.ceil((target - today.getTime()) / (1000 * 60 * 60 * 24));
-};
-
-// Brand-gradient fallback for listings without a banner — same treatment as
-// the shared poster EventCard (Phase 2): a deterministic angle/mix of the
-// two brand blues, event name in Space Grotesk, never a category icon.
-const fallbackGradient = (eventId: string): string => {
-  let h = 0;
-  for (let i = 0; i < eventId.length; i++) h = (h * 31 + eventId.charCodeAt(i)) | 0;
-  const angle = 120 + (Math.abs(h) % 60);
-  return `linear-gradient(${angle}deg, hsl(227 77% 56%), hsl(228 67% 43%))`;
 };
 
 const reducedMotion = () =>
@@ -177,15 +167,19 @@ function groupByEvent(listings: TicketListing[]): EventGroup[] {
     if (isBoosted(l)) g.hasBoosted = true;
   }
   // Sort tickets within each group: boosted first, then cheapest. The first
-  // ticket with real media wins the card's hero image/video.
+  // ticket with real media wins the card's hero image/video — falling back
+  // to the event's own official banner/video (set by the organizer) when no
+  // reseller in the group uploaded a custom listing photo, which is the
+  // common case. Without this fallback, events with a real banner still
+  // showed the generic gradient on every resale card.
   for (const g of map.values()) {
     g.tickets.sort((a, b) => {
       const ab = Number(isBoosted(b)) - Number(isBoosted(a));
       if (ab !== 0) return ab;
       return a.sellingPrice - b.sellingPrice;
     });
-    g.photoUrl = g.tickets.find((t) => t.photoUrl)?.photoUrl ?? null;
-    g.videoUrl = g.tickets.find((t) => t.videoUrl)?.videoUrl ?? null;
+    g.photoUrl = g.tickets.find((t) => t.photoUrl)?.photoUrl ?? g.tickets.find((t) => t.eventBannerUrl)?.eventBannerUrl ?? null;
+    g.videoUrl = g.tickets.find((t) => t.videoUrl)?.videoUrl ?? g.tickets.find((t) => t.eventVideoUrl)?.eventVideoUrl ?? null;
   }
   return Array.from(map.values());
 }
@@ -354,81 +348,64 @@ const Buy = () => {
       />
       <HeaderNight />
 
-      {/* =================== EDITORIAL HERO =================== */}
-      <section
-        className="relative overflow-hidden text-white pt-16 md:pt-20"
-        style={{ background: "var(--gradient-hero)" }}
-      >
-        {/* Vignette glow — brand blues, was a stray blue/purple mix */}
-        <div
-          className="absolute -top-32 -right-32 w-[36rem] h-[36rem] rounded-full opacity-40 blur-3xl pointer-events-none"
-          style={{ background: "radial-gradient(circle, hsl(222 100% 84%), transparent 70%)" }}
-        />
-        <div
-          className="absolute -bottom-40 -left-40 w-[32rem] h-[32rem] rounded-full opacity-25 blur-3xl pointer-events-none"
-          style={{ background: "radial-gradient(circle, hsl(228 67% 43%), transparent 70%)" }}
-        />
-
+      {/* =================== HERO =================== */}
+      <section className="relative border-b border-border pt-16 md:pt-20">
         <div className="relative container mx-auto max-w-6xl px-4 md:px-6 pt-12 md:pt-20 pb-10 md:pb-16">
-          <p className="text-[10px] md:text-xs font-bold tracking-[0.3em] uppercase text-white/70 mb-5">
+          <p className="text-[10px] md:text-xs font-bold tracking-[0.3em] uppercase text-muted-foreground mb-5">
             The student marketplace
           </p>
 
           <h1
-            className="font-bold leading-[0.95] tracking-tight mb-7 md:mb-9 max-w-4xl"
-            style={{
-              fontFamily: "'Space Grotesk', Inter, system-ui, sans-serif",
-              letterSpacing: "-0.02em",
-              fontSize: "clamp(2.5rem, 7vw, 5.5rem)",
-            }}
+            className="font-bold leading-[0.95] tracking-tight mb-7 md:mb-9 max-w-4xl text-foreground"
+            style={{ fontSize: "clamp(2.5rem, 7vw, 5.5rem)" }}
           >
             Tickets, <br className="hidden sm:block" />
-            <span className="italic font-normal text-white/95">student to student.</span>{" "}
-            <span className="text-white/75">Protected.</span>
+            <span className="italic font-normal">student to student.</span>{" "}
+            <span className="text-muted-foreground">Protected.</span>
           </h1>
 
           {/* KPI strip — three editorial metrics with animated count-up */}
           <div className="flex flex-wrap items-end gap-x-6 md:gap-x-10 gap-y-4 mb-8 md:mb-10">
             <div>
-              <div className="text-3xl md:text-5xl font-black tabular-nums leading-none">
+              <div className="text-3xl md:text-5xl font-black tabular-nums leading-none text-foreground">
                 {displayTickets.toLocaleString("en-GB")}
               </div>
-              <div className="text-[10px] md:text-xs uppercase tracking-[0.18em] font-bold text-white/65 mt-1.5">
+              <div className="text-[10px] md:text-xs uppercase tracking-[0.18em] font-bold text-muted-foreground mt-1.5">
                 tickets available
               </div>
             </div>
-            <div className="h-10 w-px bg-white/20 hidden md:block" />
+            <div className="h-10 w-px bg-border hidden md:block" />
             <div>
-              <div className="text-3xl md:text-5xl font-black tabular-nums leading-none">
+              <div className="text-3xl md:text-5xl font-black tabular-nums leading-none text-foreground">
                 {displayNew}
               </div>
-              <div className="text-[10px] md:text-xs uppercase tracking-[0.18em] font-bold text-white/65 mt-1.5">
+              <div className="text-[10px] md:text-xs uppercase tracking-[0.18em] font-bold text-muted-foreground mt-1.5">
                 new today
               </div>
             </div>
-            <div className="h-10 w-px bg-white/20 hidden md:block" />
+            <div className="h-10 w-px bg-border hidden md:block" />
             <div>
-              <div className="text-3xl md:text-5xl font-black tabular-nums leading-none">
+              <div className="text-3xl md:text-5xl font-black tabular-nums leading-none text-foreground">
                 €{displayAvg}
               </div>
-              <div className="text-[10px] md:text-xs uppercase tracking-[0.18em] font-bold text-white/65 mt-1.5">
+              <div className="text-[10px] md:text-xs uppercase tracking-[0.18em] font-bold text-muted-foreground mt-1.5">
                 average price
               </div>
             </div>
           </div>
 
-          {/* Search — editorial, oversized, single CTA inline */}
+          {/* Search — oversized, single CTA inline */}
           <div className="relative max-w-2xl">
-            <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-primary/55 pointer-events-none" />
+            <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground pointer-events-none" />
             <Input
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search an event, a school, a campus…"
-              className="h-14 md:h-16 pl-14 pr-32 md:pr-36 text-base md:text-lg bg-white text-foreground placeholder:text-muted-foreground/60 border-0 rounded-2xl shadow-[0_20px_60px_-20px_rgba(0,0,0,0.45)] focus-visible:ring-2 focus-visible:ring-white/70"
+              className="h-14 md:h-16 pl-14 pr-32 md:pr-36 text-base md:text-lg bg-input text-foreground placeholder:text-muted-foreground border border-border focus-visible:ring-1 focus-visible:ring-primary"
             />
             <button
               onClick={scrollToGrid}
-              className="absolute right-2 top-1/2 -translate-y-1/2 h-10 md:h-12 px-4 md:px-5 inline-flex items-center gap-1.5 rounded-xl bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary-hover transition-colors"
+              className="absolute right-2 top-1/2 -translate-y-1/2 h-10 md:h-12 px-4 md:px-5 inline-flex items-center gap-1.5 bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary-hover transition-colors"
             >
               Explore
               <ArrowRight className="w-4 h-4" />
@@ -460,7 +437,7 @@ const Buy = () => {
       </div>
 
       {/* =================== FILTER RAIL (sticky) =================== */}
-      <div className="sticky top-16 md:top-20 z-30 bg-background/95 backdrop-blur-sm border-b border-border">
+      <div className="sticky top-16 md:top-20 z-30 bg-background border-b border-border">
         <div className="container mx-auto max-w-6xl px-4 md:px-6 py-3 md:py-4">
           <div className="flex items-center gap-2 md:gap-3 overflow-x-auto scrollbar-hide -mx-1 px-1">
             {/* Category chips */}
@@ -472,7 +449,7 @@ const Buy = () => {
                   onClick={() => setActiveCategories(toggleInSet(activeCategories, c.id))}
                   className={`shrink-0 px-3.5 py-1.5 text-xs md:text-sm font-semibold whitespace-nowrap transition-all ${
                     active
-                      ? "bg-primary text-primary-foreground shadow-sm"
+                      ? "bg-primary text-primary-foreground"
                       : "bg-muted text-foreground/75 hover:bg-muted/80"
                   }`}
                 >
@@ -490,7 +467,7 @@ const Buy = () => {
                   onClick={() => setActivePriceBucket(active ? null : b.id)}
                   className={`shrink-0 px-3.5 py-1.5 text-xs md:text-sm font-semibold whitespace-nowrap transition-all tabular-nums ${
                     active
-                      ? "bg-primary text-primary-foreground shadow-sm"
+                      ? "bg-primary text-primary-foreground"
                       : "bg-muted text-foreground/75 hover:bg-muted/80"
                   }`}
                 >
@@ -509,7 +486,7 @@ const Buy = () => {
                       onClick={() => setActiveUniversities(toggleInSet(activeUniversities, u))}
                       className={`shrink-0 px-3.5 py-1.5 text-xs md:text-sm font-semibold whitespace-nowrap transition-all ${
                         active
-                          ? "bg-primary text-primary-foreground shadow-sm"
+                          ? "bg-primary text-primary-foreground"
                           : "bg-muted text-foreground/75 hover:bg-muted/80"
                       }`}
                     >
@@ -530,7 +507,7 @@ const Buy = () => {
                       onClick={() => setActiveCampuses(toggleInSet(activeCampuses, c))}
                       className={`shrink-0 px-3 py-1.5 text-xs md:text-sm font-semibold whitespace-nowrap transition-all ${
                         active
-                          ? "bg-primary text-primary-foreground shadow-sm"
+                          ? "bg-primary text-primary-foreground"
                           : "bg-muted text-foreground/75 hover:bg-muted/80"
                       }`}
                     >
@@ -673,26 +650,27 @@ function FeaturedCard({
   const days = daysUntil(group.eventDate);
   return (
     <div
-      className="ts-fade-up sm:col-span-2 lg:col-span-2 lg:row-span-2 relative rounded-2xl overflow-hidden bg-card border border-border shadow-sm group"
+      className="ts-fade-up sm:col-span-2 lg:col-span-2 lg:row-span-2 relative rounded-2xl overflow-hidden bg-card border border-border group"
       style={{ animationDelay: `${index * 50}ms` }}
     >
       {/* Hero image — seller's real photo/video when they uploaded one,
-          otherwise the brand-gradient fallback (never a category icon). */}
-      <div
-        className="relative aspect-[16/10] sm:aspect-[16/9] overflow-hidden"
-        style={group.photoUrl || group.videoUrl ? undefined : { background: fallbackGradient(group.eventId) }}
-      >
+          otherwise a flat surface block (never a broken image or a
+          generated gradient). The title/date/location overlay below still
+          reads fine against the flat surface, so there's no second copy of
+          the event name here. */}
+      <div className="relative aspect-[16/10] sm:aspect-[16/9] overflow-hidden bg-muted">
         {group.videoUrl ? (
           <video src={group.videoUrl} className="absolute inset-0 w-full h-full object-cover" autoPlay muted loop playsInline />
         ) : group.photoUrl ? (
           <img src={group.photoUrl} alt={group.eventTitle} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
         ) : null}
-        {/* Dark scrim for legibility */}
+        {/* Dark scrim for legibility — kept even on the flat fallback so the
+            white overlay text stays readable either way. */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/15 to-transparent" />
 
         {/* Featured ribbon */}
         {group.hasBoosted && (
-          <div className="absolute top-4 left-4 inline-flex items-center gap-1.5 px-3 py-1.5 bg-cta text-cta-foreground font-bold text-[10px] uppercase tracking-wider shadow-md">
+          <div className="absolute top-4 left-4 inline-flex items-center gap-1.5 px-3 py-1.5 bg-cta text-cta-foreground font-bold text-[10px] uppercase tracking-wider">
             <Sparkles className="w-3 h-3" />
             Featured
           </div>
@@ -700,7 +678,7 @@ function FeaturedCard({
 
         {/* Urgency badge */}
         {days >= 0 && days <= 7 && (
-          <div className="absolute top-4 right-4 inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/95 text-foreground font-bold text-[10px] uppercase tracking-wider shadow-md">
+          <div className="absolute top-4 right-4 inline-flex items-center gap-1.5 px-3 py-1.5 bg-card text-foreground font-bold text-[10px] uppercase tracking-wider">
             <Clock className="w-3 h-3" />
             {days === 0 ? "Tonight" : days === 1 ? "Tomorrow" : `In ${days}d`}
           </div>
@@ -713,11 +691,7 @@ function FeaturedCard({
           </div>
           <h2
             className="font-bold leading-[0.98] tracking-tight mb-3 max-w-2xl"
-            style={{
-              fontFamily: "'Space Grotesk', Inter, system-ui, sans-serif",
-              letterSpacing: "-0.02em",
-              fontSize: "clamp(1.5rem, 3.2vw, 2.5rem)",
-            }}
+            style={{ fontSize: "clamp(1.5rem, 3.2vw, 2.5rem)" }}
           >
             {group.eventTitle}
           </h2>
@@ -797,14 +771,11 @@ function StandardCard({
 
   return (
     <div
-      className="ts-fade-up flex flex-col rounded-2xl overflow-hidden bg-card border border-border hover:border-primary/30 hover:shadow-[0_18px_40px_-20px_hsl(227_77%_56%/0.25)] transition-all duration-300"
+      className="ts-fade-up flex flex-col rounded-2xl overflow-hidden bg-card border border-border hover:border-primary/30 transition-colors duration-300"
       style={{ animationDelay: `${index * 50}ms` }}
     >
       {/* Image — seller's real photo/video when present, see FeaturedCard comment above. */}
-      <div
-        className="relative aspect-[16/10] overflow-hidden"
-        style={group.photoUrl || group.videoUrl ? undefined : { background: fallbackGradient(group.eventId) }}
-      >
+      <div className="relative aspect-[16/10] overflow-hidden bg-muted">
         {group.videoUrl ? (
           <video src={group.videoUrl} className="absolute inset-0 w-full h-full object-cover" autoPlay muted loop playsInline />
         ) : group.photoUrl ? (
@@ -833,7 +804,7 @@ function StandardCard({
         </div>
 
         {days >= 0 && days <= 7 && (
-          <div className="absolute top-3 right-3 px-2.5 py-1 bg-white/95 text-foreground text-[10px] font-bold uppercase tracking-wider inline-flex items-center gap-1">
+          <div className="absolute top-3 right-3 px-2.5 py-1 bg-card text-foreground text-[10px] font-bold uppercase tracking-wider inline-flex items-center gap-1">
             <Clock className="w-3 h-3" />
             {days === 0 ? "Tonight" : days === 1 ? "Tomorrow" : `In ${days}d`}
           </div>
@@ -847,11 +818,7 @@ function StandardCard({
         </div>
         <h3
           className="font-bold text-foreground leading-tight mb-2.5 line-clamp-2"
-          style={{
-            fontFamily: "'Space Grotesk', Inter, system-ui, sans-serif",
-            letterSpacing: "-0.02em",
-            fontSize: "1.15rem",
-          }}
+          style={{ fontSize: "1.15rem" }}
         >
           {group.eventTitle}
         </h3>
@@ -1018,10 +985,7 @@ function EmptyState({
       <div className="inline-flex w-20 h-20 rounded-2xl bg-primary/8 items-center justify-center mb-5">
         <Ticket className="w-9 h-9 text-primary/60" strokeWidth={1.5} />
       </div>
-      <h3
-        className="text-2xl font-bold text-foreground mb-2"
-        style={{ fontFamily: "'Space Grotesk', Inter, system-ui, sans-serif", letterSpacing: "-0.02em" }}
-      >
+      <h3 className="text-2xl font-bold text-foreground mb-2">
         {hasAnyListing ? "No tickets match" : "No tickets yet"}
       </h3>
       <p className="text-sm text-muted-foreground mb-6">

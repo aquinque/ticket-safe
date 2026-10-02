@@ -429,7 +429,6 @@ const TicketCard = ({
   order: OrderCard;
   navigate: ReturnType<typeof useNavigate>;
 }) => {
-  const primary = order.event_primary_color ?? "#3a5fe6";
   const dateObj = order.event_date ? new Date(order.event_date) : null;
   const allRefunded = order.refunded_count > 0 && order.refunded_count === order.ticket_count;
   const allScanned = order.scanned_count === order.ticket_count && order.ticket_count > 0;
@@ -454,12 +453,9 @@ const TicketCard = ({
           openOrder();
         }
       }}
-      className="w-full text-left bg-card border border-border rounded-2xl overflow-hidden hover:border-primary/30 hover:shadow-soft transition-all flex flex-col md:flex-row cursor-pointer"
+      className="w-full text-left bg-card border border-border rounded-2xl overflow-hidden hover:border-primary/30 transition-colors flex flex-col md:flex-row cursor-pointer"
     >
-      <div
-        className="md:w-44 h-28 md:h-auto relative shrink-0"
-        style={{ background: `linear-gradient(135deg, ${primary}, hsl(210 100% 45%))` }}
-      >
+      <div className="md:w-44 h-28 md:h-auto relative shrink-0 bg-muted">
         {order.event_banner_url && (
           <img src={order.event_banner_url} alt="" className="w-full h-full object-cover" />
         )}

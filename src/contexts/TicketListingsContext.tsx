@@ -40,6 +40,13 @@ export interface TicketListing {
   /** Seller-uploaded listing photo/video (listing-media bucket), or null — falls back to the brand-gradient placeholder. */
   photoUrl: string | null;
   videoUrl: string | null;
+  /** The event's own official banner/video (event-media bucket), set by the
+   *  organizer in Studio — independent of whatever the reseller uploaded.
+   *  Consumers should prefer the seller's own photoUrl/videoUrl when
+   *  present and fall back to these, so a listing never shows a generic
+   *  gradient for an event that actually has a real photo. */
+  eventBannerUrl: string | null;
+  eventVideoUrl: string | null;
 }
 
 interface TicketListingsContextType {
@@ -84,6 +91,8 @@ interface RawListingRow {
     university: string;
     campus: string | null;
     base_price: number | null;
+    banner_url: string | null;
+    video_url: string | null;
   } | null;
   seller: { full_name: string } | null;
 }
@@ -113,7 +122,9 @@ async function fetchAvailableListings(): Promise<TicketListing[]> {
         category,
         university,
         campus,
-        base_price
+        base_price,
+        banner_url,
+        video_url
       ),
       seller:profiles (
         full_name
@@ -140,7 +151,11 @@ async function fetchAvailableListings(): Promise<TicketListing[]> {
       description: "",
       category: ev?.category ?? "",
       filterCategory: (ev?.category ?? "").toLowerCase(),
-      image: "",
+      // Was hardcoded to "" — this is THE root cause of event photos never
+      // showing on the resale marketplace: the event's own banner was never
+      // read into the shared EventData shape, only a seller's own listing
+      // photo (photoUrl below, usually never set) was ever considered.
+      image: ev?.banner_url ?? null,
       isPastEvent: ev?.date ? new Date(ev.date) < new Date() : false,
     };
 
@@ -164,6 +179,8 @@ async function fetchAvailableListings(): Promise<TicketListing[]> {
       boostedUntil: row.boosted_until ?? null,
       photoUrl: row.photo_url ?? null,
       videoUrl: row.video_url ?? null,
+      eventBannerUrl: ev?.banner_url ?? null,
+      eventVideoUrl: ev?.video_url ?? null,
     };
   });
 }

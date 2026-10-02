@@ -12,7 +12,7 @@ import { useEffect } from "react";
  * over the dark Home hero in Phase 3). Body-level toggling makes the theme
  * apply consistently to everything on screen while a themed page is active.
  */
-export function useThemeMode(mode: "night" | "studio" | "checkout") {
+export function useThemeMode(mode: "night" | "studio") {
   useEffect(() => {
     const cls = `theme-${mode}`;
     document.body.classList.add(cls);
