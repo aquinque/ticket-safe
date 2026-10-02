@@ -38,7 +38,7 @@ const NAV_ITEMS: { key: string; label: string; to: string; icon: typeof LayoutDa
   { key: "resale", label: "Resale", to: "/resale", icon: Repeat2 },
   { key: "team", label: "Team / Staff", to: "/studio/team", icon: Users },
   { key: "checkin", label: "Check-in", to: "/organizer/scan", icon: QrCode },
-  { key: "payouts", label: "Payouts", to: "/studio", icon: Banknote },
+  { key: "payouts", label: "Payouts", to: "/studio/payouts", icon: Banknote },
   { key: "settings", label: "Settings", to: "/studio/profile", icon: Settings },
 ];
 

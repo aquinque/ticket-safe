@@ -28,6 +28,7 @@ import {
   Share2,
   Sparkles,
   Video,
+  Search,
 } from "lucide-react";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { StudioLayout } from "@/components/studio/StudioLayout";
@@ -200,6 +201,10 @@ const StudioEventEdit = () => {
   const [attendees, setAttendees] = useState<AttendeeRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  // Buyers list search/filter — scoped to this one event, so a plain
+  // client-side filter is plenty even at a few hundred orders.
+  const [buyerSearch, setBuyerSearch] = useState("");
+  const [buyerStatusFilter, setBuyerStatusFilter] = useState<"all" | "paid" | "pending" | "refunded" | "cancelled">("all");
   // Track the "copied!" feedback on the share-link button. Resets after 2s.
   const [shareCopied, setShareCopied] = useState(false);
 
@@ -449,6 +454,18 @@ const StudioEventEdit = () => {
     { female: 0, male: 0, other: 0, unspecified: 0 } as Record<"female" | "male" | "other" | "unspecified", number>,
   );
   const genderTotal = genderEligible.length;
+
+  // Buyers list — filter by status and by buyer email / attendee name.
+  const buyerQuery = buyerSearch.trim().toLowerCase();
+  const filteredOrders = orders.filter((o) => {
+    if (buyerStatusFilter !== "all" && o.status !== buyerStatusFilter) return false;
+    if (!buyerQuery) return true;
+    if (o.buyer_email.toLowerCase().includes(buyerQuery)) return true;
+    const att = attendeesByOrder.get(o.id) ?? [];
+    return att.some((a) =>
+      [a.holder_first_name, a.holder_last_name, a.holder_email].filter(Boolean).join(" ").toLowerCase().includes(buyerQuery),
+    );
+  });
 
   return (
     <StudioLayout active="events" organizer={organizer ? { name: organizer.name, logo_url: organizer.logo_url } : null}>
@@ -907,11 +924,39 @@ const StudioEventEdit = () => {
                 )}
               </div>
             </div>
+
+            {orders.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-4">
+                <div className="relative flex-1 min-w-[180px]">
+                  <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    value={buyerSearch}
+                    onChange={(e) => setBuyerSearch(e.target.value)}
+                    placeholder="Search buyer or attendee name…"
+                    className="w-full pl-8 pr-3 py-2 rounded-lg border border-border bg-background text-sm"
+                  />
+                </div>
+                <select
+                  value={buyerStatusFilter}
+                  onChange={(e) => setBuyerStatusFilter(e.target.value as typeof buyerStatusFilter)}
+                  className="px-3 py-2 rounded-lg border border-border bg-background text-sm"
+                >
+                  <option value="all">All statuses</option>
+                  <option value="paid">Paid</option>
+                  <option value="pending">Pending</option>
+                  <option value="refunded">Refunded</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </div>
+            )}
+
             {orders.length === 0 ? (
               <p className="text-sm text-muted-foreground">No orders yet. They will appear here in real time.</p>
+            ) : filteredOrders.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No orders match your search.</p>
             ) : (
               <div className="space-y-3">
-                {orders.map((o) => {
+                {filteredOrders.map((o) => {
                   const tier = tiers.find((t) => t.id === o.tier_id);
                   const att = attendeesByOrder.get(o.id) ?? [];
                   return (

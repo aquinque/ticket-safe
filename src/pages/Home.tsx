@@ -19,10 +19,10 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { useESCPEvents } from "@/hooks/useESCPEvents";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { partnerLogos } from "@/config/partnerLogos";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchPublishedEvents, toEventData, type PublishedEvent } from "@/lib/publishedEvents";
 import type { EventData } from "@/data/eventsData";
 
 const FAQS = [
@@ -51,7 +51,8 @@ const FAQS = [
 const Home = () => {
   useThemeMode("night");
   const navigate = useNavigate();
-  const { events: upcomingEvents, loading: eventsLoading } = useESCPEvents({ onlyWithTickets: true });
+  const [upcomingEvents, setUpcomingEvents] = useState<PublishedEvent[]>([]);
+  const [eventsLoading, setEventsLoading] = useState(true);
   const [ticketsSold, setTicketsSold] = useState<number | null>(null);
 
   useEffect(() => {
@@ -64,20 +65,27 @@ const Home = () => {
       });
   }, []);
 
-  const carouselEvents: EventData[] = upcomingEvents.slice(0, 10).map((e) => ({
-    id: e.id,
-    title: e.title,
-    date: e.start_date,
-    time: "",
-    location: e.location,
-    organizer: e.organizer,
-    description: e.description,
-    category: e.category,
-    filterCategory: e.category.toLowerCase(),
-    image: e.image_url,
-    isPastEvent: false,
-    fromPriceCents: e.min_price != null ? Math.round(e.min_price * 100) : undefined,
-  }));
+  // Same source of truth as /tickets (event_tiers inventory) — keeps the
+  // homepage carousel from drifting out of sync with what's actually for
+  // sale, which the old ESCP-ICS-calendar-sync hook this used to read from
+  // didn't know anything about.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setEventsLoading(true);
+      const rows = await fetchPublishedEvents();
+      if (!cancelled) {
+        setUpcomingEvents(rows.filter((e) => e.capacity > e.sold));
+        setEventsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const slugById = new Map(upcomingEvents.map((e) => [e.id, e.slug]));
+  const carouselEvents: EventData[] = upcomingEvents.slice(0, 10).map(toEventData);
 
   // Counters section: only real, verifiable numbers. Hidden individually
   // when null rather than showing a fabricated placeholder value.
@@ -174,7 +182,10 @@ const Home = () => {
               <EventCarousel
                 events={carouselEvents}
                 loading={eventsLoading}
-                onEventClick={(event) => navigate(`/event/${event.id}/tickets`)}
+                onEventClick={(event) => {
+                  const slug = slugById.get(event.id);
+                  navigate(slug ? `/e/${slug}` : "/tickets");
+                }}
               />
             )}
           </div>

@@ -16,7 +16,6 @@ import {
   Banknote,
   QrCode,
   Repeat2,
-  Download,
 } from "lucide-react";
 import { toast } from "sonner";
 import { StudioLayout } from "@/components/studio/StudioLayout";
@@ -25,7 +24,6 @@ import { useAuth } from "@/hooks/useAuth";
 import { useOrganizer } from "@/hooks/useOrganizer";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { supabase } from "@/integrations/supabase/client";
-import { generatePayoutReceiptPDF } from "@/lib/payoutReceiptPdf";
 import EventStatusBadge, { deriveEventStatusKind } from "@/components/studio/EventStatusBadge";
 
 interface StudioEvent {
@@ -62,7 +60,6 @@ const StudioDashboard = () => {
   const [events, setEvents] = useState<StudioEvent[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(true);
   const [earnings, setEarnings] = useState<Earnings | null>(null);
-  const [payoutModalOpen, setPayoutModalOpen] = useState(false);
   const [filter, setFilter] = useState<"all" | "live" | "draft" | "past">("all");
   const [resoldCount, setResoldCount] = useState<number | null>(null);
   const [dailySales, setDailySales] = useState<{ day: string; cents: number }[] | null>(null);
@@ -393,13 +390,13 @@ const StudioDashboard = () => {
                 SEPA IBAN only — no Stripe account, no SIREN, no KYC. TicketSafe fee: 0%.
               </div>
             </div>
-            <button
-              onClick={() => setPayoutModalOpen(true)}
+            <Link
+              to="/studio/payouts"
               className="inline-flex items-center justify-center gap-1.5 px-4 min-h-[40px] rounded-lg font-bold text-sm bg-emerald-700 text-white hover:bg-emerald-800 shrink-0"
             >
               <ArrowRight className="w-4 h-4" />
               Request payout
-            </button>
+            </Link>
           </div>
         )}
         {earnings && earnings.claimed_cents > 0 && earnings.available_cents === 0 && (
@@ -416,8 +413,12 @@ const StudioDashboard = () => {
           </div>
         )}
 
+        {/* Order flips on mobile: the events list matters more than quick
+            actions on a small screen, so it comes first there (order-2 /
+            order-1 below; md: restores the original desktop order). */}
+        <div className="flex flex-col">
         {/* ===== Everything in one place panel ===== */}
-        <div className="mb-6">
+        <div className="mb-6 order-2 md:order-1">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-base md:text-lg font-bold text-foreground">Everything in one place</h2>
             <span className="text-xs text-muted-foreground">Quick actions</span>
@@ -447,7 +448,7 @@ const StudioDashboard = () => {
                   ? "In progress"
                   : "Earnings & history"
               }
-              onClick={() => setPayoutModalOpen(true)}
+              to="/studio/payouts"
               accent={organizer.primary_color}
               status={
                 earnings && earnings.available_cents > 0
@@ -468,7 +469,7 @@ const StudioDashboard = () => {
         </div>
 
         {/* ===== Events list ===== */}
-        <div>
+        <div className="order-1 md:order-2">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
             <h2 className="text-xl md:text-2xl font-bold">Your events</h2>
             {events.length > 0 && (
@@ -558,253 +559,10 @@ const StudioDashboard = () => {
             );
           })()}
         </div>
+        </div>
       </div>
 
-      {payoutModalOpen && organizer && (
-        <PayoutModal
-          organizerId={organizer.id}
-          organizerName={organizer.name}
-          available={earnings?.available_cents ?? 0}
-          claimed={earnings?.claimed_cents ?? 0}
-          netEarned={earnings?.net_earned_cents ?? 0}
-          onClose={() => setPayoutModalOpen(false)}
-          onSubmitted={() => {
-            setPayoutModalOpen(false);
-            loadEarnings();
-            toast.success("Payout requested. We'll send the SEPA transfer within 2-3 business days.");
-          }}
-        />
-      )}
     </StudioLayout>
-  );
-};
-
-// ────────────────────────────────────────────────────────────────────────────
-// Payouts via SEPA on a manual IBAN. No Stripe KYC, no SIREN, no
-// representatives — student associations can't pass Stripe Connect, so we
-// just take an IBAN, email the SEPA details to ops (Achille + Adrien), and
-// wire the funds from the Ticket Safe bank within 2-3 business days.
-// ────────────────────────────────────────────────────────────────────────────
-interface PayoutHistoryRow {
-  id: string;
-  amount_cents: number;
-  gross_cents: number | null;
-  fee_cents: number | null;
-  status: "requested" | "processing" | "sent" | "failed" | "cancelled";
-  iban_used: string;
-  iban_holder_used: string;
-  requested_at: string;
-  sent_at: string | null;
-}
-
-const PayoutModal = ({
-  organizerId,
-  organizerName,
-  available,
-  claimed,
-  netEarned,
-  onClose,
-  onSubmitted,
-}: {
-  organizerId: string;
-  organizerName: string;
-  available: number;
-  claimed: number;
-  netEarned: number;
-  onClose: () => void;
-  onSubmitted: () => void;
-}) => {
-  const [iban, setIban] = useState("");
-  const [holder, setHolder] = useState("");
-  const [amount, setAmount] = useState(((available || 0) / 100).toFixed(2));
-  const [submitting, setSubmitting] = useState(false);
-  const [history, setHistory] = useState<PayoutHistoryRow[]>([]);
-  const [loadedDefaults, setLoadedDefaults] = useState(false);
-  const [downloadingId, setDownloadingId] = useState<string | null>(null);
-
-  useEffect(() => {
-    (async () => {
-      const [{ data: org }, { data: hist }] = await Promise.all([
-        supabase.from("organizer_profiles").select("payout_iban, payout_iban_holder").eq("id", organizerId).maybeSingle(),
-        supabase.from("organizer_payouts").select("id, amount_cents, gross_cents, fee_cents, status, iban_used, iban_holder_used, requested_at, sent_at").eq("organizer_id", organizerId).order("requested_at", { ascending: false }).limit(10),
-      ]);
-      if (org?.payout_iban) setIban((org.payout_iban as string).replace(/\s+/g, "").toUpperCase());
-      if (org?.payout_iban_holder) setHolder(org.payout_iban_holder as string);
-      setHistory((hist as PayoutHistoryRow[]) ?? []);
-      setLoadedDefaults(true);
-    })();
-  }, [organizerId]);
-
-  const downloadReceipt = async (p: PayoutHistoryRow) => {
-    setDownloadingId(p.id);
-    try {
-      const grossCents = p.gross_cents ?? p.amount_cents;
-      const feeCents = p.fee_cents ?? Math.max(grossCents - p.amount_cents, 0);
-      // Ticket Safe takes 0% from organizers (see request-payout) — derive the
-      // label from the actual fee instead of hardcoding, so older payout rows
-      // that did carry a historical fee still show their real percentage.
-      const feePercent = grossCents > 0 ? Math.round((feeCents / grossCents) * 100) : 0;
-      await generatePayoutReceiptPDF({
-        kind: "studio",
-        payoutId: p.id,
-        organizationName: organizerName,
-        beneficiaryName: p.iban_holder_used,
-        iban: p.iban_used,
-        grossCents,
-        feeCents,
-        feePercent,
-        netCents: p.amount_cents,
-        sentAt: p.sent_at,
-        requestedAt: p.requested_at,
-        status: p.status,
-      });
-    } finally {
-      setDownloadingId(null);
-    }
-  };
-
-  const cleanedIban = iban.replace(/\s+/g, "").toUpperCase();
-  const ibanValid = /^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/.test(cleanedIban);
-  const cents = Math.round(parseFloat(amount.replace(",", ".") || "0") * 100);
-  const amountValid = Number.isFinite(cents) && cents >= 100 && cents <= available;
-  const canSubmit = ibanValid && holder.trim().length >= 2 && amountValid && !submitting;
-
-  const submit = async () => {
-    if (!canSubmit) return;
-    setSubmitting(true);
-    const { data, error } = await supabase.functions.invoke("request-payout", {
-      body: { organizer_id: organizerId, amount_cents: cents, iban: cleanedIban, iban_holder: holder.trim() },
-    });
-    setSubmitting(false);
-    if (error || (data as { error?: string })?.error) {
-      toast.error((data as { error?: string })?.error ?? error?.message ?? "Could not request the payout.");
-      return;
-    }
-    onSubmitted();
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 bg-black/60 flex items-end md:items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-card w-full max-w-lg rounded-2xl shadow-2xl border border-border max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <div className="px-6 py-5 border-b border-border flex items-start justify-between">
-          <div>
-            <h2 className="text-xl font-black">Get paid</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">SEPA transfer · 2-3 business days · no KYC</p>
-          </div>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-xl leading-none">×</button>
-        </div>
-
-        <div className="px-6 py-5 space-y-5">
-          {/* Balance summary */}
-          <div className="grid grid-cols-3 gap-2 text-center">
-            <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3">
-              <div className="text-[10px] uppercase tracking-wider font-bold text-emerald-700">Available</div>
-              <div className="text-lg font-black text-emerald-900">€{(available / 100).toFixed(2)}</div>
-            </div>
-            <div className="rounded-xl bg-muted border border-border p-3">
-              <div className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">In progress</div>
-              <div className="text-lg font-black">€{(claimed / 100).toFixed(2)}</div>
-            </div>
-            <div className="rounded-xl bg-muted border border-border p-3">
-              <div className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Total earned</div>
-              <div className="text-lg font-black">€{(netEarned / 100).toFixed(2)}</div>
-            </div>
-          </div>
-
-          {/* Fee breakdown */}
-          <div className="rounded-xl border border-border bg-muted/40 p-4 text-xs leading-relaxed text-muted-foreground">
-            <div className="font-bold text-foreground mb-1.5 text-[11px] uppercase tracking-wider">Fee breakdown</div>
-            Buyers pay a flat <strong className="text-foreground">€1.40 service fee</strong> per ticket at checkout.{" "}
-            Ticket Safe takes <strong className="text-foreground">0%</strong> from you — the full ticket price is wired to your IBAN.
-          </div>
-
-          {!loadedDefaults ? (
-            <div className="py-6 flex justify-center"><Loader2 className="w-5 h-5 animate-spin text-primary" /></div>
-          ) : available <= 0 ? (
-            <div className="rounded-xl border border-border bg-muted/40 p-4 text-sm text-muted-foreground">
-              Nothing to withdraw yet. Funds become available as your events sell tickets.
-            </div>
-          ) : (
-            <>
-              <div>
-                <label className="text-xs font-bold text-muted-foreground mb-1 block">IBAN holder name</label>
-                <input value={holder} onChange={(e) => setHolder(e.target.value)} className="w-full px-3 py-2.5 rounded-lg border border-border bg-background text-sm" placeholder="BDE ESCP Paris · Asso loi 1901" maxLength={120} />
-              </div>
-              <div>
-                <label className="text-xs font-bold text-muted-foreground mb-1 block">IBAN</label>
-                <input value={iban} onChange={(e) => setIban(e.target.value.toUpperCase())} className="w-full px-3 py-2.5 rounded-lg border border-border bg-background text-sm font-mono" placeholder="FR76 3000 4000 0312 3456 7890 143" maxLength={40} />
-                {iban && !ibanValid && (<p className="text-xs text-amber-700 mt-1">IBAN format looks off — double-check the digits.</p>)}
-              </div>
-              <div>
-                <label className="text-xs font-bold text-muted-foreground mb-1 block">Amount to withdraw (EUR)</label>
-                <div className="flex items-center gap-2">
-                  <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} step="0.01" min="1" max={(available / 100).toFixed(2)} className="flex-1 px-3 py-2.5 rounded-lg border border-border bg-background text-sm" />
-                  <button type="button" onClick={() => setAmount(((available || 0) / 100).toFixed(2))} className="px-3 py-2.5 rounded-lg border border-border text-xs font-bold hover:bg-muted">Max</button>
-                </div>
-                {!amountValid && (<p className="text-xs text-amber-700 mt-1">Amount must be between €1.00 and €{(available / 100).toFixed(2)}.</p>)}
-              </div>
-
-              <button onClick={submit} disabled={!canSubmit} className="w-full inline-flex items-center justify-center gap-2 min-h-[44px] rounded-lg font-bold bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-60">
-                {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : (
-                  <>
-                    <ArrowRight className="w-4 h-4" />
-                    Request €{((cents || 0) / 100).toFixed(2)}
-                  </>
-                )}
-              </button>
-              <p className="text-[11px] text-muted-foreground text-center">
-                Ticket Safe takes 0% — the full amount is wired to your IBAN within 2-3 business days. No Stripe account, no SIREN, no KYC.
-              </p>
-            </>
-          )}
-
-          {history.length > 0 && (
-            <div className="pt-4 border-t border-border">
-              <h3 className="text-xs uppercase tracking-wider font-bold text-muted-foreground mb-2">Recent payouts</h3>
-              <div className="space-y-2">
-                {history.map((p) => (
-                  <div key={p.id} className="flex items-center justify-between text-sm gap-2">
-                    <div className="min-w-0">
-                      <div className="font-semibold">€{(p.amount_cents / 100).toFixed(2)}</div>
-                      <div className="text-[11px] text-muted-foreground truncate">{p.iban_used.slice(0, 4)} ··· {p.iban_used.slice(-4)} · {new Date(p.requested_at).toLocaleDateString("en-GB")}</div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {p.status === "sent" && (
-                        <button
-                          type="button"
-                          onClick={() => downloadReceipt(p)}
-                          disabled={downloadingId === p.id}
-                          title="Download payment receipt (PDF)"
-                          className="p-1.5 rounded-lg border border-border text-muted-foreground hover:text-primary hover:border-primary/40 disabled:opacity-50"
-                        >
-                          {downloadingId === p.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-                        </button>
-                      )}
-                      <PayoutStatus status={p.status} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const PayoutStatus = ({ status }: { status: string }) => {
-  const map: Record<string, string> = {
-    requested: "bg-amber-100 text-amber-700",
-    processing: "bg-blue-100 text-blue-700",
-    sent: "bg-emerald-100 text-emerald-700",
-    failed: "bg-red-100 text-red-700",
-    cancelled: "bg-muted text-muted-foreground",
-  };
-  return (
-    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${map[status] ?? "bg-muted text-muted-foreground"}`}>
-      {status}
-    </span>
   );
 };
 
