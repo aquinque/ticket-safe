@@ -33,7 +33,7 @@ interface OrganizerLite {
 
 const NAV_ITEMS: { key: string; label: string; to: string; icon: typeof LayoutDashboard; soon?: boolean }[] = [
   { key: "dashboard", label: "Dashboard", to: "/studio", icon: LayoutDashboard },
-  { key: "events", label: "Events", to: "/studio", icon: CalendarDays },
+  { key: "events", label: "Events", to: "/studio/events", icon: CalendarDays },
   { key: "sales", label: "Sales", to: "/studio/sales", icon: LineChart },
   { key: "resale", label: "Resale", to: "/resale", icon: Repeat2 },
   { key: "team", label: "Team / Staff", to: "/studio/team", icon: Users },

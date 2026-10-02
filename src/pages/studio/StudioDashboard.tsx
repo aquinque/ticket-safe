@@ -14,17 +14,15 @@ import {
   Sparkles,
   ExternalLink,
   Banknote,
-  QrCode,
   Repeat2,
 } from "lucide-react";
-import { toast } from "sonner";
 import { StudioLayout } from "@/components/studio/StudioLayout";
 import { SEOHead } from "@/components/SEOHead";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrganizer } from "@/hooks/useOrganizer";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { supabase } from "@/integrations/supabase/client";
-import EventStatusBadge, { deriveEventStatusKind } from "@/components/studio/EventStatusBadge";
+import EventStatusBadge from "@/components/studio/EventStatusBadge";
 
 interface StudioEvent {
   id: string;
@@ -60,7 +58,6 @@ const StudioDashboard = () => {
   const [events, setEvents] = useState<StudioEvent[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(true);
   const [earnings, setEarnings] = useState<Earnings | null>(null);
-  const [filter, setFilter] = useState<"all" | "live" | "draft" | "past">("all");
   const [resoldCount, setResoldCount] = useState<number | null>(null);
   const [dailySales, setDailySales] = useState<{ day: string; cents: number }[] | null>(null);
 
@@ -413,230 +410,43 @@ const StudioDashboard = () => {
           </div>
         )}
 
-        {/* Order flips on mobile: the events list matters more than quick
-            actions on a small screen, so it comes first there (order-2 /
-            order-1 below; md: restores the original desktop order). */}
-        <div className="flex flex-col">
-        {/* ===== Everything in one place panel ===== */}
-        <div className="mb-6 order-2 md:order-1">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-base md:text-lg font-bold text-foreground">Everything in one place</h2>
-            <span className="text-xs text-muted-foreground">Quick actions</span>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <QuickAction
-              icon={Plus}
-              label="New event"
-              hint="Create a branded event"
-              to="/studio/events/new"
-              accent={organizer.primary_color}
-            />
-            <QuickAction
-              icon={QrCode}
-              label="Door scan"
-              hint="Validate tickets at entry"
-              to="/organizer/scan"
-              accent={organizer.primary_color}
-            />
-            <QuickAction
-              icon={Banknote}
-              label="Payouts"
-              hint={
-                earnings && earnings.available_cents > 0
-                  ? `€${(earnings.available_cents / 100).toFixed(0)} to withdraw`
-                  : earnings && earnings.claimed_cents > 0
-                  ? "In progress"
-                  : "Earnings & history"
-              }
-              to="/studio/payouts"
-              accent={organizer.primary_color}
-              status={
-                earnings && earnings.available_cents > 0
-                  ? "ready"
-                  : earnings && earnings.claimed_cents > 0
-                  ? "pending"
-                  : undefined
-              }
-            />
-            <QuickAction
-              icon={Repeat2}
-              label="Resale"
-              hint="Built-in for your buyers"
-              to="/resale"
-              accent={organizer.primary_color}
-            />
-          </div>
-        </div>
-
-        {/* ===== Events list ===== */}
-        <div className="order-1 md:order-2">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
-            <h2 className="text-xl md:text-2xl font-bold">Your events</h2>
+        {/* ===== Recent events — a glance, not the management view. Full
+            list/search/filters/duplicate live on the dedicated Events tab
+            (/studio/events); this is just "what's new" at a glance. ===== */}
+        <div>
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="text-xl md:text-2xl font-bold">Recent events</h2>
             {events.length > 0 && (
               <Link
-                to="/studio/events/new"
-                className="inline-flex items-center justify-center gap-1.5 px-4 min-h-[40px] rounded-xl font-bold text-sm bg-primary text-primary-foreground hover:bg-primary-hover transition-colors self-start sm:self-auto"
+                to="/studio/events"
+                className="inline-flex items-center gap-1 text-sm font-bold text-primary hover:underline"
               >
-                <Plus className="w-4 h-4" />
-                New event
+                View all
+                <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             )}
           </div>
 
-          {/* Filter tabs — let organizers instantly slice by Live / Draft / Past */}
-          {!loadingEvents && events.length > 0 && (() => {
-            const now = Date.now();
-            const counts = {
-              all: events.length,
-              live: events.filter((e) => deriveEventStatusKind(e.status, e.date, e.sold_count >= e.total_capacity && e.total_capacity > 0) === "live").length,
-              draft: events.filter((e) => (e.status ?? "draft") === "draft").length,
-              past: events.filter((e) => new Date(e.date).getTime() < now).length,
-            };
-            const TABS: { key: typeof filter; label: string }[] = [
-              { key: "all", label: "All" },
-              { key: "live", label: "Live" },
-              { key: "draft", label: "Drafts" },
-              { key: "past", label: "Past" },
-            ];
-            return (
-              <div className="flex flex-wrap gap-2 mb-5">
-                {TABS.map((tab) => (
-                  <button
-                    key={tab.key}
-                    type="button"
-                    onClick={() => setFilter(tab.key)}
-                    className={`inline-flex items-center gap-1.5 px-3.5 min-h-[36px] rounded-full text-sm font-bold border transition-colors ${
-                      filter === tab.key
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "bg-card text-muted-foreground border-border hover:border-primary/40 hover:text-foreground"
-                    }`}
-                  >
-                    {tab.label}
-                    <span
-                      className={`inline-flex items-center justify-center min-w-[20px] h-5 px-1 rounded-full text-[11px] font-black ${
-                        filter === tab.key ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"
-                      }`}
-                    >
-                      {counts[tab.key]}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            );
-          })()}
-
           {loadingEvents ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {[0, 1, 2, 3].map((i) => (
+              {[0, 1].map((i) => (
                 <EventCardSkeleton key={i} />
               ))}
             </div>
           ) : events.length === 0 ? (
             <EmptyEvents />
-          ) : (() => {
-            const now = Date.now();
-            const filtered = events.filter((e) => {
-              if (filter === "all") return true;
-              if (filter === "past") return new Date(e.date).getTime() < now;
-              if (filter === "draft") return (e.status ?? "draft") === "draft";
-              if (filter === "live")
-                return deriveEventStatusKind(e.status, e.date, e.sold_count >= e.total_capacity && e.total_capacity > 0) === "live";
-              return true;
-            });
-            if (filtered.length === 0) {
-              return (
-                <div className="text-center py-12 bg-card border border-dashed border-border rounded-2xl">
-                  <p className="text-sm text-muted-foreground">No events in this view yet.</p>
-                </div>
-              );
-            }
-            return (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {filtered.map((e) => (
-                  <EventRow key={e.id} event={e} />
-                ))}
-              </div>
-            );
-          })()}
-        </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {events.slice(0, 4).map((e) => (
+                <EventRow key={e.id} event={e} />
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
     </StudioLayout>
   );
-};
-
-const QuickAction = ({
-  icon: Icon,
-  label,
-  hint,
-  to,
-  onClick,
-  external,
-  accent,
-  status,
-}: {
-  icon: typeof Calendar;
-  label: string;
-  hint: string;
-  to?: string;
-  onClick?: () => void;
-  external?: boolean;
-  accent?: string;
-  status?: "ready" | "pending";
-}) => {
-  const content = (
-    <div className="flex flex-col h-full bg-card border border-border rounded-2xl p-4 hover:border-primary/30 hover:shadow-soft transition-all group">
-      <div className="flex items-center justify-between mb-3">
-        <div
-          className="w-10 h-10 rounded-xl flex items-center justify-center text-white"
-          style={{ background: accent || "var(--gradient-hero)" }}
-        >
-          <Icon className="w-5 h-5" />
-        </div>
-        {status === "ready" && (
-          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded-full">
-            <CheckCircle2 className="w-3 h-3" />
-            Ready
-          </span>
-        )}
-        {status === "pending" && (
-          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
-            <AlertCircle className="w-3 h-3" />
-            Action
-          </span>
-        )}
-      </div>
-      <div className="font-bold text-sm text-foreground leading-tight">{label}</div>
-      <div className="text-xs text-muted-foreground mt-0.5">{hint}</div>
-      <div className="mt-auto pt-3 inline-flex items-center text-[11px] font-bold text-primary group-hover:gap-1.5 gap-1 transition-all">
-        Open
-        <ArrowRight className="w-3 h-3" />
-      </div>
-    </div>
-  );
-  if (onClick) {
-    return (
-      <button onClick={onClick} className="text-left h-full">
-        {content}
-      </button>
-    );
-  }
-  if (to && external) {
-    return (
-      <a href={to} target="_blank" rel="noopener noreferrer" className="h-full">
-        {content}
-      </a>
-    );
-  }
-  if (to) {
-    return (
-      <Link to={to} className="h-full">
-        {content}
-      </Link>
-    );
-  }
-  return content;
 };
 
 const KpiCard = ({ icon: Icon, label, value }: { icon: typeof Calendar; label: string; value: string }) => (
