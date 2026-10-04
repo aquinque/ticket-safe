@@ -40,6 +40,19 @@ export const calcBuyerTotalCents = (listPriceCents: number): number =>
 export const calcSellerCommissionCents = (listPriceCents: number): number =>
   Math.round(listPriceCents * SELLER_COMMISSION_RATE);
 
+/**
+ * Studio primary sales: flat service fee the buyer pays per paid ticket, in
+ * cents. Must match SERVICE_TAX_CENTS in revolut-create-checkout.
+ */
+export const STUDIO_SERVICE_FEE_CENTS = 140;
+
+/**
+ * Studio service fee in cents for `quantity` tickets at `unitPriceCents`.
+ * Free tickets (€0) carry no service fee.
+ */
+export const calcStudioServiceFeeCents = (unitPriceCents: number, quantity: number): number =>
+  unitPriceCents > 0 ? STUDIO_SERVICE_FEE_CENTS * quantity : 0;
+
 /** Net payout the seller receives after commission, in cents. */
 export const calcSellerPayoutCents = (listPriceCents: number): number =>
   listPriceCents - calcSellerCommissionCents(listPriceCents);

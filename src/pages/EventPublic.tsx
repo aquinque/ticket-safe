@@ -18,6 +18,7 @@ import {
   BadgeCheck,
 } from "lucide-react";
 import { SEOHead } from "@/components/SEOHead";
+import { calcStudioServiceFeeCents } from "@/lib/fees";
 import { AnimatedNumber } from "@/components/AnimatedNumber";
 import HeaderNight from "@/components/HeaderNight";
 import { ProtectionBadge } from "@/components/common/ProtectionBadge";
@@ -422,11 +423,10 @@ const EventPublic = () => {
   // `bg-primary` utilities give the same guarantee without hardcoding a hex.
   const selected = tiers.find((t) => t.tier_id === selectedTier) ?? null;
   const totalCents = selected ? selected.price_cents * qty : 0;
-  // Flat €1.40 per-ticket service tax — must match revolut-create-checkout's
-  // SERVICE_TAX_CENTS exactly, since that edge function computes the real
-  // Revolut charge server-side. Ticket Safe takes no cut from the organizer.
-  const SERVICE_TAX_CENTS = 140;
-  const feeCents = SERVICE_TAX_CENTS * qty;
+  // Flat €1.40 per-ticket service fee on paid tickets only; free (€0) tickets
+  // carry no fee. revolut-create-checkout computes the real charge server-side
+  // with the same rule. Ticket Safe takes no cut from the organizer.
+  const feeCents = calcStudioServiceFeeCents(selected?.price_cents ?? 0, qty);
   const grandCents = totalCents + feeCents;
   // Lowest available price, for the summary placeholder.
   const availablePrices = tiers.filter((t) => t.available_qty > 0).map((t) => t.price_cents);
@@ -514,12 +514,14 @@ const EventPublic = () => {
             </span>
             <span className="tabular-nums text-foreground">{fmtPrice(totalCents)}</span>
           </div>
-          <div className="flex items-baseline justify-between text-sm">
-            <span className="text-muted-foreground">
-              Service fee <span className="text-muted-foreground/70">(€1.40 × {qty})</span>
-            </span>
-            <span className="tabular-nums text-foreground">{fmtPrice(feeCents)}</span>
-          </div>
+          {feeCents > 0 && (
+            <div className="flex items-baseline justify-between text-sm">
+              <span className="text-muted-foreground">
+                Service fee <span className="text-muted-foreground/70">(€1.40 × {qty})</span>
+              </span>
+              <span className="tabular-nums text-foreground">{fmtPrice(feeCents)}</span>
+            </div>
+          )}
         </div>
 
         <div className="mb-5">
