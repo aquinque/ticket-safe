@@ -825,6 +825,18 @@ const StudioEventEdit = () => {
             priceFromEuros={tiers.length ? Math.min(...tiers.map((t) => t.price_cents)) / 100 : null}
           />
 
+          {/* Published events get a narrower editor instead — description,
+              banner, location only. Title/date/price/tiers are locked once
+              tickets are on sale (see restrict_published_event_updates()
+              trigger for the server-side enforcement of the same limits). */}
+          {event.status === "published" && (
+            <LiveEventDetailsEditor
+              event={event}
+              onSaved={(patch) => setEvent({ ...event, ...patch })}
+              userId={user?.id ?? ""}
+            />
+          )}
+
           {/* Tiers manager */}
           <section className="bg-card border border-border rounded-2xl p-5 md:p-6 mb-6">
             <div className="flex items-center justify-between mb-4">
@@ -1828,6 +1840,198 @@ const EventDetailsEditor = ({
           `}</style>
         </div>
       )}
+    </section>
+  );
+};
+
+/**
+ * LiveEventDetailsEditor — the ONLY way to edit a published event from
+ * Studio. Deliberately a separate, narrower component from
+ * EventDetailsEditor (which stays draft-only and untouched): editing
+ * description/banner/location once tickets are on sale must never share a
+ * code path with the full draft form, so there's no risk of a future
+ * change to that form accidentally re-exposing price/date/capacity on a
+ * live event. The matching DB trigger (restrict_published_event_updates)
+ * enforces the same allow-list server-side regardless of what this form
+ * sends.
+ */
+const LiveEventDetailsEditor = ({
+  event,
+  onSaved,
+  userId,
+}: {
+  event: EventRow;
+  onSaved: (patch: Partial<EventRow>) => void;
+  userId: string;
+}) => {
+  const [description, setDescription] = useState(event.description ?? "");
+  const [location, setLocation] = useState(event.location ?? "");
+  const [bannerFile, setBannerFile] = useState<File | null>(null);
+  const [bannerPreview, setBannerPreview] = useState<string | null>(event.banner_url ?? null);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
+  const [cropOpen, setCropOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setDescription(event.description ?? "");
+    setLocation(event.location ?? "");
+    setBannerPreview(event.banner_url ?? null);
+    setBannerFile(null);
+  }, [event]);
+
+  const dirty =
+    description.trim() !== (event.description ?? "") ||
+    location.trim() !== (event.location ?? "") ||
+    bannerFile !== null;
+
+  const onCropped = (file: File) => {
+    setBannerFile(file);
+    setBannerPreview(URL.createObjectURL(file));
+  };
+
+  const onBannerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (!f.type.startsWith("image/")) {
+      toast.error("Please choose an image file.");
+      return;
+    }
+    if (f.size > 5 * 1024 * 1024) {
+      toast.error("Banner image must be under 5 MB.");
+      return;
+    }
+    setCropSrc(URL.createObjectURL(f));
+    setCropOpen(true);
+    e.target.value = "";
+  };
+
+  const handleSave = async () => {
+    setError(null);
+    setSaving(true);
+    try {
+      let bannerUrl = event.banner_url;
+      if (bannerFile && userId) {
+        const ext = bannerFile.name.split(".").pop()?.toLowerCase() ?? "jpg";
+        const path = `${userId}/banners/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const { error: upErr } = await supabase.storage
+          .from("organizer-assets")
+          .upload(path, bannerFile, { cacheControl: "3600", upsert: false });
+        if (upErr) throw new Error(`Banner upload failed: ${upErr.message}`);
+        const { data: pub } = supabase.storage.from("organizer-assets").getPublicUrl(path);
+        bannerUrl = pub.publicUrl;
+      }
+
+      // Only these 3 columns — matches the DB trigger's allow-list exactly.
+      const patch: Partial<EventRow> = {
+        description: description.trim() || null,
+        location: location.trim() || null,
+        banner_url: bannerUrl,
+      };
+
+      const { error: updErr } = await supabase.from("events").update(patch).eq("id", event.id);
+      if (updErr) throw updErr;
+
+      onSaved(patch);
+      setBannerFile(null);
+      toast.success("Event updated");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Could not save.";
+      setError(msg);
+      toast.error(msg);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <section className="bg-card border border-border rounded-2xl mb-6 overflow-hidden">
+      <div className="flex items-center gap-2 px-5 md:px-6 py-4 border-b border-border">
+        <Pencil className="w-5 h-5 text-primary" />
+        <h2 className="text-lg font-bold">Edit live event</h2>
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-700">
+          Published
+        </span>
+      </div>
+
+      <div className="px-5 md:px-6 py-5 space-y-4">
+        <p className="text-xs text-muted-foreground">
+          Tickets are on sale — only the description, banner image, and location can change now.
+          Title, date, price, and ticket types are locked to protect buyers who already purchased.
+        </p>
+
+        <Field label="Short description" icon={FileText} hint="2-3 sentences shown above the buy button.">
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            className="ts-edit min-h-[100px]"
+            maxLength={1000}
+          />
+        </Field>
+
+        <Field label="Location" icon={MapPin}>
+          <input
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            className="ts-edit"
+            placeholder="Pavillon d'Armenonville, Paris"
+            maxLength={200}
+          />
+        </Field>
+
+        <Field label="Banner image" icon={ImageIcon} hint="Cropped to 16:9. Max 5 MB.">
+          {bannerPreview ? (
+            <div className="relative rounded-xl overflow-hidden">
+              <img src={bannerPreview} alt="Banner preview" className="w-full aspect-[16/9] object-cover" />
+              <div className="absolute top-2 right-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => { if (bannerPreview) { setCropSrc(bannerPreview); setCropOpen(true); } }}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-black/60 text-white text-xs font-bold hover:bg-black/75"
+                >
+                  Reframe
+                </button>
+                <label className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-black/60 text-white text-xs font-bold cursor-pointer hover:bg-black/75">
+                  <Pencil className="w-3 h-3" />
+                  Replace
+                  <input type="file" accept="image/*" onChange={onBannerChange} className="hidden" />
+                </label>
+              </div>
+            </div>
+          ) : (
+            <label className="flex flex-col items-center justify-center aspect-[16/9] rounded-xl border-2 border-dashed border-border bg-muted/30 cursor-pointer hover:border-primary/50">
+              <ImageIcon className="w-7 h-7 text-muted-foreground mb-1" />
+              <span className="text-sm font-semibold text-muted-foreground">Click to upload banner</span>
+              <input type="file" accept="image/*" onChange={onBannerChange} className="hidden" />
+            </label>
+          )}
+        </Field>
+
+        <ImageCropDialog src={cropSrc} open={cropOpen} onOpenChange={setCropOpen} onCropped={onCropped} />
+
+        {error && (
+          <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-sm">
+            <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+
+        <div className="flex items-center justify-end gap-2 pt-1">
+          <button
+            onClick={handleSave}
+            disabled={saving || !dirty}
+            className="inline-flex items-center justify-center gap-1.5 px-5 min-h-[44px] rounded-lg font-bold bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-60"
+          >
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            Save changes
+          </button>
+        </div>
+
+        <style>{`
+          .ts-edit { width: 100%; padding: 12px 14px; border: 1px solid hsl(var(--border)); border-radius: 12px; background: hsl(var(--background)); font-size: 16px; line-height: 1.4; color: hsl(var(--foreground)); transition: border-color .15s, box-shadow .15s; }
+          .ts-edit:focus { outline: none; border-color: hsl(var(--primary)); box-shadow: 0 0 0 3px hsl(var(--primary) / 0.15); }
+        `}</style>
+      </div>
     </section>
   );
 };
