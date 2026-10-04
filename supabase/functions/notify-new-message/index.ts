@@ -4,6 +4,8 @@
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { renderEmail, ctaButton, escapeHtml as esc } from "../_shared/emailComponents.ts";
+import { emailTokens } from "../_shared/emailTokens.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -100,44 +102,42 @@ Deno.serve(async (req) => {
   const siteUrl = Deno.env.get("SITE_URL") ?? "https://ticket-safe.eu";
   const isOffer = !!offerPrice;
 
+  const messageUrl = `${siteUrl}/messages/${conversationId}`;
+  const bodyHtml = `
+    <p style="margin:0 0 4px">Hi ${esc(recipientName)},</p>
+    ${isOffer
+      ? `<p style="margin:0 0 4px"><strong>${esc(senderName)}</strong> proposed a new price for <strong>${esc(eventTitle)}</strong>.</p>
+         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:18px 0;background:${emailTokens.bodyBg};border:1px solid ${emailTokens.border}"><tr><td style="padding:16px 20px;text-align:center">
+           <div style="font-family:${emailTokens.fontBody};font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:${emailTokens.textMuted}">Proposed price</div>
+           <div style="font-family:${emailTokens.fontHeading};font-size:26px;font-weight:700;color:${emailTokens.accent};margin-top:4px">€${offerPrice!.toFixed(2)}</div>
+         </td></tr></table>`
+      : `<p style="margin:0 0 4px"><strong>${esc(senderName)}</strong> sent you a message about <strong>${esc(eventTitle)}</strong>.</p>`
+    }
+    ${ctaButton(isOffer ? "Accept or decline" : "View message", messageUrl)}
+    <p style="margin:24px 0 0;font-size:12px;color:${emailTokens.textMuted}">You're receiving this because you have an active conversation on Ticket Safe.</p>
+  `;
+  const text = isOffer
+    ? `${senderName} proposed €${offerPrice!.toFixed(2)} for ${eventTitle}.\n${messageUrl}`
+    : `${senderName} sent you a message about ${eventTitle}.\n${messageUrl}`;
+  const { html, text: plain } = renderEmail({
+    eyebrow: isOffer ? "Price offer" : "Messages",
+    title: isOffer ? `New price offer: €${offerPrice!.toFixed(2)}` : "You have a new message",
+    bodyHtml,
+    preheader: isOffer ? `${senderName} proposed €${offerPrice!.toFixed(2)} for ${eventTitle}.` : `${senderName} sent you a message about ${eventTitle}.`,
+    text,
+  });
+
   const emailRes = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      from: "TicketSafe <noreply@ticket-safe.eu>",
+      from: "Ticket Safe <noreply@ticket-safe.eu>",
       to: [recipientEmail],
       subject: isOffer
         ? `New price offer €${offerPrice!.toFixed(2)} from ${senderName} — ${eventTitle}`
         : `New message from ${senderName} — ${eventTitle}`,
-      html: `<!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"></head>
-<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-<div style="max-width:560px;margin:32px auto;background:white;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.08)">
-  <div style="background:${isOffer ? "#f59e0b" : "#6366f1"};padding:24px 32px">
-    <p style="margin:0;font-size:13px;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.08em">TicketSafe · ${isOffer ? "Price Offer" : "Messages"}</p>
-    <h1 style="margin:6px 0 0;font-size:20px;color:white;font-weight:600">${isOffer ? `New price offer: €${offerPrice!.toFixed(2)}` : "You have a new message"}</h1>
-  </div>
-  <div style="padding:28px 32px">
-    <p style="font-size:15px;color:#333;margin:0 0 16px">Hi ${recipientName},</p>
-    ${isOffer
-      ? `<p style="font-size:15px;color:#333;margin:0 0 16px"><strong>${senderName}</strong> proposed a new price for <strong>${eventTitle}</strong>.</p>
-         <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:8px;padding:16px 20px;margin-bottom:24px;text-align:center">
-           <p style="margin:0;font-size:13px;color:#92400e;text-transform:uppercase;letter-spacing:.06em">Proposed price</p>
-           <p style="margin:4px 0 0;font-size:28px;font-weight:700;color:#d97706">€${offerPrice!.toFixed(2)}</p>
-         </div>`
-      : `<p style="font-size:15px;color:#333;margin:0 0 24px"><strong>${senderName}</strong> sent you a message about <strong>${eventTitle}</strong>.</p>`
-    }
-    <a href="${siteUrl}/messages/${conversationId}"
-       style="display:inline-block;background:${isOffer ? "#f59e0b" : "#6366f1"};color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:600">
-      ${isOffer ? "Accept or decline →" : "View message →"}
-    </a>
-    <p style="font-size:12px;color:#aaa;margin:24px 0 0">You received this because you have an active conversation on TicketSafe.</p>
-  </div>
-  <div style="padding:16px 32px;background:#fafafa;border-top:1px solid #f0f0f0">
-    <p style="margin:0;font-size:12px;color:#bbb;text-align:center">TicketSafe · Secure peer-to-peer ticket resale</p>
-  </div>
-</div>
-</body></html>`,
+      html,
+      text: plain,
     }),
   });
 

@@ -15,10 +15,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendTicketConfirmationEmail } from "../_shared/sendTicketConfirmationEmail.ts";
 import { generateTicketsPDFServer, type ServerTicketData } from "../_shared/ticketPdfServer.ts";
 import type { OrderSummaryData } from "../_shared/orderSummaryPdf.ts";
+import { renderEmail, ctaButton, ticketSummary, escapeHtml as esc } from "../_shared/emailComponents.ts";
+import { emailTokens } from "../_shared/emailTokens.ts";
 
 const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type" };
 function json(b: unknown, s = 200) { return new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } }); }
-function esc(s: string): string { return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
 
 const enc = new TextEncoder();
 function b64url(bytes: Uint8Array): string { let bin = ""; for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]); return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); }
@@ -31,12 +32,9 @@ async function signStudioTicketJWT(p: { ticket_id: string; event_id: string; exp
   const sig = await crypto.subtle.sign("HMAC", key, enc.encode(data));
   return `${data}.${b64url(new Uint8Array(sig))}`;
 }
-async function sendEmail(key: string, to: string, subject: string, html: string) {
-  try { await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" }, body: JSON.stringify({ from: "Ticket Safe <noreply@ticket-safe.eu>", to: [to], subject, html }) }); }
+async function sendEmail(key: string, to: string, subject: string, html: string, text: string) {
+  try { await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" }, body: JSON.stringify({ from: "Ticket Safe <noreply@ticket-safe.eu>", to: [to], subject, html, text }) }); }
   catch (e) { console.warn("[revolut-webhook] email failed:", e); }
-}
-function shell(title: string, bodyHtml: string): string {
-  return `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:0;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"><div style="max-width:540px;margin:32px auto;background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 8px 28px rgba(15,23,42,.08)"><div style="background:linear-gradient(135deg,#003399,#0066cc);padding:26px 30px;color:#fff"><div style="font-size:11px;text-transform:uppercase;letter-spacing:.2em;font-weight:700;opacity:.85">Ticket Safe</div><h1 style="margin:8px 0 0;font-size:22px;font-weight:900;line-height:1.25">${title}</h1></div><div style="padding:26px 30px;color:#1e293b;font-size:14px;line-height:1.6">${bodyHtml}</div></div></body></html>`;
 }
 
 function formatLongDate(iso: string | null | undefined): string {
@@ -192,10 +190,24 @@ serve(async (req) => {
     const buyerName = ((buyerProfile as { full_name?: string } | null)?.full_name ?? buyerEmail?.split("@")[0] ?? "there").split(" ")[0];
     const sellerName = ((sellerProfile as { full_name?: string } | null)?.full_name ?? sellerEmail?.split("@")[0] ?? "there").split(" ")[0];
 
-    // Seller "your ticket sold" — unchanged behaviour
+    // Seller "your ticket sold"
     if (resendKey && sellerEmail) {
-      const html = shell(`Your ticket sold!`, `<p>Hi ${esc(sellerName)},</p><p>Good news — your ticket for <strong>${esc(eventTitle)}</strong>${eventWhen ? ` (${esc(eventWhen)})` : ""} has just been <strong>bought</strong> on Ticket Safe.</p><table style="width:100%;border-collapse:collapse;margin:16px 0"><tr><td style="padding:8px 0;color:#64748b">Added to your wallet</td><td style="padding:8px 0;text-align:right;font-weight:800;color:#003399;font-size:18px">€${netSeller.toFixed(2)}</td></tr></table><p style="font-size:13px;color:#64748b">The amount is in your wallet, ready to withdraw to your IBAN (a 5% Ticket Safe fee applies at withdrawal).</p><p style="margin:22px 0 0;text-align:center"><a href="https://ticket-safe.eu/settings/listings" style="display:inline-block;background:#003399;color:#fff;padding:12px 26px;border-radius:10px;text-decoration:none;font-weight:800">Open my wallet</a></p>`);
-      await sendEmail(resendKey, sellerEmail, `Your ticket for ${eventTitle} sold — €${netSeller.toFixed(2)} added`, html);
+      const bodyHtml = `
+        <p style="margin:0 0 4px">Hi ${esc(sellerName)},</p>
+        <p style="margin:0 0 4px">Good news — your ticket for <strong>${esc(eventTitle)}</strong>${eventWhen ? ` (${esc(eventWhen)})` : ""} has just been bought on Ticket Safe.</p>
+        ${ticketSummary([["Added to your balance", `€${netSeller.toFixed(2)}`, emailTokens.accent]])}
+        <p style="margin:0 0 24px;font-size:13px;color:${emailTokens.textMuted}">This amount is available in your balance, ready to withdraw to your IBAN (a 5% Ticket Safe fee applies at withdrawal).</p>
+        ${ctaButton("Open my balance", `${emailTokens.siteUrl}/settings/listings`)}
+      `;
+      const text = `Your ticket for ${eventTitle} has just been bought on Ticket Safe.\n\nAdded to your balance: €${netSeller.toFixed(2)}\n\nAvailable to withdraw to your IBAN (5% fee at withdrawal).\n${emailTokens.siteUrl}/settings/listings`;
+      const { html } = renderEmail({
+        eyebrow: "Resale",
+        title: "Your ticket sold",
+        bodyHtml,
+        preheader: `€${netSeller.toFixed(2)} added to your Ticket Safe balance.`,
+        text,
+      });
+      await sendEmail(resendKey, sellerEmail, `Your ticket for ${eventTitle} sold — €${netSeller.toFixed(2)} added`, html, text);
     }
 
     // Buyer
@@ -211,7 +223,7 @@ serve(async (req) => {
         try {
           const { data: eventFull } = await supabase
             .from("events")
-            .select("id, title, date, location, organizer_id")
+            .select("id, title, date, location, organizer_id, banner_url")
             .eq("id", xfer.eventId)
             .maybeSingle();
           const [{ data: tier }, { data: organizer }] = await Promise.all([
@@ -231,13 +243,16 @@ serve(async (req) => {
           const eventTitleRich = (eventFull as { title?: string } | null)?.title ?? eventTitle;
           const eventDateRich = (eventFull as { date?: string } | null)?.date ?? null;
           const eventLocationRich = (eventFull as { location?: string } | null)?.location ?? "";
+          const eventImageUrlRich = (eventFull as { banner_url?: string | null } | null)?.banner_url ?? null;
           const organizerNameRich = (organizer as { name?: string } | null)?.name ?? "Ticket Safe";
+          const resaleOrderNumber = `TS-RESALE-${tx.id.slice(0, 8).toUpperCase()}`;
 
           const ticketData: ServerTicketData = {
             eventName: eventTitleRich,
             eventDate: eventDateRich ?? new Date().toISOString(),
             eventTime: eventDateRich ? formatTime(eventDateRich) : undefined,
             eventLocation: eventLocationRich,
+            eventImageUrl: eventImageUrlRich,
             organizerName: organizerNameRich,
             buyerFirstName: buyerFirst,
             buyerLastName: buyerLast,
@@ -245,6 +260,7 @@ serve(async (req) => {
             ticketType: ticketTypeName,
             pricePaid: pricePaidEuro,
             ticketId: xfer.newTicketId,
+            orderNumber: resaleOrderNumber,
             qrToken: xfer.newQrToken,
             status: "Valid",
             ticketIndex: 1,
@@ -254,7 +270,7 @@ serve(async (req) => {
           const ticketBytes = await generateTicketsPDFServer([ticketData]);
 
           const orderData: OrderSummaryData = {
-            orderNumber: `TS-RESALE-${tx.id.slice(0, 8).toUpperCase()}`,
+            orderNumber: resaleOrderNumber,
             purchaseDate: new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }),
             buyerFirstName: buyerFirst,
             buyerLastName: buyerLast,
@@ -304,13 +320,22 @@ serve(async (req) => {
         // Legacy lightweight email — used when (a) there is no Studio transfer
         // (uploaded file_url path or transfer failed), or (b) the premium PDF
         // path threw / Resend returned !ok. The buyer always gets *something*.
+        const ticketUrl = `${emailTokens.siteUrl}/my-tickets`;
         const ticketBlock = resaleXfer
-          ? `<p>Your ticket is now in your name. Open <strong>My Tickets</strong> to show the QR at the door.</p><p style="margin:22px 0 0;text-align:center"><a href="https://ticket-safe.eu/my-tickets" style="display:inline-block;background:#003399;color:#fff;padding:12px 26px;border-radius:10px;text-decoration:none;font-weight:800">Open My Tickets</a></p>`
+          ? `<p style="margin:0 0 4px">Your ticket is now in your name. Open <strong>My Tickets</strong> to show the QR at the door.</p>${ctaButton("View my tickets", ticketUrl)}`
           : fileUrl
-            ? `<p>Here is your ticket file from the seller:</p><p style="margin:18px 0;text-align:center"><a href="${esc(fileUrl)}" style="display:inline-block;background:#003399;color:#fff;padding:12px 26px;border-radius:10px;text-decoration:none;font-weight:800">Download my ticket</a></p><p style="font-size:13px;color:#64748b">It's also in <strong>My Tickets</strong> on Ticket Safe.</p>`
-            : `<p>Your ticket is in <strong>My Tickets</strong> on Ticket Safe.</p><p style="margin:22px 0 0;text-align:center"><a href="https://ticket-safe.eu/my-tickets" style="display:inline-block;background:#003399;color:#fff;padding:12px 26px;border-radius:10px;text-decoration:none;font-weight:800">Open My Tickets</a></p>`;
-        const html = shell(`Your ticket is confirmed!`, `<p>Hi ${esc(buyerName)},</p><p>Your purchase of a ticket for <strong>${esc(eventTitle)}</strong>${eventWhen ? ` (${esc(eventWhen)})` : ""} is confirmed.</p>${ticketBlock}`);
-        await sendEmail(resendKey, buyerEmail, `Your ticket for ${eventTitle} is confirmed`, html);
+            ? `<p style="margin:0 0 4px">Here is your ticket file from the seller:</p>${ctaButton("Download my ticket", fileUrl)}<p style="margin:16px 0 0;font-size:13px;color:${emailTokens.textMuted}">It's also in <strong>My Tickets</strong> on Ticket Safe.</p>`
+            : `<p style="margin:0 0 4px">Your ticket is in <strong>My Tickets</strong> on Ticket Safe.</p>${ctaButton("View my tickets", ticketUrl)}`;
+        const bodyHtml = `<p style="margin:0 0 4px">Hi ${esc(buyerName)},</p><p style="margin:0 0 4px">Your purchase of a ticket for <strong>${esc(eventTitle)}</strong>${eventWhen ? ` (${esc(eventWhen)})` : ""} is confirmed.</p>${ticketBlock}`;
+        const text = `Your purchase of a ticket for ${eventTitle} is confirmed.\n${ticketUrl}`;
+        const { html } = renderEmail({
+          eyebrow: "Resale",
+          title: "Your ticket is confirmed",
+          bodyHtml,
+          preheader: `Your ticket for ${eventTitle} is confirmed.`,
+          text,
+        });
+        await sendEmail(resendKey, buyerEmail, `Your ticket for ${eventTitle} is confirmed`, html, text);
       }
     }
   } catch (err) { console.error("[revolut-webhook] resale emails failed:", err); }

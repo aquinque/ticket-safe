@@ -31,6 +31,8 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
 import { planResaleAwareRefund, refundResaleBuyers } from "../_shared/resaleAwareRefund.ts";
+import { renderEmail, ticketSummary, escapeHtml as esc } from "../_shared/emailComponents.ts";
+import { emailTokens } from "../_shared/emailTokens.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -40,27 +42,25 @@ function json(b: unknown, s = 200) {
   return new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
 }
 
-function esc(s: string): string {
-  return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-}
-
-function buyerCancellationEmail(args: { evTitle: string; refundAmount: number; reason: string | null }): string {
-  return `<!DOCTYPE html><html><body style="margin:0;padding:0;background:#f1f5f9;font-family:-apple-system,sans-serif;color:#1e293b">
-<div style="max-width:560px;margin:32px auto;background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 6px 24px rgba(15,23,42,.08)">
-<div style="background:linear-gradient(135deg,#dc2626,#f97316);padding:28px 32px;color:#fff">
-<div style="font-size:11px;text-transform:uppercase;letter-spacing:.18em;opacity:.85;font-weight:700">Ticket Safe · Event cancelled</div>
-<h1 style="margin:8px 0 0;font-size:24px;font-weight:800">${esc(args.evTitle)} has been cancelled</h1>
-</div>
-<div style="padding:28px 32px;font-size:15px;line-height:1.6">
-<p style="margin:0 0 14px">The organizer has cancelled this event. Your purchase has been automatically refunded.</p>
-${args.reason ? `<p style="margin:0 0 14px;padding:14px 16px;background:#fef2f2;border-left:3px solid #ef4444;border-radius:6px;color:#7f1d1d;font-size:13px">Reason: ${esc(args.reason)}</p>` : ""}
-<table style="width:100%;border-collapse:collapse;font-size:14px;margin:18px 0">
-<tr><td style="padding:6px 0;color:#64748b;width:50%">Refund amount</td><td style="padding:6px 0;color:#003399;font-weight:700">€${args.refundAmount.toFixed(2)}</td></tr>
-<tr><td style="padding:6px 0;color:#64748b">Where</td><td style="padding:6px 0">Back to the card used at checkout</td></tr>
-<tr><td style="padding:6px 0;color:#64748b">When</td><td style="padding:6px 0">3–10 business days, depending on your bank</td></tr>
-</table>
-<p style="margin:18px 0 0;font-size:13px;color:#64748b">If you have any questions, just reply to this email.</p>
-</div></div></body></html>`;
+function buyerCancellationEmail(args: { evTitle: string; refundAmount: number; reason: string | null }): { html: string; text: string } {
+  const bodyHtml = `
+    <p style="margin:0 0 4px">The organizer has cancelled this event. Your purchase has been automatically refunded.</p>
+    ${args.reason ? `<p style="margin:12px 0;padding:14px 18px;background:${emailTokens.bodyBg};border-left:3px solid ${emailTokens.danger};color:${emailTokens.textPrimary};font-size:13px;line-height:1.55">Reason: ${esc(args.reason)}</p>` : ""}
+    ${ticketSummary([
+      ["Refund amount", `€${args.refundAmount.toFixed(2)}`, emailTokens.accent],
+      ["Where", "Back to the card used at checkout"],
+      ["When", "3–10 business days, depending on your bank"],
+    ])}
+    <p style="margin:24px 0 0;font-size:13px;color:${emailTokens.textMuted}">Questions? Just reply to this email.</p>
+  `;
+  const text = `${args.evTitle} has been cancelled.\n\nYour purchase has been automatically refunded.\n${args.reason ? `Reason: ${args.reason}\n` : ""}\nRefund amount: €${args.refundAmount.toFixed(2)}\nBack to the card used at checkout, 3–10 business days.`;
+  return renderEmail({
+    eyebrow: "Event cancelled",
+    title: `${args.evTitle} has been cancelled`,
+    bodyHtml,
+    preheader: `Your purchase for ${args.evTitle} has been refunded.`,
+    text,
+  });
 }
 
 serve(async (req) => {
@@ -300,6 +300,11 @@ serve(async (req) => {
       refundedTotalCents += originalBuyerRefundCents + resaleRefundResults.filter((r) => r.ok).reduce((a, r) => a + r.amountCents, 0);
 
       if (resendKey && order.buyer_email && originalBuyerRefundCents > 0) {
+        const { html, text } = buyerCancellationEmail({
+          evTitle: ev.title,
+          refundAmount: originalBuyerRefundCents / 100,
+          reason,
+        });
         fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
@@ -307,11 +312,8 @@ serve(async (req) => {
             from: "Ticket Safe <noreply@ticket-safe.eu>",
             to: [order.buyer_email],
             subject: `${ev.title} cancelled — refund issued`,
-            html: buyerCancellationEmail({
-              evTitle: ev.title,
-              refundAmount: originalBuyerRefundCents / 100,
-              reason,
-            }),
+            html,
+            text,
           }),
         }).catch((err) => console.warn("[cancel-event] buyer email failed:", err));
       }
@@ -323,6 +325,7 @@ serve(async (req) => {
           const { data: buyerAuth } = await supabase.auth.admin.getUserById(r.buyerId);
           const resaleBuyerEmail = buyerAuth?.user?.email;
           if (!resaleBuyerEmail) continue;
+          const { html, text } = buyerCancellationEmail({ evTitle: ev.title, refundAmount: r.amountCents / 100, reason });
           fetch("https://api.resend.com/emails", {
             method: "POST",
             headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
@@ -330,7 +333,8 @@ serve(async (req) => {
               from: "Ticket Safe <noreply@ticket-safe.eu>",
               to: [resaleBuyerEmail],
               subject: `${ev.title} cancelled — refund issued`,
-              html: buyerCancellationEmail({ evTitle: ev.title, refundAmount: r.amountCents / 100, reason }),
+              html,
+              text,
             }),
           }).catch((err) => console.warn("[cancel-event] resale buyer email failed:", err));
         }
@@ -339,6 +343,22 @@ serve(async (req) => {
 
     // 3. Summary email to organizer (best effort)
     if (resendKey && org.contact_email) {
+      const summaryBody = `
+        <p style="margin:0 0 4px">Event <strong>${esc(ev.title)}</strong> has been cancelled.</p>
+        ${ticketSummary([
+          ["Orders refunded", String(refundedCount)],
+          ["Total returned to buyers", `€${(refundedTotalCents / 100).toFixed(2)}`, emailTokens.accent],
+          ...(failures.length > 0 ? ([["Failed refunds (need review)", String(failures.length), emailTokens.danger]] as [string, string, string][]) : []),
+        ])}
+      `;
+      const summaryText = `Event ${ev.title} has been cancelled.\n\nOrders refunded: ${refundedCount}\nTotal returned to buyers: €${(refundedTotalCents / 100).toFixed(2)}${failures.length > 0 ? `\nFailed refunds (need review): ${failures.length}` : ""}`;
+      const { html, text } = renderEmail({
+        eyebrow: "Event cancelled",
+        title: `${ev.title} — cancellation summary`,
+        bodyHtml: summaryBody,
+        preheader: `${refundedCount} refund${refundedCount !== 1 ? "s" : ""} issued for ${ev.title}.`,
+        text: summaryText,
+      });
       fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
@@ -346,11 +366,8 @@ serve(async (req) => {
           from: "Ticket Safe <noreply@ticket-safe.eu>",
           to: [org.contact_email],
           subject: `${ev.title} cancelled — ${refundedCount} refund${refundedCount !== 1 ? "s" : ""} issued`,
-          html: `<!DOCTYPE html><html><body style="font-family:-apple-system,sans-serif;color:#1e293b;padding:24px">
-<h2>Event cancelled: ${esc(ev.title)}</h2>
-<p>${refundedCount} order${refundedCount !== 1 ? "s" : ""} refunded — €${(refundedTotalCents / 100).toFixed(2)} returned to buyers (including platform fees).</p>
-${failures.length > 0 ? `<p style="color:#b91c1c">${failures.length} refund${failures.length !== 1 ? "s" : ""} failed and need manual review.</p>` : ""}
-</body></html>`,
+          html,
+          text,
         }),
       }).catch(() => {});
     }

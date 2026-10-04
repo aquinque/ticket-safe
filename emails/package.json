@@ -1,0 +1,17 @@
+{
+  "name": "ticketsafe-emails",
+  "private": true,
+  "version": "1.0.0",
+  "description": "React Email source + local preview for every Ticket Safe transactional email. Authoring/preview tool only — production emails are sent from supabase/functions/_shared/emailComponents.ts (a hand-ported Deno renderer that mirrors these components exactly, since Deno edge functions can't run the Node React Email toolchain at request time). Keep both in sync when you change the design — see the README note in supabase/functions/_shared/emailComponents.ts.",
+  "scripts": {
+    "dev": "email dev --dir templates",
+    "export": "email export --dir templates --outDir dist"
+  },
+  "dependencies": {
+    "@react-email/components": "0.0.25",
+    "react": "18.3.1"
+  },
+  "devDependencies": {
+    "react-email": "3.0.1"
+  }
+}

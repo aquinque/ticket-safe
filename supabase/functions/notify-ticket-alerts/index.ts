@@ -18,6 +18,8 @@
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { renderEmail, ctaButton, ticketSummary } from "../_shared/emailComponents.ts";
+import { emailTokens } from "../_shared/emailTokens.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -111,24 +113,24 @@ Deno.serve(async (req) => {
     if (!email || !resendKey) continue;
 
     const firstName = (profile?.full_name ?? email.split("@")[0]).split(/\s+/)[0];
-    const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"></head>
-<body style="margin:0;padding:0;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1e293b">
-<div style="max-width:560px;margin:32px auto;background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 6px 24px rgba(15,23,42,.08)">
-  <div style="background:linear-gradient(135deg,#003399,#0066cc);padding:28px 32px;color:#fff">
-    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.18em;opacity:.85;font-weight:700">Ticket Safe · Ticket alert</div>
-    <h1 style="margin:8px 0 0;font-size:23px;font-weight:800">A ticket just dropped for ${esc(eventTitle)}</h1>
-  </div>
-  <div style="padding:28px 32px;font-size:15px;line-height:1.6">
-    <p style="margin:0 0 14px">Hi ${esc(firstName)},</p>
-    <p style="margin:0 0 14px">Good news — a verified student just listed a ticket for <strong>${esc(eventTitle)}</strong>, the event you asked us to watch. They go fast, so grab it while it's available.</p>
-    <table style="width:100%;border-collapse:collapse;font-size:14px;margin:16px 0">
-      <tr><td style="padding:6px 0;color:#64748b;width:45%">Event</td><td style="padding:6px 0;font-weight:600">${esc(eventTitle)}</td></tr>
-      <tr><td style="padding:6px 0;color:#64748b">From</td><td style="padding:6px 0;font-weight:700;color:#003399">${fromPrice}</td></tr>
-    </table>
-    <p style="margin:22px 0 8px;text-align:center"><a href="${eventUrl}" style="display:inline-block;background:linear-gradient(135deg,#003399,#0066cc);color:#fff;padding:13px 28px;border-radius:10px;text-decoration:none;font-weight:800">See the ticket</a></p>
-    <p style="margin:18px 0 0;font-size:12px;color:#94a3b8">You're receiving this because you asked to be notified about this event on Ticket Safe.</p>
-  </div>
-</div></body></html>`;
+    const bodyHtml = `
+      <p style="margin:0 0 4px">Hi ${esc(firstName)},</p>
+      <p style="margin:0 0 4px">Good news — a verified student just listed a ticket for <strong>${esc(eventTitle)}</strong>, the event you asked us to watch. They go fast, so grab it while it's available.</p>
+      ${ticketSummary([
+        ["Event", eventTitle],
+        ["From", fromPrice, emailTokens.accent],
+      ])}
+      ${ctaButton("See the ticket", eventUrl)}
+      <p style="margin:24px 0 0;font-size:12px;color:${emailTokens.textMuted}">You're receiving this because you asked to be notified about this event on Ticket Safe.</p>
+    `;
+    const text = `A ticket just dropped for ${eventTitle}.\n\nFrom: ${fromPrice}\n${eventUrl}`;
+    const { html, text: plain } = renderEmail({
+      eyebrow: "Ticket alert",
+      title: `A ticket just dropped for ${eventTitle}`,
+      bodyHtml,
+      preheader: `A verified student just listed a ticket for ${eventTitle}.`,
+      text,
+    });
 
     try {
       const res = await fetch("https://api.resend.com/emails", {
@@ -139,6 +141,7 @@ Deno.serve(async (req) => {
           to: [email],
           subject: `A ticket just dropped for ${eventTitle}`,
           html,
+          text: plain,
         }),
       });
       if (res.ok) sent += 1;

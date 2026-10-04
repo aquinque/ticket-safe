@@ -18,14 +18,13 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { renderEmail, ctaButton, ticketSummary, escapeHtml as esc } from "../_shared/emailComponents.ts";
+import { emailTokens, legalFooter } from "../_shared/emailTokens.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
-
-// Shared Ticket Safe admin inbox for routine messages.
-const ADMIN_EMAIL = "ticketsafe.friendly@gmail.com";
 
 // A new Studio application must land in the shared Ticket Safe inbox (the one
 // the team actually monitors) AND ring on Achille's + Adrien's phones so they
@@ -38,7 +37,7 @@ const STUDIO_APPLICATION_RECIPIENTS = [
   "adrien.menard@edu.escp.eu",
 ];
 
-const SITE_URL = "https://ticket-safe.eu";
+const SITE_URL = emailTokens.siteUrl;
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -47,43 +46,12 @@ function json(body: unknown, status = 200) {
   });
 }
 
-function esc(s: string): string {
-  return String(s ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-function shell(preTitle: string, title: string, bodyHtml: string): string {
-  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title></head>
-<body style="margin:0;padding:0;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;color:#1e293b">
-<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background:#f1f5f9;padding:32px 16px">
-<tr><td align="center">
-<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:560px;background:#ffffff;border-radius:18px;overflow:hidden;box-shadow:0 6px 24px rgba(15,23,42,0.08)">
-<tr><td style="background:linear-gradient(135deg,#003399 0%,#0066cc 100%);padding:28px 32px 26px;color:#ffffff">
-<div style="display:inline-block;background:rgba(255,255,255,0.18);padding:6px 12px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase">${esc(preTitle)}</div>
-<h1 style="margin:14px 0 0;font-size:24px;line-height:1.2;font-weight:800">${esc(title)}</h1>
-</td></tr>
-<tr><td style="padding:30px 32px 12px;font-size:15px;line-height:1.6;color:#1e293b">${bodyHtml}</td></tr>
-<tr><td style="padding:0 32px"><div style="height:1px;background:#e2e8f0"></div></td></tr>
-<tr><td style="padding:20px 32px 24px;font-size:12px;color:#64748b;line-height:1.5">
-<p style="margin:0"><strong style="color:#475569">Ticket Safe Studio</strong> · The ticket platform built for student events</p>
-</td></tr>
-</table>
-</td></tr></table></body></html>`;
-}
-
-function ctaButton(label: string, href: string): string {
-  return `<a href="${esc(href)}" style="display:inline-block;background:linear-gradient(135deg,#003399,#0066cc);color:#ffffff;padding:14px 28px;border-radius:10px;text-decoration:none;font-size:15px;font-weight:700;box-shadow:0 4px 12px rgba(0,51,153,0.25)">${esc(label)}</a>`;
-}
-
 async function sendEmail(
   resendKey: string,
   to: string | string[],
   subject: string,
   html: string,
+  text: string,
   replyTo?: string,
   highPriority = false,
 ): Promise<{ ok: boolean; status: number; body: unknown }> {
@@ -102,6 +70,7 @@ async function sendEmail(
       to: recipients,
       subject,
       html,
+      text,
       ...(priorityHeaders ? { headers: priorityHeaders } : {}),
       ...(replyTo ? { reply_to: replyTo } : {}),
     }),
@@ -181,46 +150,36 @@ serve(async (req) => {
       const subject = `[URGENT] New Studio application — ${org.name} — action needed`;
       const fmtDate = (iso: string | null) =>
         iso ? new Date(iso).toLocaleString("en-GB", { dateStyle: "long", timeStyle: "short" }) : "—";
-      const html = shell(
-        "Studio · New application",
-        `New application from ${esc(org.name)}`,
-        `
-          <p style="margin:0 0 14px">A new organizer just applied to Ticket Safe Studio. Every field they submitted is below — review and decide in the admin queue.</p>
-
-          <div style="margin:18px 0 8px;font-weight:700;font-size:13px;color:#475569;text-transform:uppercase;letter-spacing:0.08em">Organization</div>
-          <table style="width:100%;border-collapse:collapse;font-size:14px;margin:0 0 18px">
-            <tr><td style="padding:6px 0;color:#64748b;width:42%">Name</td><td style="padding:6px 0;font-weight:600">${esc(org.name)}</td></tr>
-            <tr><td style="padding:6px 0;color:#64748b">Type</td><td style="padding:6px 0">${esc(org.org_type)}</td></tr>
-            <tr><td style="padding:6px 0;color:#64748b">Public slug</td><td style="padding:6px 0"><code>${esc(org.slug)}</code></td></tr>
-            <tr><td style="padding:6px 0;color:#64748b">Website</td><td style="padding:6px 0">${org.website ? `<a href="${esc(org.website)}" style="color:#003399">${esc(org.website)}</a>` : "—"}</td></tr>
-            <tr><td style="padding:6px 0;color:#64748b">Brand color</td><td style="padding:6px 0"><span style="display:inline-block;width:12px;height:12px;background:${esc(org.primary_color)};border-radius:3px;vertical-align:middle;margin-right:6px"></span><code>${esc(org.primary_color)}</code></td></tr>
-          </table>
-
-          <div style="margin:18px 0 8px;font-weight:700;font-size:13px;color:#475569;text-transform:uppercase;letter-spacing:0.08em">Contact</div>
-          <table style="width:100%;border-collapse:collapse;font-size:14px;margin:0 0 18px">
-            <tr><td style="padding:6px 0;color:#64748b;width:42%">Name</td><td style="padding:6px 0;font-weight:600">${esc(org.contact_name)}</td></tr>
-            <tr><td style="padding:6px 0;color:#64748b">Email</td><td style="padding:6px 0"><a href="mailto:${esc(org.contact_email)}" style="color:#003399">${esc(org.contact_email)}</a></td></tr>
-          </table>
-
-          ${
-            org.first_event_name || org.first_event_date || org.expected_attendees
-              ? `<div style="margin:18px 0 8px;font-weight:700;font-size:13px;color:#475569;text-transform:uppercase;letter-spacing:0.08em">First planned event</div>
-                 <table style="width:100%;border-collapse:collapse;font-size:14px;margin:0 0 18px">
-                   <tr><td style="padding:6px 0;color:#64748b;width:42%">Event name</td><td style="padding:6px 0;font-weight:600">${esc(org.first_event_name ?? "—")}</td></tr>
-                   <tr><td style="padding:6px 0;color:#64748b">Date</td><td style="padding:6px 0">${esc(fmtDate(org.first_event_date))}</td></tr>
-                   <tr><td style="padding:6px 0;color:#64748b">Expected attendees</td><td style="padding:6px 0">${org.expected_attendees ? esc(String(org.expected_attendees)) : "—"}</td></tr>
-                 </table>`
-              : ""
-          }
-
-          ${org.about ? `<div style="margin:18px 0 8px;font-weight:700;font-size:13px;color:#475569;text-transform:uppercase;letter-spacing:0.08em">About / pitch</div><p style="margin:0 0 18px;padding:14px 16px;background:#f5f7fb;border-radius:10px;color:#475569;font-size:13px;line-height:1.55;white-space:pre-line">${esc(org.about)}</p>` : ""}
-
-          <p style="margin:8px 0 8px;font-size:12px;color:#64748b">Submitted ${esc(fmtDate(org.created_at))}</p>
-
-          <p style="margin:24px 0 8px;text-align:center">${ctaButton("Review in admin queue", `${SITE_URL}/admin/organizers`)}</p>
-        `,
-      );
-      const r = await sendEmail(resendKey, STUDIO_APPLICATION_RECIPIENTS, subject, html, org.contact_email, true);
+      const bodyHtml = `
+        <p style="margin:0 0 4px">A new organizer just applied to Ticket Safe Studio. Review and decide in the admin queue.</p>
+        ${ticketSummary([
+          ["Organization", org.name],
+          ["Type", org.org_type],
+          ["Public slug", org.slug],
+          ["Website", org.website ?? "—"],
+          ["Contact name", org.contact_name],
+          ["Contact email", org.contact_email],
+          ...(org.first_event_name || org.first_event_date || org.expected_attendees
+            ? ([
+                ["First event", org.first_event_name ?? "—"],
+                ["First event date", fmtDate(org.first_event_date)],
+                ["Expected attendees", org.expected_attendees ? String(org.expected_attendees) : "—"],
+              ] as [string, string][])
+            : []),
+          ["Submitted", fmtDate(org.created_at)],
+        ])}
+        ${org.about ? `<p style="margin:0 0 16px;font-size:13px;color:${emailTokens.textMuted};white-space:pre-line">${esc(org.about)}</p>` : ""}
+        ${ctaButton("Review in admin queue", `${SITE_URL}/admin/organizers`)}
+      `;
+      const text = `New Studio application from ${org.name}.\n\nType: ${org.org_type}\nContact: ${org.contact_name} <${org.contact_email}>\nSubmitted: ${fmtDate(org.created_at)}\n\nReview: ${SITE_URL}/admin/organizers`;
+      const { html } = renderEmail({
+        eyebrow: "Studio · New application",
+        title: `New application from ${org.name}`,
+        bodyHtml,
+        preheader: `${org.name} just applied to Ticket Safe Studio.`,
+        text,
+      });
+      const r = await sendEmail(resendKey, STUDIO_APPLICATION_RECIPIENTS, subject, html, text, org.contact_email, true);
       if (!r.ok) console.error("[organizer-notify] admin send failed:", r.status, r.body);
       return json({ ok: r.ok, kind, to: STUDIO_APPLICATION_RECIPIENTS });
     }
@@ -240,47 +199,57 @@ serve(async (req) => {
         ? new Date(ev.date).toLocaleString("en-GB", { dateStyle: "long", timeStyle: "short" })
         : "—";
       const publicUrl = ev.slug ? `${SITE_URL}/e/${ev.slug}` : `${SITE_URL}/studio`;
-      const html = shell(
-        "Studio · Event live",
-        "Your event is live",
-        `
-          <p style="margin:0 0 14px">Hi ${esc(org.contact_name.split(" ")[0])},</p>
-          <p style="margin:0 0 14px"><strong>${esc(ev.title)}</strong> is now live on Ticket Safe. Share your branded page with your community to start selling.</p>
-          <table style="width:100%;border-collapse:collapse;font-size:14px;margin:18px 0">
-            <tr><td style="padding:6px 0;color:#64748b;width:42%">Event</td><td style="padding:6px 0;font-weight:600">${esc(ev.title)}</td></tr>
-            <tr><td style="padding:6px 0;color:#64748b">Date</td><td style="padding:6px 0">${esc(eventDate)}</td></tr>
-            ${ev.location ? `<tr><td style="padding:6px 0;color:#64748b">Location</td><td style="padding:6px 0">${esc(ev.location)}</td></tr>` : ""}
-            <tr><td style="padding:6px 0;color:#64748b">Public page</td><td style="padding:6px 0"><a href="${esc(publicUrl)}" style="color:#003399;word-break:break-all">${esc(publicUrl)}</a></td></tr>
-          </table>
-          <p style="margin:24px 0 8px;text-align:center">${ctaButton("Share my event", publicUrl)}</p>
-          <p style="margin:18px 0 0;font-size:13px;color:#64748b">Sales appear in your dashboard in real time. Need help promoting? Just reply to this email.</p>
-        `,
-      );
-      const r = await sendEmail(resendKey, org.contact_email, subject, html);
+      const firstName = org.contact_name.split(" ")[0];
+      const bodyHtml = `
+        <p style="margin:0 0 4px">Hi ${esc(firstName)},</p>
+        <p style="margin:0 0 4px"><strong>${esc(ev.title)}</strong> is now live on Ticket Safe. Share your page with your community to start selling.</p>
+        ${ticketSummary([
+          ["Event", ev.title],
+          ["Date", eventDate],
+          ...(ev.location ? ([["Location", ev.location]] as [string, string][]) : []),
+          ["Public page", publicUrl],
+        ])}
+        ${ctaButton("Share my event", publicUrl)}
+        <p style="margin:24px 0 0;font-size:13px;color:${emailTokens.textMuted}">Sales appear in your dashboard in real time. Need help promoting it? Just reply to this email.</p>
+      `;
+      const text = `${ev.title} is now live on Ticket Safe.\n\nDate: ${eventDate}\nPublic page: ${publicUrl}`;
+      const { html, text: plain } = renderEmail({
+        eyebrow: "Studio · Event live",
+        title: "Your event is live",
+        bodyHtml,
+        preheader: `${ev.title} is now live — share your page to start selling.`,
+        text,
+      });
+      const r = await sendEmail(resendKey, org.contact_email, subject, html, plain);
       if (!r.ok) console.error("[organizer-notify] publish send failed:", r.status, r.body);
       return json({ ok: r.ok, kind, to: org.contact_email });
     }
 
     if (kind === "approved") {
       const subject = `Welcome to Ticket Safe Studio, ${org.name}`;
-      const html = shell(
-        "Studio · Approved",
-        `You are in. Welcome to Studio.`,
-        `
-          <p style="margin:0 0 14px">Hi ${esc(org.contact_name.split(" ")[0])},</p>
-          <p style="margin:0 0 14px">Your application for <strong>${esc(org.name)}</strong> has been approved. You now have full access to Ticket Safe Studio.</p>
-          <p style="margin:0 0 14px">Your one-time application is done — from now on you can create as many events as you want, with full branding, ticket tiers, real-time sales, and door scanning.</p>
-          <p style="margin:24px 0 8px;text-align:center">${ctaButton("Open my Studio", `${SITE_URL}/studio`)}</p>
-          <p style="margin:24px 0 6px;font-weight:700;font-size:13px;color:#475569;text-transform:uppercase;letter-spacing:0.08em">Quick start</p>
-          <ol style="margin:0 0 0 18px;padding:0;font-size:14px;color:#475569;line-height:1.7">
-            <li>Connect your bank via Stripe Connect (one-time, ~2 min).</li>
-            <li>Create your first event with branding + ticket tiers.</li>
-            <li>Publish your branded page at <code>${SITE_URL}/e/your-slug</code>.</li>
-            <li>Track sales live in your dashboard.</li>
-          </ol>
-        `,
-      );
-      const r = await sendEmail(resendKey, org.contact_email, subject, html);
+      const firstName = org.contact_name.split(" ")[0];
+      const bodyHtml = `
+        <p style="margin:0 0 4px">Hi ${esc(firstName)},</p>
+        <p style="margin:0 0 4px">Your application for <strong>${esc(org.name)}</strong> has been approved — you now have full access to Ticket Safe Studio.</p>
+        <p style="margin:0 0 4px">From here you can create as many events as you want, with full branding, ticket tiers, real-time sales, and door scanning.</p>
+        ${ctaButton("Open my Studio", `${SITE_URL}/studio`)}
+        <p style="margin:26px 0 8px;font-family:${emailTokens.fontHeading};font-size:13px;font-weight:700;color:${emailTokens.textPrimary}">Quick start</p>
+        <ol style="margin:0;padding:0 0 0 18px;font-size:14px;color:${emailTokens.textMuted};line-height:1.7">
+          <li>Add your payout details (IBAN) in Studio settings.</li>
+          <li>Create your first event with branding + ticket tiers.</li>
+          <li>Publish your page at ${SITE_URL}/e/your-slug.</li>
+          <li>Track sales live in your dashboard.</li>
+        </ol>
+      `;
+      const text = `Your application for ${org.name} has been approved. Open your Studio: ${SITE_URL}/studio\n\nQuick start:\n1. Add your payout details (IBAN) in Studio settings.\n2. Create your first event with branding + ticket tiers.\n3. Publish your page.\n4. Track sales live in your dashboard.`;
+      const { html, text: plain } = renderEmail({
+        eyebrow: "Studio · Approved",
+        title: "You're in — welcome to Studio",
+        bodyHtml,
+        preheader: `${org.name} is approved for Ticket Safe Studio.`,
+        text,
+      });
+      const r = await sendEmail(resendKey, org.contact_email, subject, html, plain);
       if (!r.ok) console.error("[organizer-notify] approval send failed:", r.status, r.body);
       return json({ ok: r.ok, kind, to: org.contact_email });
     }
@@ -288,17 +257,22 @@ serve(async (req) => {
     // rejected
     const reason = body.reason || org.rejection_reason || "We unfortunately cannot approve your application at this time.";
     const subject = `Your Ticket Safe Studio application`;
-    const html = shell(
-      "Studio · Application reviewed",
-      "About your Studio application",
-      `
-        <p style="margin:0 0 14px">Hi ${esc(org.contact_name.split(" ")[0])},</p>
-        <p style="margin:0 0 14px">Thank you for applying to Ticket Safe Studio with <strong>${esc(org.name)}</strong>. After reviewing your application, our team is unable to approve it at this time.</p>
-        <p style="margin:16px 0;padding:14px 16px;background:#fef2f2;border-left:3px solid #ef4444;border-radius:6px;color:#7f1d1d;font-size:13px;line-height:1.5">${esc(reason)}</p>
-        <p style="margin:14px 0">If you think this is a mistake or would like to provide more information, please contact us at <a href="mailto:ticketsafe.friendly@gmail.com" style="color:#003399">ticketsafe.friendly@gmail.com</a>.</p>
-      `,
-    );
-    const r = await sendEmail(resendKey, org.contact_email, subject, html);
+    const firstName = org.contact_name.split(" ")[0];
+    const bodyHtml = `
+      <p style="margin:0 0 4px">Hi ${esc(firstName)},</p>
+      <p style="margin:0 0 4px">Thank you for applying to Ticket Safe Studio with <strong>${esc(org.name)}</strong>. After review, we're unable to approve it at this time.</p>
+      <p style="margin:16px 0;padding:14px 18px;background:${emailTokens.bodyBg};border-left:3px solid ${emailTokens.danger};color:${emailTokens.textPrimary};font-size:13px;line-height:1.55">${esc(reason)}</p>
+      <p style="margin:14px 0 0">If you think this is a mistake or want to provide more information, contact us at <a href="mailto:${legalFooter.supportEmail}" style="color:${emailTokens.accent}">${legalFooter.supportEmail}</a>.</p>
+    `;
+    const text = `Your Ticket Safe Studio application for ${org.name} was not approved.\n\nReason: ${reason}\n\nContact ${legalFooter.supportEmail} if you think this is a mistake.`;
+    const { html, text: plain } = renderEmail({
+      eyebrow: "Studio · Application reviewed",
+      title: "About your Studio application",
+      bodyHtml,
+      preheader: "An update on your Ticket Safe Studio application.",
+      text,
+    });
+    const r = await sendEmail(resendKey, org.contact_email, subject, html, plain);
     if (!r.ok) console.error("[organizer-notify] rejection send failed:", r.status, r.body);
     return json({ ok: r.ok, kind, to: org.contact_email });
   } catch (err) {

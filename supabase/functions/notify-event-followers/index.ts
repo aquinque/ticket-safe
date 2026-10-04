@@ -13,6 +13,7 @@
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { renderEmail, ctaButton, ticketSummary } from "../_shared/emailComponents.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -110,25 +111,25 @@ Deno.serve(async (req) => {
     if (!email || !resendKey) continue;
     const firstName = (profile?.full_name ?? email.split("@")[0]).split(/\s+/)[0];
 
-    const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"></head>
-<body style="margin:0;padding:0;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1e293b">
-<div style="max-width:560px;margin:32px auto;background:#fff;border-radius:18px;overflow:hidden;box-shadow:0 6px 24px rgba(15,23,42,.08)">
-  <div style="background:linear-gradient(135deg,#003399,#0066cc);padding:28px 32px;color:#fff">
-    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.18em;opacity:.85;font-weight:700">Ticket Safe · New event</div>
-    <h1 style="margin:8px 0 0;font-size:23px;font-weight:800">${esc(orgName)} just dropped a new event</h1>
-  </div>
-  <div style="padding:28px 32px;font-size:15px;line-height:1.6">
-    <p style="margin:0 0 14px">Hi ${esc(firstName)},</p>
-    <p style="margin:0 0 14px"><strong>${esc(orgName)}</strong>, who you follow on Ticket Safe, just published <strong>${esc(ev.title)}</strong>. Get your ticket before it sells out.</p>
-    <table style="width:100%;border-collapse:collapse;font-size:14px;margin:16px 0">
-      <tr><td style="padding:6px 0;color:#64748b;width:40%">Event</td><td style="padding:6px 0;font-weight:600">${esc(ev.title)}</td></tr>
-      ${eventDate ? `<tr><td style="padding:6px 0;color:#64748b">When</td><td style="padding:6px 0">${esc(eventDate)}</td></tr>` : ""}
-      ${ev.location ? `<tr><td style="padding:6px 0;color:#64748b">Where</td><td style="padding:6px 0">${esc(ev.location)}</td></tr>` : ""}
-    </table>
-    <p style="margin:22px 0 8px;text-align:center"><a href="${eventUrl}" style="display:inline-block;background:linear-gradient(135deg,#003399,#0066cc);color:#fff;padding:13px 28px;border-radius:10px;text-decoration:none;font-weight:800">Get tickets</a></p>
-    <p style="margin:18px 0 0;font-size:12px;color:#94a3b8">You're receiving this because you follow ${esc(orgName)} on Ticket Safe.</p>
-  </div>
-</div></body></html>`;
+    const bodyHtml = `
+      <p style="margin:0 0 4px">Hi ${esc(firstName)},</p>
+      <p style="margin:0 0 4px"><strong>${esc(orgName)}</strong>, who you follow on Ticket Safe, just published <strong>${esc(ev.title)}</strong>. Get your ticket before it sells out.</p>
+      ${ticketSummary([
+        ["Event", ev.title],
+        ...(eventDate ? ([["When", eventDate]] as [string, string][]) : []),
+        ...(ev.location ? ([["Where", ev.location]] as [string, string][]) : []),
+      ])}
+      ${ctaButton("Get tickets", eventUrl)}
+      <p style="margin:24px 0 0;font-size:12px;color:#5b6480">You're receiving this because you follow ${esc(orgName)} on Ticket Safe.</p>
+    `;
+    const text = `${orgName} just published ${ev.title}.\n${eventDate ? `When: ${eventDate}\n` : ""}${ev.location ? `Where: ${ev.location}\n` : ""}\n${eventUrl}`;
+    const { html, text: plain } = renderEmail({
+      eyebrow: "New event",
+      title: `${orgName} just dropped a new event`,
+      bodyHtml,
+      preheader: `${orgName} just published ${ev.title}.`,
+      text,
+    });
 
     try {
       const res = await fetch("https://api.resend.com/emails", {
@@ -139,6 +140,7 @@ Deno.serve(async (req) => {
           to: [email],
           subject: `${orgName} just published ${ev.title}`,
           html,
+          text: plain,
         }),
       });
       if (res.ok) sent += 1;

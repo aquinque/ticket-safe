@@ -32,9 +32,10 @@ import { Webhook } from "https://esm.sh/standardwebhooks@1.0.0";
 import {
   renderEmail,
   ctaButton,
-  infoCard,
+  codeBlock,
   escapeHtml,
-} from "../_shared/emailLayout.ts";
+} from "../_shared/emailComponents.ts";
+import { emailTokens, legalFooter } from "../_shared/emailTokens.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -107,10 +108,11 @@ function buildVerifyUrl(payload: AuthHookPayload): string {
 
 interface EmailContent {
   subject: string;
-  preTitle: string;
+  eyebrow: string;
   title: string;
   preheader: string;
   bodyHtml: string;
+  text: string;
 }
 
 function firstNameFrom(user: AuthHookPayload["user"]): string {
@@ -127,91 +129,78 @@ function buildContent(payload: AuthHookPayload, link: string): EmailContent {
   const name = escapeHtml(firstNameFrom(payload.user));
   const greeting = `<p style="margin:0 0 16px">Hi ${name},</p>`;
   const otp = payload.email_data.token; // 6-digit OTP for clients without link support
-  const fallback = `<p style="margin:18px 0 0;font-size:12px;color:#64748b">
+  const fallback = `<p style="margin:18px 0 0;font-size:12px;color:${emailTokens.textMuted}">
     If the button does not work, copy this link into your browser:<br>
-    <span style="color:#475569;word-break:break-all">${escapeHtml(link)}</span>
+    <span style="color:${emailTokens.textPrimary};word-break:break-all">${escapeHtml(link)}</span>
   </p>`;
+  const textFallback = `If the button does not work, open this link: ${link}`;
 
   switch (payload.email_data.email_action_type) {
     case "signup":
       return {
         subject: "Confirm your Ticket Safe account",
-        preTitle: "Account · Confirm",
+        eyebrow: "Account · Confirm your email",
         title: "Welcome to Ticket Safe",
         preheader: "Confirm your email to start using Ticket Safe.",
         bodyHtml: `
           ${greeting}
-          <p style="margin:0 0 16px">
-            You are one click away from joining the only ticket platform built for ESCP students.
-            Confirm your email to activate your account.
-          </p>
-          <p style="margin:24px 0 8px;text-align:center">${ctaButton("Confirm my email", link)}</p>
-          <p style="margin:18px 0 0;font-size:13px;color:#64748b">
-            This link expires in 24 hours. If you did not sign up, you can safely ignore this email.
-          </p>
-          ${infoCard("6-digit code (alternative)", otp)}
+          <p style="margin:0 0 16px">You're one step away from joining the ticket platform built for ESCP students. Confirm your email to activate your account.</p>
+          ${ctaButton("Confirm my email", link)}
+          <p style="margin:18px 0 0;font-size:13px;color:${emailTokens.textMuted}">This link expires in 24 hours. If you did not sign up, you can safely ignore this email.</p>
+          ${codeBlock("6-digit code (alternative)", otp)}
           ${fallback}
         `,
+        text: `Hi,\n\nConfirm your email to activate your Ticket Safe account.\n\nCode: ${otp}\n${textFallback}\n\nThis link expires in 24 hours.`,
       };
 
     case "recovery":
       return {
         subject: "Reset your Ticket Safe password",
-        preTitle: "Account · Password reset",
+        eyebrow: "Account · Password reset",
         title: "Reset your password",
         preheader: "Use the secure link to choose a new password.",
         bodyHtml: `
           ${greeting}
-          <p style="margin:0 0 16px">
-            We received a request to reset your Ticket Safe password.
-            Click the button below to choose a new one.
-          </p>
-          <p style="margin:24px 0 8px;text-align:center">${ctaButton("Reset my password", link)}</p>
-          <p style="margin:18px 0 0;font-size:13px;color:#64748b">
-            This link is valid for 1 hour. If you did not request a reset, ignore this email — your password will stay the same.
-          </p>
-          ${infoCard("6-digit code (alternative)", otp)}
+          <p style="margin:0 0 16px">We received a request to reset your Ticket Safe password. Click below to choose a new one.</p>
+          ${ctaButton("Reset my password", link)}
+          <p style="margin:18px 0 0;font-size:13px;color:${emailTokens.textMuted}">This link is valid for 1 hour. If you did not request this, ignore this email — your password stays the same.</p>
+          ${codeBlock("6-digit code (alternative)", otp)}
           ${fallback}
         `,
+        text: `We received a request to reset your Ticket Safe password.\n\nCode: ${otp}\n${textFallback}\n\nValid for 1 hour. If you did not request this, ignore this email.`,
       };
 
     case "magiclink":
       return {
         subject: "Your Ticket Safe sign-in link",
-        preTitle: "Account · Sign in",
+        eyebrow: "Account · Sign in",
         title: "Sign in to Ticket Safe",
-        preheader: "One click and you are in. No password needed.",
+        preheader: "One click and you're in — no password needed.",
         bodyHtml: `
           ${greeting}
-          <p style="margin:0 0 16px">
-            Use the secure link below to sign in to Ticket Safe.
-          </p>
-          <p style="margin:24px 0 8px;text-align:center">${ctaButton("Sign me in", link)}</p>
-          <p style="margin:18px 0 0;font-size:13px;color:#64748b">
-            This link expires in 10 minutes. If it was not you, ignore this email.
-          </p>
-          ${infoCard("6-digit code (alternative)", otp)}
+          <p style="margin:0 0 16px">Use the secure link below to sign in to Ticket Safe.</p>
+          ${ctaButton("Sign me in", link)}
+          <p style="margin:18px 0 0;font-size:13px;color:${emailTokens.textMuted}">This link expires in 10 minutes. If it wasn't you, ignore this email.</p>
+          ${codeBlock("6-digit code (alternative)", otp)}
           ${fallback}
         `,
+        text: `Sign in to Ticket Safe.\n\nCode: ${otp}\n${textFallback}\n\nExpires in 10 minutes.`,
       };
 
     case "invite":
       return {
-        subject: "You have been invited to Ticket Safe",
-        preTitle: "Account · Invitation",
-        title: "You have been invited",
+        subject: "You've been invited to Ticket Safe",
+        eyebrow: "Account · Invitation",
+        title: "You've been invited",
         preheader: "Accept your invitation to join Ticket Safe.",
         bodyHtml: `
           ${greeting}
-          <p style="margin:0 0 16px">
-            You have been invited to join Ticket Safe — the ticket platform built for student events.
-          </p>
-          <p style="margin:24px 0 8px;text-align:center">${ctaButton("Accept invitation", link)}</p>
-          <p style="margin:18px 0 0;font-size:13px;color:#64748b">
-            This invitation expires in 7 days.
-          </p>
+          <p style="margin:0 0 16px">You've been invited to join Ticket Safe — the ticket platform built for student events.</p>
+          ${ctaButton("Accept invitation", link)}
+          <p style="margin:18px 0 0;font-size:13px;color:${emailTokens.textMuted}">This invitation expires in 7 days.</p>
           ${fallback}
         `,
+        text: `You've been invited to join Ticket Safe.\n\n${textFallback}\n\nExpires in 7 days.`,
       };
 
     case "email_change":
@@ -219,56 +208,50 @@ function buildContent(payload: AuthHookPayload, link: string): EmailContent {
     case "email_change_new":
       return {
         subject: "Confirm your new email — Ticket Safe",
-        preTitle: "Account · Email change",
+        eyebrow: "Account · Email change",
         title: "Confirm your new email",
         preheader: "Click the link to finish changing your email address.",
         bodyHtml: `
           ${greeting}
-          <p style="margin:0 0 16px">
-            We received a request to update the email address on your Ticket Safe account.
-            Confirm this change by clicking the button below.
-          </p>
-          <p style="margin:24px 0 8px;text-align:center">${ctaButton("Confirm new email", link)}</p>
-          <p style="margin:18px 0 0;font-size:13px;color:#64748b">
-            If you did not request this change, please contact us immediately at ticketsafe.friendly@gmail.com.
-          </p>
-          ${infoCard("6-digit code (alternative)", otp)}
+          <p style="margin:0 0 16px">We received a request to update the email address on your Ticket Safe account. Confirm this change below.</p>
+          ${ctaButton("Confirm new email", link)}
+          <p style="margin:18px 0 0;font-size:13px;color:${emailTokens.textMuted}">If you did not request this change, contact us immediately at ${legalFooter.supportEmail}.</p>
+          ${codeBlock("6-digit code (alternative)", otp)}
           ${fallback}
         `,
+        text: `Confirm the new email address on your Ticket Safe account.\n\nCode: ${otp}\n${textFallback}\n\nDidn't request this? Contact ticketsafe.friendly@gmail.com immediately.`,
       };
 
     case "reauthentication":
       return {
         subject: "Re-authenticate your Ticket Safe account",
-        preTitle: "Account · Verify identity",
-        title: "Verify it is you",
+        eyebrow: "Account · Verify it's you",
+        title: "Verify it's you",
         preheader: "Enter the 6-digit code to continue.",
         bodyHtml: `
           ${greeting}
-          <p style="margin:0 0 16px">
-            For your security, enter the code below to confirm this action on your Ticket Safe account.
-          </p>
-          ${infoCard("Your verification code", otp)}
-          <p style="margin:18px 0 0;font-size:13px;color:#64748b">
-            This code expires in 5 minutes. If it was not you, change your password immediately.
-          </p>
+          <p style="margin:0 0 16px">For your security, enter the code below to confirm this action on your Ticket Safe account.</p>
+          ${codeBlock("Your verification code", otp)}
+          <p style="margin:18px 0 0;font-size:13px;color:${emailTokens.textMuted}">This code expires in 5 minutes. If it wasn't you, change your password immediately.</p>
         `,
+        text: `Verification code: ${otp}\n\nExpires in 5 minutes. If this wasn't you, change your password immediately.`,
       };
 
     case "login":
     default:
       return {
         subject: "Sign in to Ticket Safe",
-        preTitle: "Account · Sign in",
+        eyebrow: "Account · Sign in",
         title: "Sign in to Ticket Safe",
         preheader: "Click the secure link to continue.",
         bodyHtml: `
           ${greeting}
           <p style="margin:0 0 16px">Use the secure link below to continue on Ticket Safe.</p>
-          <p style="margin:24px 0 8px;text-align:center">${ctaButton("Continue", link)}</p>
-          ${infoCard("6-digit code (alternative)", otp)}
+          ${ctaButton("Continue", link)}
+          ${codeBlock("6-digit code (alternative)", otp)}
           ${fallback}
         `,
+        text: `Sign in to Ticket Safe.\n\nCode: ${otp}\n${textFallback}`,
       };
   }
 }
@@ -319,11 +302,12 @@ Deno.serve(async (req) => {
   const verifyLink = buildVerifyUrl(payload);
   const content = buildContent(payload, verifyLink);
 
-  const html = renderEmail({
-    preTitle: content.preTitle,
+  const { html, text } = renderEmail({
+    eyebrow: content.eyebrow,
     title: content.title,
     bodyHtml: content.bodyHtml,
     preheader: content.preheader,
+    text: content.text,
   });
 
   try {
@@ -338,6 +322,7 @@ Deno.serve(async (req) => {
         to: [payload.user.email],
         subject: content.subject,
         html,
+        text,
       }),
     });
     const body = await res.json().catch(() => ({}));

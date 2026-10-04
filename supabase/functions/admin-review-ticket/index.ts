@@ -11,6 +11,8 @@
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { renderEmail, ctaButton, escapeHtml as esc } from "../_shared/emailComponents.ts";
+import { emailTokens } from "../_shared/emailTokens.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -100,37 +102,28 @@ Deno.serve(async (req) => {
       // Email seller: ticket approved
       if (resendKey && sellerEmail) {
         console.log("[admin-review-ticket] sending approval email to", sellerEmail);
+        const bodyHtml = `
+          <p style="margin:0 0 4px">Hi ${sellerName},</p>
+          <p style="margin:0 0 4px">Your ticket for <strong>${eventTitle}</strong> has been approved by our team and is now live on the marketplace. Buyers can find and purchase it right away.</p>
+          ${ctaButton("View marketplace", `${siteUrl}/marketplace/buy`)}
+        `;
+        const text = `Your ticket for ${eventTitle} has been approved and is now live on the marketplace.\n${siteUrl}/marketplace/buy`;
+        const { html, text: plain } = renderEmail({
+          eyebrow: "Resale · Listing approved",
+          title: "Your ticket is live",
+          bodyHtml,
+          preheader: `Your ticket for ${eventTitle} is now live on the marketplace.`,
+          text,
+        });
         const emailRes = await fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
           body: JSON.stringify({
-            from: "TicketSafe <noreply@ticket-safe.eu>",
+            from: "Ticket Safe <noreply@ticket-safe.eu>",
             to: [sellerEmail],
             subject: `Your ticket for ${eventTitle} is live on the marketplace!`,
-            html: `<!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"></head>
-<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-<div style="max-width:560px;margin:32px auto;background:white;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.08)">
-  <div style="background:#22c55e;padding:24px 32px">
-    <p style="margin:0;font-size:13px;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.08em">TicketSafe</p>
-    <h1 style="margin:6px 0 0;font-size:22px;color:white;font-weight:600">Your ticket is approved!</h1>
-  </div>
-  <div style="padding:28px 32px">
-    <p style="font-size:15px;color:#333;margin:0 0 16px">Hi ${sellerName},</p>
-    <p style="font-size:15px;color:#333;margin:0 0 24px">
-      Your ticket for <strong>${eventTitle}</strong> has been approved by our team and is now <strong>live on the marketplace</strong>.
-      Buyers can now find and purchase it.
-    </p>
-    <a href="${siteUrl}/marketplace/buy"
-       style="display:inline-block;background:#22c55e;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:600">
-      View marketplace →
-    </a>
-  </div>
-  <div style="padding:16px 32px;background:#fafafa;border-top:1px solid #f0f0f0">
-    <p style="margin:0;font-size:12px;color:#bbb;text-align:center">TicketSafe · Secure peer-to-peer ticket resale</p>
-  </div>
-</div>
-</body></html>`,
+            html,
+            text: plain,
           }),
         });
         console.log("[admin-review-ticket] approval email result:", emailRes.status);
@@ -154,40 +147,30 @@ Deno.serve(async (req) => {
 
     // Email seller: ticket rejected
     if (resendKey && sellerEmail) {
+      const bodyHtml = `
+        <p style="margin:0 0 4px">Hi ${sellerName},</p>
+        <p style="margin:0 0 4px">Unfortunately, your ticket for <strong>${eventTitle}</strong> could not be approved.</p>
+        ${reason ? `<p style="margin:12px 0;padding:14px 18px;background:${emailTokens.bodyBg};border-left:3px solid ${emailTokens.danger};color:${emailTokens.textPrimary};font-size:13px;line-height:1.55">Reason: ${esc(reason)}</p>` : ""}
+        <p style="margin:0 0 4px;font-size:13px;color:${emailTokens.textMuted}">You can submit a new listing with the correct ticket. If you have questions, contact us.</p>
+        ${ctaButton("Submit a new listing", `${siteUrl}/marketplace/sell`)}
+      `;
+      const text = `Your ticket for ${eventTitle} could not be approved.\n${reason ? `Reason: ${reason}\n` : ""}\nSubmit a new listing: ${siteUrl}/marketplace/sell`;
+      const { html, text: plain } = renderEmail({
+        eyebrow: "Resale · Listing reviewed",
+        title: "Ticket not approved",
+        bodyHtml,
+        preheader: `Your ticket for ${eventTitle} could not be approved.`,
+        text,
+      });
       await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
         body: JSON.stringify({
-          from: "TicketSafe <noreply@ticket-safe.eu>",
+          from: "Ticket Safe <noreply@ticket-safe.eu>",
           to: [sellerEmail],
           subject: `Your ticket for ${eventTitle} could not be approved`,
-          html: `<!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"></head>
-<body style="margin:0;padding:0;background:#f5f5f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-<div style="max-width:560px;margin:32px auto;background:white;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.08)">
-  <div style="background:#ef4444;padding:24px 32px">
-    <p style="margin:0;font-size:13px;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:.08em">TicketSafe</p>
-    <h1 style="margin:6px 0 0;font-size:22px;color:white;font-weight:600">Ticket not approved</h1>
-  </div>
-  <div style="padding:28px 32px">
-    <p style="font-size:15px;color:#333;margin:0 0 16px">Hi ${sellerName},</p>
-    <p style="font-size:15px;color:#333;margin:0 0 16px">
-      Unfortunately, your ticket for <strong>${eventTitle}</strong> could not be approved.
-    </p>
-    ${reason ? `<div style="background:#fef2f2;border-left:3px solid #ef4444;padding:12px 16px;border-radius:4px;margin-bottom:20px">
-      <p style="margin:0;font-size:14px;color:#7f1d1d"><strong>Reason:</strong> ${reason}</p>
-    </div>` : ""}
-    <p style="font-size:14px;color:#555;margin:0 0 24px">You can submit a new listing with the correct ticket. If you have questions, contact us.</p>
-    <a href="${siteUrl}/marketplace/sell"
-       style="display:inline-block;background:#6366f1;color:white;padding:12px 24px;border-radius:8px;text-decoration:none;font-size:14px;font-weight:600">
-      Submit a new listing →
-    </a>
-  </div>
-  <div style="padding:16px 32px;background:#fafafa;border-top:1px solid #f0f0f0">
-    <p style="margin:0;font-size:12px;color:#bbb;text-align:center">TicketSafe · Secure peer-to-peer ticket resale</p>
-  </div>
-</div>
-</body></html>`,
+          html,
+          text: plain,
         }),
       });
     }
