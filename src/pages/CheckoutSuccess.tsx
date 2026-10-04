@@ -74,6 +74,7 @@ const CheckoutSuccess = () => {
   // session_id is available if needed for future order lookup
   const _sessionId = searchParams.get("session_id");
   const boostId = searchParams.get("boost");
+  const isFreeTicket = searchParams.get("provider") === "free";
   const isBoost = !!boostId;
 
   // Returning from a boost payment → confirm it server-side (idempotent).
@@ -131,7 +132,7 @@ const CheckoutSuccess = () => {
 
           <div className="text-[10px] md:text-xs font-bold uppercase tracking-[0.2em] text-primary mb-2 inline-flex items-center gap-1.5">
             <Sparkles className="w-3 h-3" />
-            {isBoost ? "Boost confirmed" : "Payment confirmed"}
+            {isBoost ? "Boost confirmed" : isFreeTicket ? "Ticket confirmed" : "Payment confirmed"}
           </div>
           <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-3">
             {isBoost ? "Your listing is featured!" : "You're in!"}
