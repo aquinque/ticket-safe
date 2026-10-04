@@ -88,3 +88,8 @@ verify_jwt = false
 # if Stripe is ever reactivated.
 [functions.stripe-webhook]
 verify_jwt = false
+
+# Guest ticket page (/t/:token). Public by design: the token in the request is the
+# credential, checked inside the function against a hash in guest_access_tokens.
+[functions.ticket-access]
+verify_jwt = false
