@@ -96,6 +96,27 @@ const Home = () => {
       <main className="flex-1">
         {/* ============ HERO ============ */}
         <section className="relative flex items-center md:min-h-[100svh] overflow-hidden bg-background">
+          {/* Hero media: video on desktop, still image on mobile */}
+          <div className="absolute inset-0 overflow-hidden">
+            <video
+              className="hidden md:block w-full h-full object-cover"
+              autoPlay
+              muted
+              loop
+              playsInline
+              poster="/hero/home.jpg"
+              aria-hidden="true"
+            >
+              <source src="/hero/home.mp4" type="video/mp4" />
+            </video>
+            <img
+              src="/hero/home.jpg"
+              alt=""
+              className="md:hidden w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 bg-black/50" />
+          </div>
+
           <div className="relative container mx-auto px-4 pb-10 pt-24 md:pt-0 md:pb-0">
             <div className="max-w-2xl">
               <h1

@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Menu, X, User, LogOut, Settings, MessageSquare, Sparkles, Ticket as TicketIcon, Shield, Banknote } from "lucide-react";
 import Logo from "@/components/Logo";
+import WalletBalanceButton from "@/components/WalletBalanceButton";
 import { useAuth } from "@/hooks/useAuth";
 import { useI18n } from "@/contexts/I18nContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -179,6 +180,7 @@ const Header = ({ minimal = false }: HeaderProps) => {
                 Ticket Safe Studio
               </Link>
             )}
+            {user && <WalletBalanceButton />}
             {user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

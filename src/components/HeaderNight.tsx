@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Menu, X, Globe, User, Ticket, Banknote, LayoutDashboard, LogOut } from "lucide-react";
 import Logo from "@/components/Logo";
+import WalletBalanceButton from "@/components/WalletBalanceButton";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/contexts/I18nContext";
 import { useAuth } from "@/hooks/useAuth";
@@ -130,6 +131,7 @@ const HeaderNight = () => {
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
+            <WalletBalanceButton />
             {user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
