@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import HeaderNight from "@/components/HeaderNight";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import Footer from "@/components/Footer";
@@ -137,6 +137,17 @@ const MyListings = () => {
     completed_sales: number;
   } | null>(null);
   const [payoutModalOpen, setPayoutModalOpen] = useState(false);
+
+  // The header's Withdraw button lands here with ?withdraw=1: open the payout
+  // form once the user is known, then drop the param so a refresh won't reopen it.
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    if (!user || searchParams.get("withdraw") !== "1") return;
+    setPayoutModalOpen(true);
+    const next = new URLSearchParams(searchParams);
+    next.delete("withdraw");
+    setSearchParams(next, { replace: true });
+  }, [user, searchParams, setSearchParams]);
 
   const loadEarnings = async () => {
     if (!user) return;
