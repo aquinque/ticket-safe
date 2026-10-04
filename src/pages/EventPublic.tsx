@@ -337,7 +337,7 @@ const EventPublic = () => {
       // Free ticket: already issued server-side (no payment step), so go to the
       // confirmation page instead of a checkout URL.
       if (!error && data?.free) {
-        navigate(`/checkout/success?order_id=${data.order_id}&provider=free`);
+        navigate(`/checkout/success?order_id=${data.order_id}&provider=free${data.order_token ? `&t=${data.order_token}` : ""}`);
         return;
       }
       if (error || !data?.url) {

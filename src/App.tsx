@@ -37,6 +37,7 @@ const TermsConditions = lazy(() => import("./pages/TermsConditions"));
 const CookiePolicy = lazy(() => import("./pages/CookiePolicy"));
 const RefundPolicy = lazy(() => import("./pages/RefundPolicy"));
 const MentionsLegales = lazy(() => import("./pages/MentionsLegales"));
+const GuestTicket = lazy(() => import("./pages/GuestTicket"));
 const HowItWorks = lazy(() => import("./pages/HowItWorks"));
 const HowItWorksTickets = lazy(() => import("./pages/HowItWorksTickets"));
 const OrganizerScan = lazy(() => import("./pages/OrganizerScan"));
@@ -126,6 +127,7 @@ const App = () => (
         <Route path="/organizer/scan" element={<OrganizerScan />} />
         <Route path="/scan/:token" element={<ScanStaff />} />
         <Route path="/admin/review" element={<ProtectedAdminRoute><ReviewTickets /></ProtectedAdminRoute>} />
+        <Route path="/t/:token" element={<GuestTicket />} />
         <Route path="/checkout/success" element={<CheckoutSuccess />} />
         <Route path="/checkout/cancel" element={<CheckoutCancel />} />
         <Route path="/gala-escp" element={<GalaESCP />} />

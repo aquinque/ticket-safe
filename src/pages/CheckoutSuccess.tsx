@@ -17,6 +17,7 @@ import { BackButton } from "@/components/BackButton";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, Sparkles, Mail, Ticket } from "lucide-react";
 import { SEOHead } from "@/components/SEOHead";
+import { GuestOrderTickets } from "@/components/guest/GuestOrderTickets";
 import { supabase } from "@/integrations/supabase/client";
 
 /**
@@ -75,6 +76,8 @@ const CheckoutSuccess = () => {
   const _sessionId = searchParams.get("session_id");
   const boostId = searchParams.get("boost");
   const isFreeTicket = searchParams.get("provider") === "free";
+  // Order access link set at checkout: lets a buyer without an account see the QR right away.
+  const orderToken = searchParams.get("t");
   const isBoost = !!boostId;
 
   // Returning from a boost payment → confirm it server-side (idempotent).
@@ -153,6 +156,12 @@ const CheckoutSuccess = () => {
                 A receipt is on its way by email. Your tickets are already in your account.
               </p>
             </>
+          )}
+
+          {!isBoost && orderToken && (
+            <div className="mb-6 text-left">
+              <GuestOrderTickets orderToken={orderToken} />
+            </div>
           )}
 
           {!isBoost && (

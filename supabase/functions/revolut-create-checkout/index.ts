@@ -28,6 +28,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getOrCreateGuestAccount } from "../_shared/getOrCreateGuestAccount.ts";
+import { newAccessToken, hashAccessToken } from "../_shared/guestAccess.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -317,6 +318,22 @@ serve(async (req) => {
     if (orderErr || !order) { await releaseReservation(); await releasePromoUse(); return json({ error: "Could not create order." }, 500); }
     orderId = order.id;
 
+    // Access for the buyer who has no account: a secret that opens only this order's
+    // tickets, on the success page. A failure here must never block the purchase.
+    let orderToken: string | null = null;
+    try {
+      const candidate = newAccessToken();
+      const { error: tokErr } = await supabase.from("guest_access_tokens").insert({
+        token_hash: await hashAccessToken(candidate),
+        scope: "order",
+        order_id: order.id,
+      });
+      if (!tokErr) orderToken = candidate;
+      else console.warn("[revolut-create-checkout] order access token not saved:", tokErr);
+    } catch (e) {
+      console.warn("[revolut-create-checkout] order access token skipped:", e);
+    }
+
     // Free ticket (€0): nothing to charge, so no Revolut order. The tickets are
     // issued right here, with the same steps revolut-webhook runs once a paid
     // order completes.
@@ -342,7 +359,7 @@ serve(async (req) => {
       // The seats were moved to sold by issueFreeTickets, so there is nothing to release.
       reservedTierId = null;
       reservedQty = 0;
-      return json({ free: true, order_id: order.id, provider: "free" });
+      return json({ free: true, order_id: order.id, provider: "free", order_token: orderToken });
     }
 
     // Create the Revolut order (hosted checkout). We verify completion later
@@ -362,7 +379,7 @@ serve(async (req) => {
         description: `${ev.title} — ${tier.name} x${quantity}`,
         merchant_order_data: { reference: order.id },
         metadata: { order_id: order.id, source: "studio_primary_sale", event_id: ev.id, tier_id: tierId },
-        redirect_url: `${siteUrl}/checkout/success?order_id=${order.id}&provider=revolut`,
+        redirect_url: `${siteUrl}/checkout/success?order_id=${order.id}&provider=revolut${orderToken ? `&t=${orderToken}` : ""}`,
       }),
     });
     const revText = await revRes.text();
