@@ -8,9 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2, Mail, Lock, User, CheckCircle2, XCircle, Eye, EyeOff, Building2, MapPin } from "lucide-react";
+import { Loader2, Mail, Lock, User, CheckCircle2, XCircle, Eye, EyeOff } from "lucide-react";
 import { z } from "zod";
 import { useAuth } from "@/hooks/useAuth";
 import { authRedirect } from "@/lib/siteUrl";
@@ -23,11 +22,27 @@ const passwordSchema = z.string()
   .regex(/[0-9]/, 'Must contain number')
   .regex(/[^A-Za-z0-9]/, 'Must contain special character');
 
-// Schools open on Ticket Safe. ESCP is the pilot; more are coming.
-const SCHOOLS = [
-  { value: "ESCP Business School", label: "ESCP Business School", available: true },
+const GENDER_OPTIONS: { value: "female" | "male"; label: string }[] = [
+  { value: "female", label: "Fille" },
+  { value: "male", label: "Garçon" },
 ];
-const CAMPUSES = ["Paris", "London", "Madrid", "Berlin", "Turin"];
+
+// Reads the first validation error from a failed edge function call. A non-2xx
+// response hides its body in `data`, so it is read from `error.context`.
+const readValidationError = async (error: unknown, data: unknown): Promise<string | null> => {
+  const fromData = (data as { errors?: string[] } | null)?.errors?.[0];
+  if (fromData) return fromData;
+  const ctx = (error as { context?: Response } | null)?.context;
+  if (ctx && typeof ctx.json === "function") {
+    try {
+      const body = await ctx.clone().json();
+      if (body?.errors?.[0]) return body.errors[0] as string;
+    } catch {
+      /* body was not JSON */
+    }
+  }
+  return null;
+};
 
 const Auth = () => {
   useThemeMode("night");
@@ -36,10 +51,11 @@ const Auth = () => {
   const [isLogin, setIsLogin] = useState(mode !== 'signup');
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
+  const [confirmEmail, setConfirmEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [fullName, setFullName] = useState("");
-  const [school, setSchool] = useState("ESCP Business School");
-  const [campus, setCampus] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [gender, setGender] = useState<"" | "female" | "male">("");
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [pendingConfirmEmail, setPendingConfirmEmail] = useState<string | null>(null);
@@ -64,17 +80,6 @@ const Auth = () => {
     return emailRegex.test(email);
   };
 
-  // Allow-list for non-ESCP accounts that still need signup access
-  // (Ticket Safe ops / shared admin inboxes). Mirrors validate-signup edge fn.
-  const SIGNUP_EMAIL_ALLOWLIST = new Set<string>([
-    'ticketsafe.friendly@gmail.com',
-  ]);
-
-  const isEscpEmail = (email: string) => {
-    const normalized = email.toLowerCase().trim();
-    return normalized.endsWith('@edu.escp.eu') || SIGNUP_EMAIL_ALLOWLIST.has(normalized);
-  };
-
   const getPasswordStrength = (password: string): { strength: number; label: string; color: string } => {
     let strength = 0;
     if (password.length >= 12) strength++;
@@ -91,18 +96,21 @@ const Auth = () => {
 
   const passwordStrength = getPasswordStrength(password);
 
-  // Re-render once a second while the resend cooldown is counting down, so
-  // the button's "available in Ns" label actually ticks instead of freezing
-  // at whatever value it had when the cooldown started.
+  // Re-render once a second while the resend cooldown is counting down, so the
+  // button label ticks instead of freezing.
   useEffect(() => {
     if (resendCooldownUntil === null) return;
     const id = setInterval(() => forceTick((n) => n + 1), 1000);
     return () => clearInterval(id);
   }, [resendCooldownUntil]);
 
+  const resendSecondsLeft = resendCooldownUntil !== null
+    ? Math.max(0, Math.ceil((resendCooldownUntil - Date.now()) / 1000))
+    : 0;
+
   const handleResendConfirmation = async () => {
     if (!pendingConfirmEmail) return;
-    if (resendCooldownUntil && Date.now() < resendCooldownUntil) return;
+    if (resendSecondsLeft > 0) return;
     setLoading(true);
     try {
       const { error } = await supabase.auth.resend({
@@ -192,6 +200,8 @@ const Auth = () => {
             error.message?.toLowerCase().includes('email not confirmed') ||
             (error as { code?: string }).code === 'email_not_confirmed'
           ) {
+            // Sign-in is refused until the link in the email is clicked. The
+            // confirmation screen offers to resend it.
             setPendingConfirmEmail(email.trim());
             setLoading(false);
             return;
@@ -238,26 +248,20 @@ const Auth = () => {
           return;
         }
 
-        if (!isEscpEmail(email)) {
-          toast.error("Only ESCP student email addresses (@edu.escp.eu) are accepted");
+        if (email.trim().toLowerCase() !== confirmEmail.trim().toLowerCase()) {
+          toast.error("The email addresses don't match");
           setLoading(false);
           return;
         }
 
-        if (!fullName.trim() || fullName.length > 100) {
-          toast.error("Please enter a valid full name (max 100 characters)");
+        if (!firstName.trim() || !lastName.trim()) {
+          toast.error("Please enter your first and last name");
           setLoading(false);
           return;
         }
 
-        if (!school) {
-          toast.error("Please choose your school");
-          setLoading(false);
-          return;
-        }
-
-        if (!campus || !CAMPUSES.includes(campus)) {
-          toast.error("Please choose your campus");
+        if (gender !== "female" && gender !== "male") {
+          toast.error("Please select a gender");
           setLoading(false);
           return;
         }
@@ -270,28 +274,27 @@ const Auth = () => {
           return;
         }
 
-        const detectedUniversity = school;
-
-        // Server-side validation via Edge Function
+        // Server-side validation, including the email confirmation match.
         const { data: validationData, error: validationError } = await supabase.functions.invoke(
           'validate-signup',
           {
             body: {
+              accountType: 'ticketsafe',
               email: email.trim(),
-              fullName: fullName.trim(),
+              emailConfirm: confirmEmail.trim(),
+              firstName: firstName.trim(),
+              lastName: lastName.trim(),
+              gender,
             },
           }
         );
 
         if (validationError || !validationData?.valid) {
-          const errors = validationData?.errors || ['Validation failed'];
-          toast.error(errors[0]);
+          const message = await readValidationError(validationError, validationData);
+          toast.error(message ?? "Please check your details and try again.");
           setLoading(false);
           return;
         }
-
-        // The user explicitly picks their campus at signup (see the form below).
-        const detectedCampus = campus;
 
         const { data, error } = await supabase.auth.signUp({
           email: email.trim(),
@@ -299,9 +302,10 @@ const Auth = () => {
           options: {
             emailRedirectTo: authRedirect("/profile"),
             data: {
-              full_name: fullName.trim(),
-              university: detectedUniversity.trim(),
-              campus: detectedCampus,
+              first_name: firstName.trim(),
+              last_name: lastName.trim(),
+              full_name: `${firstName.trim()} ${lastName.trim()}`,
+              gender,
             },
           },
         });
@@ -309,7 +313,7 @@ const Auth = () => {
         if (error) {
           const errMsg = error instanceof Error ? error.message : String(error ?? 'An error occurred');
           if (errMsg.includes("already registered") || errMsg.includes("User already registered")) {
-            toast.error("Unable to create account. Please try logging in.");
+            toast.error("An account already exists with this email. Sign in instead.");
             setIsLogin(true);
           } else {
             toast.error("Unable to create account. Please verify your information.");
@@ -318,26 +322,25 @@ const Auth = () => {
           return;
         }
 
-        // After signup, always require email confirmation before letting the user in.
-        // Three cases:
-        //  (a) Supabase "Confirm email" is ON → no session returned, email_confirmed_at null
-        //      → show "Check your inbox" UI (Supabase already sent the email)
-        //  (b) Supabase "Confirm email" is ON but user already existed unconfirmed
-        //      → same as (a)
-        //  (c) Supabase "Confirm email" is OFF (misconfigured) → session returned + auto-confirmed
-        //      → we still force them out so they can re-sign-in. We try to trigger a resend
-        //         to mimic the intended flow.
+        // Supabase returns a user with no identities when the email already has an
+        // account. Show the same path as "already registered" instead of "check your inbox".
+        if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+          toast.error("An account already exists with this email. Sign in instead.");
+          setIsLogin(true);
+          setLoading(false);
+          return;
+        }
+
+        // Email confirmation is always required before the user can sign in.
         if (data.user && !data.user.email_confirmed_at) {
-          // Cases (a) + (b): no session, just show check-inbox UI
           if (data.session) {
-            // Shouldn't happen in this branch, but defense in depth
+            // Defense in depth: the session should not exist before confirmation.
             await supabase.auth.signOut();
           }
           setPendingConfirmEmail(email.trim());
           toast.success("Account created — check your email to confirm.");
         } else if (data.user && data.session) {
-          // Case (c): Supabase auto-confirmed (settings misconfigured).
-          // Force sign out and tell the user.
+          // Confirmation is off on the project: force sign out and ask for confirmation.
           await supabase.auth.signOut();
           setPendingConfirmEmail(email.trim());
           toast.success("Account created — please confirm your email before signing in.");
@@ -363,9 +366,9 @@ const Auth = () => {
             {isLogin ? "Welcome Back" : "Create Account"}
           </CardTitle>
           <CardDescription className="text-center">
-            {isLogin 
-              ? "Sign in to access your ticket marketplace" 
-              : "Join the verified student ticket marketplace"}
+            {isLogin
+              ? "Sign in to access your ticket marketplace"
+              : "Join the TicketSafe marketplace"}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -375,7 +378,7 @@ const Auth = () => {
                 <Mail className="w-6 h-6 text-primary" />
               </div>
               <div className="space-y-2">
-                <p className="text-base font-semibold">Check your inbox</p>
+                <p className="text-base font-semibold">Vérifie ta boîte mail</p>
                 <p className="text-sm text-muted-foreground">
                   We sent a verification link to <strong>{pendingConfirmEmail}</strong>.
                   Click it to activate your account, then come back to sign in.
@@ -384,16 +387,9 @@ const Auth = () => {
                   Don't see it? Check your spam folder, or resend below.
                 </p>
               </div>
-              <Button
-                onClick={handleResendConfirmation}
-                variant="outline"
-                className="w-full"
-                disabled={loading || (resendCooldownUntil !== null && Date.now() < resendCooldownUntil)}
-              >
+              <Button onClick={handleResendConfirmation} variant="outline" className="w-full" disabled={loading || resendSecondsLeft > 0}>
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {resendCooldownUntil !== null && Date.now() < resendCooldownUntil
-                  ? `Resend available in ${Math.max(1, Math.ceil((resendCooldownUntil - Date.now()) / 1000))}s`
-                  : "Resend confirmation email"}
+                {resendSecondsLeft > 0 ? `Renvoyer dans ${resendSecondsLeft}s` : "Renvoyer l'email"}
               </Button>
               <button
                 type="button"
@@ -413,7 +409,7 @@ const Auth = () => {
                 <Input
                   id="reset-email"
                   type="email"
-                  placeholder="firstname.lastname@edu.escp.eu"
+                  placeholder="you@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -437,79 +433,95 @@ const Auth = () => {
             <form onSubmit={handleAuth} className="space-y-4">
             {!isLogin && (
               <>
-                <div className="space-y-2">
-                  <Label htmlFor="fullName">
-                    <User className="w-4 h-4 inline mr-2" />
-                    Full Name
-                  </Label>
-                  <Input
-                    id="fullName"
-                    type="text"
-                    placeholder="John Doe"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    required={!isLogin}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>
-                    <Building2 className="w-4 h-4 inline mr-2" />
-                    School
-                  </Label>
-                  <Select value={school} onValueChange={setSchool}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Choose your school" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {SCHOOLS.map((s) => (
-                        <SelectItem key={s.value} value={s.value} disabled={!s.available}>
-                          {s.label}
-                        </SelectItem>
-                      ))}
-                      <SelectItem value="__coming_soon" disabled>
-                        More schools coming soon…
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>
-                    <MapPin className="w-4 h-4 inline mr-2" />
-                    Campus
-                  </Label>
-                  <Select value={campus || undefined} onValueChange={setCampus}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Choose your campus" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {CAMPUSES.map((c) => (
-                        <SelectItem key={c} value={c}>
-                          {c}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="firstName">
+                      <User className="w-4 h-4 inline mr-2" />
+                      Prénom
+                    </Label>
+                    <Input
+                      id="firstName"
+                      type="text"
+                      autoComplete="given-name"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      maxLength={60}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="lastName">Nom</Label>
+                    <Input
+                      id="lastName"
+                      type="text"
+                      autoComplete="family-name"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      maxLength={60}
+                      required
+                    />
+                  </div>
                 </div>
               </>
             )}
             <div className="space-y-2">
               <Label htmlFor="email">
                 <Mail className="w-4 h-4 inline mr-2" />
-                {isLogin ? "Email" : "ESCP Student Email"}
+                {isLogin ? "Email" : "Adresse email"}
               </Label>
               <Input
                 id="email"
                 type="email"
-                placeholder={isLogin ? "firstname.lastname@edu.escp.eu" : "firstname.lastname@edu.escp.eu"}
+                autoComplete="email"
+                placeholder="you@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
               />
             </div>
+            {!isLogin && (
+              <div className="space-y-2">
+                <Label htmlFor="confirmEmail">Confirmer l'adresse email</Label>
+                <Input
+                  id="confirmEmail"
+                  type="email"
+                  autoComplete="off"
+                  placeholder="you@example.com"
+                  value={confirmEmail}
+                  onChange={(e) => setConfirmEmail(e.target.value)}
+                  required
+                />
+                {confirmEmail && confirmEmail.trim().toLowerCase() !== email.trim().toLowerCase() && (
+                  <p className="text-xs text-red-500">Les adresses email ne correspondent pas.</p>
+                )}
+              </div>
+            )}
+            {!isLogin && (
+              <div className="space-y-2">
+                <Label>Genre</Label>
+                <div className="grid grid-cols-2 gap-3">
+                  {GENDER_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      aria-pressed={gender === option.value}
+                      onClick={() => setGender(option.value)}
+                      className={`h-10 rounded-md border text-sm font-semibold transition-colors ${
+                        gender === option.value
+                          ? "border-primary bg-primary/10 text-foreground"
+                          : "border-border text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="password">
                 <Lock className="w-4 h-4 inline mr-2" />
-                Password
+                Mot de passe
               </Label>
               <div className="relative">
                 <Input
@@ -519,13 +531,15 @@ const Auth = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  minLength={12}
+                  minLength={isLogin ? undefined : 12}
+                  autoComplete={isLogin ? "current-password" : "new-password"}
                   className="pr-10"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
                   tabIndex={-1}
                 >
                   {showPassword ? (
@@ -535,7 +549,7 @@ const Auth = () => {
                   )}
                 </button>
               </div>
-              {!isLogin && password && (
+              {!isLogin && (
                 <div className="space-y-2 pt-2">
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-muted-foreground">Password strength:</span>
@@ -545,11 +559,11 @@ const Auth = () => {
                       passwordStrength.strength === 4 ? 'text-green-500' :
                       'text-green-600'
                     }`}>
-                      {passwordStrength.label}
+                      {password ? passwordStrength.label : ""}
                     </span>
                   </div>
                   <div className="w-full bg-secondary rounded-full h-1.5">
-                    <div 
+                    <div
                       className={`h-1.5 rounded-full transition-all ${passwordStrength.color}`}
                       style={{ width: `${(passwordStrength.strength / 5) * 100}%` }}
                     />

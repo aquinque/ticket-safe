@@ -45,6 +45,98 @@ function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } });
 }
 
+interface AttendeeRow { first_name: string; last_name: string; email: string; gender: string; }
+
+const enc = new TextEncoder();
+
+function b64url(bytes: Uint8Array): string {
+  let bin = "";
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+// Same token format revolut-webhook signs for studio tickets, so the door
+// scanner accepts a free ticket exactly like a paid one.
+async function signStudioTicketJWT(secret: string, p: { ticket_id: string; event_id: string; exp_seconds: number }): Promise<string> {
+  const header = { alg: "HS256", typ: "JWT" };
+  const payload = { iss: "ticket-safe.eu/studio", sub: p.ticket_id, evt: p.event_id, iat: Math.floor(Date.now() / 1000), exp: p.exp_seconds };
+  const data = `${b64url(enc.encode(JSON.stringify(header)))}.${b64url(enc.encode(JSON.stringify(payload)))}`;
+  const key = await crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const sig = await crypto.subtle.sign("HMAC", key, enc.encode(data));
+  return `${data}.${b64url(new Uint8Array(sig))}`;
+}
+
+// Marks a €0 order paid, issues its tickets, moves the seats from reserved to
+// sold, and sends the ticket email. Returns false when nothing was issued, in
+// which case the order is left cancelled or pending for the caller to clean up.
+async function issueFreeTickets(
+  supabase: ReturnType<typeof createClient>,
+  o: { orderId: string; eventId: string; tierId: string; quantity: number; buyerId: string; buyerEmail: string; attendees: AttendeeRow[] },
+  env: { supabaseUrl: string; supabaseKey: string },
+): Promise<boolean> {
+  // Both secrets must be configured. Without them nothing is issued, so a
+  // free ticket can never exist without its QR being signed or emailed.
+  const signingSecret = Deno.env.get("TICKET_SIGNING_SECRET");
+  const replaySecret = Deno.env.get("REPLAY_ADMIN_SECRET");
+  if (!signingSecret || !replaySecret) {
+    console.error("[revolut-create-checkout] TICKET_SIGNING_SECRET or REPLAY_ADMIN_SECRET missing; cannot issue free tickets");
+    return false;
+  }
+
+  const { data: paidRows, error: paidErr } = await supabase
+    .from("event_orders")
+    .update({ status: "paid", paid_at: new Date().toISOString() })
+    .eq("id", o.orderId)
+    .eq("status", "pending")
+    .select("id");
+  if (paidErr || !paidRows || paidRows.length === 0) return false;
+
+  const { data: evRow } = await supabase.from("events").select("date").eq("id", o.eventId).maybeSingle();
+  const expSeconds = evRow?.date
+    ? Math.floor(new Date(evRow.date).getTime() / 1000) + 86_400
+    : Math.floor(Date.now() / 1000) + 30 * 86_400;
+
+  const ticketRows = await Promise.all(Array.from({ length: o.quantity }).map(async (_, i) => {
+    const att = o.attendees[i] ?? null;
+    const ticketId = crypto.randomUUID();
+    const qrToken = await signStudioTicketJWT(signingSecret, { ticket_id: ticketId, event_id: o.eventId, exp_seconds: expSeconds });
+    return {
+      id: ticketId,
+      order_id: o.orderId,
+      event_id: o.eventId,
+      tier_id: o.tierId,
+      buyer_id: o.buyerId,
+      qr_token: qrToken,
+      holder_first_name: att?.first_name ?? null,
+      holder_last_name: att?.last_name ?? null,
+      holder_email: att?.email ?? o.buyerEmail ?? null,
+      holder_gender: att?.gender ?? null,
+      status: "valid",
+    };
+  }));
+
+  const { error: tixErr } = await supabase.from("event_tickets").insert(ticketRows);
+  if (tixErr) {
+    console.error("[revolut-create-checkout] free event_tickets insert failed:", tixErr);
+    await supabase.from("event_orders").update({ status: "cancelled", cancelled_at: new Date().toISOString() }).eq("id", o.orderId);
+    return false;
+  }
+
+  const { error: finErr } = await supabase.rpc("finalize_tier_sale", { p_tier_id: o.tierId, p_qty: o.quantity });
+  if (finErr) console.error("[revolut-create-checkout] finalize_tier_sale failed:", finErr);
+
+  try {
+    await fetch(`${env.supabaseUrl}/functions/v1/replay-order-email`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: env.supabaseKey, Authorization: `Bearer ${env.supabaseKey}` },
+      body: JSON.stringify({ order_id: o.orderId, admin_secret: replaySecret }),
+    });
+  } catch (e) {
+    console.warn("[revolut-create-checkout] free ticket email failed:", e);
+  }
+  return true;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
@@ -146,7 +238,8 @@ serve(async (req) => {
     const org = Array.isArray(orgRaw) ? orgRaw[0] : orgRaw;
     if (!org || org.status !== "approved") return json({ error: "Organizer not active." }, 400);
     if (!tier.is_active) return json({ error: "Tier is not on sale." }, 400);
-    if (tier.price_cents < MIN_UNIT_PRICE_CENTS || tier.price_cents > MAX_UNIT_PRICE_CENTS) return json({ error: "Tier price out of bounds." }, 400);
+    // €0 is a valid free tier. A paid tier must be at least MIN_UNIT_PRICE_CENTS.
+    if (tier.price_cents < 0 || tier.price_cents > MAX_UNIT_PRICE_CENTS || (tier.price_cents > 0 && tier.price_cents < MIN_UNIT_PRICE_CENTS)) return json({ error: "Tier price out of bounds." }, 400);
 
     const maxPerBuyer = (ev as { max_tickets_per_buyer?: number | null }).max_tickets_per_buyer;
     if (Number.isInteger(maxPerBuyer) && maxPerBuyer && maxPerBuyer > 0) {
@@ -173,7 +266,8 @@ serve(async (req) => {
     // flat buyer service tax. Validated against this event specifically.
     let discountCents = 0;
     const rawPromoCode = (body.promo_code ?? "").trim().toUpperCase();
-    if (rawPromoCode) {
+    // Promo codes have nothing to discount on a free ticket, so they are ignored there.
+    if (rawPromoCode && tier.price_cents > 0) {
       const { data: promo } = await supabase
         .from("event_promo_codes")
         .select("id, discount_type, discount_value, max_uses, used_count, is_active, expires_at")
@@ -205,7 +299,8 @@ serve(async (req) => {
     // from the organizer, at checkout or withdrawal.
     const unitPrice = tier.price_cents;
     const subtotal = unitPrice * quantity;
-    const buyerFeeCents = SERVICE_TAX_CENTS * quantity;
+    // No service tax on a free ticket (€0).
+    const buyerFeeCents = unitPrice > 0 ? SERVICE_TAX_CENTS * quantity : 0;
     const totalCents = subtotal - discountCents + buyerFeeCents;
     const orderFeeCents = buyerFeeCents;
 
@@ -221,6 +316,34 @@ serve(async (req) => {
       .select("id").single();
     if (orderErr || !order) { await releaseReservation(); await releasePromoUse(); return json({ error: "Could not create order." }, 500); }
     orderId = order.id;
+
+    // Free ticket (€0): nothing to charge, so no Revolut order. The tickets are
+    // issued right here, with the same steps revolut-webhook runs once a paid
+    // order completes.
+    if (unitPrice === 0) {
+      const issued = await issueFreeTickets(
+        supabase,
+        {
+          orderId: order.id,
+          eventId: ev.id,
+          tierId,
+          quantity,
+          buyerId,
+          buyerEmail,
+          attendees,
+        },
+        { supabaseUrl, supabaseKey },
+      );
+      if (!issued) {
+        await supabase.from("event_orders").update({ status: "cancelled", cancelled_at: new Date().toISOString() }).eq("id", order.id).eq("status", "pending");
+        await releaseReservation();
+        return json({ error: "Could not issue your free ticket. Please try again." }, 500);
+      }
+      // The seats were moved to sold by issueFreeTickets, so there is nothing to release.
+      reservedTierId = null;
+      reservedQty = 0;
+      return json({ free: true, order_id: order.id, provider: "free" });
+    }
 
     // Create the Revolut order (hosted checkout). We verify completion later
     // server-side via GET /orders/{id} in revolut-webhook, so no signature

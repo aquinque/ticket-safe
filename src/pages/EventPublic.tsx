@@ -334,6 +334,12 @@ const EventPublic = () => {
           ...(user ? {} : { guest: { name: `${first.first_name} ${first.last_name}`.trim(), email: first.email } }),
         },
       });
+      // Free ticket: already issued server-side (no payment step), so go to the
+      // confirmation page instead of a checkout URL.
+      if (!error && data?.free) {
+        navigate(`/checkout/success?order_id=${data.order_id}&provider=free`);
+        return;
+      }
       if (error || !data?.url) {
         console.error("[event-public] checkout error:", error, data);
         // supabase.functions.invoke hides the function's error body on a non-2xx
@@ -580,7 +586,7 @@ const EventPublic = () => {
                 </>
               ) : (
                 <>
-                  Continue to payment
+                  {grandCents === 0 ? "Get my free ticket" : "Continue to payment"}
                   <ArrowRight className="w-4 h-4" />
                 </>
               )}

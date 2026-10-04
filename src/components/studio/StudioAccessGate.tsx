@@ -23,6 +23,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useOrganizer } from "@/hooks/useOrganizer";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { SEOHead } from "@/components/SEOHead";
+import { supabase } from "@/integrations/supabase/client";
 import { useEffect } from "react";
 
 const FullScreenSpinner = () => (
@@ -40,6 +41,32 @@ export const StudioAccessGate = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (!authLoading && !user) navigate(`/auth?next=${encodeURIComponent(window.location.pathname)}`);
   }, [user, authLoading, navigate]);
+
+  // Tell the admin team that an application is waiting. Signup itself has no session,
+  // so the email goes out from the applicant's first signed-in visit after confirming.
+  // Once per application and browser (localStorage), so the admins are not spammed.
+  const organizerId = organizer?.id;
+  const organizerStatus = organizer?.status;
+  useEffect(() => {
+    if (!user || !organizerId || organizerStatus !== "pending") return;
+    const key = `studio-application-notified:${organizerId}`;
+    try {
+      if (localStorage.getItem(key)) return;
+    } catch {
+      /* storage unavailable: still send once */
+    }
+    supabase.functions
+      .invoke("organizer-notify", { body: { kind: "new_application", organizer_id: organizerId } })
+      .then(({ error }) => {
+        if (error) return;
+        try {
+          localStorage.setItem(key, "1");
+        } catch {
+          /* ignore */
+        }
+      })
+      .catch(() => {});
+  }, [user, organizerId, organizerStatus]);
 
   if (authLoading || orgLoading) return <FullScreenSpinner />;
   if (!user) return null;

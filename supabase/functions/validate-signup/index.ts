@@ -10,6 +10,11 @@ const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT_WINDOW = 3600000; // 1 hour in milliseconds
 const MAX_REQUESTS_PER_WINDOW = 5;
 
+// Organizer types accepted by organizer_profiles_org_type_check.
+const ORG_TYPES = ['bde', 'sports', 'alumni', 'conference', 'student-society', 'other'];
+const GENDERS = ['female', 'male'];
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 function getRateLimitKey(req: Request): string {
   // Use combination of IP and user agent for rate limiting
   const forwarded = req.headers.get('x-forwarded-for');
@@ -49,57 +54,74 @@ serve(async (req) => {
     if (!rateLimit.allowed) {
       const retryAfter = Math.ceil((rateLimit.resetAt - Date.now()) / 1000);
       console.warn(`Rate limit exceeded for key: ${rateLimitKey}`);
-      
+
       return new Response(
-        JSON.stringify({ 
-          valid: false, 
-          errors: ['Too many validation requests. Please try again later.'] 
+        JSON.stringify({
+          valid: false,
+          errors: ['Too many validation requests. Please try again later.']
         }),
-        { 
+        {
           status: 429,
-          headers: { 
-            ...corsHeaders, 
+          headers: {
+            ...corsHeaders,
             'Content-Type': 'application/json',
             'Retry-After': retryAfter.toString()
-          } 
+          }
         }
       );
     }
 
-    const { email, fullName } = await req.json();
+    const body = await req.json();
+    const email = body?.email;
+    const emailConfirm = body?.emailConfirm;
+    const firstName = body?.firstName;
+    const lastName = body?.lastName;
+    const gender = body?.gender;
+    const accountType = body?.accountType === 'studio' ? 'studio' : 'ticketsafe';
+    const studio = body?.studio ?? {};
 
     // Validation errors array
     const errors: string[] = [];
 
-    // Allow-list for non-ESCP accounts that still need signup access
-    // (Ticket Safe operations / admin shared inboxes).
-    const SIGNUP_EMAIL_ALLOWLIST = new Set<string>([
-      'ticketsafe.friendly@gmail.com',
-    ]);
-
-    // Email validation
+    // Email validation. Any email domain is accepted.
     if (!email || typeof email !== 'string') {
       errors.push('Email is required');
     } else if (email.length > 255) {
       errors.push('Email must be less than 255 characters');
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    } else if (!EMAIL_RE.test(email.trim())) {
       errors.push('Invalid email format');
-    } else {
-      const normalized = email.toLowerCase().trim();
-      const isEscp = normalized.endsWith('@edu.escp.eu');
-      const isWhitelisted = SIGNUP_EMAIL_ALLOWLIST.has(normalized);
-      if (!isEscp && !isWhitelisted) {
-        errors.push('Only ESCP student email addresses (@edu.escp.eu) are accepted');
-      }
     }
 
-    // Full name validation
-    if (!fullName || typeof fullName !== 'string') {
-      errors.push('Full name is required');
-    } else if (fullName.trim().length === 0) {
-      errors.push('Full name cannot be empty');
-    } else if (fullName.length > 100) {
-      errors.push('Full name must be less than 100 characters');
+    // Confirmation must match the email exactly (case and surrounding spaces aside).
+    if (typeof email === 'string' && typeof emailConfirm === 'string') {
+      if (email.trim().toLowerCase() !== emailConfirm.trim().toLowerCase()) {
+        errors.push('The email addresses do not match');
+      }
+    } else {
+      errors.push('Please confirm your email address');
+    }
+
+    // First and last name
+    const first = typeof firstName === 'string' ? firstName.trim() : '';
+    const last = typeof lastName === 'string' ? lastName.trim() : '';
+    if (first.length < 1 || first.length > 60) errors.push('First name must be between 1 and 60 characters');
+    if (last.length < 1 || last.length > 60) errors.push('Last name must be between 1 and 60 characters');
+
+    // Gender is required for a TicketSafe account
+    if (accountType === 'ticketsafe' && (typeof gender !== 'string' || !GENDERS.includes(gender))) {
+      errors.push('Please select a gender');
+    }
+
+    // Studio organizer details
+    if (accountType === 'studio') {
+      const orgName = typeof studio.name === 'string' ? studio.name.trim() : '';
+      if (orgName.length < 2 || orgName.length > 120) errors.push('Organization name must be between 2 and 120 characters');
+      if (typeof studio.org_type !== 'string' || !ORG_TYPES.includes(studio.org_type)) errors.push('Please choose an organization type');
+      if (studio.contact_email !== undefined && studio.contact_email !== null && studio.contact_email !== '') {
+        if (typeof studio.contact_email !== 'string' || !EMAIL_RE.test(studio.contact_email.trim()) || studio.contact_email.length > 254) {
+          errors.push('Contact email is invalid');
+        }
+      }
     }
 
     if (errors.length > 0) {

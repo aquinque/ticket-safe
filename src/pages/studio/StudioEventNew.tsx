@@ -199,6 +199,7 @@ const StudioEventNew = () => {
         const p = Number(t.priceEuros);
         const q = Number(t.totalQty);
         if (!Number.isFinite(p) || p < 0 || p > 5000) return `"${t.name || "Tier"}" price must be between €0 and €5000.`;
+        if (p > 0 && p < 0.5) return `"${t.name || "Tier"}" price must be €0 (free) or at least €0.50.`;
         if (!Number.isInteger(q) || q < 1 || q > 20000) return `"${t.name || "Tier"}" quantity must be between 1 and 20000.`;
       }
     }
