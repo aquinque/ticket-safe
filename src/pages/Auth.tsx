@@ -43,6 +43,8 @@ const Auth = () => {
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [pendingConfirmEmail, setPendingConfirmEmail] = useState<string | null>(null);
+  const [resendCooldownUntil, setResendCooldownUntil] = useState<number | null>(null);
+  const [, forceTick] = useState(0);
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
 
@@ -89,8 +91,18 @@ const Auth = () => {
 
   const passwordStrength = getPasswordStrength(password);
 
+  // Re-render once a second while the resend cooldown is counting down, so
+  // the button's "available in Ns" label actually ticks instead of freezing
+  // at whatever value it had when the cooldown started.
+  useEffect(() => {
+    if (resendCooldownUntil === null) return;
+    const id = setInterval(() => forceTick((n) => n + 1), 1000);
+    return () => clearInterval(id);
+  }, [resendCooldownUntil]);
+
   const handleResendConfirmation = async () => {
     if (!pendingConfirmEmail) return;
+    if (resendCooldownUntil && Date.now() < resendCooldownUntil) return;
     setLoading(true);
     try {
       const { error } = await supabase.auth.resend({
@@ -99,8 +111,10 @@ const Auth = () => {
         options: { emailRedirectTo: authRedirect("/profile") },
       });
       if (error) throw error;
+      setResendCooldownUntil(Date.now() + 60_000);
       toast.success("Confirmation email resent. Check your inbox.");
-    } catch {
+    } catch (err) {
+      console.error("[Auth] resend confirmation failed:", err);
       toast.error("Could not resend confirmation email. Try again later.");
     } finally {
       setLoading(false);
@@ -370,9 +384,16 @@ const Auth = () => {
                   Don't see it? Check your spam folder, or resend below.
                 </p>
               </div>
-              <Button onClick={handleResendConfirmation} variant="outline" className="w-full" disabled={loading}>
+              <Button
+                onClick={handleResendConfirmation}
+                variant="outline"
+                className="w-full"
+                disabled={loading || (resendCooldownUntil !== null && Date.now() < resendCooldownUntil)}
+              >
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Resend confirmation email
+                {resendCooldownUntil !== null && Date.now() < resendCooldownUntil
+                  ? `Resend available in ${Math.max(1, Math.ceil((resendCooldownUntil - Date.now()) / 1000))}s`
+                  : "Resend confirmation email"}
               </Button>
               <button
                 type="button"

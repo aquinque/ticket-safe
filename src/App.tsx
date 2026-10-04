@@ -7,6 +7,7 @@ import { CookieConsent } from "@/components/CookieConsent";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import ScrollToTop from "@/components/ScrollToTop";
 import ProtectedAdminRoute from "@/components/ProtectedAdminRoute";
+import { StudioAccessGate } from "@/components/studio/StudioAccessGate";
 
 // Eager: landing + 404 + auth (most likely first-paint targets)
 import Home from "./pages/Home";
@@ -133,15 +134,15 @@ const App = () => (
         <Route path="/messages/:conversationId" element={<ChatRoom />} />
         <Route path="/organizers" element={<Organizers />} />
         <Route path="/organizers/apply" element={<OrganizerApply />} />
-        <Route path="/studio" element={<StudioDashboard />} />
-        <Route path="/studio/sales" element={<StudioSales />} />
-        <Route path="/studio/team" element={<StudioTeam />} />
-        <Route path="/studio/payouts" element={<StudioPayouts />} />
-        <Route path="/studio/profile" element={<StudioProfile />} />
-        <Route path="/studio/events" element={<StudioEvents />} />
-        <Route path="/studio/events/new" element={<StudioEventNew />} />
-        <Route path="/studio/events/:id" element={<StudioEventEdit />} />
-        <Route path="/studio/events/:id/attendees" element={<StudioEventAttendees />} />
+        <Route path="/studio" element={<StudioAccessGate><StudioDashboard /></StudioAccessGate>} />
+        <Route path="/studio/sales" element={<StudioAccessGate><StudioSales /></StudioAccessGate>} />
+        <Route path="/studio/team" element={<StudioAccessGate><StudioTeam /></StudioAccessGate>} />
+        <Route path="/studio/payouts" element={<StudioAccessGate><StudioPayouts /></StudioAccessGate>} />
+        <Route path="/studio/profile" element={<StudioAccessGate><StudioProfile /></StudioAccessGate>} />
+        <Route path="/studio/events" element={<StudioAccessGate><StudioEvents /></StudioAccessGate>} />
+        <Route path="/studio/events/new" element={<StudioAccessGate><StudioEventNew /></StudioAccessGate>} />
+        <Route path="/studio/events/:id" element={<StudioAccessGate><StudioEventEdit /></StudioAccessGate>} />
+        <Route path="/studio/events/:id/attendees" element={<StudioAccessGate><StudioEventAttendees /></StudioAccessGate>} />
         <Route path="/e/:slug" element={<EventPublic />} />
         <Route path="/my-tickets" element={<MyTicketsHub />} />
         <Route path="/my-tickets/:orderId" element={<MyTickets />} />

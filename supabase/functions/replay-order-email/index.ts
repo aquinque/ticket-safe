@@ -112,6 +112,7 @@ serve(async (req) => {
     orderNumber,
     qrToken: t.qr_token,
     status: t.status === "valid" ? "Valid" : t.status === "scanned" ? "Used" : "Cancelled",
+    issuedAt: order.created_at,
     ticketIndex: i + 1,
     ticketTotal: issuedTickets.length,
   }));
