@@ -8,6 +8,7 @@ import {
   Users,
   QrCode,
   Banknote,
+  CreditCard,
   Settings,
   Menu,
   X,
@@ -39,6 +40,7 @@ const NAV_ITEMS: { key: string; label: string; to: string; icon: typeof LayoutDa
   { key: "team", label: "Team / Staff", to: "/studio/team", icon: Users },
   { key: "checkin", label: "Check-in", to: "/organizer/scan", icon: QrCode },
   { key: "payouts", label: "Payouts", to: "/studio/payouts", icon: Banknote },
+  { key: "payments", label: "Payments (Stripe)", to: "/studio/payments", icon: CreditCard },
   { key: "settings", label: "Settings", to: "/studio/profile", icon: Settings },
 ];
 

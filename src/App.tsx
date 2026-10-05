@@ -56,6 +56,7 @@ const StudioEventNew = lazy(() => import("./pages/studio/StudioEventNew"));
 const StudioEventEdit = lazy(() => import("./pages/studio/StudioEventEdit"));
 const StudioEventAttendees = lazy(() => import("./pages/studio/StudioEventAttendees"));
 const StudioProfile = lazy(() => import("./pages/studio/StudioProfile"));
+const StudioPayments = lazy(() => import("./pages/studio/StudioPayments"));
 const StudioSales = lazy(() => import("./pages/studio/StudioSales"));
 const StudioTeam = lazy(() => import("./pages/studio/StudioTeam"));
 const StudioPayouts = lazy(() => import("./pages/studio/StudioPayouts"));
@@ -65,6 +66,7 @@ const MyTickets = lazy(() => import("./pages/MyTickets"));
 const MyTicketsHub = lazy(() => import("./pages/MyTicketsHub"));
 const AdminOrganizers = lazy(() => import("./pages/admin/AdminOrganizers"));
 const AdminPayouts = lazy(() => import("./pages/admin/AdminPayouts"));
+const AdminStripeConnectPayouts = lazy(() => import("./pages/admin/AdminStripeConnectPayouts"));
 const AdminDebug = lazy(() => import("./pages/admin/AdminDebug"));
 const ChatBubble = lazy(() => import("./components/ChatBubble"));
 
@@ -141,6 +143,7 @@ const App = () => (
         <Route path="/studio/team" element={<StudioAccessGate><StudioTeam /></StudioAccessGate>} />
         <Route path="/studio/payouts" element={<StudioAccessGate><StudioPayouts /></StudioAccessGate>} />
         <Route path="/studio/profile" element={<StudioAccessGate><StudioProfile /></StudioAccessGate>} />
+        <Route path="/studio/payments" element={<StudioAccessGate><StudioPayments /></StudioAccessGate>} />
         <Route path="/studio/events" element={<StudioAccessGate><StudioEvents /></StudioAccessGate>} />
         <Route path="/studio/events/new" element={<StudioAccessGate><StudioEventNew /></StudioAccessGate>} />
         <Route path="/studio/events/:id" element={<StudioAccessGate><StudioEventEdit /></StudioAccessGate>} />
@@ -150,6 +153,7 @@ const App = () => (
         <Route path="/my-tickets/:orderId" element={<MyTickets />} />
         <Route path="/admin/organizers" element={<ProtectedAdminRoute><AdminOrganizers /></ProtectedAdminRoute>} />
         <Route path="/admin/payouts" element={<ProtectedAdminRoute><AdminPayouts /></ProtectedAdminRoute>} />
+        <Route path="/admin/stripe-connect-payouts" element={<ProtectedAdminRoute><AdminStripeConnectPayouts /></ProtectedAdminRoute>} />
         <Route path="/admin/debug" element={<ProtectedAdminRoute><AdminDebug /></ProtectedAdminRoute>} />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />
