@@ -117,10 +117,29 @@ serve(async (req) => {
 
     const { data: ev } = await supabase
       .from("events")
-      .select("title")
+      .select("title, organizer_id")
       .eq("id", order.event_id)
       .maybeSingle();
     const eventTitle = ev?.title ?? "your event";
+
+    // Stripe Connect: same reasoning as cancel-event — a direct charge on
+    // this order lives on the organizer's connected account, so the refund
+    // needs {stripeAccount: ...}. NULL (and therefore byte-identical
+    // behavior to before this change) for every Revolut event.
+    let stripeConnectAccountId: string | null = null;
+    let refundApplicationFee = true;
+    if (stripeKey && ev?.organizer_id) {
+      const { data: connectAcct } = await supabase
+        .from("stripe_connect_accounts")
+        .select("stripe_account_id")
+        .eq("organizer_id", ev.organizer_id)
+        .maybeSingle();
+      stripeConnectAccountId = connectAcct?.stripe_account_id ?? null;
+      if (stripeConnectAccountId) {
+        const { data: settings } = await supabase.from("billing_settings").select("refund_application_fee_on_refund").eq("id", true).maybeSingle();
+        refundApplicationFee = settings?.refund_application_fee_on_refund ?? true;
+      }
+    }
 
     // Count tickets the buyer already scanned into the venue. We still refund —
     // the admin pulled the trigger — but we surface this in the response and
@@ -198,12 +217,13 @@ serve(async (req) => {
         await stripe.refunds.create({
           payment_intent: order.stripe_payment_intent_id,
           amount: originalBuyerRefundCents,
+          ...(stripeConnectAccountId ? { refund_application_fee: refundApplicationFee } : {}),
           metadata: {
             source: "admin_refund_order",
             order_id: order.id,
             admin_id: user.id,
           },
-        }, { idempotencyKey: idemKey });
+        }, { idempotencyKey: idemKey, ...(stripeConnectAccountId ? { stripeAccount: stripeConnectAccountId } : {}) });
         providerOk = true;
       } catch (err) {
         providerFailureDetails = err instanceof Error ? err.message : String(err);

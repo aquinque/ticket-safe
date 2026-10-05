@@ -114,6 +114,27 @@ serve(async (req) => {
     const revolutCredsForResale = revolutSecret ? { secret: revolutSecret, base: revolutBase, apiVersion: revolutApiVersion } : null;
     const stripeForResale = stripe;
 
+    // Stripe Connect: direct charges on this event (if any) live on the
+    // organizer's connected account, not the platform — refunds must be
+    // issued with the {stripeAccount: ...} option or Stripe can't find the
+    // charge. NULL for Revolut events (the common case today), which keeps
+    // the refundOrder Stripe branch below byte-identical in behavior for
+    // every event that isn't on Stripe Connect.
+    let stripeConnectAccountId: string | null = null;
+    let refundApplicationFee = true;
+    if (stripe) {
+      const { data: connectAcct } = await supabase
+        .from("stripe_connect_accounts")
+        .select("stripe_account_id")
+        .eq("organizer_id", ev.organizer_id)
+        .maybeSingle();
+      stripeConnectAccountId = connectAcct?.stripe_account_id ?? null;
+      if (stripeConnectAccountId) {
+        const { data: settings } = await supabase.from("billing_settings").select("refund_application_fee_on_refund").eq("id", true).maybeSingle();
+        refundApplicationFee = settings?.refund_application_fee_on_refund ?? true;
+      }
+    }
+
     /**
      * Refund a single paid order through the right provider.
      * Returns { ok: true } on success, { ok: false, reason } on failure.
@@ -154,17 +175,22 @@ serve(async (req) => {
           return { ok: false, reason: `revolut_refund_throw: ${err instanceof Error ? err.message : String(err)}` };
         }
       }
-      // Stripe: direct charge on platform account
+      // Stripe (platform-account legacy charge, OR a Connect direct charge
+      // when stripeConnectAccountId is set — see where it's resolved above).
       if (order.stripe_payment_intent_id && stripe) {
         try {
-          await stripe.refunds.create({
-            payment_intent: order.stripe_payment_intent_id,
-            metadata: {
-              source: "event_cancellation",
-              order_id: order.id,
-              event_id: eventId,
+          await stripe.refunds.create(
+            {
+              payment_intent: order.stripe_payment_intent_id,
+              ...(stripeConnectAccountId ? { refund_application_fee: refundApplicationFee } : {}),
+              metadata: {
+                source: "event_cancellation",
+                order_id: order.id,
+                event_id: eventId,
+              },
             },
-          });
+            stripeConnectAccountId ? { stripeAccount: stripeConnectAccountId } : undefined,
+          );
           return { ok: true };
         } catch (err) {
           return { ok: false, reason: err instanceof Error ? err.message : String(err) };
