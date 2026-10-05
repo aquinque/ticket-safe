@@ -18,16 +18,15 @@ import {
   AlertCircle,
   ShieldCheck,
 } from "lucide-react";
-import { z } from "zod";
+import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, PASSWORD_RULE_TEXT, authErrorMessage, passwordError } from "@/lib/authRules";
 
-const passwordSchema = z
-  .string()
-  .min(12, "Password must be at least 12 characters")
-  .max(128, "Password must be less than 128 characters")
-  .regex(/[A-Z]/, "Must contain an uppercase letter (A-Z)")
-  .regex(/[a-z]/, "Must contain a lowercase letter (a-z)")
-  .regex(/[0-9]/, "Must contain a number (0-9)")
-  .regex(/[^A-Za-z0-9]/, "Must contain a special character (!@#$...)");
+/**
+ * An account created automatically by a purchase without an account has no
+ * password its owner knows. The first time they choose one, this page is their
+ * account activation, not a password reset.
+ */
+const isFirstActivation = (metadata: Record<string, unknown> | undefined): boolean =>
+  metadata?.guest_shadow === true && !metadata?.account_activated_at;
 
 const ResetPassword = () => {
   useThemeMode("night");
@@ -40,6 +39,7 @@ const ResetPassword = () => {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [redirectCountdown, setRedirectCountdown] = useState(3);
+  const [isActivation, setIsActivation] = useState(false);
   const navigate = useNavigate();
 
   // ── Validate session on mount ────────────────────────────────────────────
@@ -50,19 +50,21 @@ const ResetPassword = () => {
       if (cancelled) return;
       setIsValidToken(valid);
       if (!valid) {
-        toast.error("This reset link has expired or is invalid. Please request a new one.");
+        toast.error("Ce lien a expiré ou n'est plus valide. Demande-en un nouveau.");
         setTimeout(() => navigate("/auth"), 3000);
       }
     };
 
     supabase.auth.getSession().then(({ data }) => {
+      if (!cancelled && data.session) setIsActivation(isFirstActivation(data.session.user.user_metadata));
       resolve(!!data.session);
     });
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "PASSWORD_RECOVERY" || event === "SIGNED_IN") {
+        if (!cancelled && session) setIsActivation(isFirstActivation(session.user.user_metadata));
         resolve(true);
       }
     });
@@ -84,42 +86,20 @@ const ResetPassword = () => {
     return () => clearTimeout(t);
   }, [success, redirectCountdown, navigate]);
 
-  const getPasswordStrength = (pw: string) => {
-    let s = 0;
-    if (pw.length >= 12) s++;
-    if (/[A-Z]/.test(pw)) s++;
-    if (/[a-z]/.test(pw)) s++;
-    if (/[0-9]/.test(pw)) s++;
-    if (/[^A-Za-z0-9]/.test(pw)) s++;
-    if (s <= 2) return { strength: s, label: "Weak", color: "bg-red-500" };
-    if (s === 3) return { strength: s, label: "Medium", color: "bg-yellow-500" };
-    if (s === 4) return { strength: s, label: "Strong", color: "bg-green-500" };
-    return { strength: s, label: "Very Strong", color: "bg-green-600" };
-  };
-  const passwordStrength = getPasswordStrength(newPassword);
-
-  const checks: [boolean, string][] = [
-    [newPassword.length >= 12, "At least 12 characters"],
-    [/[A-Z]/.test(newPassword), "Uppercase letter (A-Z)"],
-    [/[a-z]/.test(newPassword), "Lowercase letter (a-z)"],
-    [/[0-9]/.test(newPassword), "Number (0-9)"],
-    [/[^A-Za-z0-9]/.test(newPassword), "Special character (!@#$...)"],
-  ];
+  const passwordLongEnough = newPassword.length >= PASSWORD_MIN_LENGTH;
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitError(null);
 
     // Inline validation
-    const validation = passwordSchema.safeParse(newPassword);
-    if (!validation.success) {
-      const msg = validation.error.errors[0].message;
-      console.warn("[reset-password] password schema failed:", msg);
-      setSubmitError(msg);
+    const problem = passwordError(newPassword);
+    if (problem) {
+      setSubmitError(problem);
       return;
     }
     if (newPassword !== confirmPassword) {
-      setSubmitError("The two passwords do not match.");
+      setSubmitError("Les deux mots de passe ne sont pas identiques.");
       return;
     }
 
@@ -129,24 +109,26 @@ const ResetPassword = () => {
       const { data: sessionData } = await supabase.auth.getSession();
       if (!sessionData.session) {
         console.error("[reset-password] no active session at submit time");
-        setSubmitError("Your reset session expired. Please request a new password-reset email.");
+        setSubmitError("Ta session a expiré. Demande un nouveau lien depuis « Mot de passe oublié ».");
         setTimeout(() => navigate("/auth"), 3000);
         return;
       }
 
-      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword,
+        // Marks the automatically created account as activated by its owner.
+        ...(isActivation ? { data: { account_activated_at: new Date().toISOString() } } : {}),
+      });
       if (error) {
         console.error("[reset-password] updateUser error:", error);
         throw error;
       }
 
-      toast.success("Password updated successfully!");
+      toast.success(isActivation ? "Compte activé !" : "Mot de passe mis à jour !");
       setSuccess(true);
     } catch (error) {
-      const msg = error instanceof Error ? error.message : "Failed to reset password. Please try again.";
-      console.error("[reset-password] caught error:", msg);
-      setSubmitError(msg);
-      toast.error(msg);
+      console.error("[reset-password] caught error:", error);
+      setSubmitError(authErrorMessage(error));
     } finally {
       setLoading(false);
     }
@@ -162,7 +144,7 @@ const ResetPassword = () => {
         <Card className="w-full max-w-md">
           <CardContent className="flex flex-col items-center justify-center py-12 gap-3">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <p className="text-sm text-muted-foreground">Verifying reset link…</p>
+            <p className="text-sm text-muted-foreground">Vérification du lien…</p>
           </CardContent>
         </Card>
       </div>
@@ -179,14 +161,14 @@ const ResetPassword = () => {
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle className="text-2xl font-bold text-center text-destructive">
-              Invalid Reset Link
+              Lien non valide
             </CardTitle>
             <CardDescription className="text-center">
-              This reset link has expired or has already been used. Please request a new one.
+              Ce lien a expiré ou a déjà été utilisé. Demande-en un nouveau depuis « Mot de passe oublié ».
             </CardDescription>
           </CardHeader>
           <CardContent className="flex justify-center">
-            <Button onClick={() => navigate("/auth")}>Back to Login</Button>
+            <Button onClick={() => navigate("/auth")}>Retour à la connexion</Button>
           </CardContent>
         </Card>
       </div>
@@ -203,16 +185,17 @@ const ResetPassword = () => {
               <ShieldCheck className="w-7 h-7 text-green-600" />
             </div>
             <CardTitle className="text-2xl font-bold text-center text-green-700">
-              Password updated
+              {isActivation ? "Compte activé" : "Mot de passe mis à jour"}
             </CardTitle>
             <CardDescription className="text-center">
-              Your new password is now active. Redirecting you to your profile in{" "}
+              {isActivation ? "Ton compte est prêt, tes billets t'attendent." : "Ton nouveau mot de passe est actif."}{" "}
+              Redirection vers ton profil dans{" "}
               <span className="font-bold text-foreground">{redirectCountdown}</span>…
             </CardDescription>
           </CardHeader>
           <CardContent className="flex justify-center pb-8">
             <Button onClick={() => navigate("/profile", { replace: true })}>
-              Go to my profile now
+              Aller sur mon profil
             </Button>
           </CardContent>
         </Card>
@@ -228,16 +211,22 @@ const ResetPassword = () => {
       </div>
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">Reset Your Password</CardTitle>
-          <CardDescription className="text-center">Enter your new password below</CardDescription>
+          <CardTitle className="text-2xl font-bold text-center">
+            {isActivation ? "Active ton compte" : "Nouveau mot de passe"}
+          </CardTitle>
+          <CardDescription className="text-center">
+            {isActivation
+              ? "Choisis ton mot de passe pour activer ton compte et retrouver tes billets."
+              : "Choisis ton nouveau mot de passe."}
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleResetPassword} className="space-y-4">
+          <form onSubmit={handleResetPassword} className="space-y-4" noValidate>
             {/* New password */}
             <div className="space-y-2">
               <Label htmlFor="newPassword">
                 <Lock className="w-4 h-4 inline mr-2" />
-                New Password
+                Mot de passe
               </Label>
               <div className="relative">
                 <Input
@@ -250,61 +239,31 @@ const ResetPassword = () => {
                     setSubmitError(null);
                   }}
                   required
+                  maxLength={PASSWORD_MAX_LENGTH}
+                  autoComplete="new-password"
                   className="pr-10"
                 />
                 <button
                   type="button"
                   tabIndex={-1}
+                  aria-label={showNewPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
                   onClick={() => setShowNewPassword(!showNewPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
                   {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
-              {newPassword && (
-                <div className="space-y-2 pt-2">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">Password strength:</span>
-                    <span
-                      className={`font-medium ${
-                        passwordStrength.strength <= 2
-                          ? "text-red-500"
-                          : passwordStrength.strength === 3
-                          ? "text-yellow-500"
-                          : "text-green-600"
-                      }`}
-                    >
-                      {passwordStrength.label}
-                    </span>
-                  </div>
-                  <div className="w-full bg-secondary rounded-full h-1.5">
-                    <div
-                      className={`h-1.5 rounded-full transition-all ${passwordStrength.color}`}
-                      style={{ width: `${(passwordStrength.strength / 5) * 100}%` }}
-                    />
-                  </div>
-                  <div className="space-y-1 text-xs">
-                    {checks.map(([ok, label]) => (
-                      <div
-                        key={label}
-                        className={`flex items-center gap-1.5 ${
-                          ok ? "text-green-600" : "text-muted-foreground"
-                        }`}
-                      >
-                        {ok ? <CheckCircle2 className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
-                        <span>{label}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+              <p className={`flex items-center gap-1.5 text-xs ${passwordLongEnough ? "text-green-600" : "text-muted-foreground"}`}>
+                {passwordLongEnough ? <CheckCircle2 className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+                <span>{PASSWORD_RULE_TEXT}</span>
+              </p>
             </div>
 
             {/* Confirm password */}
             <div className="space-y-2">
               <Label htmlFor="confirmPassword">
                 <Lock className="w-4 h-4 inline mr-2" />
-                Confirm New Password
+                Confirme le mot de passe
               </Label>
               <div className="relative">
                 <Input
@@ -317,11 +276,14 @@ const ResetPassword = () => {
                     setSubmitError(null);
                   }}
                   required
+                  maxLength={PASSWORD_MAX_LENGTH}
+                  autoComplete="new-password"
                   className="pr-10"
                 />
                 <button
                   type="button"
                   tabIndex={-1}
+                  aria-label={showConfirmPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
@@ -333,17 +295,17 @@ const ResetPassword = () => {
                 </button>
               </div>
               {confirmPassword && confirmPassword !== newPassword && (
-                <p className="text-xs text-red-500">Passwords do not match</p>
+                <p className="text-xs text-red-500">Les deux mots de passe ne sont pas identiques.</p>
               )}
-              {confirmPassword && confirmPassword === newPassword && newPassword.length >= 12 && (
+              {confirmPassword && confirmPassword === newPassword && passwordLongEnough && (
                 <p className="text-xs text-green-600 flex items-center gap-1">
-                  <CheckCircle2 className="w-3 h-3" /> Passwords match
+                  <CheckCircle2 className="w-3 h-3" /> Identiques
                 </p>
               )}
             </div>
 
             {submitError && (
-              <div className="flex items-start gap-2 px-3 py-2 rounded-md bg-destructive/10 border border-destructive/30 text-destructive text-sm">
+              <div role="alert" className="flex items-start gap-2 px-3 py-2 rounded-md bg-destructive/10 border border-destructive/30 text-destructive text-sm">
                 <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
                 <span>{submitError}</span>
               </div>
@@ -351,7 +313,7 @@ const ResetPassword = () => {
 
             <Button type="submit" className="w-full" disabled={loading}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {loading ? "Updating…" : "Reset Password"}
+              {loading ? "Enregistrement…" : isActivation ? "Activer mon compte" : "Enregistrer le mot de passe"}
             </Button>
 
             <div className="text-center">
@@ -360,7 +322,7 @@ const ResetPassword = () => {
                 onClick={() => navigate("/auth")}
                 className="text-sm text-primary hover:underline"
               >
-                Back to login
+                Retour à la connexion
               </button>
             </div>
           </form>

@@ -29,13 +29,9 @@
  */
 
 import { Webhook } from "https://esm.sh/standardwebhooks@1.0.0";
-import {
-  renderEmail,
-  ctaButton,
-  codeBlock,
-  escapeHtml,
-} from "../_shared/emailComponents.ts";
-import { emailTokens, legalFooter } from "../_shared/emailTokens.ts";
+import { renderEmail } from "../_shared/emailComponents.ts";
+import { legalFooter } from "../_shared/emailTokens.ts";
+import { buildAuthEmailContent, nextPathFor } from "../_shared/authEmailContent.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -90,13 +86,7 @@ function buildVerifyUrl(payload: AuthHookPayload): string {
     "",
   );
 
-  let next = "/profile";
-  try {
-    const url = new URL(redirect_to);
-    next = url.pathname + url.search + url.hash || "/profile";
-  } catch {
-    if (redirect_to?.startsWith("/")) next = redirect_to;
-  }
+  const next = nextPathFor(email_action_type, redirect_to);
 
   const params = new URLSearchParams({
     token_hash,
@@ -104,156 +94,6 @@ function buildVerifyUrl(payload: AuthHookPayload): string {
     next,
   });
   return `${siteUrl}/auth/confirm?${params.toString()}`;
-}
-
-interface EmailContent {
-  subject: string;
-  eyebrow: string;
-  title: string;
-  preheader: string;
-  bodyHtml: string;
-  text: string;
-}
-
-function firstNameFrom(user: AuthHookPayload["user"]): string {
-  const meta = user.user_metadata as { full_name?: string } | undefined;
-  if (meta?.full_name) {
-    const first = meta.full_name.split(/\s+/)[0];
-    if (first) return first;
-  }
-  const localPart = user.email.split("@")[0] ?? "there";
-  return localPart.split(/[.\-_]/)[0] || "there";
-}
-
-function buildContent(payload: AuthHookPayload, link: string): EmailContent {
-  const name = escapeHtml(firstNameFrom(payload.user));
-  const greeting = `<p style="margin:0 0 16px">Hi ${name},</p>`;
-  const otp = payload.email_data.token; // 6-digit OTP for clients without link support
-  const fallback = `<p style="margin:18px 0 0;font-size:12px;color:${emailTokens.textMuted}">
-    If the button does not work, copy this link into your browser:<br>
-    <span style="color:${emailTokens.textPrimary};word-break:break-all">${escapeHtml(link)}</span>
-  </p>`;
-  const textFallback = `If the button does not work, open this link: ${link}`;
-
-  switch (payload.email_data.email_action_type) {
-    case "signup":
-      return {
-        subject: "Confirm your Ticket Safe account",
-        eyebrow: "Account · Confirm your email",
-        title: "Welcome to Ticket Safe",
-        preheader: "Confirm your email to start using Ticket Safe.",
-        bodyHtml: `
-          ${greeting}
-          <p style="margin:0 0 16px">You're one step away from joining the ticket platform built for ESCP students. Confirm your email to activate your account.</p>
-          ${ctaButton("Confirm my email", link)}
-          <p style="margin:18px 0 0;font-size:13px;color:${emailTokens.textMuted}">This link expires in 24 hours. If you did not sign up, you can safely ignore this email.</p>
-          ${codeBlock("6-digit code (alternative)", otp)}
-          ${fallback}
-        `,
-        text: `Hi,\n\nConfirm your email to activate your Ticket Safe account.\n\nCode: ${otp}\n${textFallback}\n\nThis link expires in 24 hours.`,
-      };
-
-    case "recovery":
-      return {
-        subject: "Reset your Ticket Safe password",
-        eyebrow: "Account · Password reset",
-        title: "Reset your password",
-        preheader: "Use the secure link to choose a new password.",
-        bodyHtml: `
-          ${greeting}
-          <p style="margin:0 0 16px">We received a request to reset your Ticket Safe password. Click below to choose a new one.</p>
-          ${ctaButton("Reset my password", link)}
-          <p style="margin:18px 0 0;font-size:13px;color:${emailTokens.textMuted}">This link is valid for 1 hour. If you did not request this, ignore this email — your password stays the same.</p>
-          ${codeBlock("6-digit code (alternative)", otp)}
-          ${fallback}
-        `,
-        text: `We received a request to reset your Ticket Safe password.\n\nCode: ${otp}\n${textFallback}\n\nValid for 1 hour. If you did not request this, ignore this email.`,
-      };
-
-    case "magiclink":
-      return {
-        subject: "Your Ticket Safe sign-in link",
-        eyebrow: "Account · Sign in",
-        title: "Sign in to Ticket Safe",
-        preheader: "One click and you're in — no password needed.",
-        bodyHtml: `
-          ${greeting}
-          <p style="margin:0 0 16px">Use the secure link below to sign in to Ticket Safe.</p>
-          ${ctaButton("Sign me in", link)}
-          <p style="margin:18px 0 0;font-size:13px;color:${emailTokens.textMuted}">This link expires in 10 minutes. If it wasn't you, ignore this email.</p>
-          ${codeBlock("6-digit code (alternative)", otp)}
-          ${fallback}
-        `,
-        text: `Sign in to Ticket Safe.\n\nCode: ${otp}\n${textFallback}\n\nExpires in 10 minutes.`,
-      };
-
-    case "invite":
-      return {
-        subject: "You've been invited to Ticket Safe",
-        eyebrow: "Account · Invitation",
-        title: "You've been invited",
-        preheader: "Accept your invitation to join Ticket Safe.",
-        bodyHtml: `
-          ${greeting}
-          <p style="margin:0 0 16px">You've been invited to join Ticket Safe — the ticket platform built for student events.</p>
-          ${ctaButton("Accept invitation", link)}
-          <p style="margin:18px 0 0;font-size:13px;color:${emailTokens.textMuted}">This invitation expires in 7 days.</p>
-          ${fallback}
-        `,
-        text: `You've been invited to join Ticket Safe.\n\n${textFallback}\n\nExpires in 7 days.`,
-      };
-
-    case "email_change":
-    case "email_change_current":
-    case "email_change_new":
-      return {
-        subject: "Confirm your new email — Ticket Safe",
-        eyebrow: "Account · Email change",
-        title: "Confirm your new email",
-        preheader: "Click the link to finish changing your email address.",
-        bodyHtml: `
-          ${greeting}
-          <p style="margin:0 0 16px">We received a request to update the email address on your Ticket Safe account. Confirm this change below.</p>
-          ${ctaButton("Confirm new email", link)}
-          <p style="margin:18px 0 0;font-size:13px;color:${emailTokens.textMuted}">If you did not request this change, contact us immediately at ${legalFooter.supportEmail}.</p>
-          ${codeBlock("6-digit code (alternative)", otp)}
-          ${fallback}
-        `,
-        text: `Confirm the new email address on your Ticket Safe account.\n\nCode: ${otp}\n${textFallback}\n\nDidn't request this? Contact ticketsafe.friendly@gmail.com immediately.`,
-      };
-
-    case "reauthentication":
-      return {
-        subject: "Re-authenticate your Ticket Safe account",
-        eyebrow: "Account · Verify it's you",
-        title: "Verify it's you",
-        preheader: "Enter the 6-digit code to continue.",
-        bodyHtml: `
-          ${greeting}
-          <p style="margin:0 0 16px">For your security, enter the code below to confirm this action on your Ticket Safe account.</p>
-          ${codeBlock("Your verification code", otp)}
-          <p style="margin:18px 0 0;font-size:13px;color:${emailTokens.textMuted}">This code expires in 5 minutes. If it wasn't you, change your password immediately.</p>
-        `,
-        text: `Verification code: ${otp}\n\nExpires in 5 minutes. If this wasn't you, change your password immediately.`,
-      };
-
-    case "login":
-    default:
-      return {
-        subject: "Sign in to Ticket Safe",
-        eyebrow: "Account · Sign in",
-        title: "Sign in to Ticket Safe",
-        preheader: "Click the secure link to continue.",
-        bodyHtml: `
-          ${greeting}
-          <p style="margin:0 0 16px">Use the secure link below to continue on Ticket Safe.</p>
-          ${ctaButton("Continue", link)}
-          ${codeBlock("6-digit code (alternative)", otp)}
-          ${fallback}
-        `,
-        text: `Sign in to Ticket Safe.\n\nCode: ${otp}\n${textFallback}`,
-      };
-  }
 }
 
 Deno.serve(async (req) => {
@@ -300,7 +140,14 @@ Deno.serve(async (req) => {
   );
 
   const verifyLink = buildVerifyUrl(payload);
-  const content = buildContent(payload, verifyLink);
+  // Wording lives in _shared/authEmailContent.ts (French, with an "activate your
+  // account" version for accounts created by a purchase without an account).
+  const content = buildAuthEmailContent({
+    user: payload.user,
+    action: payload.email_data.email_action_type,
+    link: verifyLink,
+    otp: payload.email_data.token,
+  });
 
   const { html, text } = renderEmail({
     eyebrow: content.eyebrow,
@@ -319,6 +166,8 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         from: "Ticket Safe <noreply@ticket-safe.eu>",
+        // Replies reach the support inbox instead of the no-reply address.
+        reply_to: legalFooter.supportEmail,
         to: [payload.user.email],
         subject: content.subject,
         html,

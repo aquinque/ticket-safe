@@ -1361,6 +1361,9 @@ export type Database = {
       }
       profiles: {
         Row: {
+          first_name: string | null
+          gender: string | null
+          last_name: string | null
           campus: string | null
           created_at: string
           deleted_at: string | null
@@ -1377,6 +1380,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          first_name?: string | null
+          gender?: string | null
+          last_name?: string | null
           campus?: string | null
           created_at?: string
           deleted_at?: string | null
@@ -1393,6 +1399,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          first_name?: string | null
+          gender?: string | null
+          last_name?: string | null
           campus?: string | null
           created_at?: string
           deleted_at?: string | null

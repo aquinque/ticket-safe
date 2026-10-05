@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { BackButton } from "@/components/BackButton";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,39 +9,57 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Loader2, Mail, Lock, User, CheckCircle2, XCircle, Eye, EyeOff } from "lucide-react";
-import { z } from "zod";
+import { Loader2, Mail, Lock, User, CheckCircle2, XCircle, Eye, EyeOff, AlertCircle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { authRedirect } from "@/lib/siteUrl";
+import {
+  GENDER_CHOICES,
+  PASSWORD_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH,
+  PASSWORD_RULE_TEXT,
+  authErrorMessage,
+  isResendTooSoon,
+  isValidEmail,
+  suggestEmailFix,
+  type GenderChoice,
+} from "@/lib/authRules";
+import { signUpWithEmail, type SignupField } from "@/lib/signupFlow";
 
-const passwordSchema = z.string()
-  .min(12, 'Password must be at least 12 characters')
-  .max(128, 'Password must be less than 128 characters')
-  .regex(/[A-Z]/, 'Must contain uppercase letter')
-  .regex(/[a-z]/, 'Must contain lowercase letter')
-  .regex(/[0-9]/, 'Must contain number')
-  .regex(/[^A-Za-z0-9]/, 'Must contain special character');
+/** Which email the person is waiting for. Drives the "check your inbox" screen. */
+type PendingKind = "confirm" | "existing" | "reset";
 
-const GENDER_OPTIONS: { value: "female" | "male"; label: string }[] = [
-  { value: "female", label: "Fille" },
-  { value: "male", label: "Garçon" },
-];
+interface PendingEmail {
+  kind: PendingKind;
+  email: string;
+  /** False when the email could not be sent: the screen then leads with the resend button. */
+  emailSent: boolean;
+  notice: string | null;
+}
 
-// Reads the first validation error from a failed edge function call. A non-2xx
-// response hides its body in `data`, so it is read from `error.context`.
-const readValidationError = async (error: unknown, data: unknown): Promise<string | null> => {
-  const fromData = (data as { errors?: string[] } | null)?.errors?.[0];
-  if (fromData) return fromData;
-  const ctx = (error as { context?: Response } | null)?.context;
-  if (ctx && typeof ctx.json === "function") {
-    try {
-      const body = await ctx.clone().json();
-      if (body?.errors?.[0]) return body.errors[0] as string;
-    } catch {
-      /* body was not JSON */
-    }
-  }
-  return null;
+interface FormError {
+  message: string;
+  /** Offer the "choose a new password" path next to the error. */
+  offerReset?: boolean;
+}
+
+const RESEND_COOLDOWN_MS = 60_000;
+const INVALID_EMAIL = "Cette adresse email n'est pas valide. Vérifie qu'il n'y a pas de faute de frappe.";
+
+const FIELD_IDS: Record<SignupField, string> = {
+  email: "email",
+  firstName: "firstName",
+  lastName: "lastName",
+  password: "password",
+};
+
+const isInvalidCredentials = (error: unknown): boolean => {
+  const e = (error ?? {}) as { code?: string; message?: string };
+  return e.code === "invalid_credentials" || (e.message ?? "").toLowerCase().includes("invalid login credentials");
+};
+
+const isEmailNotConfirmed = (error: unknown): boolean => {
+  const e = (error ?? {}) as { code?: string; message?: string };
+  return e.code === "email_not_confirmed" || (e.message ?? "").toLowerCase().includes("email not confirmed");
 };
 
 const Auth = () => {
@@ -51,16 +69,17 @@ const Auth = () => {
   const [isLogin, setIsLogin] = useState(mode !== 'signup');
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
-  const [confirmEmail, setConfirmEmail] = useState("");
   const [password, setPassword] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [gender, setGender] = useState<"" | "female" | "male">("");
+  const [gender, setGender] = useState<GenderChoice>("");
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [pendingConfirmEmail, setPendingConfirmEmail] = useState<string | null>(null);
+  const [pending, setPending] = useState<PendingEmail | null>(null);
+  const [formError, setFormError] = useState<FormError | null>(null);
   const [resendCooldownUntil, setResendCooldownUntil] = useState<number | null>(null);
   const [, forceTick] = useState(0);
+  const errorRef = useRef<HTMLDivElement | null>(null);
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
 
@@ -75,26 +94,10 @@ const Auth = () => {
     }
   }, [user, authLoading, navigate, searchParams]);
 
-  const validateEmail = (email: string) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-  };
-
-  const getPasswordStrength = (password: string): { strength: number; label: string; color: string } => {
-    let strength = 0;
-    if (password.length >= 12) strength++;
-    if (/[A-Z]/.test(password)) strength++;
-    if (/[a-z]/.test(password)) strength++;
-    if (/[0-9]/.test(password)) strength++;
-    if (/[^A-Za-z0-9]/.test(password)) strength++;
-
-    if (strength <= 2) return { strength, label: 'Weak', color: 'bg-red-500' };
-    if (strength === 3) return { strength, label: 'Medium', color: 'bg-yellow-500' };
-    if (strength === 4) return { strength, label: 'Strong', color: 'bg-green-500' };
-    return { strength, label: 'Very Strong', color: 'bg-green-600' };
-  };
-
-  const passwordStrength = getPasswordStrength(password);
+  // An error must be seen: on a phone the keyboard can hide it, so bring it into view.
+  useEffect(() => {
+    if (formError) errorRef.current?.scrollIntoView?.({ block: "center", behavior: "smooth" });
+  }, [formError]);
 
   // Re-render once a second while the resend cooldown is counting down, so the
   // button label ticks instead of freezing.
@@ -108,22 +111,42 @@ const Auth = () => {
     ? Math.max(0, Math.ceil((resendCooldownUntil - Date.now()) / 1000))
     : 0;
 
-  const handleResendConfirmation = async () => {
-    if (!pendingConfirmEmail) return;
-    if (resendSecondsLeft > 0) return;
+  const startCooldown = () => setResendCooldownUntil(Date.now() + RESEND_COOLDOWN_MS);
+
+  const fail = (message: string, options: { offerReset?: boolean; field?: SignupField } = {}) => {
+    setFormError({ message, offerReset: options.offerReset });
+    if (options.field) document.getElementById(FIELD_IDS[options.field])?.focus();
+  };
+
+  const switchMode = (login: boolean) => {
+    setIsLogin(login);
+    setShowForgotPassword(false);
+    setPending(null);
+    setFormError(null);
+  };
+
+  const handleResend = async () => {
+    if (!pending || resendSecondsLeft > 0) return;
     setLoading(true);
     try {
-      const { error } = await supabase.auth.resend({
-        type: 'signup',
-        email: pendingConfirmEmail,
-        options: { emailRedirectTo: authRedirect("/profile") },
-      });
+      const { error } = pending.kind === "confirm"
+        ? await supabase.auth.resend({
+            type: 'signup',
+            email: pending.email,
+            options: { emailRedirectTo: authRedirect("/profile") },
+          })
+        : await supabase.auth.resetPasswordForEmail(pending.email, {
+            redirectTo: authRedirect("/reset-password"),
+          });
       if (error) throw error;
-      setResendCooldownUntil(Date.now() + 60_000);
-      toast.success("Confirmation email resent. Check your inbox.");
+      startCooldown();
+      setPending({ ...pending, emailSent: true, notice: null });
+      toast.success("Email renvoyé. Regarde ta boîte mail.");
     } catch (err) {
-      console.error("[Auth] resend confirmation failed:", err);
-      toast.error("Could not resend confirmation email. Try again later.");
+      console.error("[Auth] resend failed:", err);
+      // Supabase allows one email per minute per person: keep the button on hold.
+      if (isResendTooSoon(err)) startCooldown();
+      setPending({ ...pending, notice: authErrorMessage(err) });
     } finally {
       setLoading(false);
     }
@@ -131,228 +154,185 @@ const Auth = () => {
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+    setFormError(null);
 
+    if (!isValidEmail(email)) {
+      fail(INVALID_EMAIL);
+      return;
+    }
+
+    setLoading(true);
     try {
-      if (!validateEmail(email)) {
-        toast.error("Please enter a valid email address");
-        setLoading(false);
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: authRedirect("/reset-password"),
+      });
+      if (error && !isResendTooSoon(error)) throw error;
+
+      startCooldown();
+      setPending({
+        kind: "reset",
+        email: email.trim(),
+        emailSent: true,
+        notice: error ? "Un email t'a déjà été envoyé il y a moins d'une minute." : null,
+      });
+      setShowForgotPassword(false);
+    } catch (error) {
+      console.error("[Auth] password reset request failed:", error);
+      fail(authErrorMessage(error));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLogin = async () => {
+    if (!isValidEmail(email)) {
+      fail(INVALID_EMAIL, { field: "email" });
+      return;
+    }
+
+    if (!password) {
+      fail("Saisis ton mot de passe.", { field: "password" });
+      return;
+    }
+
+    // Check if account is locked (server-side guard; fail open so a guard
+    // outage never blocks a legitimate login).
+    let isLocked = false;
+    try {
+      const { data: lg } = await supabase.functions.invoke("login-guard", {
+        body: { action: "check", email: email.trim() },
+      });
+      isLocked = !!(lg as { locked?: boolean } | null)?.locked;
+    } catch { /* guard unavailable — proceed */ }
+
+    if (isLocked) {
+      fail("Compte bloqué 15 minutes après plusieurs essais ratés. Réessaie plus tard, ou choisis un nouveau mot de passe.", { offerReset: true });
+      return;
+    }
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
+
+    if (error) {
+      if (isEmailNotConfirmed(error)) {
+        // Sign-in is refused until the link in the email is clicked. The
+        // confirmation screen offers to resend it.
+        setPending({ kind: "confirm", email: email.trim(), emailSent: true, notice: "Ton compte n'est pas encore activé." });
+        return;
+      }
+      if (!isInvalidCredentials(error)) {
+        // Network or server trouble: say so, and do not count it as a failed attempt.
+        console.error("[Auth] sign-in failed:", error);
+        fail(authErrorMessage(error));
+        return;
+      }
+      // Increment failed login attempts (server-side guard).
+      try {
+        await supabase.functions.invoke("login-guard", {
+          body: { action: "fail", email: email.trim() },
+        });
+      } catch { /* ignore */ }
+      fail("Email ou mot de passe incorrect.", { offerReset: true });
+      return;
+    }
+
+    if (data.user && data.session) {
+      // DEFENSE: block sign-in if email isn't confirmed yet. This catches
+      // cases where Supabase's "Confirm email" toggle was off when the
+      // account was created, or any edge case where a session exists
+      // for an unverified account.
+      if (!data.user.email_confirmed_at) {
+        await supabase.auth.signOut();
+        setPending({ kind: "confirm", email: email.trim(), emailSent: true, notice: "Ton compte n'est pas encore activé." });
         return;
       }
 
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: authRedirect("/reset-password"),
-      });
+      // Reset failed login attempts on success (server-side guard).
+      try {
+        await supabase.functions.invoke("login-guard", {
+          body: { action: "success", email: email.trim() },
+        });
+      } catch { /* ignore */ }
 
-      if (error) throw error;
+      toast.success("Content de te revoir !");
+      // Navigation handled by the useEffect watching user state
+    }
+  };
 
-      toast.success("Password reset email sent! Check your inbox.");
-      setShowForgotPassword(false);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to send password reset email");
-    } finally {
-      setLoading(false);
+  const handleSignup = async () => {
+    const outcome = await signUpWithEmail(
+      supabase.auth,
+      { email, password, firstName, lastName, gender },
+      { afterConfirm: authRedirect("/profile"), setPassword: authRedirect("/reset-password") },
+    );
+
+    switch (outcome.kind) {
+      case "invalid":
+        fail(outcome.message, { field: outcome.field });
+        return;
+      case "error":
+        fail(outcome.message);
+        return;
+      case "confirm":
+        startCooldown();
+        setPending({ kind: "confirm", email: outcome.email, emailSent: true, notice: null });
+        return;
+      case "existing":
+        if (outcome.emailSent) startCooldown();
+        setPending({ kind: "existing", email: outcome.email, emailSent: outcome.emailSent, notice: outcome.notice });
+        return;
+      case "signed_in":
+        toast.success("Compte créé !");
+        // Navigation handled by the useEffect watching user state
+        return;
     }
   };
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError(null);
     setLoading(true);
 
     try {
-      if (isLogin) {
-        // Client-side validation for login
-        if (!validateEmail(email)) {
-          toast.error("Please enter a valid email address");
-          setLoading(false);
-          return;
-        }
-
-        if (!password) {
-          toast.error("Please enter your password");
-          setLoading(false);
-          return;
-        }
-
-        // Check if account is locked (server-side guard; fail open so a guard
-        // outage never blocks a legitimate login).
-        let isLocked = false;
-        try {
-          const { data: lg } = await supabase.functions.invoke("login-guard", {
-            body: { action: "check", email: email.trim() },
-          });
-          isLocked = !!(lg as { locked?: boolean } | null)?.locked;
-        } catch { /* guard unavailable — proceed */ }
-
-        if (isLocked) {
-          toast.error("Account temporarily locked due to multiple failed login attempts. Please try again in 15 minutes.");
-          setLoading(false);
-          return;
-        }
-
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: email.trim(),
-          password,
-        });
-
-        if (error) {
-          if (
-            error.message?.toLowerCase().includes('email not confirmed') ||
-            (error as { code?: string }).code === 'email_not_confirmed'
-          ) {
-            // Sign-in is refused until the link in the email is clicked. The
-            // confirmation screen offers to resend it.
-            setPendingConfirmEmail(email.trim());
-            setLoading(false);
-            return;
-          }
-          // Increment failed login attempts (server-side guard).
-          try {
-            await supabase.functions.invoke("login-guard", {
-              body: { action: "fail", email: email.trim() },
-            });
-          } catch { /* ignore */ }
-          toast.error("Invalid email or password.");
-          setLoading(false);
-          return;
-        }
-
-        if (data.user && data.session) {
-          // DEFENSE: block sign-in if email isn't confirmed yet. This catches
-          // cases where Supabase's "Confirm email" toggle was off when the
-          // account was created, or any edge case where a session exists
-          // for an unverified account.
-          if (!data.user.email_confirmed_at) {
-            await supabase.auth.signOut();
-            toast.error("Please confirm your email first — check your inbox for the verification link.");
-            setPendingConfirmEmail(email.trim());
-            setLoading(false);
-            return;
-          }
-
-          // Reset failed login attempts on success (server-side guard).
-          try {
-            await supabase.functions.invoke("login-guard", {
-              body: { action: "success", email: email.trim() },
-            });
-          } catch { /* ignore */ }
-
-          toast.success("Welcome back!");
-          // Navigation handled by the useEffect watching user state
-        }
-      } else {
-        // Client-side validation for signup
-        if (!validateEmail(email)) {
-          toast.error("Please enter a valid email address");
-          setLoading(false);
-          return;
-        }
-
-        if (email.trim().toLowerCase() !== confirmEmail.trim().toLowerCase()) {
-          toast.error("The email addresses don't match");
-          setLoading(false);
-          return;
-        }
-
-        if (!firstName.trim() || !lastName.trim()) {
-          toast.error("Please enter your first and last name");
-          setLoading(false);
-          return;
-        }
-
-        if (gender !== "female" && gender !== "male") {
-          toast.error("Please select a gender");
-          setLoading(false);
-          return;
-        }
-
-        const passwordValidation = passwordSchema.safeParse(password);
-        if (!passwordValidation.success) {
-          const errors = passwordValidation.error.errors.map(e => e.message);
-          toast.error(errors[0]);
-          setLoading(false);
-          return;
-        }
-
-        // Server-side validation, including the email confirmation match.
-        const { data: validationData, error: validationError } = await supabase.functions.invoke(
-          'validate-signup',
-          {
-            body: {
-              accountType: 'ticketsafe',
-              email: email.trim(),
-              emailConfirm: confirmEmail.trim(),
-              firstName: firstName.trim(),
-              lastName: lastName.trim(),
-              gender,
-            },
-          }
-        );
-
-        if (validationError || !validationData?.valid) {
-          const message = await readValidationError(validationError, validationData);
-          toast.error(message ?? "Please check your details and try again.");
-          setLoading(false);
-          return;
-        }
-
-        const { data, error } = await supabase.auth.signUp({
-          email: email.trim(),
-          password,
-          options: {
-            emailRedirectTo: authRedirect("/profile"),
-            data: {
-              first_name: firstName.trim(),
-              last_name: lastName.trim(),
-              full_name: `${firstName.trim()} ${lastName.trim()}`,
-              gender,
-            },
-          },
-        });
-
-        if (error) {
-          const errMsg = error instanceof Error ? error.message : String(error ?? 'An error occurred');
-          if (errMsg.includes("already registered") || errMsg.includes("User already registered")) {
-            toast.error("An account already exists with this email. Sign in instead.");
-            setIsLogin(true);
-          } else {
-            toast.error("Unable to create account. Please verify your information.");
-          }
-          setLoading(false);
-          return;
-        }
-
-        // Supabase returns a user with no identities when the email already has an
-        // account. Show the same path as "already registered" instead of "check your inbox".
-        if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
-          toast.error("An account already exists with this email. Sign in instead.");
-          setIsLogin(true);
-          setLoading(false);
-          return;
-        }
-
-        // Email confirmation is always required before the user can sign in.
-        if (data.user && !data.user.email_confirmed_at) {
-          if (data.session) {
-            // Defense in depth: the session should not exist before confirmation.
-            await supabase.auth.signOut();
-          }
-          setPendingConfirmEmail(email.trim());
-          toast.success("Account created — check your email to confirm.");
-        } else if (data.user && data.session) {
-          // Confirmation is off on the project: force sign out and ask for confirmation.
-          await supabase.auth.signOut();
-          setPendingConfirmEmail(email.trim());
-          toast.success("Account created — please confirm your email before signing in.");
-        }
-      }
+      if (isLogin) await handleLogin();
+      else await handleSignup();
     } catch (error) {
-      // Generic error message to prevent information disclosure
-      toast.error("An error occurred during authentication. Please try again.");
+      console.error("[Auth] unexpected:", error);
+      fail(authErrorMessage(error));
     } finally {
       setLoading(false);
     }
   };
+
+  const emailSuggestion = !isLogin ? suggestEmailFix(email) : null;
+  const passwordLongEnough = password.length >= PASSWORD_MIN_LENGTH;
+
+  const errorBox = formError && (
+    <div
+      ref={errorRef}
+      role="alert"
+      className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2.5 text-sm text-destructive space-y-1.5"
+    >
+      <p className="flex items-start gap-2">
+        <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+        <span>{formError.message}</span>
+      </p>
+      {formError.offerReset && (
+        <p className="text-xs text-foreground/80 pl-6">
+          Tu as acheté un billet sans créer de compte ? Ton compte existe déjà.{" "}
+          <button
+            type="button"
+            onClick={() => { setFormError(null); setShowForgotPassword(true); }}
+            className="text-primary font-semibold hover:underline"
+          >
+            Choisir un nouveau mot de passe
+          </button>
+        </p>
+      )}
+    </div>
+  );
 
   return (
     <div className="theme-night min-h-screen bg-background flex flex-col">
@@ -363,74 +343,114 @@ const Auth = () => {
         <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold text-center">
-            {isLogin ? "Welcome Back" : "Create Account"}
+            {isLogin ? "Connexion" : "Créer un compte"}
           </CardTitle>
           <CardDescription className="text-center">
             {isLogin
-              ? "Sign in to access your ticket marketplace"
-              : "Join the TicketSafe marketplace"}
+              ? "Connecte-toi pour retrouver tes billets"
+              : "Retrouve tes billets et tes achats au même endroit"}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {pendingConfirmEmail ? (
+          {pending ? (
             <div className="space-y-4 text-center">
               <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
                 <Mail className="w-6 h-6 text-primary" />
               </div>
               <div className="space-y-2">
-                <p className="text-base font-semibold">Vérifie ta boîte mail</p>
-                <p className="text-sm text-muted-foreground">
-                  We sent a verification link to <strong>{pendingConfirmEmail}</strong>.
-                  Click it to activate your account, then come back to sign in.
+                <p className="text-base font-semibold">
+                  {pending.kind === "existing" ? "Tu as déjà un compte" : "Vérifie ta boîte mail"}
                 </p>
+                {pending.kind === "confirm" && (
+                  <p className="text-sm text-muted-foreground">
+                    On t'a envoyé un email à <strong className="break-all">{pending.email}</strong>.
+                    Clique sur le lien pour activer ton compte.
+                  </p>
+                )}
+                {pending.kind === "existing" && (
+                  <p className="text-sm text-muted-foreground">
+                    L'adresse <strong className="break-all">{pending.email}</strong> a déjà un compte.
+                    Si tu as acheté un billet sans créer de compte, il a été créé automatiquement à ce moment-là.{" "}
+                    {pending.emailSent
+                      ? "On vient de t'envoyer un email : clique sur le lien pour choisir ton mot de passe et retrouver tes billets."
+                      : "Demande un email ci-dessous pour choisir ton mot de passe."}
+                  </p>
+                )}
+                {pending.kind === "reset" && (
+                  <p className="text-sm text-muted-foreground">
+                    Si un compte existe pour <strong className="break-all">{pending.email}</strong>, on vient
+                    d'envoyer un email. Clique sur le lien pour choisir un nouveau mot de passe.
+                  </p>
+                )}
+                {pending.notice && (
+                  <p role="alert" className="text-sm font-medium text-foreground">{pending.notice}</p>
+                )}
                 <p className="text-xs text-muted-foreground">
-                  Don't see it? Check your spam folder, or resend below.
+                  Tu ne le vois pas ? Regarde dans tes spams. L'email vient de noreply@ticket-safe.eu.
                 </p>
               </div>
-              <Button onClick={handleResendConfirmation} variant="outline" className="w-full" disabled={loading || resendSecondsLeft > 0}>
+              <Button onClick={handleResend} variant="outline" className="w-full" disabled={loading || resendSecondsLeft > 0}>
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {resendSecondsLeft > 0 ? `Renvoyer dans ${resendSecondsLeft}s` : "Renvoyer l'email"}
+                {resendSecondsLeft > 0
+                  ? `Renvoyer dans ${resendSecondsLeft}s`
+                  : pending.emailSent ? "Renvoyer l'email" : "Envoyer l'email"}
               </Button>
-              <button
-                type="button"
-                onClick={() => { setPendingConfirmEmail(null); setIsLogin(true); }}
-                className="text-sm text-primary hover:underline"
-              >
-                Back to sign in
-              </button>
+              <div className="flex flex-col gap-2">
+                {pending.kind !== "reset" && (
+                  <button
+                    type="button"
+                    onClick={() => { setPending(null); setIsLogin(false); }}
+                    className="text-sm text-primary hover:underline"
+                  >
+                    Mauvaise adresse ? Modifier
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => switchMode(true)}
+                  className="text-sm text-primary hover:underline"
+                >
+                  {pending.kind === "existing" ? "J'ai déjà mon mot de passe : me connecter" : "Retour à la connexion"}
+                </button>
+              </div>
             </div>
           ) : showForgotPassword ? (
-            <form onSubmit={handleForgotPassword} className="space-y-4">
+            <form onSubmit={handleForgotPassword} className="space-y-4" noValidate>
+              <p className="text-sm text-muted-foreground">
+                Indique ton adresse email : on t'envoie un lien pour choisir un nouveau mot de passe.
+              </p>
               <div className="space-y-2">
                 <Label htmlFor="reset-email">
                   <Mail className="w-4 h-4 inline mr-2" />
-                  Email Address
+                  Adresse email
                 </Label>
                 <Input
                   id="reset-email"
                   type="email"
-                  placeholder="you@example.com"
+                  autoComplete="email"
+                  placeholder="toi@exemple.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
                 />
               </div>
+              {errorBox}
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Send Reset Link
+                Recevoir le lien
               </Button>
               <div className="text-center">
                 <button
                   type="button"
-                  onClick={() => setShowForgotPassword(false)}
+                  onClick={() => { setShowForgotPassword(false); setFormError(null); }}
                   className="text-sm text-primary hover:underline"
                 >
-                  Back to login
+                  Retour à la connexion
                 </button>
               </div>
             </form>
           ) : (
-            <form onSubmit={handleAuth} className="space-y-4">
+            <form onSubmit={handleAuth} className="space-y-4" noValidate>
             {!isLogin && (
               <>
                 <div className="grid grid-cols-2 gap-3">
@@ -467,46 +487,49 @@ const Auth = () => {
             <div className="space-y-2">
               <Label htmlFor="email">
                 <Mail className="w-4 h-4 inline mr-2" />
-                {isLogin ? "Email" : "Adresse email"}
+                Adresse email
               </Label>
               <Input
                 id="email"
                 type="email"
+                inputMode="email"
                 autoComplete="email"
-                placeholder="you@example.com"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                placeholder="toi@exemple.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
               />
+              {emailSuggestion && (
+                <button
+                  type="button"
+                  onClick={() => setEmail(emailSuggestion)}
+                  className="text-xs text-primary hover:underline text-left"
+                >
+                  Tu voulais dire {emailSuggestion} ?
+                </button>
+              )}
+              {!isLogin && (
+                <p className="text-xs text-muted-foreground">
+                  Déjà acheté un billet ? Utilise la même adresse pour le retrouver.
+                </p>
+              )}
             </div>
             {!isLogin && (
               <div className="space-y-2">
-                <Label htmlFor="confirmEmail">Confirmer l'adresse email</Label>
-                <Input
-                  id="confirmEmail"
-                  type="email"
-                  autoComplete="off"
-                  placeholder="you@example.com"
-                  value={confirmEmail}
-                  onChange={(e) => setConfirmEmail(e.target.value)}
-                  required
-                />
-                {confirmEmail && confirmEmail.trim().toLowerCase() !== email.trim().toLowerCase() && (
-                  <p className="text-xs text-red-500">Les adresses email ne correspondent pas.</p>
-                )}
-              </div>
-            )}
-            {!isLogin && (
-              <div className="space-y-2">
-                <Label>Genre</Label>
-                <div className="grid grid-cols-2 gap-3">
-                  {GENDER_OPTIONS.map((option) => (
+                <Label>
+                  Genre <span className="font-normal text-muted-foreground">(facultatif)</span>
+                </Label>
+                <div className="grid grid-cols-3 gap-2">
+                  {GENDER_CHOICES.map((option) => (
                     <button
                       key={option.value}
                       type="button"
                       aria-pressed={gender === option.value}
-                      onClick={() => setGender(option.value)}
-                      className={`h-10 rounded-md border text-sm font-semibold transition-colors ${
+                      onClick={() => setGender(gender === option.value ? "" : option.value)}
+                      className={`min-h-10 px-2 py-2 rounded-md border text-xs sm:text-sm font-semibold leading-tight transition-colors ${
                         gender === option.value
                           ? "border-primary bg-primary/10 text-foreground"
                           : "border-border text-muted-foreground hover:text-foreground"
@@ -531,7 +554,7 @@ const Auth = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  minLength={isLogin ? undefined : 12}
+                  maxLength={isLogin ? undefined : PASSWORD_MAX_LENGTH}
                   autoComplete={isLogin ? "current-password" : "new-password"}
                   className="pr-10"
                 />
@@ -539,7 +562,7 @@ const Auth = () => {
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
                   tabIndex={-1}
                 >
                   {showPassword ? (
@@ -550,94 +573,54 @@ const Auth = () => {
                 </button>
               </div>
               {!isLogin && (
-                <div className="space-y-2 pt-2">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">Password strength:</span>
-                    <span className={`font-medium ${
-                      passwordStrength.strength <= 2 ? 'text-red-500' :
-                      passwordStrength.strength === 3 ? 'text-yellow-500' :
-                      passwordStrength.strength === 4 ? 'text-green-500' :
-                      'text-green-600'
-                    }`}>
-                      {password ? passwordStrength.label : ""}
-                    </span>
-                  </div>
-                  <div className="w-full bg-secondary rounded-full h-1.5">
-                    <div
-                      className={`h-1.5 rounded-full transition-all ${passwordStrength.color}`}
-                      style={{ width: `${(passwordStrength.strength / 5) * 100}%` }}
-                    />
-                  </div>
-                  <div className="space-y-1 text-xs">
-                    <div className={`flex items-center gap-1.5 ${password.length >= 12 ? 'text-green-600' : 'text-muted-foreground'}`}>
-                      {password.length >= 12 ? <CheckCircle2 className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
-                      <span>At least 12 characters</span>
-                    </div>
-                    <div className={`flex items-center gap-1.5 ${/[A-Z]/.test(password) ? 'text-green-600' : 'text-muted-foreground'}`}>
-                      {/[A-Z]/.test(password) ? <CheckCircle2 className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
-                      <span>Uppercase letter (A-Z)</span>
-                    </div>
-                    <div className={`flex items-center gap-1.5 ${/[a-z]/.test(password) ? 'text-green-600' : 'text-muted-foreground'}`}>
-                      {/[a-z]/.test(password) ? <CheckCircle2 className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
-                      <span>Lowercase letter (a-z)</span>
-                    </div>
-                    <div className={`flex items-center gap-1.5 ${/[0-9]/.test(password) ? 'text-green-600' : 'text-muted-foreground'}`}>
-                      {/[0-9]/.test(password) ? <CheckCircle2 className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
-                      <span>Number (0-9)</span>
-                    </div>
-                    <div className={`flex items-center gap-1.5 ${/[^A-Za-z0-9]/.test(password) ? 'text-green-600' : 'text-muted-foreground'}`}>
-                      {/[^A-Za-z0-9]/.test(password) ? <CheckCircle2 className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
-                      <span>Special character (!@#$...)</span>
-                    </div>
-                  </div>
-                 </div>
-               )}
-             </div>
-             <Button type="submit" className="w-full" disabled={loading}>
-               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-               {isLogin ? "Sign In" : "Create Account"}
-             </Button>
-           </form>
+                <p className={`flex items-center gap-1.5 text-xs ${passwordLongEnough ? 'text-green-600' : 'text-muted-foreground'}`}>
+                  {passwordLongEnough ? <CheckCircle2 className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+                  <span>{PASSWORD_RULE_TEXT}</span>
+                </p>
+              )}
+            </div>
+            {errorBox}
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isLogin ? "Se connecter" : "Créer mon compte"}
+            </Button>
+          </form>
           )}
 
-           {!showForgotPassword && !pendingConfirmEmail && (
-             <>
-               {isLogin && (
-                 <div className="mt-3 text-center">
-                   <button
-                     type="button"
-                     onClick={() => setShowForgotPassword(true)}
-                     className="text-sm text-primary hover:underline"
-                   >
-                     Forgot your password?
-                   </button>
-                 </div>
-               )}
-               <div className="mt-4 text-center text-sm">
-                 <button
-                   type="button"
-                   onClick={() => {
-                     setIsLogin(!isLogin);
-                     setShowForgotPassword(false);
-                     setPendingConfirmEmail(null);
-                   }}
-                   className="text-primary hover:underline"
-                 >
-                   {isLogin
-                     ? "Don't have an account? Sign up"
-                     : "Already have an account? Sign in"}
-                 </button>
-               </div>
-               {!isLogin && (
-                 <p className="mt-4 text-xs text-center text-muted-foreground">
-                   By creating an account, you agree to our{' '}
-                   <a href="/terms" className="text-primary hover:underline">Terms & Conditions</a>
-                   {' '}and{' '}
-                   <a href="/privacy" className="text-primary hover:underline">Privacy Policy</a>
-                 </p>
-               )}
-             </>
-           )}
+          {!showForgotPassword && !pending && (
+            <>
+              {isLogin && (
+                <div className="mt-3 text-center">
+                  <button
+                    type="button"
+                    onClick={() => { setFormError(null); setShowForgotPassword(true); }}
+                    className="text-sm text-primary hover:underline"
+                  >
+                    Mot de passe oublié ?
+                  </button>
+                </div>
+              )}
+              <div className="mt-4 text-center text-sm">
+                <button
+                  type="button"
+                  onClick={() => switchMode(!isLogin)}
+                  className="text-primary hover:underline"
+                >
+                  {isLogin
+                    ? "Pas encore de compte ? Créer un compte"
+                    : "Déjà un compte ? Se connecter"}
+                </button>
+              </div>
+              {!isLogin && (
+                <p className="mt-4 text-xs text-center text-muted-foreground">
+                  En créant un compte, tu acceptes nos{' '}
+                  <a href="/terms" className="text-primary hover:underline">conditions d'utilisation</a>
+                  {' '}et notre{' '}
+                  <a href="/privacy" className="text-primary hover:underline">politique de confidentialité</a>.
+                </p>
+              )}
+            </>
+          )}
         </CardContent>
         </Card>
       </div>
