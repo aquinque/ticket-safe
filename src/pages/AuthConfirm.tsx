@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Loader2, ShieldCheck, AlertTriangle, Mail } from "lucide-react";
 import { toast } from "sonner";
+import { authRedirect } from "@/lib/siteUrl";
+import { authErrorMessage, isResendTooSoon, isValidEmail } from "@/lib/authRules";
 
 /**
  * /auth/confirm
@@ -71,22 +73,32 @@ const AuthConfirm = () => {
 
     if (!token_hash || !type) {
       setStatus("error");
-      setErrorMsg("Missing or invalid confirmation link.");
+      setErrorMsg("Ce lien est incomplet. Ouvre-le directement depuis l'email, ou demande-en un nouveau.");
       return;
     }
 
     let cancelled = false;
     supabase.auth
       .verifyOtp({ token_hash, type })
-      .then(({ error }) => {
+      .then(async ({ error }) => {
         if (cancelled) return;
         if (error) {
           console.error("[auth/confirm] verifyOtp failed:", error.message);
+          // A link works once. If it was already used in this browser (double
+          // tap, second tab), the person is signed in: carry on instead of
+          // showing an error.
+          const { data } = await supabase.auth.getSession();
+          if (cancelled) return;
+          if (data.session) {
+            setStatus("ok");
+            navigate(next, { replace: true });
+            return;
+          }
           setStatus("error");
           setErrorMsg(
-            error.message.includes("expired")
-              ? "This link has expired. Please request a new one."
-              : "This link is invalid or has already been used.",
+            type === "signup"
+              ? "Ce lien a expiré ou a déjà été utilisé. Si ton compte est déjà activé, connecte-toi. Sinon, demande un nouveau lien."
+              : "Ce lien a expiré ou a déjà été utilisé. Demande-en un nouveau ci-dessous.",
           );
           return;
         }
@@ -97,7 +109,7 @@ const AuthConfirm = () => {
         if (cancelled) return;
         console.error("[auth/confirm] unexpected:", err);
         setStatus("error");
-        setErrorMsg("Something went wrong. Please request a new link.");
+        setErrorMsg("Un problème est survenu. Demande un nouveau lien ci-dessous.");
       });
 
     return () => {
@@ -116,8 +128,8 @@ const AuthConfirm = () => {
 
   const handleResend = async () => {
     const email = resendEmail.trim();
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      toast.error("Enter a valid email address.");
+    if (!isValidEmail(email)) {
+      toast.error("Saisis une adresse email valide.");
       return;
     }
     if (resendCooldownUntil && Date.now() < resendCooldownUntil) return;
@@ -125,22 +137,25 @@ const AuthConfirm = () => {
     try {
       if (linkType === "recovery") {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/reset-password`,
+          redirectTo: authRedirect("/reset-password"),
         });
         if (error) throw error;
       } else {
+        // Same destination as the first confirmation email. The email link is
+        // built from this path, so it must be the page to land on once signed in.
         const { error } = await supabase.auth.resend({
           type: "signup",
           email,
-          options: { emailRedirectTo: `${window.location.origin}/auth/confirm?next=${encodeURIComponent("/profile")}` },
+          options: { emailRedirectTo: authRedirect("/profile") },
         });
         if (error) throw error;
       }
       setResendCooldownUntil(Date.now() + 60_000);
-      toast.success("A new link was sent. Check your inbox.");
+      toast.success("Nouveau lien envoyé. Regarde ta boîte mail et tes spams.");
     } catch (err) {
       console.error("[auth/confirm] resend failed:", err);
-      toast.error("Could not send a new link. Try again later.");
+      if (isResendTooSoon(err)) setResendCooldownUntil(Date.now() + 60_000);
+      toast.error(authErrorMessage(err));
     } finally {
       setResending(false);
     }
@@ -152,14 +167,14 @@ const AuthConfirm = () => {
         {status === "verifying" && (
           <CardContent className="flex flex-col items-center justify-center py-12 gap-3">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <p className="text-sm text-muted-foreground">Verifying your link…</p>
+            <p className="text-sm text-muted-foreground">Vérification du lien…</p>
           </CardContent>
         )}
 
         {status === "ok" && (
           <CardContent className="flex flex-col items-center justify-center py-12 gap-3">
             <ShieldCheck className="h-8 w-8 text-primary" />
-            <p className="text-sm text-muted-foreground">Verified. Redirecting…</p>
+            <p className="text-sm text-muted-foreground">C'est bon. Redirection…</p>
           </CardContent>
         )}
 
@@ -170,7 +185,7 @@ const AuthConfirm = () => {
                 <AlertTriangle className="w-6 h-6 text-destructive" />
               </div>
               <CardTitle className="text-2xl font-bold text-destructive">
-                Link not valid
+                Lien non valide
               </CardTitle>
               <CardDescription>{errorMsg}</CardDescription>
             </CardHeader>
@@ -181,8 +196,8 @@ const AuthConfirm = () => {
                     <Mail className="w-4 h-4 text-muted-foreground shrink-0" />
                     <Input
                       type="email"
-                      placeholder="your@email.com"
-                      aria-label="Email address"
+                      placeholder="toi@exemple.com"
+                      aria-label="Adresse email"
                       value={resendEmail}
                       onChange={(e) => setResendEmail(e.target.value)}
                       onKeyDown={(e) => e.key === "Enter" && handleResend()}
@@ -196,13 +211,13 @@ const AuthConfirm = () => {
                   >
                     {resending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     {resendCooldownUntil !== null && Date.now() < resendCooldownUntil
-                      ? `Resend available in ${Math.max(1, Math.ceil((resendCooldownUntil - Date.now()) / 1000))}s`
-                      : "Send me a new link"}
+                      ? `Renvoyer dans ${Math.max(1, Math.ceil((resendCooldownUntil - Date.now()) / 1000))}s`
+                      : "Recevoir un nouveau lien"}
                   </Button>
                 </div>
               )}
               <Button onClick={() => navigate("/auth")} variant={canResendByEmail ? "ghost" : "default"} className="w-full">
-                Back to sign in
+                Me connecter
               </Button>
             </CardContent>
           </>
