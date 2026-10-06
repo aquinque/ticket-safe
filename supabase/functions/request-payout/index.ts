@@ -7,7 +7,7 @@
  *
  * Ticket Safe takes NO fee from the organizer, at checkout or at
  * withdrawal — the only fee anywhere in the Studio flow is the flat
- * €1.40 per-ticket service tax the buyer pays at checkout (see
+ * per-ticket service fee the buyer pays at checkout (see
  * revolut-create-checkout). amount_cents = the amount the organizer
  * wants to withdraw from their dashboard balance; we SEPA-wire that
  * exact amount to the IBAN within 2-3 business days.

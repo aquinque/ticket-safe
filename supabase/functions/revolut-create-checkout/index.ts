@@ -5,9 +5,10 @@
  * issued later by revolut-webhook once Revolut confirms the order is completed.
  *
  * Fee model:
- *   Buyer pays the listed ticket price + a flat €1.40 service tax PER
- *   TICKET at checkout (not a percentage). That's the only fee anywhere
- *   in this flow — Ticket Safe takes no fee from the organizer; they
+ *   Buyer pays the listed ticket price + a service fee PER TICKET, computed in
+ *   the database by get_studio_commission_cents (4 % + 0,80 €, min 0,70 €,
+ *   max 3,50 €, or the event's negotiated override). That's the only fee
+ *   anywhere in this flow — Ticket Safe takes no fee from the organizer; they
  *   withdraw 100% of their gross balance.
  *
  * Guest checkout:
@@ -20,7 +21,7 @@
  *
  * Promo codes (optional `promo_code` in the body):
  *   Validated against event_promo_codes for this event, discounts the
- *   ticket subtotal only (never the flat €1.40 buyer fee), capped so the
+ *   ticket subtotal only (never the buyer service fee), capped so the
  *   discount can never exceed the subtotal. used_count is bumped
  *   optimistically (same pattern as reserve_tier) and rolled back on any
  *   later failure.
@@ -35,9 +36,8 @@ const cors = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Flat per-ticket service tax charged to the buyer — not a percentage.
-// Ticket Safe takes no fee from the organizer.
-const SERVICE_TAX_CENTS = 140;
+// The service fee is never defined here: it comes from the database function
+// get_studio_commission_cents, shared with the Stripe checkout and the site.
 const MAX_QUANTITY = 50;
 const MIN_UNIT_PRICE_CENTS = 50;
 const MAX_UNIT_PRICE_CENTS = 500_000;
@@ -226,7 +226,7 @@ serve(async (req) => {
     const { data: tier, error: tierErr } = await supabase
       .from("event_tiers")
       .select(`id, event_id, name, price_cents, currency, total_qty, sold_qty, reserved_qty, is_active,
-               event:events!inner(id, title, slug, status, organizer_id, max_tickets_per_buyer,
+               event:events!inner(id, title, slug, status, organizer_id, max_tickets_per_buyer, commission_override_cents,
                  organizer:organizer_profiles!events_organizer_id_fkey(id, user_id, name, status))`)
       .eq("id", tierId).maybeSingle();
     if (tierErr || !tier) return json({ error: "Tier not found" }, 404);
@@ -295,13 +295,23 @@ serve(async (req) => {
       usedPromoCode = true;
     }
 
-    // Fee math: a flat €1.40 service tax per ticket for the buyer, on top of
-    // the ticket price minus any promo discount. Ticket Safe takes no fee
-    // from the organizer, at checkout or withdrawal.
+    // Service fee: one ticket at the list price, from the database formula
+    // (negotiated override applied there), times the quantity. The promo
+    // discount does not change it. A free ticket gets 0. Ticket Safe takes no
+    // fee from the organizer, at checkout or withdrawal.
     const unitPrice = tier.price_cents;
     const subtotal = unitPrice * quantity;
-    // No service tax on a free ticket (€0).
-    const buyerFeeCents = unitPrice > 0 ? SERVICE_TAX_CENTS * quantity : 0;
+    const { data: feeResult, error: feeErr } = await supabase.rpc("get_studio_commission_cents", {
+      p_price_cents: unitPrice,
+      p_override_cents: (ev as { commission_override_cents?: number | null }).commission_override_cents ?? null,
+    });
+    if (feeErr || typeof feeResult !== "number") {
+      console.error("[revolut-create-checkout] service fee lookup failed:", feeErr);
+      await releaseReservation();
+      await releasePromoUse();
+      return json({ error: "Could not compute the service fee. Please try again." }, 500);
+    }
+    const buyerFeeCents = feeResult * quantity;
     const totalCents = subtotal - discountCents + buyerFeeCents;
     const orderFeeCents = buyerFeeCents;
 

@@ -2066,6 +2066,14 @@ export type Database = {
         Args: { p_qty: number; p_tier_id: string }
         Returns: undefined
       }
+      get_studio_commission_cents: {
+        Args: { p_price_cents: number; p_override_cents?: number | null }
+        Returns: number
+      }
+      get_studio_commission_for_tier: {
+        Args: { p_tier_id: string }
+        Returns: number
+      }
       reserve_tier: {
         Args: { p_qty: number; p_tier_id: string }
         Returns: boolean

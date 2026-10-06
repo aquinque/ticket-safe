@@ -165,7 +165,7 @@ export async function generateSalesStatementPdf(d: SalesStatementData): Promise<
     text(page, v, { x: sx2, y: fromTop(ly), font: bold, size: big ? 13 : 10, color: big ? BRAND : INK, anchorRight: true });
   };
   row(0, "Montant brut encaissé pour le compte de l'organisateur", eur(d.grossCents));
-  row(1, "Frais TicketSafe (€1,40 × billets vendus)", `− ${eur(d.ticketSafeFeeCents)}`);
+  row(1, "Frais de service TicketSafe (payés par les acheteurs)", `− ${eur(d.ticketSafeFeeCents)}`);
   row(2, "Remboursements / annulations", `${d.refundCount} billet(s) · ${eur(d.refundCents)}`);
   row(3, `Net reversé à l'organisateur`, eur(d.netCents), true);
 

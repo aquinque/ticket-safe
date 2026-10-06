@@ -14,7 +14,7 @@
  *    May be regenerated while the event's revenue isn't fully paid out
  *    yet (status stays "provisoire"); frozen once "definitif" (see the
  *    FIFO payout-allocation note below — flagged for accountant review).
- *  - service_invoice: a real legal tax invoice for TicketSafe's €1.40/
+ *  - service_invoice: a real legal tax invoice for TicketSafe's per-ticket
  *    ticket service fee. Numbered exactly once via a gapless counter
  *    (see migration 20261002120000), immutable from creation — corrections
  *    would be a credit note (schema supports it; no UI trigger for it

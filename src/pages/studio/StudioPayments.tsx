@@ -178,7 +178,7 @@ const StudioPayments = () => {
       <div className="max-w-2xl">
         <h1 className="text-2xl font-bold mb-1">Receive my payments</h1>
         <p className="text-sm text-muted-foreground mb-6">
-          Powered by Stripe. Buyers pay by card, Apple Pay, or Google Pay. TicketSafe's commission is deducted automatically on each ticket — the rest stays on your account during sales and is paid out to your IBAN automatically a few days after your event ends.
+          Powered by Stripe. Buyers pay by card, Apple Pay, or Google Pay. Buyers pay the ticket price plus a service fee; you receive the full ticket price on your account, and it is paid out to your bank on the schedule below.
         </p>
 
         <div className="bg-card border border-border rounded-2xl p-5 md:p-6 mb-6">

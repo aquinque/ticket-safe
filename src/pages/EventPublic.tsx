@@ -18,7 +18,7 @@ import {
   BadgeCheck,
 } from "lucide-react";
 import { SEOHead } from "@/components/SEOHead";
-import { calcStudioServiceFeeCents } from "@/lib/fees";
+import { useTierServiceFee } from "@/hooks/useServiceFee";
 import { AnimatedNumber } from "@/components/AnimatedNumber";
 import HeaderNight from "@/components/HeaderNight";
 import { ProtectionBadge } from "@/components/common/ProtectionBadge";
@@ -88,6 +88,7 @@ const EventPublic = () => {
   const [resaleCount, setResaleCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [selectedTier, setSelectedTier] = useState<string | null>(null);
+  const tierFeeCents = useTierServiceFee(selectedTier);
   const [qty, setQty] = useState(1);
   const [buying, setBuying] = useState(false);
   const [maxPerBuyer, setMaxPerBuyer] = useState<number | null>(null);
@@ -429,10 +430,11 @@ const EventPublic = () => {
   // `bg-primary` utilities give the same guarantee without hardcoding a hex.
   const selected = tiers.find((t) => t.tier_id === selectedTier) ?? null;
   const totalCents = selected ? selected.price_cents * qty : 0;
-  // Flat €1.40 per-ticket service fee on paid tickets only; free (€0) tickets
-  // carry no fee. revolut-create-checkout computes the real charge server-side
-  // with the same rule. Ticket Safe takes no cut from the organizer.
-  const feeCents = calcStudioServiceFeeCents(selected?.price_cents ?? 0, qty);
+  // Per-ticket service fee as the server computes it (database formula, or the
+  // event's negotiated fee). The checkout charges the same amount. Free (€0)
+  // tickets carry no fee. Ticket Safe takes no cut from the organizer.
+  const feeUnitCents = selected && selected.price_cents > 0 ? (tierFeeCents ?? 0) : 0;
+  const feeCents = feeUnitCents * qty;
   const grandCents = totalCents + feeCents;
   // Lowest available price, for the summary placeholder.
   const availablePrices = tiers.filter((t) => t.available_qty > 0).map((t) => t.price_cents);
@@ -523,7 +525,7 @@ const EventPublic = () => {
           {feeCents > 0 && (
             <div className="flex items-baseline justify-between text-sm">
               <span className="text-muted-foreground">
-                Service fee <span className="text-muted-foreground/70">(€1.40 × {qty})</span>
+                Service fee <span className="text-muted-foreground/70">(€{(feeUnitCents / 100).toFixed(2)} × {qty})</span>
               </span>
               <span className="tabular-nums text-foreground">{fmtPrice(feeCents)}</span>
             </div>

@@ -16,7 +16,7 @@ interface PromoCodeRow {
 
 /**
  * Studio panel to create/manage per-event promo codes. Discounts apply to
- * the ticket price only (never the flat €1.40 buyer service fee) — see the
+ * the ticket price only (never the buyer service fee) — see the
  * promo_code handling in revolut-create-checkout.
  */
 export const PromoCodesPanel = ({ eventId }: { eventId: string }) => {
@@ -114,7 +114,7 @@ export const PromoCodesPanel = ({ eventId }: { eventId: string }) => {
         <span className="text-xs text-muted-foreground">{rows.length} code{rows.length === 1 ? "" : "s"}</span>
       </div>
       <p className="text-sm text-muted-foreground mb-4">
-        Discounts apply to the ticket price only — buyers still pay the flat €1.40 service fee.
+        Discounts apply to the ticket price only — buyers still pay the service fee.
       </p>
 
       <div className="flex flex-wrap gap-2 mb-4">

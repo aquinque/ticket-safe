@@ -5,9 +5,10 @@
  *  - Buyer pays 6% on top of the listing price  (BUYER_FEE_RATE)
  *  - Seller pays 5% deducted at withdrawal       (SELLER_COMMISSION_RATE)
  *
- * (Studio primary sales use their own model instead: a flat €1.40/ticket
- * buyer-side fee, 0% from the organizer — see revolut-create-checkout and
- * request-payout.)
+ * (Studio primary sales use their own model instead: a per-ticket service fee
+ * paid by the buyer, computed only in the database function
+ * get_studio_commission_cents and read through src/hooks/useServiceFee.ts;
+ * 0% from the organizer.)
  * All monetary calculations use integer cents to avoid floating-point drift.
  */
 
@@ -39,19 +40,6 @@ export const calcBuyerTotalCents = (listPriceCents: number): number =>
 /** Platform commission deducted from the seller, in cents. */
 export const calcSellerCommissionCents = (listPriceCents: number): number =>
   Math.round(listPriceCents * SELLER_COMMISSION_RATE);
-
-/**
- * Studio primary sales: flat service fee the buyer pays per paid ticket, in
- * cents. Must match SERVICE_TAX_CENTS in revolut-create-checkout.
- */
-export const STUDIO_SERVICE_FEE_CENTS = 140;
-
-/**
- * Studio service fee in cents for `quantity` tickets at `unitPriceCents`.
- * Free tickets (€0) carry no service fee.
- */
-export const calcStudioServiceFeeCents = (unitPriceCents: number, quantity: number): number =>
-  unitPriceCents > 0 ? STUDIO_SERVICE_FEE_CENTS * quantity : 0;
 
 /** Net payout the seller receives after commission, in cents. */
 export const calcSellerPayoutCents = (listPriceCents: number): number =>

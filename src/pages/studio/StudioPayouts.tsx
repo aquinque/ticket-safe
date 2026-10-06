@@ -189,7 +189,7 @@ const StudioPayouts = () => {
             <section className="bg-card border border-border rounded-2xl p-5 md:p-6 mb-6">
               <h2 className="text-lg font-bold mb-1">Request a payout</h2>
               <p className="text-xs text-muted-foreground mb-4">
-                Buyers pay a flat <strong className="text-foreground">€1.40 service fee</strong> per ticket at checkout.
+                Buyers pay a <strong className="text-foreground">service fee</strong> per ticket at checkout (4% + €0.80, between €0.70 and €3.50).
                 Ticket Safe takes <strong className="text-foreground">0%</strong> from you — the full ticket price is wired to your IBAN within 2-3 business days.
               </p>
 
