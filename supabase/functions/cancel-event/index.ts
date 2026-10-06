@@ -30,6 +30,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
+import { refundPlatformPayment } from "../_shared/stripeRefund.ts";
 import { planResaleAwareRefund, refundResaleBuyers } from "../_shared/resaleAwareRefund.ts";
 import { renderEmail, ticketSummary, escapeHtml as esc } from "../_shared/emailComponents.ts";
 import { emailTokens } from "../_shared/emailTokens.ts";
@@ -114,25 +115,15 @@ serve(async (req) => {
     const revolutCredsForResale = revolutSecret ? { secret: revolutSecret, base: revolutBase, apiVersion: revolutApiVersion } : null;
     const stripeForResale = stripe;
 
-    // Stripe Connect: direct charges on this event (if any) live on the
-    // organizer's connected account, not the platform — refunds must be
-    // issued with the {stripeAccount: ...} option or Stripe can't find the
-    // charge. NULL for Revolut events (the common case today), which keeps
-    // the refundOrder Stripe branch below byte-identical in behavior for
-    // every event that isn't on Stripe Connect.
-    let stripeConnectAccountId: string | null = null;
+    // Stripe: payments were taken on the platform account (destination
+    // charges). Refunds are issued on the platform and the ticket price
+    // already transferred to the organizer is pulled back, see
+    // _shared/stripeRefund.ts. Whether TicketSafe's service fee is given back
+    // too is a billing setting.
     let refundApplicationFee = true;
     if (stripe) {
-      const { data: connectAcct } = await supabase
-        .from("stripe_connect_accounts")
-        .select("stripe_account_id")
-        .eq("organizer_id", ev.organizer_id)
-        .maybeSingle();
-      stripeConnectAccountId = connectAcct?.stripe_account_id ?? null;
-      if (stripeConnectAccountId) {
-        const { data: settings } = await supabase.from("billing_settings").select("refund_application_fee_on_refund").eq("id", true).maybeSingle();
-        refundApplicationFee = settings?.refund_application_fee_on_refund ?? true;
-      }
+      const { data: settings } = await supabase.from("billing_settings").select("refund_application_fee_on_refund").eq("id", true).maybeSingle();
+      refundApplicationFee = settings?.refund_application_fee_on_refund ?? true;
     }
 
     /**
@@ -175,22 +166,18 @@ serve(async (req) => {
           return { ok: false, reason: `revolut_refund_throw: ${err instanceof Error ? err.message : String(err)}` };
         }
       }
-      // Stripe (platform-account legacy charge, OR a Connect direct charge
-      // when stripeConnectAccountId is set — see where it's resolved above).
+      // Stripe: platform charge, legacy or destination charge (full refund).
       if (order.stripe_payment_intent_id && stripe) {
         try {
-          await stripe.refunds.create(
-            {
-              payment_intent: order.stripe_payment_intent_id,
-              ...(stripeConnectAccountId ? { refund_application_fee: refundApplicationFee } : {}),
-              metadata: {
-                source: "event_cancellation",
-                order_id: order.id,
-                event_id: eventId,
-              },
+          await refundPlatformPayment(stripe, {
+            paymentIntentId: order.stripe_payment_intent_id,
+            refundApplicationFee,
+            metadata: {
+              source: "event_cancellation",
+              order_id: order.id,
+              event_id: eventId,
             },
-            stripeConnectAccountId ? { stripeAccount: stripeConnectAccountId } : undefined,
-          );
+          });
           return { ok: true };
         } catch (err) {
           return { ok: false, reason: err instanceof Error ? err.message : String(err) };
