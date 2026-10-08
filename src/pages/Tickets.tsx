@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, Fragment } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Search,
@@ -46,13 +46,6 @@ const campuses: { id: Campus; label: string; city: string }[] = [
   { id: "london", label: "London", city: "United Kingdom" },
 ];
 
-// Organizations the viewer can filter by. Matched on the organizer's name
-// as shown on each event (PublishedEvent.organizer), not on any school
-// field — Ritual, for instance, is an organizer with no link to a school.
-const organizations: { id: string; label: string; match: (organizer: string) => boolean }[] = [
-  { id: "ebs", label: "EBS", match: (o) => /(^|[^a-z])ebs([^a-z]|$)/i.test(o) },
-  { id: "ritual", label: "Ritual", match: (o) => /^ritual$/i.test(o.trim()) },
-];
 
 const categories: { id: Category; label: string }[] = [
   { id: "all", label: "All events" },
@@ -72,6 +65,20 @@ const Tickets = () => {
   const [category, setCategory] = useState<Category>("all");
   const [query, setQuery] = useState("");
   const [allEvents, setAllEvents] = useState<PublishedEvent[]>([]);
+
+  // Organizations come from the real Ticket Studio accounts behind the
+  // published events (name + logo from organizer_profiles), never a static
+  // list — a new organizer shows up here the moment it publishes an event.
+  const organizations = useMemo(() => {
+    const seen = new Map<string, { id: string; label: string; logo: string | null; color: string }>();
+    for (const e of allEvents) {
+      if (!seen.has(e.organizerId)) {
+        seen.set(e.organizerId, { id: e.organizerId, label: e.organizer, logo: e.organizerLogo, color: e.organizerColor });
+      }
+    }
+    return Array.from(seen.values()).sort((a, b) => a.label.localeCompare(b.label));
+  }, [allEvents]);
+  const activeOrg = organizations.find((o) => o.id === selectedOrg) ?? null;
   const [loading, setLoading] = useState(true);
 
   // Personalised event recommendations. When the viewer has past
@@ -116,11 +123,7 @@ const Tickets = () => {
   const filteredEvents = useMemo(() => {
     return allEvents
       .filter((e) => (selectedCampus === "all" ? true : e.campus === selectedCampus))
-      .filter((e) => {
-        if (!selectedOrg) return true;
-        const org = organizations.find((o) => o.id === selectedOrg);
-        return org ? org.match(e.organizer) : true;
-      })
+      .filter((e) => (selectedOrg ? e.organizerId === selectedOrg : true))
       .filter((e) => (category === "all" ? true : e.category === category))
       .filter((e) =>
         query.trim().length === 0
@@ -178,22 +181,41 @@ const Tickets = () => {
                     type="button"
                     className="inline-flex items-center gap-2 pl-3 pr-2.5 min-h-[40px] rounded-lg font-semibold text-sm bg-card border border-border hover:border-primary/40 transition-colors"
                   >
-                    <Building2 className="w-4 h-4 text-primary" />
-                    {organizations.find((o) => o.id === selectedOrg)?.label ?? "Select"}
+                    {activeOrg?.logo ? (
+                      <img src={activeOrg.logo} alt="" className="w-6 h-6 rounded-md object-cover shrink-0" />
+                    ) : (
+                      <Building2 className="w-4 h-4 text-primary" />
+                    )}
+                    {activeOrg?.label ?? "Select"}
                     <ChevronDown className="w-4 h-4 text-muted-foreground" />
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="w-64">
-                  {organizations.map((o) => (
-                    <DropdownMenuItem
-                      key={o.id}
-                      className="gap-2 font-semibold"
-                      onSelect={() => setSelectedOrg((cur) => (cur === o.id ? null : o.id))}
-                    >
-                      <Check className={`w-4 h-4 text-primary ${o.id === selectedOrg ? "opacity-100" : "opacity-0"}`} />
-                      {o.label}
-                    </DropdownMenuItem>
+                  {organizations.map((o, i) => (
+                    <Fragment key={o.id}>
+                      {i > 0 && <DropdownMenuSeparator />}
+                      <DropdownMenuItem
+                        className="gap-3 py-2.5 font-semibold"
+                        onSelect={() => setSelectedOrg((cur) => (cur === o.id ? null : o.id))}
+                      >
+                        {o.logo ? (
+                          <img src={o.logo} alt="" className="w-9 h-9 rounded-md object-cover shrink-0" />
+                        ) : (
+                          <div
+                            className="w-9 h-9 rounded-md flex items-center justify-center text-sm font-black text-white shrink-0"
+                            style={{ background: o.color }}
+                          >
+                            {o.label[0]?.toUpperCase() ?? "?"}
+                          </div>
+                        )}
+                        <span className="flex-1 truncate">{o.label}</span>
+                        <Check className={`w-4 h-4 text-primary ${o.id === selectedOrg ? "opacity-100" : "opacity-0"}`} />
+                      </DropdownMenuItem>
+                    </Fragment>
                   ))}
+                  {organizations.length === 0 && (
+                    <div className="px-2 py-1.5 text-xs text-muted-foreground">No organizations yet</div>
+                  )}
                   <DropdownMenuSeparator />
                   <div className="px-2 py-1.5 text-xs text-muted-foreground">
                     More organizations coming soon

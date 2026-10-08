@@ -10,6 +10,10 @@ export interface PublishedEvent {
   slug: string;
   title: string;
   organizer: string;
+  /** The Ticket Studio account behind this event (organizer_profiles). */
+  organizerId: string;
+  organizerLogo: string | null;
+  organizerColor: string;
   date: string;
   time: string;
   venue: string;
@@ -110,6 +114,9 @@ export async function fetchPublishedEvents(): Promise<PublishedEvent[]> {
         slug: e.slug!,
         title: e.title,
         organizer: org?.name ?? "Organizer",
+        organizerId: org?.id ?? e.id,
+        organizerLogo: org?.logo_url ?? null,
+        organizerColor: org?.primary_color ?? "#003399",
         date: e.date,
         time: new Date(e.date).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
         venue: e.location ?? "",
