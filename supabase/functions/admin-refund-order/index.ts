@@ -23,6 +23,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
+import { refundPlatformPayment } from "../_shared/stripeRefund.ts";
 import { planResaleAwareRefund, refundResaleBuyers } from "../_shared/resaleAwareRefund.ts";
 import { renderEmail, ticketSummary, escapeHtml as esc } from "../_shared/emailComponents.ts";
 import { emailTokens } from "../_shared/emailTokens.ts";
@@ -122,23 +123,15 @@ serve(async (req) => {
       .maybeSingle();
     const eventTitle = ev?.title ?? "your event";
 
-    // Stripe Connect: same reasoning as cancel-event — a direct charge on
-    // this order lives on the organizer's connected account, so the refund
-    // needs {stripeAccount: ...}. NULL (and therefore byte-identical
-    // behavior to before this change) for every Revolut event.
-    let stripeConnectAccountId: string | null = null;
+    // Stripe: the payment was taken on the platform account (destination
+    // charge), so the refund is issued on the platform and the ticket price
+    // already transferred to the organizer is pulled back (see
+    // _shared/stripeRefund.ts). Whether TicketSafe's service fee is given
+    // back too is a billing setting.
     let refundApplicationFee = true;
-    if (stripeKey && ev?.organizer_id) {
-      const { data: connectAcct } = await supabase
-        .from("stripe_connect_accounts")
-        .select("stripe_account_id")
-        .eq("organizer_id", ev.organizer_id)
-        .maybeSingle();
-      stripeConnectAccountId = connectAcct?.stripe_account_id ?? null;
-      if (stripeConnectAccountId) {
-        const { data: settings } = await supabase.from("billing_settings").select("refund_application_fee_on_refund").eq("id", true).maybeSingle();
-        refundApplicationFee = settings?.refund_application_fee_on_refund ?? true;
-      }
+    if (stripeKey) {
+      const { data: settings } = await supabase.from("billing_settings").select("refund_application_fee_on_refund").eq("id", true).maybeSingle();
+      refundApplicationFee = settings?.refund_application_fee_on_refund ?? true;
     }
 
     // Count tickets the buyer already scanned into the venue. We still refund —
@@ -214,16 +207,17 @@ serve(async (req) => {
         httpClient: Stripe.createFetchHttpClient(),
       });
       try {
-        await stripe.refunds.create({
-          payment_intent: order.stripe_payment_intent_id,
-          amount: originalBuyerRefundCents,
-          ...(stripeConnectAccountId ? { refund_application_fee: refundApplicationFee } : {}),
+        await refundPlatformPayment(stripe, {
+          paymentIntentId: order.stripe_payment_intent_id,
+          amountCents: originalBuyerRefundCents,
+          refundApplicationFee,
           metadata: {
             source: "admin_refund_order",
             order_id: order.id,
             admin_id: user.id,
           },
-        }, { idempotencyKey: idemKey, ...(stripeConnectAccountId ? { stripeAccount: stripeConnectAccountId } : {}) });
+          idempotencyKey: idemKey,
+        });
         providerOk = true;
       } catch (err) {
         providerFailureDetails = err instanceof Error ? err.message : String(err);

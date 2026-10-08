@@ -9,8 +9,6 @@ import {
   calcSellerCommissionCents,
   calcSellerPayoutCents,
   calcBreakdown,
-  calcStudioServiceFeeCents,
-  STUDIO_SERVICE_FEE_CENTS,
 } from "../lib/fees";
 
 // Resale model: buyer +6% at checkout, seller -5% at withdrawal.
@@ -104,20 +102,5 @@ describe("calcBreakdown", () => {
   it("list price - seller payout = seller commission", () => {
     const b = calcBreakdown(37.99, 3);
     expect(b.listPriceCents - b.sellerPayoutCents).toBe(b.sellerCommissionCents);
-  });
-});
-
-// Studio primary sales: flat per-ticket service fee, none on free tickets.
-describe("studio service fee", () => {
-  it("is a flat €1.40 per ticket", () => {
-    expect(STUDIO_SERVICE_FEE_CENTS).toBe(140);
-  });
-  it("applies €1.40 × quantity on a paid ticket", () => {
-    expect(calcStudioServiceFeeCents(2000, 1)).toBe(140);
-    expect(calcStudioServiceFeeCents(2000, 3)).toBe(420);
-  });
-  it("applies no fee on a free (€0) ticket, for any quantity", () => {
-    expect(calcStudioServiceFeeCents(0, 1)).toBe(0);
-    expect(calcStudioServiceFeeCents(0, 4)).toBe(0);
   });
 });

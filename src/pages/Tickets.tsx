@@ -47,8 +47,7 @@ const campuses: { id: Campus; label: string; city: string }[] = [
 ];
 
 const schools: { id: string; label: string }[] = [
-  { id: "escp", label: "ESCP Business School" },
-  { id: "rituals", label: "Rituals" },
+  { id: "escp", label: "EBS" },
 ];
 
 const categories: { id: Category; label: string }[] = [

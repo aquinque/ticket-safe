@@ -1,15 +1,18 @@
 /**
  * stripe-connect-create-checkout — Studio primary sale via Stripe Connect
- * DIRECT CHARGES (Deno).
+ * DESTINATION CHARGES (Deno).
  *
  * Mirrors revolut-create-checkout's reservation/guest/promo-code logic
  * exactly (same tables, same RPCs, same guest-shadow-account pattern) but
- * creates a Stripe Checkout Session on the ORGANIZER'S connected account
- * (Stripe-Account header) instead of a Revolut order. The commission is
- * `payment_intent_data.application_fee_amount` — Stripe auto-transfers it
- * to the platform account as part of the same charge; the rest of the
- * money lands directly on the connected account's own balance and never
- * touches the platform's.
+ * creates a Stripe Checkout Session on TicketSafe's platform account instead
+ * of a Revolut order. The buyer pays ticket price + service fee. At payment
+ * time Stripe transfers the ticket price to the organizer's connected account
+ * (`transfer_data.destination`) and keeps the service fee on the platform
+ * (`application_fee_amount`). Stripe's processing fee is charged to the
+ * platform, never to the organizer, who receives the full ticket price.
+ * The organizer's money never reaches TicketSafe's bank account: it only
+ * passes through the platform's Stripe balance for the duration of the
+ * transfer. Refunds go through _shared/stripeRefund.ts (reverse_transfer).
  *
  * Stripe-hosted Checkout (not embedded Payment Element) — same UX pattern
  * as the existing Revolut flow (redirect to a hosted page, return via
@@ -153,13 +156,15 @@ serve(async (req) => {
       p_price_cents: unitPriceCents,
       p_override_cents: ev.commission_override_cents,
     });
-    const commissionPerTicket = Number(commissionResult ?? 0);
-    if (commissionPerTicket === 0 && unitPriceCents > 4000 && ev.commission_override_cents === null) {
-      // >40€ with no admin override set = the "negotiated" band with nothing
-      // negotiated yet. Refuse rather than silently take 0 commission.
+    // The fee is paid by the buyer on top of the ticket price (4 % + 0,80 €,
+    // min 0,70 €, max 3,50 €, or the event's negotiated override). The
+    // organizer receives the full ticket price. The database function is the
+    // only place the fee is computed.
+    if (typeof commissionResult !== "number") {
       await supabase.rpc("release_tier_reservation", { p_tier_id: tierId, p_qty: quantity });
-      return json({ error: "This event's commission hasn't been configured yet. Contact TicketSafe support." }, 409);
+      return json({ error: "Could not compute the service fee. Please try again." }, 500);
     }
+    const commissionPerTicket = commissionResult;
     const totalTicketCents = unitPriceCents * quantity;
     const totalCommissionCents = commissionPerTicket * quantity;
 
@@ -170,8 +175,9 @@ serve(async (req) => {
       buyer_id: buyerId,
       buyer_email: buyerEmail,
       quantity,
-      total_cents: totalTicketCents,
-      fee_cents: 0, // buyer pays ticket price only — commission comes out of the organizer's side via application_fee_amount
+      // Same meaning as the Revolut orders: total paid by the buyer, of which fee_cents is the service fee.
+      total_cents: totalTicketCents + totalCommissionCents,
+      fee_cents: totalCommissionCents,
       commission_cents: totalCommissionCents,
       attendees: body.attendees ?? null,
       status: "pending",
@@ -216,16 +222,33 @@ serve(async (req) => {
       const session = await stripe.checkout.sessions.create(
         {
           mode: "payment",
-          line_items: [{
-            price_data: {
-              currency: (tier.currency ?? "eur").toLowerCase(),
-              unit_amount: unitPriceCents,
-              product_data: { name: `${ev.title} — ${tier.name}` },
+          line_items: [
+            {
+              price_data: {
+                currency: (tier.currency ?? "eur").toLowerCase(),
+                unit_amount: unitPriceCents,
+                product_data: { name: `${ev.title} — ${tier.name}` },
+              },
+              quantity,
             },
-            quantity,
-          }],
+            // Shown as its own line so the buyer sees ticket price + service fee + total.
+            ...(commissionPerTicket > 0
+              ? [{
+                  price_data: {
+                    currency: (tier.currency ?? "eur").toLowerCase(),
+                    unit_amount: commissionPerTicket,
+                    product_data: { name: "Frais de service Ticket Safe" },
+                  },
+                  quantity,
+                }]
+              : []),
+          ],
           payment_intent_data: {
+            // The service fee stays on the platform; the ticket price goes to
+            // the organizer. Stripe's processing fee is taken from the platform.
             application_fee_amount: totalCommissionCents,
+            transfer_data: { destination: connectAccount.stripe_account_id },
+            metadata: { source: "stripe_connect_studio_sale", order_id: order.id, event_id: ev.id },
           },
           success_url: `${SITE_URL}/checkout/success?order_id=${order.id}&session_id={CHECKOUT_SESSION_ID}`,
           cancel_url: `${SITE_URL}/e/${ev.id}?checkout=cancelled`,
@@ -233,7 +256,7 @@ serve(async (req) => {
           metadata: { source: "stripe_connect_studio_sale", order_id: order.id, tier_id: tierId, event_id: ev.id, quantity: String(quantity) },
           expires_at: Math.floor(Date.now() / 1000) + 30 * 60, // 30 min, matches the existing reservation TTL
         },
-        { stripeAccount: connectAccount.stripe_account_id }, // DIRECT CHARGE — created on the connected account
+        // Created on the platform account (destination charge), not on the connected account.
       );
 
       await supabase.from("event_orders").update({ stripe_checkout_session_id: session.id }).eq("id", order.id);

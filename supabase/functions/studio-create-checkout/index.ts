@@ -5,7 +5,7 @@
  * Studio payment provider). Kept deployed only as an inert fallback; the
  * frontend never calls this anymore. Fee model below is stale (the old
  * 5%/8% Stripe-era pricing) — do not use it as a reference. The current
- * model (flat €1.40/ticket from the buyer, 0% from the organizer) lives in
+ * model (per-ticket service fee from the buyer, 0% from the organizer) lives in
  * revolut-create-checkout and request-payout.
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";

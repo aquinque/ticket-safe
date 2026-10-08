@@ -31,6 +31,7 @@ import { toast } from "sonner";
 import { detectCampus } from "@/lib/campus";
 import { ImageCropDialog } from "@/components/ImageCropDialog";
 import EventPreviewCard from "@/components/studio/EventPreviewCard";
+import { BuyerPaysHint } from "@/components/studio/BuyerPaysHint";
 
 const slugify = (input: string): string =>
   input
@@ -553,18 +554,9 @@ const StudioEventNew = () => {
                             max="5000"
                             step="0.5"
                           />
-                          {(() => {
-                            const p = Number(t.priceEuros);
-                            if (!Number.isFinite(p) || p <= 0) return null;
-                            const buyerPays = p + 1.40;
-                            return (
-                              <p className="text-[11px] text-muted-foreground mt-1.5 leading-snug">
-                                Buyer pays <strong className="text-foreground">€{buyerPays.toFixed(2)}</strong> (incl. a flat €1.40 service fee)
-                                {" "}· you receive the full{" "}
-                                <strong className="text-primary">€{p.toFixed(2)}</strong> per ticket — Ticket Safe takes 0% from you.
-                              </p>
-                            );
-                          })()}
+                          {Number.isFinite(Number(t.priceEuros)) && Number(t.priceEuros) > 0 && (
+                            <BuyerPaysHint priceEuros={Number(t.priceEuros)} />
+                          )}
                         </div>
                         <div>
                           <label className="text-xs font-bold text-muted-foreground mb-1 block">Quantity</label>

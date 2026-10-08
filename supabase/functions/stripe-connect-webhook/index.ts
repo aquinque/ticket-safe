@@ -4,11 +4,14 @@
  * POST /functions/v1/stripe-connect-webhook
  * (public endpoint — no auth header, verified by Stripe-Signature)
  *
- * Handles BOTH platform-account events and connected-account events
- * (direct charges fire checkout.session.completed / payment_intent.*
- * in the CONNECTED account's context) — same dual-secret pattern as the
- * legacy stripe-webhook (STRIPE_WEBHOOK_SECRET for the platform endpoint,
- * STRIPE_WEBHOOK_SECRET_CONNECT for "events on connected accounts").
+ * Handles BOTH platform-account events and connected-account events —
+ * same dual-secret pattern as the legacy stripe-webhook
+ * (STRIPE_CONNECT_WEBHOOK_SECRET for the platform endpoint,
+ * STRIPE_CONNECT_WEBHOOK_SECRET_CONNECTED for "events on connected accounts").
+ * Studio sales are destination charges since 2026-10-06, so their
+ * checkout.session.* / payment_intent.* / charge.* events arrive on the
+ * PLATFORM endpoint; resale checkouts are still direct charges and arrive on
+ * the connected-accounts endpoint, as do account.updated and payout.*.
  *
  * Idempotency: reuses the existing stripe_webhook_events table (event_id
  * PK) — Stripe event ids are globally unique per account regardless of
