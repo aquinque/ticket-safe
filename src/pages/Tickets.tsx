@@ -46,8 +46,12 @@ const campuses: { id: Campus; label: string; city: string }[] = [
   { id: "london", label: "London", city: "United Kingdom" },
 ];
 
-const schools: { id: string; label: string }[] = [
-  { id: "escp", label: "EBS" },
+// Organizations the viewer can filter by. Matched on the organizer's name
+// as shown on each event (PublishedEvent.organizer), not on any school
+// field — Ritual, for instance, is an organizer with no link to a school.
+const organizations: { id: string; label: string; match: (organizer: string) => boolean }[] = [
+  { id: "ebs", label: "EBS", match: (o) => /(^|[^a-z])ebs([^a-z]|$)/i.test(o) },
+  { id: "ritual", label: "Ritual", match: (o) => /^ritual$/i.test(o.trim()) },
 ];
 
 const categories: { id: Category; label: string }[] = [
@@ -63,7 +67,8 @@ const Tickets = () => {
   const navigate = useNavigate();
   // Default to "all" so newcomers see everything until they pick a campus.
   const [selectedCampus, setSelectedCampus] = useState<Campus>("all");
-  const [selectedSchool, setSelectedSchool] = useState<string>("escp");
+  // null = no organization filter (the dropdown reads "Select").
+  const [selectedOrg, setSelectedOrg] = useState<string | null>(null);
   const [category, setCategory] = useState<Category>("all");
   const [query, setQuery] = useState("");
   const [allEvents, setAllEvents] = useState<PublishedEvent[]>([]);
@@ -111,13 +116,18 @@ const Tickets = () => {
   const filteredEvents = useMemo(() => {
     return allEvents
       .filter((e) => (selectedCampus === "all" ? true : e.campus === selectedCampus))
+      .filter((e) => {
+        if (!selectedOrg) return true;
+        const org = organizations.find((o) => o.id === selectedOrg);
+        return org ? org.match(e.organizer) : true;
+      })
       .filter((e) => (category === "all" ? true : e.category === category))
       .filter((e) =>
         query.trim().length === 0
           ? true
           : (e.title + e.organizer + e.venue).toLowerCase().includes(query.toLowerCase()),
       );
-  }, [allEvents, selectedCampus, category, query]);
+  }, [allEvents, selectedCampus, selectedOrg, category, query]);
 
   return (
     <div className="theme-night min-h-screen flex flex-col bg-background">
@@ -169,19 +179,19 @@ const Tickets = () => {
                     className="inline-flex items-center gap-2 pl-3 pr-2.5 min-h-[40px] rounded-lg font-semibold text-sm bg-card border border-border hover:border-primary/40 transition-colors"
                   >
                     <Building2 className="w-4 h-4 text-primary" />
-                    {schools.find((s) => s.id === selectedSchool)?.label ?? schools[0].label}
+                    {organizations.find((o) => o.id === selectedOrg)?.label ?? "Select"}
                     <ChevronDown className="w-4 h-4 text-muted-foreground" />
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="w-64">
-                  {schools.map((s) => (
+                  {organizations.map((o) => (
                     <DropdownMenuItem
-                      key={s.id}
+                      key={o.id}
                       className="gap-2 font-semibold"
-                      onSelect={() => setSelectedSchool(s.id)}
+                      onSelect={() => setSelectedOrg((cur) => (cur === o.id ? null : o.id))}
                     >
-                      <Check className={`w-4 h-4 text-primary ${s.id === selectedSchool ? "opacity-100" : "opacity-0"}`} />
-                      {s.label}
+                      <Check className={`w-4 h-4 text-primary ${o.id === selectedOrg ? "opacity-100" : "opacity-0"}`} />
+                      {o.label}
                     </DropdownMenuItem>
                   ))}
                   <DropdownMenuSeparator />
@@ -446,7 +456,7 @@ const Tickets = () => {
           <div className="container mx-auto px-4 text-center">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-card border border-border text-xs font-semibold text-muted-foreground">
               <Lock className="w-3 h-3" />
-              More schools coming soon
+              More organizations coming soon
             </div>
           </div>
         </section>
