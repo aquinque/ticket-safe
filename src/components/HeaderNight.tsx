@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Menu, X, Globe, User, Ticket, Banknote, LayoutDashboard, LogOut } from "lucide-react";
+import { Menu, X, Globe, User, Ticket, Banknote, LayoutDashboard, LogOut, CalendarDays, Repeat2, Building2, ChevronRight } from "lucide-react";
 import Logo from "@/components/Logo";
 import WalletBalanceButton from "@/components/WalletBalanceButton";
 import { Button } from "@/components/ui/button";
@@ -84,6 +84,17 @@ const HeaderNight = () => {
   const navLinks = NAV_LINKS.map((link) =>
     link.key === "organizers" && isStudioOrganizer ? { ...link, to: "/studio" } : link,
   );
+
+  // Mobile menu rows: an icon and a one-line subtitle per entry, so the
+  // three destinations read as distinct choices rather than three bare words.
+  const mobileNavMeta: Record<string, { icon: typeof CalendarDays; subtitle: string }> = {
+    tickets: { icon: CalendarDays, subtitle: "Browse upcoming events" },
+    resale: { icon: Repeat2, subtitle: "Buy or resell a ticket safely" },
+    organizers: {
+      icon: Building2,
+      subtitle: isStudioOrganizer ? "Open your Studio dashboard" : "Ticket Safe Studio for organizers",
+    },
+  };
 
   return (
     <>
@@ -208,21 +219,40 @@ const HeaderNight = () => {
             </button>
           </div>
 
-          <nav className="flex-1 flex flex-col justify-center gap-2 px-6">
-            {navLinks.map((link) => (
-              <Link
-                key={link.key}
-                to={link.to}
-                onClick={() => setMenuOpen(false)}
-                className="font-display text-3xl font-bold text-foreground py-3"
-                style={{ letterSpacing: "-0.02em" }}
-              >
-                {t(link.labelKey)}
-              </Link>
-            ))}
+          <nav className="flex-1 overflow-y-auto px-4 pt-2 pb-4 flex flex-col gap-2">
+            <p className="px-1 mb-1 text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Explore</p>
+            {navLinks.map((link) => {
+              const meta = mobileNavMeta[link.key];
+              const Icon = meta?.icon ?? CalendarDays;
+              const active = isActive(link.to);
+              return (
+                <Link
+                  key={link.key}
+                  to={link.to}
+                  onClick={() => setMenuOpen(false)}
+                  aria-current={active ? "page" : undefined}
+                  className={`flex items-center gap-3 rounded-xl border px-4 py-3.5 transition-colors ${
+                    active
+                      ? "border-primary/60 bg-primary/10"
+                      : "border-border bg-card hover:border-primary/40"
+                  }`}
+                >
+                  <span className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${active ? "bg-primary text-primary-foreground" : "bg-secondary text-primary"}`}>
+                    <Icon className="w-5 h-5" />
+                  </span>
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-base font-bold text-foreground leading-tight">{t(link.labelKey)}</span>
+                    {meta?.subtitle && (
+                      <span className="block text-xs text-muted-foreground mt-0.5 truncate">{meta.subtitle}</span>
+                    )}
+                  </span>
+                  <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                </Link>
+              );
+            })}
           </nav>
 
-          <div className="p-6 flex flex-col gap-3">
+          <div className="px-4 pb-6 pt-3 border-t border-border flex flex-col gap-3">
             <div className="flex items-center gap-2">
               <Globe className="w-4 h-4 text-muted-foreground shrink-0" />
               {LANGUAGES.map((l) => (
@@ -242,12 +272,14 @@ const HeaderNight = () => {
             </div>
             {user ? (
               <>
-                <Button variant="outline" size="lg" asChild onClick={() => setMenuOpen(false)}>
-                  <Link to="/my-tickets">My Tickets</Link>
-                </Button>
-                <Button variant="outline" size="lg" asChild onClick={() => setMenuOpen(false)}>
-                  <Link to="/settings/listings">My Wallet</Link>
-                </Button>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button variant="outline" size="lg" asChild onClick={() => setMenuOpen(false)}>
+                    <Link to="/my-tickets">My Tickets</Link>
+                  </Button>
+                  <Button variant="outline" size="lg" asChild onClick={() => setMenuOpen(false)}>
+                    <Link to="/settings/listings">My Wallet</Link>
+                  </Button>
+                </div>
                 {isStudioOrganizer && (
                   <Button variant="outline" size="lg" asChild onClick={() => setMenuOpen(false)}>
                     <Link to="/studio">Ticket Safe Studio</Link>
@@ -266,12 +298,14 @@ const HeaderNight = () => {
               </>
             ) : (
               <>
-                <Button variant="outline" size="lg" asChild onClick={() => setMenuOpen(false)}>
-                  <Link to="/auth">{t("nav.login")}</Link>
-                </Button>
-                <Button variant="primary" size="lg" asChild onClick={() => setMenuOpen(false)}>
-                  <Link to="/auth?mode=signup">{t("nav.signUp")}</Link>
-                </Button>
+                <div className="grid grid-cols-2 gap-2">
+                  <Button variant="outline" size="lg" asChild onClick={() => setMenuOpen(false)}>
+                    <Link to="/auth">{t("nav.login")}</Link>
+                  </Button>
+                  <Button variant="primary" size="lg" asChild onClick={() => setMenuOpen(false)}>
+                    <Link to="/auth?mode=signup">{t("nav.signUp")}</Link>
+                  </Button>
+                </div>
               </>
             )}
           </div>
