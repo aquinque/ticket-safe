@@ -87,7 +87,7 @@ const Home = () => {
   return (
     <div className="theme-night min-h-screen flex flex-col bg-background">
       <SEOHead
-        title="TicketSafe — Your student nights."
+        title="TicketSafe — Your nights."
         description="Buy tickets directly from your student union, or organization, or resell yours safely."
       />
 
@@ -123,7 +123,7 @@ const Home = () => {
                 className="font-display font-bold text-foreground text-[40px] leading-[1.05] md:text-7xl lg:text-8xl mb-4 md:mb-6"
                 style={{ letterSpacing: "-0.02em" }}
               >
-                Your student nights.
+                Your nights.
               </h1>
               <p className="text-base md:text-xl text-muted-foreground mb-7 md:mb-9 max-w-lg">
                 Buy tickets directly from your student union, or organization, or resell your ticket safely.

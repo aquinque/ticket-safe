@@ -153,10 +153,10 @@ const Tickets = () => {
                   className="font-display font-bold text-2xl md:text-3xl text-foreground leading-tight"
                   style={{ letterSpacing: "-0.02em" }}
                 >
-                  Find your next student event
+                  Find your next event
                 </h1>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Tickets sold directly by campus societies.
+                  Tickets sold directly by the organizers and associations behind them.
                 </p>
               </div>
               <Link

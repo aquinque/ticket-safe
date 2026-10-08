@@ -21,7 +21,7 @@ const paths = [
   {
     icon: Ticket,
     title: "Buy event tickets",
-    body: "Galas, parties, sports, conferences — sold directly by your campus societies. Your QR ticket is emailed the moment your payment clears.",
+    body: "Galas, parties, sports, conferences — sold directly by the organizers and associations behind them. Your QR ticket is emailed the moment your payment clears.",
     to: "/tickets",
     cta: "Browse events",
     gradient: "var(--gradient-hero)",
