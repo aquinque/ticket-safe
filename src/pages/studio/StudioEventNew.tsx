@@ -296,7 +296,10 @@ const StudioEventNew = () => {
           location: location.trim() || null,
           category: category || "other",
           campus: autoCampus,
-          university: "ESCP Business School",
+          // No school by default: a Studio organizer isn't a school (e.g.
+          // Ritual has no link to any university). Cards fall back to the
+          // organizer's name when this is null.
+          university: null,
           base_price: Number(tiers[0]?.priceEuros) || 0,
           organizer_id: organizer.id,
           slug: finalSlug,

@@ -41,7 +41,7 @@ export function useESCPEvents(options: UseESCPEventsOptions = {}) {
       // Fetch all active future paid events (base_price > 0)
       const { data: eventsData, error: eventsErr } = await supabase
         .from('events')
-        .select('*')
+        .select('*, organizer_profile:organizer_profiles(name)')
         .eq('is_active', true)
         .eq('status', 'published')
         .gt('base_price', 0)
@@ -80,7 +80,7 @@ export function useESCPEvents(options: UseESCPEventsOptions = {}) {
           title: e.title,
           description: e.description ?? '',
           location: e.location ?? '',
-          organizer: e.university ?? '',
+          organizer: e.university || (e as { organizer_profile?: { name?: string } | null }).organizer_profile?.name || '',
           category: e.category,
           start_date: e.date,
           end_date: e.date,

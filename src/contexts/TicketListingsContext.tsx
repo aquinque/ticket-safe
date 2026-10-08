@@ -93,6 +93,7 @@ interface RawListingRow {
     base_price: number | null;
     banner_url: string | null;
     video_url: string | null;
+    organizer: { name: string } | null;
   } | null;
   seller: { full_name: string } | null;
 }
@@ -124,7 +125,10 @@ async function fetchAvailableListings(): Promise<TicketListing[]> {
         campus,
         base_price,
         banner_url,
-        video_url
+        video_url,
+        organizer:organizer_profiles (
+          name
+        )
       ),
       seller:profiles (
         full_name
@@ -147,7 +151,7 @@ async function fetchAvailableListings(): Promise<TicketListing[]> {
       date: ev?.date ?? "",
       time: "",
       location: ev?.location ?? "",
-      organizer: ev?.university ?? "",
+      organizer: ev?.university || ev?.organizer?.name || "",
       description: "",
       category: ev?.category ?? "",
       filterCategory: (ev?.category ?? "").toLowerCase(),
