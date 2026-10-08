@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import HeaderNight from "@/components/HeaderNight";
+import { BackButton } from "@/components/BackButton";
 import Footer from "@/components/Footer";
 import { GuestTicketCard } from "@/components/guest/GuestTicketCard";
 import { isWellFormedAccessToken, ticketAccessHeaders, ticketAccessUrl, type GuestTicketView } from "@/lib/guestAccess";
@@ -40,6 +41,7 @@ const GuestTicket = () => {
       <HeaderNight />
       <main className="flex-1 pt-16 pb-12 md:pt-20 md:pb-16">
         <div className="container mx-auto px-4 max-w-md">
+          <BackButton className="mb-4" />
           {state.phase === "loading" && <p className="text-center text-sm text-muted-foreground">Loading your ticket…</p>}
           {state.phase === "notfound" && (
             <div role="alert" className="bg-card border border-border rounded-2xl p-6 text-center">

@@ -22,6 +22,7 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import HeaderNight from "@/components/HeaderNight";
+import { BackButton } from "@/components/BackButton";
 import Footer from "@/components/Footer";
 import { Input } from "@/components/ui/input";
 import {
@@ -351,6 +352,7 @@ const Buy = () => {
       {/* =================== HERO =================== */}
       <section className="relative border-b border-border pt-16 md:pt-20">
         <div className="relative container mx-auto max-w-6xl px-4 md:px-6 pt-12 md:pt-20 pb-10 md:pb-16">
+          <BackButton className="mb-6" />
           <p className="text-[10px] md:text-xs font-bold tracking-[0.3em] uppercase text-muted-foreground mb-5">
             The student marketplace
           </p>

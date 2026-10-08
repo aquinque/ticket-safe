@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { BackButton } from "@/components/BackButton";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import Anthropic from "@anthropic-ai/sdk";
 
@@ -63,6 +64,7 @@ const Chat = () => {
 
   return (
     <div className="container mx-auto p-4">
+      <BackButton className="mb-4" />
       <Card className="max-w-2xl mx-auto">
         <CardHeader>
           <CardTitle>Claude Code</CardTitle>

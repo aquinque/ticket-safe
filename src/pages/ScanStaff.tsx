@@ -1,4 +1,5 @@
 /**
+import { BackButton } from "@/components/BackButton";
  * ScanStaff — /scan/:token, the door-scan page for staff/volunteers handed
  * a link from Studio's "Scan staff" panel (see ScanStaffPanel.tsx +
  * event_scan_staff). No Supabase Auth login, no account — the token in the
@@ -176,7 +177,10 @@ const ScanStaff = () => {
       <SEOHead title="Door scan — Ticket Safe" description="Ticket scanning" />
       <header className="border-b border-border">
         <div className="container mx-auto px-4 h-14 flex items-center justify-between">
-          <Logo height={26} iconOnly />
+          <div className="flex items-center gap-1">
+            <BackButton />
+            <Logo height={26} iconOnly />
+          </div>
           <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
             <ShieldCheck className="w-3.5 h-3.5 text-primary" />
             Door scan

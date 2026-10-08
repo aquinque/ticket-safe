@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { BackButton } from "@/components/BackButton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Loader2, ShieldCheck, AlertTriangle, Mail } from "lucide-react";
@@ -162,7 +163,8 @@ const AuthConfirm = () => {
   };
 
   return (
-    <div className="theme-night min-h-screen bg-background flex items-center justify-center p-4">
+    <div className="theme-night relative min-h-screen bg-background flex items-center justify-center p-4">
+      <BackButton className="absolute top-4 left-4" />
       <Card className="w-full max-w-md">
         {status === "verifying" && (
           <CardContent className="flex flex-col items-center justify-center py-12 gap-3">

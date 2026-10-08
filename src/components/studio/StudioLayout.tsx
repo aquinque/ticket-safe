@@ -17,6 +17,7 @@ import {
   LogOut,
 } from "lucide-react";
 import Logo from "@/components/Logo";
+import { BackButton } from "@/components/BackButton";
 import { useAuth } from "@/hooks/useAuth";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import {
@@ -173,6 +174,7 @@ export const StudioLayout = ({
             >
               <Menu className="w-5 h-5" />
             </button>
+            <BackButton />
             {organizer && (
               <div className="flex items-center gap-2 min-w-0">
                 {organizer.logo_url ? (
