@@ -804,6 +804,7 @@ export type Database = {
           published_at: string | null
           search_vector: unknown
           seo_description: string | null
+          description_font: string | null
           slug: string | null
           sold_via_studio: boolean | null
           source: string | null
@@ -844,6 +845,7 @@ export type Database = {
           published_at?: string | null
           search_vector?: unknown
           seo_description?: string | null
+          description_font?: string | null
           slug?: string | null
           sold_via_studio?: boolean | null
           source?: string | null
@@ -884,6 +886,7 @@ export type Database = {
           published_at?: string | null
           search_vector?: unknown
           seo_description?: string | null
+          description_font?: string | null
           slug?: string | null
           sold_via_studio?: boolean | null
           source?: string | null

@@ -32,6 +32,7 @@ import {
 } from "lucide-react";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { StudioLayout } from "@/components/studio/StudioLayout";
+import { DESCRIPTION_FONTS, descriptionFontFamily } from "@/lib/descriptionFonts";
 import { ImageCropDialog } from "@/components/ImageCropDialog";
 import { SEOHead } from "@/components/SEOHead";
 import {
@@ -56,6 +57,7 @@ interface EventRow {
   id: string;
   title: string;
   description: string | null;
+  description_font: string | null;
   date: string;
   ends_at: string | null;
   location: string | null;
@@ -1472,6 +1474,7 @@ const EventDetailsEditor = ({
   const [open, setOpen] = useState(!disabled);
   const [title, setTitle] = useState(event.title);
   const [description, setDescription] = useState(event.description ?? "");
+  const [descriptionFont, setDescriptionFont] = useState(event.description_font ?? "default");
   const [date, setDate] = useState(toDatetimeLocal(event.date));
   const [endsAt, setEndsAt] = useState(toDatetimeLocal(event.ends_at));
   const [location, setLocation] = useState(event.location ?? "");
@@ -1494,6 +1497,7 @@ const EventDetailsEditor = ({
   useEffect(() => {
     setTitle(event.title);
     setDescription(event.description ?? "");
+    setDescriptionFont(event.description_font ?? "default");
     setDate(toDatetimeLocal(event.date));
     setEndsAt(toDatetimeLocal(event.ends_at));
     setLocation(event.location ?? "");
@@ -1607,6 +1611,7 @@ const EventDetailsEditor = ({
       const patch: Partial<EventRow> = {
         title: title.trim(),
         description: description.trim() || null,
+        description_font: descriptionFont === "default" ? null : descriptionFont,
         date: new Date(date).toISOString(),
         ends_at: endsAt ? new Date(endsAt).toISOString() : null,
         location: location.trim() || null,
@@ -1698,6 +1703,27 @@ const EventDetailsEditor = ({
               className="ts-edit min-h-[100px]"
               maxLength={1000}
             />
+          </Field>
+
+          <Field label="Description font" icon={Type} hint="How the description reads on your public event page.">
+            <select
+              value={descriptionFont}
+              onChange={(e) => setDescriptionFont(e.target.value)}
+              className="ts-edit"
+              style={{ fontFamily: descriptionFontFamily(descriptionFont) }}
+            >
+              {DESCRIPTION_FONTS.map((f) => (
+                <option key={f.id} value={f.id} style={{ fontFamily: f.family }}>{f.label}</option>
+              ))}
+            </select>
+            {description.trim() && (
+              <p
+                className="mt-2 rounded-lg border border-border bg-muted/30 p-3 text-sm text-foreground/85 leading-relaxed whitespace-pre-line"
+                style={{ fontFamily: descriptionFontFamily(descriptionFont) }}
+              >
+                {description}
+              </p>
+            )}
           </Field>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1865,6 +1891,7 @@ const LiveEventDetailsEditor = ({
   userId: string;
 }) => {
   const [description, setDescription] = useState(event.description ?? "");
+  const [descriptionFont, setDescriptionFont] = useState(event.description_font ?? "default");
   const [location, setLocation] = useState(event.location ?? "");
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [bannerPreview, setBannerPreview] = useState<string | null>(event.banner_url ?? null);
@@ -1875,6 +1902,7 @@ const LiveEventDetailsEditor = ({
 
   useEffect(() => {
     setDescription(event.description ?? "");
+    setDescriptionFont(event.description_font ?? "default");
     setLocation(event.location ?? "");
     setBannerPreview(event.banner_url ?? null);
     setBannerFile(null);
@@ -1882,6 +1910,7 @@ const LiveEventDetailsEditor = ({
 
   const dirty =
     description.trim() !== (event.description ?? "") ||
+    descriptionFont !== (event.description_font ?? "default") ||
     location.trim() !== (event.location ?? "") ||
     bannerFile !== null;
 
@@ -1922,9 +1951,10 @@ const LiveEventDetailsEditor = ({
         bannerUrl = pub.publicUrl;
       }
 
-      // Only these 3 columns — matches the DB trigger's allow-list exactly.
+      // Only these columns — none of them is in the DB trigger's protected list.
       const patch: Partial<EventRow> = {
         description: description.trim() || null,
+        description_font: descriptionFont === "default" ? null : descriptionFont,
         location: location.trim() || null,
         banner_url: bannerUrl,
       };
@@ -1967,6 +1997,27 @@ const LiveEventDetailsEditor = ({
             className="ts-edit min-h-[100px]"
             maxLength={1000}
           />
+        </Field>
+
+        <Field label="Description font" icon={Type} hint="How the description reads on your public event page.">
+          <select
+            value={descriptionFont}
+            onChange={(e) => setDescriptionFont(e.target.value)}
+            className="ts-edit"
+            style={{ fontFamily: descriptionFontFamily(descriptionFont) }}
+          >
+            {DESCRIPTION_FONTS.map((f) => (
+              <option key={f.id} value={f.id} style={{ fontFamily: f.family }}>{f.label}</option>
+            ))}
+          </select>
+          {description.trim() && (
+            <p
+              className="mt-2 rounded-lg border border-border bg-muted/30 p-3 text-sm text-foreground/85 leading-relaxed whitespace-pre-line"
+              style={{ fontFamily: descriptionFontFamily(descriptionFont) }}
+            >
+              {description}
+            </p>
+          )}
         </Field>
 
         <Field label="Location" icon={MapPin}>

@@ -21,6 +21,7 @@ import { SEOHead } from "@/components/SEOHead";
 import { useTierServiceFee } from "@/hooks/useServiceFee";
 import { AnimatedNumber } from "@/components/AnimatedNumber";
 import HeaderNight from "@/components/HeaderNight";
+import { descriptionFontFamily } from "@/lib/descriptionFonts";
 import { ProtectionBadge } from "@/components/common/ProtectionBadge";
 import { useAuth } from "@/hooks/useAuth";
 import { useThemeMode } from "@/hooks/useThemeMode";
@@ -31,6 +32,7 @@ interface PublicEvent {
   id: string;
   title: string;
   description: string | null;
+  description_font: string | null;
   date: string;
   ends_at: string | null;
   location: string | null;
@@ -132,7 +134,7 @@ const EventPublic = () => {
     const { data: ev } = await supabase
       .from("events")
       .select(
-        `id, title, description, date, ends_at, location, category, slug, status, primary_color, banner_url, video_url, logo_url, og_image_url, seo_description, organizer_id, max_tickets_per_buyer,
+        `id, title, description, description_font, date, ends_at, location, category, slug, status, primary_color, banner_url, video_url, logo_url, og_image_url, seo_description, organizer_id, max_tickets_per_buyer,
          organizer:organizer_profiles!events_organizer_id_fkey(id, user_id, name, slug, logo_url, primary_color, website)`,
       )
       .eq("slug", slug)
@@ -985,7 +987,7 @@ const EventPublic = () => {
               {/* About */}
               {event.description && (
                 <Section title="About this event">
-                  <p className="text-sm text-foreground/85 leading-relaxed whitespace-pre-line">{event.description}</p>
+                  <p className="text-sm text-foreground/85 leading-relaxed whitespace-pre-line" style={{ fontFamily: descriptionFontFamily(event.description_font) }}>{event.description}</p>
                 </Section>
               )}
 
