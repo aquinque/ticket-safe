@@ -29,6 +29,7 @@ import {
   Sparkles,
   Video,
   Search,
+  ChevronDown,
 } from "lucide-react";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { StudioLayout } from "@/components/studio/StudioLayout";
@@ -201,6 +202,8 @@ const StudioEventEdit = () => {
   const [tiers, setTiers] = useState<TierRow[]>([]);
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [attendees, setAttendees] = useState<AttendeeRow[]>([]);
+  // The buyers list can be long — keep it folded until the organizer asks for it.
+  const [buyersOpen, setBuyersOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   // Buyers list search/filter — scoped to this one event, so a plain
@@ -988,6 +991,15 @@ const StudioEventEdit = () => {
                 <span className="text-xs text-muted-foreground hidden sm:inline">
                   {orders.length} order{orders.length === 1 ? "" : "s"} · {attendees.length} ticket{attendees.length === 1 ? "" : "s"}
                 </span>
+                <button
+                  type="button"
+                  onClick={() => setBuyersOpen((v) => !v)}
+                  aria-expanded={buyersOpen}
+                  className="inline-flex items-center gap-1.5 px-3 min-h-[34px] rounded-lg text-xs font-bold bg-muted hover:bg-muted/80 border border-border"
+                >
+                  <ChevronDown className={`w-3.5 h-3.5 transition-transform ${buyersOpen ? "rotate-180" : ""}`} />
+                  {buyersOpen ? "Hide list" : "Show list"}
+                </button>
                 <Link
                   to={`/studio/events/${event.id}/attendees`}
                   className="inline-flex items-center gap-1.5 px-3 min-h-[34px] rounded-lg text-xs font-bold bg-primary text-primary-foreground hover:bg-primary-hover"
@@ -1008,6 +1020,8 @@ const StudioEventEdit = () => {
               </div>
             </div>
 
+            {buyersOpen && (
+            <>
             {orders.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-4">
                 <div className="relative flex-1 min-w-[180px]">
@@ -1086,6 +1100,8 @@ const StudioEventEdit = () => {
                   );
                 })}
               </div>
+            )}
+            </>
             )}
           </section>
 
@@ -1895,6 +1911,9 @@ const LiveEventDetailsEditor = ({
   const [location, setLocation] = useState(event.location ?? "");
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [bannerPreview, setBannerPreview] = useState<string | null>(event.banner_url ?? null);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [videoPreview, setVideoPreview] = useState<string | null>(event.video_url ?? null);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
   const [cropSrc, setCropSrc] = useState<string | null>(null);
   const [cropOpen, setCropOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -1906,11 +1925,14 @@ const LiveEventDetailsEditor = ({
     setLocation(event.location ?? "");
     setBannerPreview(event.banner_url ?? null);
     setBannerFile(null);
+    setVideoPreview(event.video_url ?? null);
+    setVideoFile(null);
   }, [event]);
 
   const dirty =
     description.trim() !== (event.description ?? "") ||
     descriptionFont !== (event.description_font ?? "default") ||
+    videoFile !== null ||
     location.trim() !== (event.location ?? "") ||
     bannerFile !== null;
 
@@ -1935,6 +1957,22 @@ const LiveEventDetailsEditor = ({
     e.target.value = "";
   };
 
+  const onVideoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (!f.type.startsWith("video/")) {
+      toast.error("Please choose a video file.");
+      return;
+    }
+    if (f.size > 50 * 1024 * 1024) {
+      toast.error("Video must be under 50 MB.");
+      return;
+    }
+    setVideoFile(f);
+    setVideoPreview(URL.createObjectURL(f));
+    e.target.value = "";
+  };
+
   const handleSave = async () => {
     setError(null);
     setSaving(true);
@@ -1951,12 +1989,27 @@ const LiveEventDetailsEditor = ({
         bannerUrl = pub.publicUrl;
       }
 
+      let videoUrl = event.video_url;
+      if (videoFile && userId) {
+        setUploadingVideo(true);
+        const ext = videoFile.name.split(".").pop()?.toLowerCase() ?? "mp4";
+        const path = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const { error: vidErr } = await supabase.storage
+          .from("event-media")
+          .upload(path, videoFile, { cacheControl: "3600", upsert: false, contentType: videoFile.type || "video/mp4" });
+        setUploadingVideo(false);
+        if (vidErr) throw new Error(`Video upload failed: ${vidErr.message}`);
+        const { data: pub } = supabase.storage.from("event-media").getPublicUrl(path);
+        videoUrl = pub.publicUrl;
+      }
+
       // Only these columns — none of them is in the DB trigger's protected list.
       const patch: Partial<EventRow> = {
         description: description.trim() || null,
         description_font: descriptionFont === "default" ? null : descriptionFont,
         location: location.trim() || null,
         banner_url: bannerUrl,
+        video_url: videoUrl,
       };
 
       const { error: updErr } = await supabase.from("events").update(patch).eq("id", event.id);
@@ -1986,7 +2039,7 @@ const LiveEventDetailsEditor = ({
 
       <div className="px-5 md:px-6 py-5 space-y-4">
         <p className="text-xs text-muted-foreground">
-          Tickets are on sale — only the description, banner image, and location can change now.
+          Tickets are on sale — only the description, banner image, promo video, and location can change now.
           Title, date, price, and ticket types are locked to protect buyers who already purchased.
         </p>
 
@@ -2059,6 +2112,39 @@ const LiveEventDetailsEditor = ({
         </Field>
 
         <ImageCropDialog src={cropSrc} open={cropOpen} onOpenChange={setCropOpen} onCropped={onCropped} />
+
+        <Field label="Promo video (optional)" icon={Video} hint="Autoplays muted on your event page. Max 50 MB.">
+          {videoPreview ? (
+            <div className="relative rounded-xl overflow-hidden">
+              <video src={videoPreview} className="w-full aspect-[16/9] object-cover" muted loop autoPlay playsInline />
+              <div className="absolute top-2 right-2 flex gap-2">
+                <label className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-black/60 text-white text-xs font-bold cursor-pointer hover:bg-black/75">
+                  <Pencil className="w-3 h-3" />
+                  Replace
+                  <input type="file" accept="video/mp4,video/webm,video/quicktime" onChange={onVideoChange} className="hidden" />
+                </label>
+                <button
+                  type="button"
+                  onClick={() => { setVideoFile(null); setVideoPreview(null); }}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-black/60 text-white text-xs font-bold hover:bg-black/75"
+                >
+                  Remove
+                </button>
+              </div>
+              {uploadingVideo && (
+                <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                  <Loader2 className="w-6 h-6 text-white animate-spin" />
+                </div>
+              )}
+            </div>
+          ) : (
+            <label className="flex flex-col items-center justify-center aspect-[16/9] rounded-xl border-2 border-dashed border-border bg-muted/30 cursor-pointer hover:border-primary/50">
+              <Video className="w-7 h-7 text-muted-foreground mb-1" />
+              <span className="text-sm font-semibold text-muted-foreground">Click to upload a promo video</span>
+              <input type="file" accept="video/mp4,video/webm,video/quicktime" onChange={onVideoChange} className="hidden" />
+            </label>
+          )}
+        </Field>
 
         {error && (
           <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-sm">

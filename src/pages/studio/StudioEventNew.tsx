@@ -20,6 +20,7 @@ import {
   Users,
   Ticket,
   CheckCircle2,
+  Video,
 } from "lucide-react";
 import { StudioLayout } from "@/components/studio/StudioLayout";
 import { SEOHead } from "@/components/SEOHead";
@@ -109,6 +110,9 @@ const StudioEventNew = () => {
   const [maxPerBuyer, setMaxPerBuyer] = useState("1");
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [bannerPreview, setBannerPreview] = useState<string | null>(null);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [videoPreview, setVideoPreview] = useState<string | null>(null);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
   const [cropSrc, setCropSrc] = useState<string | null>(null);
   const [cropOpen, setCropOpen] = useState(false);
   const [slug, setSlug] = useState("");
@@ -153,6 +157,22 @@ const StudioEventNew = () => {
   const onCropped = (file: File) => {
     setBannerFile(file);
     setBannerPreview(URL.createObjectURL(file));
+  };
+
+  const onVideoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (!f.type.startsWith("video/")) {
+      toast.error("Please choose a video file.");
+      return;
+    }
+    if (f.size > 50 * 1024 * 1024) {
+      toast.error("Video must be under 50 MB.");
+      return;
+    }
+    setVideoFile(f);
+    setVideoPreview(URL.createObjectURL(f));
+    e.target.value = "";
   };
 
   const addTier = () => {
@@ -258,6 +278,24 @@ const StudioEventNew = () => {
         bannerUrl = pub.publicUrl;
       }
 
+      // 1b) Upload promo video (if any) to event-media/{userId}/...
+      let videoUrl: string | null = null;
+      if (videoFile) {
+        setUploadingVideo(true);
+        const ext = videoFile.name.split(".").pop()?.toLowerCase() ?? "mp4";
+        const path = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const { error: vidErr } = await supabase.storage
+          .from("event-media")
+          .upload(path, videoFile, { cacheControl: "3600", upsert: false, contentType: videoFile.type || "video/mp4" });
+        setUploadingVideo(false);
+        if (vidErr) {
+          console.error("[studio-event-new] video upload:", vidErr);
+          throw new Error("Could not upload the promo video.");
+        }
+        const { data: pub } = supabase.storage.from("event-media").getPublicUrl(path);
+        videoUrl = pub.publicUrl;
+      }
+
       // 2) Ensure slug is unique (append random suffix if not).
       let finalSlug = slug;
       for (let attempt = 0; attempt < 5; attempt++) {
@@ -305,6 +343,7 @@ const StudioEventNew = () => {
           slug: finalSlug,
           primary_color: primaryColor,
           banner_url: bannerUrl,
+          video_url: videoUrl,
           logo_url: organizer.logo_url,
           status: "draft",
           sold_via_studio: true,
@@ -742,6 +781,38 @@ const StudioEventNew = () => {
                         <span className="text-sm font-semibold text-foreground">Click to upload your cover</span>
                         <span className="text-xs text-muted-foreground mt-0.5">You'll crop it to fit · JPG / PNG · max 5 MB</span>
                         <input type="file" accept="image/*" onChange={onBannerChange} className="hidden" />
+                      </label>
+                    )}
+                  </Field>
+                  <Field label="Promo video (optional)" icon={Video} hint="Autoplays muted on your event page. MP4 / WebM / MOV · max 50 MB.">
+                    {videoPreview ? (
+                      <div className="relative rounded-xl overflow-hidden">
+                        <video src={videoPreview} className="w-full aspect-[16/9] object-cover" muted loop autoPlay playsInline />
+                        <div className="absolute top-2 right-2 flex gap-2">
+                          <label className="px-3 py-1.5 rounded-lg bg-black/60 text-white text-xs font-bold hover:bg-black/75 cursor-pointer">
+                            Replace
+                            <input type="file" accept="video/mp4,video/webm,video/quicktime" onChange={onVideoChange} className="hidden" />
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => { setVideoFile(null); setVideoPreview(null); }}
+                            className="px-3 py-1.5 rounded-lg bg-black/60 text-white text-xs font-bold hover:bg-black/75"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                        {uploadingVideo && (
+                          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                            <Loader2 className="w-6 h-6 text-white animate-spin" />
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <label className="flex flex-col items-center justify-center aspect-[16/9] rounded-xl border-2 border-dashed border-border bg-muted/30 cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors">
+                        <Video className="w-8 h-8 text-muted-foreground mb-1.5" />
+                        <span className="text-sm font-semibold text-foreground">Click to upload a promo video</span>
+                        <span className="text-xs text-muted-foreground mt-0.5">MP4 / WebM / MOV · max 50 MB</span>
+                        <input type="file" accept="video/mp4,video/webm,video/quicktime" onChange={onVideoChange} className="hidden" />
                       </label>
                     )}
                   </Field>

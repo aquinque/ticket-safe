@@ -96,10 +96,12 @@ const Home = () => {
       <main className="flex-1">
         {/* ============ HERO ============ */}
         <section className="relative flex items-center md:min-h-[100svh] overflow-hidden bg-background">
-          {/* Hero media: video on desktop, still image on mobile */}
+          {/* Hero media: the video plays everywhere, phones included
+              (muted + playsInline is what iOS/Android require for autoplay);
+              the poster covers the first frame while it loads. */}
           <div className="absolute inset-0 overflow-hidden">
             <video
-              className="hidden md:block w-full h-full object-cover"
+              className="w-full h-full object-cover"
               autoPlay
               muted
               loop
@@ -109,11 +111,6 @@ const Home = () => {
             >
               <source src="/hero/home.mp4" type="video/mp4" />
             </video>
-            <img
-              src="/hero/home.jpg"
-              alt=""
-              className="md:hidden w-full h-full object-cover"
-            />
             <div className="absolute inset-0 bg-black/50" />
           </div>
 
