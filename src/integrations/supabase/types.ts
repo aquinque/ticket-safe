@@ -1524,6 +1524,27 @@ export type Database = {
           },
         ]
       }
+      stripe_connect_accounts: {
+        Row: {
+          account_holder_name: string | null
+          business_type: string | null
+          charges_enabled: boolean
+          created_at: string
+          details_submitted: boolean
+          id: string
+          organizer_id: string | null
+          owner_type: string
+          payouts_enabled: boolean
+          requirements_currently_due: string[]
+          requirements_past_due: string[]
+          stripe_account_id: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: never
+        Update: never
+        Relationships: []
+      }
       stripe_accounts: {
         Row: {
           charges_enabled: boolean | null

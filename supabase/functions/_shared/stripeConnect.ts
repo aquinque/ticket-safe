@@ -1,7 +1,16 @@
 /**
- * Shared Stripe Connect helpers — Custom accounts, no Stripe-hosted screens.
- * Every onboarding field is collected in TicketSafe's own UI and sent to
- * Stripe via the Accounts API (not Account Links / hosted onboarding).
+ * Shared Stripe Connect helpers — Express accounts.
+ *
+ * Organizers and resellers are onboarded through Stripe-hosted pages
+ * (Account Links); Stripe collects and verifies the identity, legal
+ * representative, address and bank account, and owns that compliance
+ * surface. TicketSafe only creates the account, sends the person to the
+ * link, and mirrors the result into stripe_connect_accounts.
+ *
+ * Payouts stay on a manual schedule: nothing leaves the connected account's
+ * balance except a payout WE trigger (stripe-connect-payout-cron), so the
+ * money is held until after the event and refunds can still reverse the
+ * transfer.
  */
 import Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
 
@@ -19,145 +28,76 @@ export function getStripeClient(): Stripe {
   return new Stripe(key, { apiVersion: "2024-06-20", httpClient: Stripe.createFetchHttpClient() });
 }
 
-export interface IndividualKyc {
-  businessType: "individual";
-  firstName: string;
-  lastName: string;
-  dob: { day: number; month: number; year: number };
-  addressLine1: string;
-  addressCity: string;
-  addressPostalCode: string;
-  addressCountry: string; // ISO 3166-1 alpha-2, e.g. "FR"
-  email: string;
-  iban: string;
+export const SITE_URL = Deno.env.get("SITE_URL") ?? "https://ticket-safe.eu";
+
+export interface CreateExpressAccountArgs {
+  email: string | null;
+  /** Shown to Stripe as the business name so the hosted form is pre-filled. */
+  name?: string | null;
+  /** Leave unset to let Stripe ask (association / company / individual). */
+  businessType?: "individual" | "company" | "non_profit";
+  country?: string;
+  /** Stored on the Stripe account to find it again from the Stripe dashboard. */
+  metadata?: Record<string, string>;
 }
 
-export interface CompanyKyc {
-  businessType: "company" | "non_profit";
-  companyName: string;
-  registrationNumber: string; // SIREN/RNA or foreign equivalent
-  addressLine1: string;
-  addressCity: string;
-  addressPostalCode: string;
-  addressCountry: string;
-  repFirstName: string;
-  repLastName: string;
-  repDob: { day: number; month: number; year: number };
-  repAddressLine1: string;
-  repAddressCity: string;
-  repAddressPostalCode: string;
-  repAddressCountry: string;
-  email: string;
-  iban: string;
-}
-
-export type ConnectKyc = IndividualKyc | CompanyKyc;
-
-/**
- * Creates (or, if accountId is given, updates) a Custom Connect account from
- * our own collected KYC fields. Manual payout schedule — nothing ever
- * leaves the connected account's balance except a payout WE trigger
- * (stripe-connect-payout-cron).
- */
-export async function createOrUpdateConnectAccount(
-  stripe: Stripe,
-  kyc: ConnectKyc,
-  tosIp: string,
-  accountId?: string,
-): Promise<Stripe.Account> {
-  const common: Stripe.AccountCreateParams | Stripe.AccountUpdateParams = {
-    business_type: kyc.businessType,
-    email: kyc.email,
+export async function createExpressAccount(stripe: Stripe, args: CreateExpressAccountArgs): Promise<Stripe.Account> {
+  return stripe.accounts.create({
+    type: "express",
+    country: args.country ?? "FR",
+    ...(args.email ? { email: args.email } : {}),
+    ...(args.businessType ? { business_type: args.businessType } : {}),
+    ...(args.name ? { business_profile: { name: args.name } } : {}),
+    capabilities: { card_payments: { requested: true }, transfers: { requested: true } },
     settings: { payouts: { schedule: { interval: "manual" } } },
-    tos_acceptance: accountId ? undefined : { date: Math.floor(Date.now() / 1000), ip: tosIp },
-    capabilities: { transfers: { requested: true }, card_payments: { requested: true } },
-  };
-
-  if (kyc.businessType === "individual") {
-    const external_account = ibanExternalAccount(kyc.iban, kyc.addressCountry);
-    const params: Stripe.AccountCreateParams = {
-      ...common,
-      country: kyc.addressCountry,
-      individual: {
-        first_name: kyc.firstName,
-        last_name: kyc.lastName,
-        dob: kyc.dob,
-        email: kyc.email,
-        address: {
-          line1: kyc.addressLine1,
-          city: kyc.addressCity,
-          postal_code: kyc.addressPostalCode,
-          country: kyc.addressCountry,
-        },
-      },
-      ...(external_account ? { external_account } : {}),
-    };
-    return accountId
-      ? await stripe.accounts.update(accountId, params as Stripe.AccountUpdateParams)
-      : await stripe.accounts.create({ type: "custom", ...params });
-  }
-
-  const external_account = ibanExternalAccount(kyc.iban, kyc.addressCountry);
-  const params: Stripe.AccountCreateParams = {
-    ...common,
-    country: kyc.addressCountry,
-    company: {
-      name: kyc.companyName,
-      registration_number: kyc.registrationNumber,
-      address: {
-        line1: kyc.addressLine1,
-        city: kyc.addressCity,
-        postal_code: kyc.addressPostalCode,
-        country: kyc.addressCountry,
-      },
-    },
-    individual: undefined,
-    ...(external_account ? { external_account } : {}),
-  };
-  const account = accountId
-    ? await stripe.accounts.update(accountId, params as Stripe.AccountUpdateParams)
-    : await stripe.accounts.create({ type: "custom", ...params });
-
-  // Legal representative, added as a Person on the account (required for
-  // company/non_profit business types).
-  await stripe.accounts.createPerson(account.id, {
-    first_name: kyc.repFirstName,
-    last_name: kyc.repLastName,
-    dob: kyc.repDob,
-    email: kyc.email,
-    address: {
-      line1: kyc.repAddressLine1,
-      city: kyc.repAddressCity,
-      postal_code: kyc.repAddressPostalCode,
-      country: kyc.repAddressCountry,
-    },
-    relationship: { representative: true, title: "Legal representative" },
+    ...(args.metadata ? { metadata: args.metadata } : {}),
   });
-
-  return account;
 }
 
 /**
- * Stripe's external_account for a SEPA IBAN: a bank_account token shape,
- * NOT a card. account_holder_type is always 'individual' here because it
- * describes who holds the BANK ACCOUNT, which can differ from business_type
- * (an association's bank account is still held by a natural or legal
- * person depending on the bank — Stripe defaults this correctly from the
- * IBAN's own metadata in most cases, so we omit it and let Stripe infer).
+ * Stripe-hosted onboarding link. Single use and short lived: generate a fresh
+ * one every time the person clicks "Set up payments" or lands on the refresh
+ * URL. Return/refresh URLs are fixed to our own site, never taken from the
+ * request.
  */
-function ibanExternalAccount(iban: string, country: string): Stripe.AccountCreateParams.ExternalAccount | undefined {
-  const cleaned = iban.replace(/\s+/g, "").toUpperCase();
-  if (!/^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/.test(cleaned)) return undefined;
-  return {
-    object: "bank_account",
-    country,
-    currency: "eur",
-    account_number: cleaned,
-  } as Stripe.AccountCreateParams.ExternalAccount;
+export async function createOnboardingLink(stripe: Stripe, accountId: string, returnPath: string): Promise<string> {
+  const link = await stripe.accountLinks.create({
+    account: accountId,
+    type: "account_onboarding",
+    return_url: `${SITE_URL}${returnPath}?stripe=return`,
+    refresh_url: `${SITE_URL}${returnPath}?stripe=refresh`,
+  });
+  return link.url;
+}
+
+/** Single-use login link to the Express dashboard (balance, payouts, bank account). */
+export async function createDashboardLink(stripe: Stripe, accountId: string): Promise<string> {
+  const link = await stripe.accounts.createLoginLink(accountId);
+  return link.url;
 }
 
 export function deriveOnboardingStatus(account: Stripe.Account): "pending" | "restricted" | "complete" {
   if (account.charges_enabled && account.payouts_enabled) return "complete";
   if (account.details_submitted) return "restricted";
   return "pending";
+}
+
+/** Columns of stripe_connect_accounts that mirror the Stripe account's state. */
+export function accountStateColumns(account: Stripe.Account) {
+  const bt = account.business_type;
+  return {
+    charges_enabled: account.charges_enabled ?? false,
+    payouts_enabled: account.payouts_enabled ?? false,
+    details_submitted: account.details_submitted ?? false,
+    requirements_currently_due: account.requirements?.currently_due ?? [],
+    requirements_past_due: account.requirements?.past_due ?? [],
+    ...(bt === "individual" || bt === "company" || bt === "non_profit" ? { business_type: bt } : {}),
+    updated_at: new Date().toISOString(),
+  };
+}
+
+/** Best display name Stripe knows for the account holder, falling back to ours. */
+export function accountHolderName(account: Stripe.Account, fallback: string | null): string | null {
+  const person = account.individual ? [account.individual.first_name, account.individual.last_name].filter(Boolean).join(" ") : "";
+  return account.company?.name || account.business_profile?.name || person || fallback;
 }
