@@ -94,6 +94,7 @@ const EventPublic = () => {
   const [qty, setQty] = useState(1);
   const [buying, setBuying] = useState(false);
   const [maxPerBuyer, setMaxPerBuyer] = useState<number | null>(null);
+  const [paymentProvider, setPaymentProvider] = useState<"stripe" | "revolut">("revolut");
   const [attendees, setAttendees] = useState<AttendeeForm[]>([]);
   const [following, setFollowing] = useState(false);
   const [followBusy, setFollowBusy] = useState(false);
@@ -134,7 +135,7 @@ const EventPublic = () => {
     const { data: ev } = await supabase
       .from("events")
       .select(
-        `id, title, description, description_font, date, ends_at, location, category, slug, status, primary_color, banner_url, video_url, logo_url, og_image_url, seo_description, organizer_id, max_tickets_per_buyer,
+        `id, title, description, description_font, date, ends_at, location, category, slug, status, primary_color, banner_url, video_url, logo_url, og_image_url, seo_description, organizer_id, max_tickets_per_buyer, payment_provider,
          organizer:organizer_profiles!events_organizer_id_fkey(id, user_id, name, slug, logo_url, primary_color, website)`,
       )
       .eq("slug", slug)
@@ -159,6 +160,7 @@ const EventPublic = () => {
 
     const evCast = ev as { max_tickets_per_buyer?: number | null };
     setMaxPerBuyer(evCast.max_tickets_per_buyer ?? null);
+    setPaymentProvider((ev as { payment_provider?: string }).payment_provider === "stripe" ? "stripe" : "revolut");
 
     // Payments always go through the platform account now — no need to check
     // the organizer's readiness up-front. Payouts are settled separately after
@@ -317,9 +319,10 @@ const EventPublic = () => {
     }
     setBuying(true);
     try {
-      // Revolut is the payment provider. studio-create-checkout stays deployed
-      // as a dormant fallback but is no longer called, so the two never run
-      // together. confirm_email is a client-side-only typo check — strip it
+      // Each event is sold through one provider (events.payment_provider):
+      // Stripe once the organizer's Stripe account is active, Revolut for every
+      // other event. studio-create-checkout stays deployed as a dormant
+      // fallback but is no longer called. confirm_email is a client-side-only typo check — strip it
       // before sending; the server only cares about email + gender.
       const attendeesPayload = attendees.map(({ first_name, last_name, email, gender }) => ({
         first_name,
@@ -328,7 +331,7 @@ const EventPublic = () => {
         gender,
       }));
       const first = attendees[0];
-      const { data, error } = await supabase.functions.invoke("revolut-create-checkout", {
+      const { data, error } = await supabase.functions.invoke(paymentProvider === "stripe" ? "stripe-connect-create-checkout" : "revolut-create-checkout", {
         body: {
           tier_id: selectedTier,
           quantity: qty,

@@ -797,6 +797,7 @@ export type Database = {
           location: string | null
           logo_url: string | null
           max_tickets_per_buyer: number | null
+          payment_provider: string
           needs_review: boolean
           og_image_url: string | null
           organizer_id: string | null
@@ -838,6 +839,7 @@ export type Database = {
           location?: string | null
           logo_url?: string | null
           max_tickets_per_buyer?: number | null
+          payment_provider?: string
           needs_review?: boolean
           og_image_url?: string | null
           organizer_id?: string | null
@@ -879,6 +881,7 @@ export type Database = {
           location?: string | null
           logo_url?: string | null
           max_tickets_per_buyer?: number | null
+          payment_provider?: string
           needs_review?: boolean
           og_image_url?: string | null
           organizer_id?: string | null

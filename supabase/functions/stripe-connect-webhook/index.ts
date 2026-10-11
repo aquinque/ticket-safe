@@ -130,14 +130,14 @@ serve(async (req) => {
 
           const { data: evForExp } = await supabase.from("events").select("date").eq("id", ord.event_id).maybeSingle();
           const expSeconds = evForExp?.date ? Math.floor(new Date(evForExp.date).getTime() / 1000) + 86_400 : Math.floor(Date.now() / 1000) + 30 * 86_400;
-          const attendees = Array.isArray(ord.attendees) ? (ord.attendees as { first_name?: string; last_name?: string; email?: string }[]) : [];
+          const attendees = Array.isArray(ord.attendees) ? (ord.attendees as { first_name?: string; last_name?: string; email?: string; gender?: string }[]) : [];
 
           const ticketRows = await Promise.all(Array.from({ length: qty }).map(async (_, i) => {
             const att = attendees[i] ?? null;
             const ticketId = crypto.randomUUID();
             const signed = await signStudioTicketJWT({ ticket_id: ticketId, event_id: ord.event_id, exp_seconds: expSeconds });
             const qrToken = signed ?? (crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, "").slice(0, 8));
-            return { id: ticketId, order_id: ord.id, event_id: ord.event_id, tier_id: tierId, buyer_id: ord.buyer_id, qr_token: qrToken, holder_first_name: att?.first_name ?? null, holder_last_name: att?.last_name ?? null, holder_email: att?.email ?? session.customer_email ?? null, status: "valid" as const };
+            return { id: ticketId, order_id: ord.id, event_id: ord.event_id, tier_id: tierId, buyer_id: ord.buyer_id, qr_token: qrToken, holder_first_name: att?.first_name ?? null, holder_last_name: att?.last_name ?? null, holder_email: att?.email ?? session.customer_email ?? null, holder_gender: att?.gender ?? null, status: "valid" as const };
           }));
           const { error: tixErr } = await supabase.from("event_tickets").insert(ticketRows);
           if (tixErr) console.error("[stripe-connect-webhook] event_tickets insert failed:", tixErr);
