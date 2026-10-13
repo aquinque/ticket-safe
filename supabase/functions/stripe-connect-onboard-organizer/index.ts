@@ -3,7 +3,7 @@
  *
  * POST /functions/v1/stripe-connect-onboard-organizer
  * Authorization: Bearer <organizer-user-jwt>
- * Body: { organizer_id, action?: "onboard" | "refresh" | "dashboard",
+ * Body: { organizer_id, action?: "onboard" | "refresh" | "dashboard" | "balance",
  *         business_type?: "individual" | "company" | "non_profit" }
  *
  * Express onboarding: Stripe hosts the identity / legal-representative /
@@ -21,9 +21,12 @@
  *     stripe_connect_accounts (used when the organizer returns from Stripe,
  *     without waiting for the account.updated webhook).
  *   - "dashboard": returns a single-use login link to the Express dashboard.
+ *   - "balance": pending / available / paid-out amounts and the next
+ *     availability date, read live from Stripe for the payments page.
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import type Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
 import {
   getStripeClient,
   createExpressAccount,
@@ -63,7 +66,7 @@ serve(async (req) => {
   const organizerId = body.organizer_id;
   const action = body.action ?? "onboard";
   if (!organizerId || !/^[0-9a-f-]{36}$/i.test(organizerId)) return json({ error: "Invalid organizer_id" }, 400);
-  if (!["onboard", "refresh", "dashboard"].includes(action)) return json({ error: "Invalid action" }, 400);
+  if (!["onboard", "refresh", "dashboard", "balance"].includes(action)) return json({ error: "Invalid action" }, 400);
   if (body.business_type !== undefined && !isConnectBusinessType(body.business_type)) return json({ error: "Invalid business_type" }, 400);
 
   const { data: org } = await supabase
@@ -97,7 +100,7 @@ serve(async (req) => {
     metadata: { organizer_id: organizerId, organizer_name: org.name },
   };
 
-  let stripe;
+  let stripe: ReturnType<typeof getStripeClient>;
   try {
     stripe = getStripeClient();
   } catch (err) {
@@ -115,6 +118,37 @@ serve(async (req) => {
     if (action === "dashboard") {
       if (!existing) return json({ error: "No payment account yet." }, 404);
       return json({ url: await createDashboardLink(stripe, existing.stripe_account_id) });
+    }
+
+    if (action === "balance") {
+      // Where the organizer's money is right now, straight from Stripe:
+      // pending (sold, not yet available), available (waiting for the
+      // post-event payout), paid out so far, and the date the next pending
+      // amount frees up. The payments page draws its money track from this.
+      if (!existing) return json({ error: "No payment account yet." }, 404);
+      const opts = { stripeAccount: existing.stripe_account_id };
+      const [balance, recentTx, payouts] = await Promise.all([
+        stripe.balance.retrieve(undefined, opts),
+        stripe.balanceTransactions.list({ limit: 50 }, opts),
+        stripe.payouts.list({ limit: 50 }, opts),
+      ]);
+      const { data: settings } = await supabase.from("billing_settings").select("stripe_payout_delay_days").eq("id", true).maybeSingle();
+      const eur = (rows: { amount: number; currency: string }[]) => rows.filter((b) => b.currency === "eur").reduce((s, b) => s + b.amount, 0);
+      const nowSec = Math.floor(Date.now() / 1000);
+      const nextAvailable = (recentTx.data as Stripe.BalanceTransaction[])
+        .filter((t) => t.currency === "eur" && t.amount > 0 && t.available_on > nowSec)
+        .map((t) => t.available_on)
+        .sort((a, b) => a - b)[0];
+      const paidOutCents = (payouts.data as Stripe.Payout[])
+        .filter((p) => p.currency === "eur" && (p.status === "paid" || p.status === "pending" || p.status === "in_transit"))
+        .reduce((s, p) => s + p.amount, 0);
+      return json({
+        available_cents: eur(balance.available),
+        pending_cents: eur(balance.pending),
+        paid_out_cents: paidOutCents,
+        next_available_on: nextAvailable ? new Date(nextAvailable * 1000).toISOString() : null,
+        payout_delay_days: settings?.stripe_payout_delay_days ?? 2,
+      });
     }
 
     if (action === "refresh") {
