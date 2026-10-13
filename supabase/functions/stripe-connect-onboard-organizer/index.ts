@@ -50,6 +50,20 @@ function json(body: unknown, status = 200) {
 
 const RETURN_PATH = "/studio/payments";
 
+/**
+ * True when the connected account no longer exists at Stripe (deleted from
+ * the dashboard or the CLI). Our row is then stale and must go.
+ */
+async function accountGone(stripe: ReturnType<typeof getStripeClient>, accountId: string): Promise<boolean> {
+  try {
+    const account = await stripe.accounts.retrieve(accountId);
+    return (account as unknown as { deleted?: boolean }).deleted === true;
+  } catch (err) {
+    const e = err as { code?: string; statusCode?: number };
+    return e.code === "resource_missing" || e.code === "account_invalid" || e.statusCode === 404 || e.statusCode === 403;
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
@@ -126,11 +140,13 @@ serve(async (req) => {
       // "association" without a SIREN is stuck. The only way out is a fresh
       // account. Allowed only while nothing has happened on the old one.
       if (!existing) return json({ ok: true });
-      const account = await stripe.accounts.retrieve(existing.stripe_account_id);
-      if (account.charges_enabled || account.details_submitted) {
-        return json({ error: "This account is already set up and can't be started over. Contact us and we'll sort it out." }, 409);
+      if (!(await accountGone(stripe, existing.stripe_account_id))) {
+        const account = await stripe.accounts.retrieve(existing.stripe_account_id);
+        if (account.charges_enabled || account.details_submitted) {
+          return json({ error: "This account is already set up and can't be started over. Contact us and we'll sort it out." }, 409);
+        }
+        await stripe.accounts.del(existing.stripe_account_id);
       }
-      await stripe.accounts.del(existing.stripe_account_id);
       await supabase.from("stripe_connect_accounts").delete().eq("id", existing.id);
       return json({ ok: true });
     }
@@ -178,6 +194,12 @@ serve(async (req) => {
 
     // action === "onboard"
     let stripeAccountId = existing?.stripe_account_id ?? null;
+    if (existing && stripeAccountId && (await accountGone(stripe, stripeAccountId))) {
+      // The Stripe account was deleted behind our back: drop the stale row and
+      // create a fresh account below, with the type chosen now.
+      await supabase.from("stripe_connect_accounts").delete().eq("id", existing.id);
+      stripeAccountId = null;
+    }
     if (stripeAccountId) {
       // Resuming: push the prefill again in case the type was chosen (or the
       // profile completed) after the account was first created, then mirror
