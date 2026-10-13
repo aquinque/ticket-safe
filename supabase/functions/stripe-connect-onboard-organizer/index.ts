@@ -3,7 +3,8 @@
  *
  * POST /functions/v1/stripe-connect-onboard-organizer
  * Authorization: Bearer <organizer-user-jwt>
- * Body: { organizer_id, action?: "onboard" | "refresh" | "dashboard" }
+ * Body: { organizer_id, action?: "onboard" | "refresh" | "dashboard",
+ *         business_type?: "individual" | "company" | "non_profit" }
  *
  * Express onboarding: Stripe hosts the identity / legal-representative /
  * bank-account pages. This function only
@@ -11,6 +12,11 @@
  *     not exist yet, then returns a fresh single-use Account Link { url } to
  *     send the organizer to. Re-callable: used again to resume or fix
  *     onboarding, and on the Stripe "refresh" redirect.
+ *     The account is created with the type the organizer picked on the
+ *     payments page (default: individual, so a student needs no company) and
+ *     pre-filled with everything we already know (name, email, address,
+ *     SIREN, website, activity), so the hosted form only asks for what is
+ *     missing: typically date of birth, phone, IBAN and sometimes an ID.
  *   - "refresh": reads the account back from Stripe and mirrors its state into
  *     stripe_connect_accounts (used when the organizer returns from Stripe,
  *     without waiting for the account.updated webhook).
@@ -26,6 +32,10 @@ import {
   deriveOnboardingStatus,
   accountStateColumns,
   accountHolderName,
+  isConnectBusinessType,
+  prefillExistingAccount,
+  type ConnectBusinessType,
+  type CreateExpressAccountArgs,
 } from "../_shared/stripeConnect.ts";
 
 const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type" };
@@ -48,16 +58,44 @@ serve(async (req) => {
   const { data: { user }, error: authErr } = await supabase.auth.getUser(authHeader.replace("Bearer ", ""));
   if (authErr || !user) return json({ error: "Invalid or expired token" }, 401);
 
-  let body: { organizer_id?: string; action?: string };
+  let body: { organizer_id?: string; action?: string; business_type?: unknown };
   try { body = await req.json(); } catch { return json({ error: "Invalid JSON" }, 400); }
   const organizerId = body.organizer_id;
   const action = body.action ?? "onboard";
   if (!organizerId || !/^[0-9a-f-]{36}$/i.test(organizerId)) return json({ error: "Invalid organizer_id" }, 400);
   if (!["onboard", "refresh", "dashboard"].includes(action)) return json({ error: "Invalid action" }, 400);
+  if (body.business_type !== undefined && !isConnectBusinessType(body.business_type)) return json({ error: "Invalid business_type" }, 400);
 
-  const { data: org } = await supabase.from("organizer_profiles").select("id, user_id, name, contact_email").eq("id", organizerId).maybeSingle();
+  const { data: org } = await supabase
+    .from("organizer_profiles")
+    .select("id, user_id, name, org_type, contact_name, contact_email, website, siren, billing_address_line1, billing_postal_code, billing_city, billing_country")
+    .eq("id", organizerId)
+    .maybeSingle();
   if (!org) return json({ error: "Organizer not found" }, 404);
   if (org.user_id !== user.id) return json({ error: "Forbidden — not your organizer" }, 403);
+
+  // What we already know about the person, so Stripe's form arrives filled in.
+  const { data: profile } = await supabase.from("profiles").select("first_name, last_name, full_name").eq("id", user.id).maybeSingle();
+  const [fallbackFirst, ...fallbackRest] = (profile?.full_name ?? org.contact_name ?? "").trim().split(/\s+/);
+  const person = {
+    first_name: profile?.first_name || fallbackFirst || null,
+    last_name: profile?.last_name || (fallbackRest.length ? fallbackRest.join(" ") : null),
+  };
+  // Default type: an association for student societies, otherwise an
+  // individual. Nobody is asked to be a company unless they say so.
+  const businessType: ConnectBusinessType = isConnectBusinessType(body.business_type)
+    ? body.business_type
+    : org.org_type === "student-society" ? "non_profit" : "individual";
+  const prefill: CreateExpressAccountArgs = {
+    email: org.contact_email ?? user.email ?? null,
+    name: businessType === "individual" ? null : org.name,
+    businessType,
+    person,
+    company: { tax_id: org.siren },
+    address: { line1: org.billing_address_line1, postal_code: org.billing_postal_code, city: org.billing_city, country: org.billing_country },
+    website: org.website,
+    metadata: { organizer_id: organizerId, organizer_name: org.name },
+  };
 
   let stripe;
   try {
@@ -91,12 +129,13 @@ serve(async (req) => {
 
     // action === "onboard"
     let stripeAccountId = existing?.stripe_account_id ?? null;
-    if (!stripeAccountId) {
-      const account = await createExpressAccount(stripe, {
-        email: org.contact_email,
-        name: org.name,
-        metadata: { organizer_id: organizerId },
-      });
+    if (stripeAccountId) {
+      // Resuming: push the prefill again in case the type was chosen (or the
+      // profile completed) after the account was first created.
+      await prefillExistingAccount(stripe, stripeAccountId, prefill);
+      await supabase.from("stripe_connect_accounts").update({ business_type: businessType, updated_at: new Date().toISOString() }).eq("id", existing!.id);
+    } else {
+      const account = await createExpressAccount(stripe, prefill);
       stripeAccountId = account.id;
       const { error: insertErr } = await supabase.from("stripe_connect_accounts").insert({
         owner_type: "organizer",
@@ -104,6 +143,7 @@ serve(async (req) => {
         user_id: null,
         stripe_account_id: account.id,
         account_holder_name: org.name,
+        business_type: businessType,
         ...accountStateColumns(account),
       });
       if (insertErr) {

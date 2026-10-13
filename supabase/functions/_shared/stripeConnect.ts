@@ -30,28 +30,123 @@ export function getStripeClient(): Stripe {
 
 export const SITE_URL = Deno.env.get("SITE_URL") ?? "https://ticket-safe.eu";
 
+export type ConnectBusinessType = "individual" | "company" | "non_profit";
+
+export function isConnectBusinessType(v: unknown): v is ConnectBusinessType {
+  return v === "individual" || v === "company" || v === "non_profit";
+}
+
+/**
+ * Stripe merchant category for ticket sellers ("Theatrical producers and
+ * ticket agencies"). Pre-filling it, with a product description, lets the
+ * hosted form skip its "tell us about your business" questions.
+ */
+export const TICKETING_MCC = "7922";
+export const PRODUCT_DESCRIPTION = "Vente de billets pour des événements (soirées, galas, conférences) via Ticket Safe.";
+
+export interface PrefillAddress {
+  line1?: string | null;
+  postal_code?: string | null;
+  city?: string | null;
+  country?: string | null;
+}
+
 export interface CreateExpressAccountArgs {
   email: string | null;
   /** Shown to Stripe as the business name so the hosted form is pre-filled. */
   name?: string | null;
-  /** Leave unset to let Stripe ask (association / company / individual). */
-  businessType?: "individual" | "company" | "non_profit";
+  /**
+   * Who receives the money. "individual" is the fast path for a student with
+   * no company: Stripe then only asks for identity, address and IBAN. Leave
+   * unset to let Stripe ask.
+   */
+  businessType?: ConnectBusinessType;
   country?: string;
+  /** Pre-filled on the hosted form for an individual, so they only confirm. */
+  person?: { first_name?: string | null; last_name?: string | null; phone?: string | null };
+  /** Pre-filled on the hosted form for a company or association. */
+  company?: { tax_id?: string | null };
+  address?: PrefillAddress;
+  website?: string | null;
   /** Stored on the Stripe account to find it again from the Stripe dashboard. */
   metadata?: Record<string, string>;
 }
 
+function cleanAddress(a: PrefillAddress | undefined, country: string): Stripe.AddressParam | undefined {
+  if (!a) return undefined;
+  const out: Stripe.AddressParam = {};
+  if (a.line1?.trim()) out.line1 = a.line1.trim();
+  if (a.postal_code?.trim()) out.postal_code = a.postal_code.trim();
+  if (a.city?.trim()) out.city = a.city.trim();
+  out.country = (a.country?.trim() || country).toUpperCase().slice(0, 2);
+  return out.line1 || out.postal_code || out.city ? out : undefined;
+}
+
+/** The fields Stripe accepts up front; everything else is collected on its hosted form. */
+export function expressPrefillParams(args: CreateExpressAccountArgs): Stripe.AccountUpdateParams {
+  const country = args.country ?? "FR";
+  const address = cleanAddress(args.address, country);
+  const website = args.website?.trim();
+  const businessProfile: Stripe.AccountUpdateParams.BusinessProfile = {
+    ...(args.name ? { name: args.name } : {}),
+    mcc: TICKETING_MCC,
+    product_description: PRODUCT_DESCRIPTION,
+    ...(website && /^https?:\/\//i.test(website) ? { url: website } : {}),
+  };
+  const params: Stripe.AccountUpdateParams = { business_profile: businessProfile };
+  if (args.businessType) params.business_type = args.businessType;
+
+  if (args.businessType === "individual") {
+    const p = args.person ?? {};
+    const individual: Stripe.AccountUpdateParams.Individual = {};
+    if (p.first_name?.trim()) individual.first_name = p.first_name.trim();
+    if (p.last_name?.trim()) individual.last_name = p.last_name.trim();
+    if (p.phone?.trim()) individual.phone = p.phone.trim();
+    if (args.email) individual.email = args.email;
+    if (address) individual.address = address;
+    if (Object.keys(individual).length > 0) params.individual = individual;
+  } else if (args.businessType === "company" || args.businessType === "non_profit") {
+    const company: Stripe.AccountUpdateParams.Company = {};
+    if (args.name) company.name = args.name;
+    const taxId = args.company?.tax_id?.replace(/\s+/g, "");
+    if (taxId && /^\d{9}$/.test(taxId)) company.tax_id = taxId; // SIREN
+    if (address) company.address = address;
+    if (Object.keys(company).length > 0) params.company = company;
+  }
+  return params;
+}
+
 export async function createExpressAccount(stripe: Stripe, args: CreateExpressAccountArgs): Promise<Stripe.Account> {
+  const prefill = expressPrefillParams(args);
   return stripe.accounts.create({
     type: "express",
     country: args.country ?? "FR",
     ...(args.email ? { email: args.email } : {}),
-    ...(args.businessType ? { business_type: args.businessType } : {}),
-    ...(args.name ? { business_profile: { name: args.name } } : {}),
+    ...prefill,
     capabilities: { card_payments: { requested: true }, transfers: { requested: true } },
     settings: { payouts: { schedule: { interval: "manual" } } },
     ...(args.metadata ? { metadata: args.metadata } : {}),
   });
+}
+
+/**
+ * Best-effort prefill of an account that already exists (created before the
+ * organizer chose a type, or abandoned on the first screen). Stripe refuses
+ * some of these updates once verification has started; that is fine, the
+ * hosted form still collects whatever is missing.
+ */
+export async function prefillExistingAccount(stripe: Stripe, accountId: string, args: CreateExpressAccountArgs): Promise<void> {
+  const params = expressPrefillParams(args);
+  try {
+    await stripe.accounts.update(accountId, params);
+  } catch (err) {
+    // Retry without the type and identity fields, which Stripe locks after the
+    // first submission; the business profile alone still removes questions.
+    const { business_type: _t, individual: _i, company: _c, ...rest } = params;
+    void _t; void _i; void _c;
+    await stripe.accounts.update(accountId, rest).catch(() => {});
+    console.warn("[stripeConnect] prefill of existing account partially refused:", err instanceof Error ? err.message : err);
+  }
 }
 
 /**
