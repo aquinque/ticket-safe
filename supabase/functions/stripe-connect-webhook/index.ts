@@ -285,13 +285,26 @@ serve(async (req) => {
       }
 
       case "account.updated": {
-        const account = event.data.object as Stripe.Account;
+        // Stripe retries and reorders deliveries, so the event body can be
+        // older than what the row already holds (a retried batch once
+        // flipped an active account back to "action needed"). Mirror the
+        // live account instead; the event is only the trigger.
+        const evAccount = event.data.object as Stripe.Account;
+        let account = evAccount;
+        try {
+          account = await stripe.accounts.retrieve(evAccount.id);
+        } catch (err) {
+          console.warn("[stripe-connect-webhook] could not re-read account, using event body:", err instanceof Error ? err.message : err);
+        }
+        if ((account as unknown as { deleted?: boolean }).deleted) break;
+        const bt = account.business_type;
         await supabase.from("stripe_connect_accounts").update({
           charges_enabled: account.charges_enabled ?? false,
           payouts_enabled: account.payouts_enabled ?? false,
           details_submitted: account.details_submitted ?? false,
           requirements_currently_due: account.requirements?.currently_due ?? [],
           requirements_past_due: account.requirements?.past_due ?? [],
+          ...(bt === "individual" || bt === "company" || bt === "non_profit" ? { business_type: bt } : {}),
           updated_at: new Date().toISOString(),
         }).eq("stripe_account_id", account.id);
         break;
