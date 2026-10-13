@@ -131,9 +131,12 @@ serve(async (req) => {
     let stripeAccountId = existing?.stripe_account_id ?? null;
     if (stripeAccountId) {
       // Resuming: push the prefill again in case the type was chosen (or the
-      // profile completed) after the account was first created.
+      // profile completed) after the account was first created, then mirror
+      // what Stripe actually kept: it locks the type once verification starts,
+      // so the row must reflect Stripe, not the choice made on the page.
       await prefillExistingAccount(stripe, stripeAccountId, prefill);
-      await supabase.from("stripe_connect_accounts").update({ business_type: businessType, updated_at: new Date().toISOString() }).eq("id", existing!.id);
+      const account = await stripe.accounts.retrieve(stripeAccountId);
+      await supabase.from("stripe_connect_accounts").update(accountStateColumns(account)).eq("id", existing!.id);
     } else {
       const account = await createExpressAccount(stripe, prefill);
       stripeAccountId = account.id;
