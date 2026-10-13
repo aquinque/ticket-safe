@@ -29,7 +29,7 @@ import { toast } from "sonner";
  */
 
 type BusinessType = "individual" | "non_profit" | "company";
-type Action = "onboard" | "refresh" | "dashboard" | "balance";
+type Action = "onboard" | "refresh" | "dashboard" | "balance" | "reset";
 
 interface ConnectAccountRow {
   id: string;
@@ -63,26 +63,31 @@ interface PayoutJob {
 
 interface NextEvent { title: string; ends: string }
 
-const BUSINESS_TYPES: { value: BusinessType; label: string; hint: string; needs: string; icon: typeof User }[] = [
+// Only "individual" is activated by Stripe without a SIREN. The other two are
+// for organizers who really have one; the page says so before Stripe does.
+const BUSINESS_TYPES: { value: BusinessType; label: string; hint: string; needs: string; needsSiren: boolean; icon: typeof User }[] = [
   {
     value: "individual",
-    label: "Me, as an individual",
-    hint: "No company needed. The money goes to your own bank account.",
-    needs: "Have ready: your date of birth, phone number and IBAN. Stripe may ask for a photo of your ID.",
+    label: "Me personally",
+    hint: "Fastest. No SIREN, no paperwork. Paid to your own bank account.",
+    needs: "Have ready: your date of birth, phone number and IBAN. Stripe may ask for a photo of your ID. Works for a BDE or club too: whoever signs up receives the money.",
+    needsSiren: false,
     icon: User,
   },
   {
     value: "non_profit",
-    label: "A student association",
-    hint: "BDE, club or any non-profit with its own bank account.",
-    needs: "Have ready: the association's SIREN or RNA number, its IBAN, and the ID of the person signing up.",
+    label: "A registered association",
+    hint: "Only if it has a SIREN number. Stripe will ask for it.",
+    needs: "Have ready: the association's SIREN, its IBAN, your role in it, and your ID.",
+    needsSiren: true,
     icon: Users,
   },
   {
     value: "company",
     label: "A company",
-    hint: "The money goes to the company's bank account.",
+    hint: "Needs the company's SIREN. Paid to the company's bank account.",
     needs: "Have ready: the SIREN, the company IBAN, and the ID of a legal representative.",
+    needsSiren: true,
     icon: Building2,
   },
 ];
@@ -106,7 +111,8 @@ function describeRequirements(codes: string[]): string[] {
     else if (/\.address\./.test(c)) out.add("your postal address");
     else if (/id_number|verification\.document|verification\.additional_document/.test(c)) out.add("a photo of your ID");
     else if (/external_account/.test(c)) out.add("your bank account (IBAN)");
-    else if (/tax_id|registration_number/.test(c)) out.add("the SIREN or registration number");
+    else if (/tax_id|registration_number/.test(c)) out.add("the SIREN number");
+    else if (/relationship\.title/.test(c)) out.add("your role in the organisation");
     else if (/business_profile\.(url|product_description|mcc)/.test(c)) out.add("a short description of your activity");
     else if (/tos_acceptance/.test(c)) out.add("accepting Stripe's terms");
     else if (/^company\./.test(c)) out.add("details about the organisation");
@@ -226,9 +232,8 @@ const StudioPayments = () => {
   const [error, setError] = useState<string | null>(null);
   const [businessType, setBusinessType] = useState<BusinessType | null>(null);
 
-  // Default choice: a student society is an association, anyone else an individual.
-  const defaultType: BusinessType = organizer?.org_type === "student-society" ? "non_profit" : "individual";
-  const chosenType: BusinessType = businessType ?? account?.business_type ?? defaultType;
+  // Default choice: individual, for everyone. It is the only type Stripe activates without a SIREN.
+  const chosenType: BusinessType = businessType ?? account?.business_type ?? "individual";
 
   const callFn = useCallback(async <T,>(action: Action, extra?: Record<string, unknown>): Promise<T | null> => {
     if (!organizer) return null;
@@ -341,6 +346,25 @@ const StudioPayments = () => {
     }
   }, [callFn]);
 
+  // For an account Stripe created as association/company and now wants a SIREN
+  // for: delete it and start again as an individual, in one click.
+  const startOverAsIndividual = useCallback(async () => {
+    setError(null);
+    setBusy("reset");
+    try {
+      await callFn("reset");
+      setBusinessType("individual");
+      setAccount(null);
+      await goToStripe("onboard", "individual");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Something went wrong.";
+      setError(msg);
+      toast.error(msg);
+    } finally {
+      setBusy(null);
+    }
+  }, [callFn, goToStripe]);
+
   useEffect(() => {
     if (!authLoading && !user) navigate("/auth?next=/studio/payments");
   }, [user, authLoading, navigate]);
@@ -370,6 +394,10 @@ const StudioPayments = () => {
   const hasDue = dueCodes.length > 0;
   const dueList = useMemo(() => describeRequirements(dueCodes), [dueCodes]);
   const chosen = BUSINESS_TYPES.find((t) => t.value === chosenType) ?? BUSINESS_TYPES[0];
+  // Picked association/company without a SIREN on file: Stripe will stop them at the SIREN question.
+  const sirenWarning = chosen.needsSiren && !organizer?.siren;
+  // Stripe already created the account as association/company and is now waiting for a SIREN.
+  const stuckOnSiren = !!account && !active && !account.details_submitted && dueCodes.some((c) => /tax_id|registration_number/.test(c));
   const delayDays = balance?.payout_delay_days ?? 2;
   const nextPayoutDay = nextEvent ? fmtDay(addDays(nextEvent.ends, delayDays)) : null;
 
@@ -407,7 +435,7 @@ const StudioPayments = () => {
   const statusLabel = !account ? "Not set up" : active ? "Active" : hasDue ? "Action needed" : account.details_submitted ? "Under review" : "Incomplete";
   const statusColor = !account ? "bg-muted text-muted-foreground" : active ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700";
   const subline = !account
-    ? "Get paid for your tickets. About 3 minutes to set up, no company needed."
+    ? "Get paid for your tickets. About 3 minutes to set up, no company or SIREN needed."
     : active
       ? "Where your ticket money is, and when it reaches your bank."
       : hasDue
@@ -491,6 +519,16 @@ const StudioPayments = () => {
               <p>{chosen.needs}</p>
               <p>Your name and email are already filled in. You can stop and come back any time.</p>
             </div>
+            {sirenWarning && (
+              <div className="flex items-start gap-2 px-3 py-2.5 bg-amber-50 text-amber-800 text-xs motion-safe:animate-fade-in">
+                <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                <p>
+                  Stripe will ask for a SIREN number and won't activate the account without it, and the choice can't be changed afterwards.
+                  No SIREN? Choose <button type="button" className="font-bold underline underline-offset-2" onClick={() => setBusinessType("individual")}>Me personally</button> instead.
+                  It works for a BDE or club too: whoever signs up receives the money.
+                </p>
+              </div>
+            )}
             {error && (
               <div className="flex items-start gap-2 px-3 py-2 bg-destructive/10 border border-destructive/30 text-destructive text-sm">
                 <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
@@ -518,7 +556,24 @@ const StudioPayments = () => {
                   {active ? " · Verified by Stripe" : ""}
                 </p>
               </div>
-              {!active && (
+              {stuckOnSiren && (
+                <div className="bg-amber-50 text-amber-800 px-3 py-2.5 text-xs space-y-2">
+                  <p>
+                    This account was created as {account.business_type === "company" ? "a company" : "an association"}, so Stripe wants its SIREN number before activating it.
+                    If you don't have one, start over as an individual: it takes 3 minutes and needs no SIREN.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={startOverAsIndividual}
+                    disabled={busy !== null}
+                    className="inline-flex items-center justify-center gap-1.5 px-3 min-h-[36px] font-bold bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-60 transition-colors"
+                  >
+                    {busy === "reset" ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                    Start over as an individual
+                  </button>
+                </div>
+              )}
+              {!active && !stuckOnSiren && (
                 <p className="text-amber-700 bg-amber-50 px-3 py-2 text-xs">
                   {hasDue
                     ? "Stripe still needs a few details before you can sell tickets. It takes a minute to finish."

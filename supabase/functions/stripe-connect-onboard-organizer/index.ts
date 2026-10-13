@@ -23,6 +23,8 @@
  *   - "dashboard": returns a single-use login link to the Express dashboard.
  *   - "balance": pending / available / paid-out amounts and the next
  *     availability date, read live from Stripe for the payments page.
+ *   - "reset": deletes an account that never got going (no details submitted,
+ *     no charges) so the organizer can start again with another type.
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -66,7 +68,7 @@ serve(async (req) => {
   const organizerId = body.organizer_id;
   const action = body.action ?? "onboard";
   if (!organizerId || !/^[0-9a-f-]{36}$/i.test(organizerId)) return json({ error: "Invalid organizer_id" }, 400);
-  if (!["onboard", "refresh", "dashboard", "balance"].includes(action)) return json({ error: "Invalid action" }, 400);
+  if (!["onboard", "refresh", "dashboard", "balance", "reset"].includes(action)) return json({ error: "Invalid action" }, 400);
   if (body.business_type !== undefined && !isConnectBusinessType(body.business_type)) return json({ error: "Invalid business_type" }, 400);
 
   const { data: org } = await supabase
@@ -84,11 +86,10 @@ serve(async (req) => {
     first_name: profile?.first_name || fallbackFirst || null,
     last_name: profile?.last_name || (fallbackRest.length ? fallbackRest.join(" ") : null),
   };
-  // Default type: an association for student societies, otherwise an
-  // individual. Nobody is asked to be a company unless they say so.
-  const businessType: ConnectBusinessType = isConnectBusinessType(body.business_type)
-    ? body.business_type
-    : org.org_type === "student-society" ? "non_profit" : "individual";
+  // Default type: individual, for everyone. It is the only type Stripe
+  // activates without a SIREN, and most organizers are students with none.
+  // Association and company are opt-in from the payments page.
+  const businessType: ConnectBusinessType = isConnectBusinessType(body.business_type) ? body.business_type : "individual";
   const prefill: CreateExpressAccountArgs = {
     email: org.contact_email ?? user.email ?? null,
     name: businessType === "individual" ? null : org.name,
@@ -118,6 +119,20 @@ serve(async (req) => {
     if (action === "dashboard") {
       if (!existing) return json({ error: "No payment account yet." }, 404);
       return json({ url: await createDashboardLink(stripe, existing.stripe_account_id) });
+    }
+
+    if (action === "reset") {
+      // Stripe locks the account type at creation, so an organizer who picked
+      // "association" without a SIREN is stuck. The only way out is a fresh
+      // account. Allowed only while nothing has happened on the old one.
+      if (!existing) return json({ ok: true });
+      const account = await stripe.accounts.retrieve(existing.stripe_account_id);
+      if (account.charges_enabled || account.details_submitted) {
+        return json({ error: "This account is already set up and can't be started over. Contact us and we'll sort it out." }, 409);
+      }
+      await stripe.accounts.del(existing.stripe_account_id);
+      await supabase.from("stripe_connect_accounts").delete().eq("id", existing.id);
+      return json({ ok: true });
     }
 
     if (action === "balance") {
