@@ -1097,12 +1097,12 @@ const EventPublic = () => {
                     {event.location && <div className="text-sm text-foreground mt-1">{event.location}</div>}
                     <div className="flex flex-wrap gap-2 mt-3">
                       {!clock.over && (
-                        <button type="button" onClick={() => downloadIcs(event)} className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full border border-border text-sm text-foreground hover:bg-muted transition-colors">
+                        <button type="button" onClick={() => downloadIcs(event)} className="inline-flex items-center gap-1.5 min-h-[44px] px-4 rounded-full border border-border text-sm text-foreground hover:bg-muted transition-colors">
                           <CalendarPlus className="w-4 h-4" strokeWidth={1.75} /> Add to calendar
                         </button>
                       )}
                       {event.location && (
-                        <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full border border-border text-sm text-foreground hover:bg-muted transition-colors">
+                        <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 min-h-[44px] px-4 rounded-full border border-border text-sm text-foreground hover:bg-muted transition-colors">
                           <Navigation className="w-4 h-4" strokeWidth={1.75} /> Open in Maps
                         </a>
                       )}

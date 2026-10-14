@@ -210,7 +210,41 @@ export const StudioLayout = ({
           </DropdownMenu>
         </header>
 
-        <main className="flex-1 min-w-0">{children}</main>
+        {/* Room for the phone tab bar, so nothing ends up hidden behind it */}
+        <main className="flex-1 min-w-0 pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0">{children}</main>
+
+        {/* Phone: the four places organisers go most, one thumb away. Everything else is in the menu. */}
+        <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 border-t border-border bg-card/95 backdrop-blur pb-[env(safe-area-inset-bottom)]" aria-label="Studio">
+          <ul className="grid grid-cols-5">
+            {NAV_ITEMS.filter((n) => ["dashboard", "events", "sales", "checkin"].includes(n.key)).map((item) => {
+              const Icon = item.icon;
+              const on = active === item.key;
+              return (
+                <li key={item.key}>
+                  <Link
+                    to={item.to}
+                    aria-current={on ? "page" : undefined}
+                    className={`flex flex-col items-center justify-center gap-1 h-16 text-[10px] font-bold uppercase tracking-wide transition-colors ${on ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
+                  >
+                    <span className={`w-9 h-7 rounded-full flex items-center justify-center transition-colors ${on ? "bg-primary/15" : ""}`}><Icon className="w-5 h-5" /></span>
+                    {item.key === "dashboard" ? "Home" : item.key === "checkin" ? "Scan" : item.label}
+                  </Link>
+                </li>
+              );
+            })}
+            <li>
+              <button
+                type="button"
+                onClick={() => setMobileOpen(true)}
+                className={`w-full flex flex-col items-center justify-center gap-1 h-16 text-[10px] font-bold uppercase tracking-wide transition-colors ${["team", "payouts", "payments", "settings", "resale"].includes(active) ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
+                aria-label="More"
+              >
+                <span className={`w-9 h-7 rounded-full flex items-center justify-center ${["team", "payouts", "payments", "settings", "resale"].includes(active) ? "bg-primary/15" : ""}`}><Menu className="w-5 h-5" /></span>
+                More
+              </button>
+            </li>
+          </ul>
+        </nav>
       </div>
     </div>
   );

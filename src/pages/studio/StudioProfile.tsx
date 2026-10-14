@@ -376,7 +376,7 @@ const StudioProfile = () => {
 
       {/* Save bar: only when something changed */}
       <div
-        className={`fixed bottom-0 inset-x-0 md:left-60 z-20 border-t border-border bg-card/95 backdrop-blur px-4 md:px-6 py-3 transition-transform duration-200 ${
+        className={`fixed bottom-[calc(4rem+env(safe-area-inset-bottom))] md:bottom-0 inset-x-0 md:left-60 z-20 border-t border-border bg-card/95 backdrop-blur px-4 md:px-6 py-3 transition-transform duration-200 ${
           dirty || error ? "translate-y-0" : "translate-y-full"
         }`}
         aria-hidden={!dirty && !error}

@@ -371,7 +371,7 @@ const EventRow = ({ event: e, index, activity, duplicating, onDuplicate }: { eve
     if (activity.lastSale) parts.push(`last sale ${relativeTime(activity.lastSale)}`);
     return parts.join(" · ");
   })();
-  const iconBtn = "w-9 h-9 border border-border flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/40 disabled:opacity-50 transition-colors";
+  const iconBtn = "w-10 h-10 border border-border flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/40 disabled:opacity-50 transition-colors";
 
   return (
     <li className="group relative motion-safe:animate-fade-in" style={{ animationDelay: `${Math.min(index, 8) * 40}ms` }}>

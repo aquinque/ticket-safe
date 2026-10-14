@@ -214,7 +214,7 @@ const Tickets = () => {
   const tonightCount = useMemo(() => allEvents.filter((e) => daysFromNow(e.date) === 0).length, [allEvents]);
   const showReco = recommended.length > 0 && reason === "personalized" && query.trim() === "" && category === "all" && !selectedOrg;
 
-  const chip = "shrink-0 inline-flex items-center gap-1.5 px-3.5 min-h-[36px] rounded-full text-xs font-semibold border transition-colors";
+  const chip = "shrink-0 inline-flex items-center gap-1.5 px-3.5 min-h-[40px] rounded-full text-xs font-semibold border transition-colors";
 
   return (
     <div className="theme-night min-h-screen flex flex-col bg-background">
@@ -284,10 +284,10 @@ const Tickets = () => {
         {/* ===================== STICKY FILTER BAR — org, category, search ===================== */}
         <section className="sticky top-16 md:top-20 z-20 bg-background/90 backdrop-blur border-b border-border">
           <div className="container mx-auto px-4 py-2.5">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button type="button" className="shrink-0 inline-flex items-center gap-2 pl-2.5 pr-2 min-h-[36px] rounded-full font-semibold text-xs bg-card border border-border hover:border-primary/40 transition-colors">
+                  <button type="button" className="shrink-0 inline-flex items-center gap-2 pl-2.5 pr-2 min-h-[40px] rounded-full font-semibold text-xs bg-card border border-border hover:border-primary/40 transition-colors">
                     {activeOrg?.logo ? (
                       <img src={activeOrg.logo} alt="" className="w-5 h-5 rounded-full object-cover shrink-0" />
                     ) : (
@@ -318,7 +318,7 @@ const Tickets = () => {
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              <div className="ts-chips flex gap-1.5 overflow-x-auto flex-1 min-w-0">
+              <div className="ts-chips order-3 w-full sm:order-none sm:w-auto sm:flex-1 flex gap-1.5 overflow-x-auto min-w-0 -mx-4 px-4 sm:mx-0 sm:px-0">
                 {categories.map((c) => (
                   <button
                     key={c.id}
@@ -331,7 +331,7 @@ const Tickets = () => {
                 ))}
               </div>
 
-              <div className="relative w-36 sm:w-56 md:w-72 shrink-0">
+              <div className="relative flex-1 sm:flex-none sm:w-56 md:w-72 min-w-0">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <input
                   type="search"
@@ -339,7 +339,7 @@ const Tickets = () => {
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Search"
                   aria-label="Search events"
-                  className="w-full pl-9 pr-3 h-9 rounded-full bg-muted/60 border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/40 focus:bg-background transition-colors"
+                  className="w-full pl-9 pr-3 h-10 rounded-full bg-muted/60 border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/40 focus:bg-background transition-colors"
                 />
               </div>
             </div>

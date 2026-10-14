@@ -21,7 +21,7 @@ export function FilterChips<K extends string>({
             role="tab"
             aria-selected={on}
             onClick={() => onChange(it.key)}
-            className={`inline-flex items-center gap-1.5 min-h-[36px] px-3 text-xs font-bold rounded-full border transition-colors ${
+            className={`inline-flex items-center gap-1.5 min-h-[40px] px-3 text-xs font-bold rounded-full border transition-colors ${
               on ? "bg-foreground text-background border-foreground" : "bg-card border-border text-muted-foreground hover:text-foreground hover:border-foreground/30"
             }`}
           >

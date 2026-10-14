@@ -105,7 +105,7 @@ export const GuestList = ({ guests, totals, loaded, busyId, onCheckIn, onUndo, c
             role="tab"
             aria-selected={filter === key}
             onClick={() => setFilter(key)}
-            className={`min-h-[36px] px-3 text-xs font-bold rounded-full border transition-colors ${
+            className={`min-h-[40px] px-3.5 text-xs font-bold rounded-full border transition-colors ${
               filter === key ? "bg-foreground text-background border-foreground" : "border-border text-muted-foreground hover:text-foreground"
             }`}
           >
