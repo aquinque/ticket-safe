@@ -16,6 +16,10 @@ import {
   Info,
   CreditCard,
   BadgeCheck,
+  Share2,
+  CalendarPlus,
+  Users,
+  Navigation,
 } from "lucide-react";
 import { SEOHead } from "@/components/SEOHead";
 import { useTierServiceFee } from "@/hooks/useServiceFee";
@@ -54,6 +58,56 @@ interface PublicEvent {
     primary_color: string;
     website: string | null;
   } | null;
+}
+
+/** Re-renders on a timer so the countdown and "happening now" stay true. */
+function useNow(tickMs: number): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), tickMs);
+    return () => clearInterval(id);
+  }, [tickMs]);
+  return now;
+}
+
+/** "Doors open in 26 days", "Doors open in 3 h 12 min", "Happening now", "Ended". */
+function countdown(startIso: string, endIso: string | null, now: number): { label: string; live: boolean; over: boolean } {
+  const start = new Date(startIso).getTime();
+  const end = endIso ? new Date(endIso).getTime() : start + 6 * 3_600_000;
+  if (now >= end) return { label: "Ended", live: false, over: true };
+  if (now >= start) return { label: "Happening now", live: true, over: false };
+  const diff = start - now;
+  const d = Math.floor(diff / 86_400_000);
+  const h = Math.floor((diff % 86_400_000) / 3_600_000);
+  const m = Math.floor((diff % 3_600_000) / 60_000);
+  const time = new Date(startIso).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+  if (d >= 2) return { label: `Doors open in ${d} days`, live: false, over: false };
+  if (d === 1) return { label: `Doors open tomorrow at ${time}`, live: false, over: false };
+  if (h >= 1) return { label: `Doors open in ${h} h ${m.toString().padStart(2, "0")} min`, live: false, over: false };
+  return { label: `Doors open in ${Math.max(1, m)} min`, live: false, over: false };
+}
+
+/** Calendar file for Apple, Google, Outlook: one download, every app opens it. */
+function downloadIcs(ev: { title: string; date: string; ends_at: string | null; location: string | null; slug: string; description: string | null }) {
+  const stamp = (iso: string) => new Date(iso).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+  const end = ev.ends_at ?? new Date(new Date(ev.date).getTime() + 4 * 3_600_000).toISOString();
+  const esc = (t: string) => t.replace(/\\/g, "\\\\").replace(/\n/g, "\\n").replace(/,/g, "\\,").replace(/;/g, "\\;");
+  const lines = [
+    "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Ticket Safe//EN", "BEGIN:VEVENT",
+    `UID:${ev.slug}@ticket-safe.eu`, `DTSTAMP:${stamp(new Date().toISOString())}`, `DTSTART:${stamp(ev.date)}`, `DTEND:${stamp(end)}`,
+    `SUMMARY:${esc(ev.title)}`, ...(ev.location ? [`LOCATION:${esc(ev.location)}`] : []),
+    `DESCRIPTION:${esc((ev.description ?? "").slice(0, 400))}${ev.description ? "\\n\\n" : ""}Tickets: https://ticket-safe.eu/e/${ev.slug}`,
+    `URL:https://ticket-safe.eu/e/${ev.slug}`, "END:VEVENT", "END:VCALENDAR",
+  ];
+  const blob = new Blob([lines.join("\r\n")], { type: "text/calendar;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${ev.slug}.ics`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 }
 
 interface AttendeeForm {
@@ -96,6 +150,7 @@ const EventPublic = () => {
   const [maxPerBuyer, setMaxPerBuyer] = useState<number | null>(null);
   const [paymentProvider, setPaymentProvider] = useState<"stripe" | "revolut">("revolut");
   const [attendees, setAttendees] = useState<AttendeeForm[]>([]);
+  const nowTs = useNow(30_000);
   const [following, setFollowing] = useState(false);
   const [followBusy, setFollowBusy] = useState(false);
   const [promoCode, setPromoCode] = useState("");
@@ -467,6 +522,21 @@ const EventPublic = () => {
 
   const fmtPrice = (cents: number) => `€${(cents / 100).toFixed(cents % 100 === 0 ? 0 : 2)}`;
 
+  // The page keeps time: the countdown ticks, "happening now" switches on
+  // by itself, and the attendance count is rounded so stock is never exact.
+  const clock = countdown(event.date, event.ends_at, nowTs);
+  const soldTotal = tiers.reduce((n, t) => n + Math.max(0, t.total_qty - t.available_qty), 0);
+  const goingLabel = soldTotal >= 10 ? `${Math.floor(soldTotal / 10) * 10}+ going` : null;
+  const startDate = new Date(event.date);
+  const shareEvent = async () => {
+    const url = `https://ticket-safe.eu/e/${event.slug}`;
+    try {
+      if (navigator.share) { await navigator.share({ title: event.title, text: `${event.title} · ${startDate.toLocaleDateString("en-GB", { day: "numeric", month: "long" })}`, url }); return; }
+      await navigator.clipboard.writeText(url);
+      toast.success("Link copied");
+    } catch { /* share sheet dismissed */ }
+  };
+
   // Order summary, rendered both in the desktop sticky rail (with CTA) and as a
   // mobile inline breakdown (without CTA — the sticky bottom bar carries that).
   const renderSummary = (showCta: boolean) => {
@@ -660,37 +730,42 @@ const EventPublic = () => {
         }}
       />
 
-      {/* ===== Hero — image/video if there's one, no gradient placeholder
-          when there isn't. The caption (status, category, organizer, title,
-          date/place) sits on the page background below the image, not
-          layered on top of it. ===== */}
-      <section className="pt-16 md:pt-20">
+      {/* ===== Hero — the event's own image is the atmosphere: sharp in the
+          frame with a slow drift, and soft behind the caption so the page
+          doesn't go flat the moment the picture ends. ===== */}
+      <section className="relative pt-16 md:pt-20 overflow-hidden">
+        {event.banner_url && (
+          <div className="absolute inset-0 pointer-events-none" aria-hidden>
+            <img src={event.banner_url} alt="" className="w-full h-full object-cover opacity-20 blur-3xl scale-110" />
+            <div className="absolute inset-0 bg-gradient-to-b from-background/40 via-background/70 to-background" />
+          </div>
+        )}
+
         {(event.video_url || event.banner_url) && (
-          <div className="container mx-auto max-w-5xl px-0 sm:px-4 sm:pt-6">
+          <div className="relative container mx-auto max-w-5xl px-0 sm:px-4 sm:pt-6">
             <div className="relative w-full aspect-[16/9] overflow-hidden bg-black/20">
               {event.video_url ? (
-                <video
-                  src={event.video_url}
-                  className="absolute inset-0 w-full h-full object-cover"
-                  autoPlay
-                  muted
-                  loop
-                  playsInline
-                />
+                <video src={event.video_url} className="absolute inset-0 w-full h-full object-cover" autoPlay muted loop playsInline />
               ) : (
                 <img
                   src={event.banner_url ?? undefined}
                   alt={event.title}
-                  className="absolute inset-0 w-full h-full object-cover"
+                  className="absolute inset-0 w-full h-full object-cover motion-safe:animate-[ts-drift_28s_ease-in-out_infinite_alternate]"
                   fetchPriority="high"
                   decoding="async"
                 />
               )}
+              {/* Date block, pinned to the frame */}
+              <div className="absolute left-3 bottom-3 sm:left-4 sm:bottom-4 w-16 text-center bg-background/85 backdrop-blur border border-border/60 py-1.5 motion-safe:animate-scale-in">
+                <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">{startDate.toLocaleDateString("en-GB", { month: "short" })}</div>
+                <div className="font-display text-3xl font-bold leading-none text-foreground">{startDate.getDate()}</div>
+                <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">{startDate.toLocaleDateString("en-GB", { weekday: "short" })}</div>
+              </div>
             </div>
           </div>
         )}
 
-        <div className="container mx-auto max-w-5xl px-4 pt-6">
+        <div className="relative container mx-auto max-w-5xl px-4 pt-6 pb-2">
           <button
             type="button"
             onClick={() => {
@@ -703,7 +778,7 @@ const EventPublic = () => {
             Back
           </button>
 
-          <div className="flex items-center gap-3 flex-wrap text-[11px] font-bold uppercase tracking-[0.12em] mb-3">
+          <div className="flex items-center gap-3 flex-wrap text-[11px] font-bold uppercase tracking-[0.12em] mb-3 motion-safe:animate-fade-in">
             <span className={`inline-flex items-center gap-1.5 ${statusText.colorClass}`}>
               {statusText.pulse && <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />}
               {statusText.label}
@@ -717,14 +792,14 @@ const EventPublic = () => {
             )}
           </div>
 
-          <h1 className="text-3xl md:text-5xl font-semibold tracking-tight leading-[1.08] mb-4 text-foreground">
+          <h1 className="text-4xl md:text-6xl font-semibold tracking-tight leading-[1.02] mb-4 text-foreground text-balance motion-safe:animate-slide-up">
             {event.title}
           </h1>
 
-          <div className="flex items-center gap-4 flex-wrap text-sm text-muted-foreground">
+          <div className="flex items-center gap-4 flex-wrap text-sm text-muted-foreground motion-safe:animate-fade-in" style={{ animationDelay: "120ms", animationFillMode: "both" }}>
             <span className="inline-flex items-center gap-1.5">
               <Calendar className="w-4 h-4" strokeWidth={1.5} />
-              {new Date(event.date).toLocaleString("en-GB", { dateStyle: "long", timeStyle: "short" })}
+              {startDate.toLocaleString("en-GB", { dateStyle: "long", timeStyle: "short" })}
             </span>
             {event.location && (
               <span className="inline-flex items-center gap-1.5">
@@ -738,6 +813,37 @@ const EventPublic = () => {
                 Until {new Date(event.ends_at).toLocaleString("en-GB", { timeStyle: "short" })}
               </span>
             )}
+          </div>
+
+          {/* The pulse row: how soon, how many, and two things to do right now */}
+          <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-3 text-sm motion-safe:animate-fade-in" style={{ animationDelay: "220ms", animationFillMode: "both" }}>
+            <span className={`inline-flex items-center gap-2 font-medium ${clock.live ? "text-emerald-400" : clock.over ? "text-muted-foreground" : "text-foreground"}`}>
+              {clock.live ? (
+                <span className="relative flex h-2 w-2">
+                  <span className="motion-safe:animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
+                </span>
+              ) : (
+                <Clock className="w-4 h-4 text-primary" strokeWidth={1.75} />
+              )}
+              {clock.label}
+            </span>
+            {goingLabel && !clock.over && (
+              <span className="inline-flex items-center gap-1.5 text-foreground">
+                <Users className="w-4 h-4 text-primary" strokeWidth={1.75} />
+                {goingLabel}
+              </span>
+            )}
+            <span className="flex items-center gap-2 ml-auto">
+              <button type="button" onClick={shareEvent} className="inline-flex items-center gap-1.5 h-9 px-3 border border-border text-sm text-foreground hover:bg-muted transition-colors">
+                <Share2 className="w-4 h-4" strokeWidth={1.75} /> Share
+              </button>
+              {!clock.over && (
+                <button type="button" onClick={() => downloadIcs(event)} className="inline-flex items-center gap-1.5 h-9 px-3 border border-border text-sm text-foreground hover:bg-muted transition-colors">
+                  <CalendarPlus className="w-4 h-4" strokeWidth={1.75} /> Add to calendar
+                </button>
+              )}
+            </span>
           </div>
         </div>
       </section>
@@ -977,9 +1083,9 @@ const EventPublic = () => {
                           href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-sm text-primary hover:underline"
+                          className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
                         >
-                          View on map
+                          <Navigation className="w-3.5 h-3.5" strokeWidth={1.75} /> Open in Maps
                         </a>
                       </div>
                     </div>
@@ -1000,12 +1106,12 @@ const EventPublic = () => {
                   <li className="flex items-start gap-3">
                     <CreditCard className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" strokeWidth={1.5} />
                     <span className="text-foreground/85">
-                      Secure payment via <span className="font-medium text-foreground">Revolut</span> — your card details never touch Ticket Safe.
+                      Secure payment via <span className="font-medium text-foreground">{paymentProvider === "stripe" ? "Stripe" : "Revolut"}</span>. Your card details never touch Ticket Safe.
                     </span>
                   </li>
                   <li className="flex items-start gap-3">
                     <Mail className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" strokeWidth={1.5} />
-                    <span className="text-foreground/85">Your QR ticket arrives by email, as an image and a PDF.</span>
+                    <span className="text-foreground/85">Your QR ticket arrives by email within a minute, as an image and a PDF.</span>
                   </li>
                   <li className="flex items-start gap-3">
                     <QrCode className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" strokeWidth={1.5} />
@@ -1023,11 +1129,11 @@ const EventPublic = () => {
               {/* Organizer */}
               {event.organizer && (
                 <Section title="Organized by">
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-4 border border-border p-4" style={{ borderLeft: `3px solid ${/^#[0-9a-fA-F]{6}$/.test(event.organizer.primary_color ?? "") ? event.organizer.primary_color : "hsl(var(--primary))"}` }}>
                     {event.organizer.logo_url ? (
-                      <img src={event.organizer.logo_url} alt={event.organizer.name} className="w-11 h-11 rounded-full object-cover shrink-0" />
+                      <img src={event.organizer.logo_url} alt={event.organizer.name} className="w-14 h-14 object-cover shrink-0" />
                     ) : (
-                      <div className="w-11 h-11 rounded-full flex items-center justify-center font-semibold text-primary-foreground bg-primary shrink-0">
+                      <div className="w-14 h-14 flex items-center justify-center font-display text-xl font-bold text-primary-foreground bg-primary shrink-0">
                         {event.organizer.name[0]?.toUpperCase()}
                       </div>
                     )}
@@ -1036,9 +1142,10 @@ const EventPublic = () => {
                         {event.organizer.name}
                         <BadgeCheck className="w-4 h-4 text-primary" strokeWidth={1.75} aria-label="Verified organizer" />
                       </div>
+                      <div className="text-xs text-muted-foreground">Verified organiser{goingLabel ? ` · ${goingLabel} to this event` : ""}</div>
                       {event.organizer.website && (
                         <a href={event.organizer.website} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">
-                          {event.organizer.website}
+                          {event.organizer.website.replace(/^https?:\/\//, "")}
                         </a>
                       )}
                     </div>
@@ -1100,6 +1207,7 @@ const EventPublic = () => {
       )}
 
       <style>{`
+        @keyframes ts-drift { from { transform: scale(1) translateY(0); } to { transform: scale(1.06) translateY(-1.5%); } }
         .ts-field-input {
           width: 100%;
           padding: 10px 12px;
