@@ -580,7 +580,7 @@ const EventPublic = () => {
           )}
           {promoCode && (
             <p className="text-[11px] text-muted-foreground mt-1.5">
-              Applied at payment — the discount shows on the final Revolut screen.
+              Applied at payment — the discount shows on the final {paymentProvider === "stripe" ? "Stripe" : "Revolut"} screen.
             </p>
           )}
         </div>
@@ -1054,7 +1054,7 @@ const EventPublic = () => {
                   <li className="flex items-start gap-3">
                     <CreditCard className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" strokeWidth={1.5} />
                     <span className="text-foreground/85">
-                      Secure payment via <span className="font-medium text-foreground">Revolut</span> — your card details never touch Ticket Safe.
+                      Secure payment via <span className="font-medium text-foreground">{paymentProvider === "stripe" ? "Stripe" : "Revolut"}</span> — your card details never touch Ticket Safe.
                     </span>
                   </li>
                   <li className="flex items-start gap-3">

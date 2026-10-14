@@ -403,7 +403,7 @@ const Tickets = () => {
                   step: "03",
                   icon: CreditCard,
                   title: "Pay securely",
-                  body: "Secure card payment handled by Revolut — your details stay protected.",
+                  body: "Secure card payment handled by Stripe — your details stay protected.",
                 },
                 {
                   step: "04",

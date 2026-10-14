@@ -273,11 +273,13 @@ const CookiePolicy = () => {
                       </div>
 
                       <div className="bg-muted/50 p-4 rounded-lg">
-                        <h4 className="font-semibold text-foreground mb-2">Revolut Business (Payment Processing)</h4>
-                        <p className="text-sm mb-2">Purpose: Secure payment processing and transaction handling</p>
+                        <h4 className="font-semibold text-foreground mb-2">Stripe (Payment Processing)</h4>
+                        <p className="text-sm mb-2">Purpose: Secure payment processing and fraud prevention. On the checkout page Stripe sets its own cookies (such as __stripe_mid and __stripe_sid) to recognise a device across the payment and detect fraud.</p>
                         <p className="text-xs">
-                          Revolut Privacy: <a href="https://www.revolut.com/legal/privacy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">revolut.com/legal/privacy</a>
+                          Stripe Privacy: <a href="https://stripe.com/privacy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">stripe.com/privacy</a>
+                          {" · "}Stripe Cookies: <a href="https://stripe.com/cookies-policy/legal" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">stripe.com/cookies-policy/legal</a>
                         </p>
+                        <p className="text-xs mt-2">Orders placed before October 2026 were processed by Revolut Payments UAB (<a href="https://www.revolut.com/legal/privacy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">revolut.com/legal/privacy</a>).</p>
                       </div>
 
                       <div className="bg-muted/50 p-4 rounded-lg">

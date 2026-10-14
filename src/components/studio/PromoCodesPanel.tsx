@@ -17,7 +17,7 @@ interface PromoCodeRow {
 /**
  * Studio panel to create/manage per-event promo codes. Discounts apply to
  * the ticket price only (never the buyer service fee) — see the
- * promo_code handling in revolut-create-checkout.
+ * promo_code handling in stripe-connect-create-checkout and revolut-create-checkout.
  */
 export const PromoCodesPanel = ({ eventId }: { eventId: string }) => {
   const [rows, setRows] = useState<PromoCodeRow[]>([]);

@@ -11,7 +11,7 @@
  *
  * Everything new to external tickets is commented. The buyer/checkout side is
  * untouched: an imported allocation is just an event_tier flagged
- * source='external', so it sells through the normal Revolut flow.
+ * source='external', so it sells through the normal checkout flow (Stripe, or Revolut for older events).
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
