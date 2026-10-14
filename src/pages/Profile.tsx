@@ -479,15 +479,15 @@ const Profile = () => {
   const accent = ACCENT;
   const cover = COVER;
 
-  // The things people come here to do.
+  // The things people come here to do. Each icon has its own quiet tint so
+  // the tiles can be told apart at a glance; the cards themselves stay alike.
   const tiles = [
-    { to: "/my-tickets", icon: Ticket, label: t("profile.myTickets"), hint: fr ? `${upcomingTickets.length} à venir` : `${upcomingTickets.length} upcoming` },
-    { to: "/tickets", icon: Sparkles, label: fr ? "Événements" : "Browse events", hint: fr ? "Trouver une soirée" : "Find a night out" },
-    { to: "/settings/purchases", icon: Banknote, label: fr ? "Mes achats" : "Purchases", hint: totalSpent > 0 ? formatEuros(totalSpent) : fr ? "Rien encore" : "Nothing yet" },
-    ...(RESALE_ENABLED ? [{ to: "/settings/listings", icon: Tag, label: fr ? "Portefeuille" : "Wallet", hint: activeListings > 0 ? (fr ? `${activeListings} annonce${activeListings > 1 ? "s" : ""}` : `${activeListings} listed`) : fr ? "Revendre" : "Resell a ticket" }] : []),
-    { to: "/messages", icon: MessageCircle, label: "Messages", hint: fr ? "Vos conversations" : "Your conversations" },
-    { to: "/settings/privacy", icon: PrivacyIcon, label: fr ? "Données" : "Privacy & data", hint: fr ? "Exporter, supprimer" : "Export, delete" },
-    { to: "/settings/interface", icon: SettingsIcon, label: fr ? "Interface" : "Interface", hint: fr ? "Thème, affichage" : "Theme, display" },
+    { to: "/tickets", icon: Sparkles, label: fr ? "Événements" : "Browse events", hint: fr ? "Trouver une soirée" : "Find a night out", chip: "bg-sky-400/15 text-sky-300", ring: "hover:border-sky-400/50" },
+    { to: "/settings/purchases", icon: Banknote, label: fr ? "Mes achats" : "Purchases", hint: totalSpent > 0 ? formatEuros(totalSpent) : fr ? "Rien encore" : "Nothing yet", chip: "bg-emerald-400/15 text-emerald-300", ring: "hover:border-emerald-400/50" },
+    ...(RESALE_ENABLED ? [{ to: "/settings/listings", icon: Tag, label: fr ? "Portefeuille" : "Wallet", hint: activeListings > 0 ? (fr ? `${activeListings} annonce${activeListings > 1 ? "s" : ""}` : `${activeListings} listed`) : fr ? "Revendre" : "Resell a ticket", chip: "bg-amber-400/15 text-amber-300", ring: "hover:border-amber-400/50" }] : []),
+    { to: "/messages", icon: MessageCircle, label: "Messages", hint: fr ? "Vos conversations" : "Your conversations", chip: "bg-violet-400/15 text-violet-300", ring: "hover:border-violet-400/50" },
+    { to: "/settings/privacy", icon: PrivacyIcon, label: fr ? "Données" : "Privacy & data", hint: fr ? "Exporter, supprimer" : "Export, delete", chip: "bg-rose-400/15 text-rose-300", ring: "hover:border-rose-400/50" },
+    { to: "/settings/interface", icon: SettingsIcon, label: fr ? "Interface" : "Interface", hint: fr ? "Thème, affichage" : "Theme, display", chip: "bg-white/10 text-foreground", ring: "hover:border-white/40" },
   ];
 
   return (
@@ -606,6 +606,23 @@ const Profile = () => {
 
           {/* ===== Tiles ===== */}
           <section className="grid grid-cols-2 sm:grid-cols-3 gap-3" aria-label={fr ? "Raccourcis" : "Shortcuts"}>
+            {/* The one tile that matters most: solid blue, the count on it */}
+            <button
+              type="button"
+              onClick={() => navigate("/my-tickets")}
+              className="group relative col-span-2 sm:col-span-1 sm:row-span-2 text-left rounded-2xl bg-primary text-primary-foreground p-4 min-h-[104px] overflow-hidden transition-all hover:-translate-y-0.5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25),0_16px_40px_-16px_rgba(58,95,230,0.9)] motion-safe:animate-fade-in"
+              style={{ animationDelay: "160ms", animationFillMode: "both" }}
+            >
+              <span className="absolute -right-6 -bottom-10 w-36 h-36 rounded-full bg-white/10 pointer-events-none" aria-hidden />
+              <span className="absolute right-2 -bottom-2 w-20 h-20 rounded-full bg-white/10 pointer-events-none" aria-hidden />
+              <span className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center mb-3"><Ticket className="w-5 h-5" /></span>
+              <p className="text-base font-bold">{t("profile.myTickets")}</p>
+              <p className="text-sm text-white/85 mt-0.5">
+                <span className="text-3xl font-bold tabular-nums leading-none align-baseline">{upcomingTickets.length}</span>{" "}
+                {fr ? "à venir" : "upcoming"}
+              </p>
+              <ArrowRight className="absolute right-4 top-4 w-5 h-5 text-white/80 transition-transform group-hover:translate-x-0.5" aria-hidden />
+            </button>
             {tiles.map((tile, i) => {
               const Icon = tile.icon;
               return (
@@ -613,13 +630,13 @@ const Profile = () => {
                   key={tile.to}
                   type="button"
                   onClick={() => navigate(tile.to)}
-                  className="group relative text-left rounded-2xl relative isolate border border-[rgba(130,160,255,0.22)] bg-card bg-[linear-gradient(180deg,rgba(58,95,230,0.22)_0%,rgba(58,95,230,0.07)_55%,rgba(58,95,230,0)_100%)] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.14),0_14px_36px_-18px_rgba(58,95,230,0.55)] before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] before:pointer-events-none before:bg-[radial-gradient(110%_70%_at_18%_-12%,rgba(255,255,255,0.13),transparent_58%)] p-4 min-h-[104px] transition-all hover:border-primary/50 hover:-translate-y-0.5 motion-safe:animate-fade-in"
-                  style={{ animationDelay: `${160 + i * 40}ms`, animationFillMode: "both" }}
+                  className={`group text-left rounded-2xl ${tile.ring} relative isolate border border-[rgba(130,160,255,0.22)] bg-card bg-[linear-gradient(180deg,rgba(58,95,230,0.22)_0%,rgba(58,95,230,0.07)_55%,rgba(58,95,230,0)_100%)] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.14),0_14px_36px_-18px_rgba(58,95,230,0.55)] before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] before:pointer-events-none before:bg-[radial-gradient(110%_70%_at_18%_-12%,rgba(255,255,255,0.13),transparent_58%)] p-4 min-h-[104px] transition-all hover:-translate-y-0.5 motion-safe:animate-fade-in`}
+                  style={{ animationDelay: `${200 + i * 40}ms`, animationFillMode: "both" }}
                 >
-                  <span className="w-10 h-10 rounded-xl bg-primary/15 text-primary flex items-center justify-center mb-3 transition-colors group-hover:bg-primary group-hover:text-primary-foreground"><Icon className="w-5 h-5" /></span>
+                  <span className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 ${tile.chip}`}><Icon className="w-5 h-5" /></span>
                   <p className="text-sm font-bold text-foreground">{tile.label}</p>
                   <p className="text-xs text-muted-foreground truncate">{tile.hint}</p>
-                  <ArrowRight className="absolute right-4 top-4 w-4 h-4 text-muted-foreground/60 transition-all group-hover:text-primary group-hover:translate-x-0.5" aria-hidden />
+                  <ArrowRight className="absolute right-4 top-4 w-4 h-4 text-muted-foreground/60 transition-all group-hover:text-foreground group-hover:translate-x-0.5" aria-hidden />
                 </button>
               );
             })}
