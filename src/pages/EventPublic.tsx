@@ -1033,8 +1033,31 @@ const EventPublic = () => {
 
       <main className="flex-1 pb-32 lg:pb-16">
         <div className="container mx-auto px-4 max-w-5xl">
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-8 lg:gap-12 lg:items-start mt-2 md:mt-4">
-            {/* ===== LEFT: the story ===== */}
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,440px)_1fr] gap-8 lg:gap-12 lg:items-start mt-2 md:mt-4">
+            {/* ===== LEFT (desktop): tickets, then who's coming, then the checkout ===== */}
+            <aside className="hidden lg:block space-y-4">
+              <section className="rounded-2xl border border-border bg-card/50 p-5">
+                <div className="flex items-baseline justify-between mb-4">
+                  <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Tickets</h2>
+                  {tiers.length > 1 && <span className="text-[11px] text-muted-foreground">{tiers.length} options</span>}
+                </div>
+                {tiers.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-4">Tickets will be on sale soon. Check back shortly.</p>
+                ) : eventSoldOut ? (
+                  renderSummary(true)
+                ) : (
+                  renderTiers()
+                )}
+              </section>
+              {selected && !eventSoldOut && (
+                <section className="rounded-2xl border border-border bg-card/50 p-5">
+                  {renderAttendees()}
+                </section>
+              )}
+              {selected && !eventSoldOut && <div className="lg:sticky lg:top-24">{renderSummary(true)}</div>}
+            </aside>
+
+            {/* ===== RIGHT: the story ===== */}
             <div className="min-w-0 space-y-4">
               {event.description && (
                 <section className="rounded-2xl border border-border bg-card/50 p-5">
@@ -1085,13 +1108,6 @@ const EventPublic = () => {
                   </div>
                 </div>
               </section>
-
-              {/* Desktop: the ticket forms live here, under the story */}
-              {selected && !eventSoldOut && (
-                <section className="hidden lg:block rounded-2xl border border-border bg-card/50 p-5">
-                  {renderAttendees()}
-                </section>
-              )}
 
               {/* Organiser */}
               {event.organizer && (
@@ -1155,25 +1171,6 @@ const EventPublic = () => {
               </div>
             </div>
 
-            {/* ===== RIGHT (desktop): tickets, sticky ===== */}
-            <aside className="hidden lg:block">
-              <div className="lg:sticky lg:top-24 space-y-4">
-                <section className="rounded-2xl border border-border bg-card/50 p-5">
-                  <div className="flex items-baseline justify-between mb-4">
-                    <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Tickets</h2>
-                    {tiers.length > 1 && <span className="text-[11px] text-muted-foreground">{tiers.length} options</span>}
-                  </div>
-                  {tiers.length === 0 ? (
-                    <p className="text-sm text-muted-foreground py-4">Tickets will be on sale soon. Check back shortly.</p>
-                  ) : eventSoldOut ? (
-                    renderSummary(true)
-                  ) : (
-                    renderTiers()
-                  )}
-                </section>
-                {selected && !eventSoldOut && renderSummary(true)}
-              </div>
-            </aside>
           </div>
         </div>
       </main>
