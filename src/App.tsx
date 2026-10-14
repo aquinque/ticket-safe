@@ -24,7 +24,6 @@ const Checkout = lazy(() => import("./pages/Checkout"));
 const About = lazy(() => import("./pages/About"));
 const Profile = lazy(() => import("./pages/Profile"));
 const Settings = lazy(() => import("./pages/Settings"));
-const InterfaceSettings = lazy(() => import("./pages/settings/InterfaceSettings"));
 const PersonalInformation = lazy(() => import("./pages/settings/PersonalInformation"));
 const PurchaseHistory = lazy(() => import("./pages/settings/PurchaseHistory"));
 const MyListings = lazy(() => import("./pages/settings/MyListings"));
@@ -109,7 +108,6 @@ const App = () => (
         <Route path="/about" element={<About />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/settings" element={<Settings />} />
-        <Route path="/settings/interface" element={<InterfaceSettings />} />
         <Route path="/settings/personal" element={<PersonalInformation />} />
         <Route path="/settings/purchases" element={<PurchaseHistory />} />
         <Route path="/settings/listings" element={<MyListings />} />

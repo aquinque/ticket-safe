@@ -33,7 +33,6 @@ import {
   ArrowUpRight,
   QrCode,
   MessageCircle,
-  Settings as SettingsIcon,
   ShieldCheck as PrivacyIcon,
   ChevronDown,
   Check,
@@ -487,7 +486,6 @@ const Profile = () => {
     ...(RESALE_ENABLED ? [{ to: "/settings/listings", icon: Tag, label: fr ? "Portefeuille" : "Wallet", hint: activeListings > 0 ? (fr ? `${activeListings} annonce${activeListings > 1 ? "s" : ""}` : `${activeListings} listed`) : fr ? "Revendre" : "Resell a ticket", chip: "bg-amber-400/15 text-amber-300", ring: "hover:border-amber-400/50" }] : []),
     { to: "/messages", icon: MessageCircle, label: "Messages", hint: fr ? "Vos conversations" : "Your conversations", chip: "bg-violet-400/15 text-violet-300", ring: "hover:border-violet-400/50" },
     { to: "/settings/privacy", icon: PrivacyIcon, label: fr ? "Données" : "Privacy & data", hint: fr ? "Exporter, supprimer" : "Export, delete", chip: "bg-rose-400/15 text-rose-300", ring: "hover:border-rose-400/50" },
-    { to: "/settings/interface", icon: SettingsIcon, label: fr ? "Interface" : "Interface", hint: fr ? "Thème, affichage" : "Theme, display", chip: "bg-white/10 text-foreground", ring: "hover:border-white/40" },
   ];
 
   return (

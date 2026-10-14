@@ -10,7 +10,6 @@ import { SEOHead } from "@/components/SEOHead";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  Monitor,
   User,
   ShoppingBag,
   ArrowRight,
@@ -45,14 +44,6 @@ const Settings = () => {
   }, [user]);
 
   const settingsSections = [
-    {
-      id: "interface",
-      title: "Interface",
-      description: "Customize theme, brightness, and display settings",
-      icon: Monitor,
-      path: "/settings/interface",
-      color: "text-blue-400 bg-blue-500/10"
-    },
     {
       id: "personal",
       title: "Personal Information",
