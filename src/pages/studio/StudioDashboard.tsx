@@ -27,6 +27,7 @@ import { useThemeMode } from "@/hooks/useThemeMode";
 import { useCountUp } from "@/hooks/useCountUp";
 import { supabase } from "@/integrations/supabase/client";
 import EventStatusBadge from "@/components/studio/EventStatusBadge";
+import { DAY_MS, startOfDay, eur, plural, phaseOf, whenLabel, relativeTime, fmtDay, type Phase } from "@/lib/studioFormat";
 
 /**
  * Studio dashboard — the first screen after login.
@@ -67,32 +68,15 @@ interface Earnings {
 }
 
 interface DaySales { day: string; cents: number; tickets: number }
-type Phase = "today" | "upcoming" | "past";
+interface Pace { sold7: number; lastSale: string | null }
 
-const DAY_MS = 86_400_000;
-const startOfDay = (d: Date) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x; };
-const eur = (cents: number, decimals = 0) =>
-  `€${(cents / 100).toLocaleString("en-GB", { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
-const plural = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString("en-GB")} ${n === 1 ? one : many}`;
-
-function phaseOf(iso: string, now = new Date()): Phase {
-  const day = startOfDay(new Date(iso)).getTime();
-  const today = startOfDay(now).getTime();
-  if (day === today) return "today";
-  return day > today ? "upcoming" : "past";
-}
-
-/** "Tonight at 19:50", "Tomorrow", "In 27 days", "Yesterday", "12 days ago". */
-function whenLabel(iso: string, now = new Date()): string {
-  const d = new Date(iso);
-  const days = Math.round((startOfDay(d).getTime() - startOfDay(now).getTime()) / DAY_MS);
-  const time = d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
-  if (days === 0) return `${d.getHours() >= 17 ? "Tonight" : "Today"} at ${time}`;
-  if (days === 1) return "Tomorrow";
-  if (days === -1) return "Yesterday";
-  if (days > 1) return `In ${days} days`;
-  return `${-days} days ago`;
-}
+// event_scan_staff is newer than the generated database types.
+const staffLinks = () =>
+  (supabase as unknown as {
+    from: (table: "event_scan_staff") => {
+      select: (columns: string) => { eq: (column: string, value: string) => { is: (column: string, value: null) => PromiseLike<{ data: unknown }> } };
+    };
+  }).from("event_scan_staff");
 
 const StudioDashboard = () => {
   useThemeMode("studio");
@@ -105,6 +89,8 @@ const StudioDashboard = () => {
   const [dailySales, setDailySales] = useState<DaySales[] | null>(null);
   const [payments, setPayments] = useState<{ exists: boolean; active: boolean } | null>(null);
   const [checkedIn, setCheckedIn] = useState<number | null>(null);
+  const [pace, setPace] = useState<Pace | null>(null);
+  const [linkedEvents, setLinkedEvents] = useState<Set<string>>(new Set());
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   useEffect(() => {
@@ -274,6 +260,32 @@ const StudioDashboard = () => {
       .then(({ count }) => setCheckedIn(count ?? 0));
   }, [next, phase, lastUpdated]);
 
+  // Sales pace for the hero event: the last 7 days and the last sale ever.
+  useEffect(() => {
+    if (!next) { setPace(null); return; }
+    (async () => {
+      const since = new Date(Date.now() - 7 * DAY_MS).toISOString();
+      const [{ data: recent }, { data: last }] = await Promise.all([
+        supabase.from("event_orders").select("quantity").eq("event_id", next.id).eq("status", "paid").gte("created_at", since),
+        supabase.from("event_orders").select("created_at").eq("event_id", next.id).eq("status", "paid").order("created_at", { ascending: false }).limit(1).maybeSingle(),
+      ]);
+      setPace({
+        sold7: ((recent ?? []) as { quantity: number }[]).reduce((n, r) => n + r.quantity, 0),
+        lastSale: (last as { created_at: string } | null)?.created_at ?? null,
+      });
+    })();
+  }, [next, lastUpdated]);
+
+  // Which events already have a door-staff link (for the to-do list).
+  useEffect(() => {
+    if (!organizer) return;
+    staffLinks()
+      .select("event_id")
+      .eq("organizer_id", organizer.id)
+      .is("revoked_at", null)
+      .then(({ data }) => setLinkedEvents(new Set(((data as { event_id: string }[] | null) ?? []).map((r) => r.event_id))));
+  }, [organizer, lastUpdated]);
+
   if (authLoading || orgLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -367,6 +379,12 @@ const StudioDashboard = () => {
     if (e.total_capacity === 0) todos.push({ key: `tiers-${e.id}`, icon: Ticket, text: `Add ticket types to "${e.title}"`, to: `/studio/events/${e.id}`, tone: "warn" });
     else if (e.status === "draft") todos.push({ key: `draft-${e.id}`, icon: Pencil, text: `"${e.title}" is still a draft`, to: `/studio/events/${e.id}` });
   }
+  for (const e of events) {
+    const days = Math.round((startOfDay(new Date(e.date)).getTime() - startOfDay(now).getTime()) / DAY_MS);
+    if (days >= 0 && days <= 3 && e.sold_count > 0 && !linkedEvents.has(e.id)) {
+      todos.push({ key: `door-${e.id}`, icon: QrCode, text: `"${e.title}" is ${days === 0 ? "today" : days === 1 ? "tomorrow" : `in ${days} days`} and has no door-staff link yet`, to: "/studio/team" });
+    }
+  }
   if (payments && !payments.active) {
     todos.push({ key: "payments", icon: CreditCard, text: payments.exists ? "Finish setting up payments to get paid" : "Set up payments so your sales reach your bank", to: "/studio/payments", tone: "warn" });
   }
@@ -411,16 +429,7 @@ const StudioDashboard = () => {
         ) : !next ? (
           <EmptyEvents />
         ) : (
-          <NextUp
-            event={next}
-            phase={phase ?? "upcoming"}
-            weekTickets={(() => {
-              // Tickets sold in the last 7 days for this event are not split per event in
-              // dailySales; show the organizer-wide figure only when this is their sole event.
-              return events.length === 1 ? week?.tickets ?? null : null;
-            })()}
-            checkedIn={checkedIn}
-          />
+          <NextUp event={next} phase={phase ?? "upcoming"} pace={pace} checkedIn={checkedIn} />
         )}
 
         {events.length > 0 && (
@@ -492,7 +501,7 @@ const StudioDashboard = () => {
 
 /* ───────────────────────── Hero: the next event ───────────────────────── */
 
-const NextUp = ({ event, phase, weekTickets, checkedIn }: { event: StudioEvent; phase: Phase; weekTickets: number | null; checkedIn: number | null }) => {
+const NextUp = ({ event, phase, pace, checkedIn }: { event: StudioEvent; phase: Phase; pace: Pace | null; checkedIn: number | null }) => {
   const sold = useCountUp(event.sold_count);
   const pct = event.total_capacity > 0 ? Math.min(100, Math.round((event.sold_count / event.total_capacity) * 100)) : 0;
   const soldOut = event.total_capacity > 0 && event.sold_count >= event.total_capacity;
@@ -514,7 +523,23 @@ const NextUp = ({ event, phase, weekTickets, checkedIn }: { event: StudioEvent; 
   }, [event.sold_count]);
 
   const eyebrow = phase === "today" ? "Today" : phase === "upcoming" ? "Next up" : "Last event";
-  const dateLine = `${whenLabel(event.date)} · ${new Date(event.date).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}`;
+  const dateLine = `${whenLabel(event.date)} · ${fmtDay(event.date)}`;
+
+  // Where the sales are heading, in one sentence an organizer can act on.
+  const paceLine = (() => {
+    if (!pace || phase === "past") return null;
+    const left = event.total_capacity - event.sold_count;
+    if (event.total_capacity > 0 && left <= 0) return "Sold out.";
+    if (pace.sold7 === 0) return event.sold_count > 0 ? "No sales in the last 7 days." : "No sales yet. Share the page to get the first ones.";
+    const perDay = pace.sold7 / 7;
+    const days = Math.max(0, Math.round((startOfDay(new Date(event.date)).getTime() - startOfDay(new Date()).getTime()) / DAY_MS));
+    if (event.total_capacity === 0) return `${plural(pace.sold7, "ticket")} in the last 7 days.`;
+    const toSellOut = Math.ceil(left / perDay);
+    if (days === 0) return `${plural(pace.sold7, "ticket")} this week. ${left} left for tonight.`;
+    if (toSellOut <= days) return `${plural(pace.sold7, "ticket")} this week. At this pace you sell out in about ${plural(toSellOut, "day")}, before the event.`;
+    const projected = Math.min(event.total_capacity, event.sold_count + Math.round(perDay * days));
+    return `${plural(pace.sold7, "ticket")} this week. At this pace, about ${projected} of ${event.total_capacity} by the day.`;
+  })();
 
   const share = async () => {
     const url = `${window.location.origin}/e/${event.slug}`;
@@ -577,9 +602,10 @@ const NextUp = ({ event, phase, weekTickets, checkedIn }: { event: StudioEvent; 
             <p className="mt-2 text-xs text-white/80 tabular-nums">
               {event.total_capacity > 0 ? `${pct}% full · ` : ""}
               {eur(event.revenue_cents)} in ticket sales
-              {weekTickets != null && weekTickets > 0 ? ` · ${plural(weekTickets, "ticket")} this week` : ""}
+              {pace?.lastSale ? ` · last sale ${relativeTime(pace.lastSale)}` : ""}
               {checkedIn != null && phase !== "upcoming" ? ` · ${checkedIn.toLocaleString("en-GB")} checked in` : ""}
             </p>
+            {paceLine && <p className="mt-1.5 text-sm text-white/95 font-medium">{paceLine}</p>}
           </div>
 
           <div className="flex flex-wrap gap-2">

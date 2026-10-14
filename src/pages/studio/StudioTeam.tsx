@@ -257,15 +257,29 @@ const StudioTeam = () => {
                         <h2 id={`links-${event.id}`} className="text-sm font-bold truncate">
                           {event.title} <span className={`font-medium ${phase === "today" ? "text-emerald-700" : "text-muted-foreground"}`}>· {whenLabel(event.date)}</span>
                         </h2>
-                        <span className="text-[11px] text-muted-foreground shrink-0">{plural(links.length, "link")}</span>
+                        <span className="text-[11px] text-muted-foreground shrink-0 tabular-nums">
+                          {plural(links.length, "link")} · {plural(links.reduce((n, l) => n + l.scan_count, 0), "scan")}
+                        </span>
                       </div>
                       <ul className="bg-card border border-border divide-y divide-border">
                         {links.map((row) => {
                           const confirming = confirmRevokeId === row.id;
+                          const scanningNow = !!row.last_used_at && Date.now() - new Date(row.last_used_at).getTime() < 10 * 60_000;
                           return (
                             <li key={row.id} className="flex items-center gap-3 px-4 py-3 min-h-[60px]">
                               <div className="flex-1 min-w-0">
-                                <div className="font-semibold text-sm truncate">{row.label}</div>
+                                <div className="font-semibold text-sm truncate flex items-center gap-2">
+                                  {row.label}
+                                  {scanningNow && (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700">
+                                      <span className="relative flex h-1.5 w-1.5">
+                                        <span className="motion-safe:animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
+                                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+                                      </span>
+                                      scanning now
+                                    </span>
+                                  )}
+                                </div>
                                 <div className="text-[11px] text-muted-foreground truncate tabular-nums">
                                   {row.scan_count > 0 ? plural(row.scan_count, "scan") : "No scans yet"}
                                   {row.last_used_at ? ` · last used ${relativeTime(row.last_used_at)}` : ""}

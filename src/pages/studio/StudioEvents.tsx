@@ -20,7 +20,9 @@ import { useThemeMode } from "@/hooks/useThemeMode";
 import { supabase } from "@/integrations/supabase/client";
 import EventStatusBadge, { deriveEventStatusKind, type EventStatus } from "@/components/studio/EventStatusBadge";
 import { FilterChips } from "@/components/studio/FilterChips";
-import { eur, plural, phaseOf, whenLabel, startOfDay } from "@/lib/studioFormat";
+import { eur, plural, phaseOf, whenLabel, startOfDay, relativeTime, DAY_MS } from "@/lib/studioFormat";
+
+interface Activity { sold7: number; sold14: number; lastSale: string | null }
 
 interface EventRow {
   id: string;
@@ -65,6 +67,7 @@ const StudioEvents = () => {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
+  const [activity, setActivity] = useState<Record<string, Activity>>({});
 
   const load = useCallback(async () => {
     if (!organizer) return;
@@ -92,6 +95,28 @@ const StudioEvents = () => {
         acc[t.event_id] = cur;
         return acc;
       }, {} as Record<string, Agg>);
+    }
+
+    // Recent movement per event: tickets in the last 7 and 14 days, and the
+    // last sale, so a row can say "+5 this week · last sale 2 h ago".
+    if (ids.length) {
+      const since = new Date(Date.now() - 14 * DAY_MS).toISOString();
+      const { data: recent } = await supabase
+        .from("event_orders")
+        .select("event_id, quantity, created_at")
+        .eq("organizer_id", organizer.id)
+        .eq("status", "paid")
+        .gte("created_at", since);
+      const weekAgo = Date.now() - 7 * DAY_MS;
+      const act: Record<string, Activity> = {};
+      for (const r of (recent ?? []) as { event_id: string; quantity: number; created_at: string }[]) {
+        const cur = act[r.event_id] ?? { sold7: 0, sold14: 0, lastSale: null };
+        cur.sold14 += r.quantity;
+        if (new Date(r.created_at).getTime() >= weekAgo) cur.sold7 += r.quantity;
+        if (!cur.lastSale || r.created_at > cur.lastSale) cur.lastSale = r.created_at;
+        act[r.event_id] = cur;
+      }
+      setActivity(act);
     }
 
     setEvents(
@@ -300,7 +325,7 @@ const StudioEvents = () => {
                 </h2>
                 <ul className="bg-card border border-border divide-y divide-border">
                   {groups.upcoming.map((e, i) => (
-                    <EventRow key={e.id} event={e} index={i} duplicating={duplicatingId === e.id} onDuplicate={() => duplicateEvent(e.id)} />
+                    <EventRow key={e.id} event={e} index={i} activity={activity[e.id]} duplicating={duplicatingId === e.id} onDuplicate={() => duplicateEvent(e.id)} />
                   ))}
                 </ul>
               </section>
@@ -312,7 +337,7 @@ const StudioEvents = () => {
                 </h2>
                 <ul className="bg-card border border-border divide-y divide-border">
                   {groups.past.map((e, i) => (
-                    <EventRow key={e.id} event={e} index={i} duplicating={duplicatingId === e.id} onDuplicate={() => duplicateEvent(e.id)} />
+                    <EventRow key={e.id} event={e} index={i} activity={activity[e.id]} duplicating={duplicatingId === e.id} onDuplicate={() => duplicateEvent(e.id)} />
                   ))}
                 </ul>
               </section>
@@ -329,7 +354,7 @@ const StudioEvents = () => {
  * what it has made. Actions sit at the end and only ask for attention on
  * hover (always visible on touch screens, which have no hover).
  */
-const EventRow = ({ event: e, index, duplicating, onDuplicate }: { event: EventRow; index: number; duplicating: boolean; onDuplicate: () => void }) => {
+const EventRow = ({ event: e, index, activity, duplicating, onDuplicate }: { event: EventRow; index: number; activity?: Activity; duplicating: boolean; onDuplicate: () => void }) => {
   const d = new Date(e.date);
   const phase = phaseOf(e.date);
   const soldPct = e.total_capacity > 0 ? Math.min(100, Math.round((e.sold_count / e.total_capacity) * 100)) : 0;
@@ -338,6 +363,14 @@ const EventRow = ({ event: e, index, duplicating, onDuplicate }: { event: EventR
   const accent = e.primary_color && /^#[0-9a-fA-F]{6}$/.test(e.primary_color) ? e.primary_color : "hsl(var(--primary))";
   const salesNote =
     e.total_capacity === 0 ? "No ticket types yet" : soldOut ? "Sold out" : phase === "past" ? `${e.sold_count} attended` : `${left.toLocaleString("en-GB")} left`;
+  // Movement, for events still selling: this week's tickets and the last sale.
+  const movement = (() => {
+    if (phase === "past" || e.total_capacity === 0 || soldOut) return null;
+    if (!activity || activity.sold14 === 0) return e.sold_count > 0 ? "No sales in the last 2 weeks" : null;
+    const parts = [activity.sold7 > 0 ? `+${activity.sold7} this week` : "none this week"];
+    if (activity.lastSale) parts.push(`last sale ${relativeTime(activity.lastSale)}`);
+    return parts.join(" · ");
+  })();
   const iconBtn = "w-9 h-9 border border-border flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/40 disabled:opacity-50 transition-colors";
 
   return (
@@ -353,6 +386,7 @@ const EventRow = ({ event: e, index, duplicating, onDuplicate }: { event: EventR
             <div className="text-sm font-semibold truncate hover:text-primary transition-colors">{e.title}</div>
             <div className="text-[11px] text-muted-foreground truncate">
               {whenLabel(e.date)}{e.location ? ` · ${e.location}` : ""}
+              {movement ? <span className={activity && activity.sold7 > 0 ? " text-emerald-700" : ""}> · {movement}</span> : null}
             </div>
           </Link>
           {/* Phone: numbers under the title */}

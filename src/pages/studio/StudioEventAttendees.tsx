@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { StatFigure } from "@/components/studio/StatFigure";
 import { FilterChips } from "@/components/studio/FilterChips";
-import { eur as eurFmt, fmtDate, fmtTime, phaseOf, whenLabel } from "@/lib/studioFormat";
+import { eur as eurFmt, fmtDate, fmtTime, phaseOf, whenLabel, relativeTime } from "@/lib/studioFormat";
 import { StudioLayout } from "@/components/studio/StudioLayout";
 import { SEOHead } from "@/components/SEOHead";
 import { useAuth } from "@/hooks/useAuth";
@@ -245,6 +245,13 @@ const StudioEventAttendees = () => {
     return Array.from(m.entries()).map(([name, v]) => ({ name, ...v })).sort((a, b) => b.sold - a.sold);
   }, [rows]);
 
+  // The last few people through the door, newest first, and the last sale.
+  const arrivals = useMemo(
+    () => rows.filter((r) => r.checkedIn && r.scannedAt).sort((a, b) => (b.scannedAt as string).localeCompare(a.scannedAt as string)).slice(0, 5),
+    [rows],
+  );
+  const lastSale = useMemo(() => rows.reduce<string | null>((m, r) => (!m || r.orderDate > m ? r.orderDate : m), null), [rows]);
+
   const statusCounts = useMemo(() => ({
     all: rows.length,
     checked_in: rows.filter((r) => r.checkedIn).length,
@@ -325,9 +332,39 @@ const StudioEventAttendees = () => {
                 </ul>
               )}
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-1 gap-4 md:min-w-[150px] md:border-l md:border-border md:pl-5">
-              <StatFigure label="Gross" value={stats.grossCents} money />
-              <StatFigure label="To you" value={stats.netCents} money hint="after the buyer fee" />
+            <div className="md:min-w-[220px] md:max-w-[260px] md:border-l md:border-border md:pl-5 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <StatFigure label="Gross" value={stats.grossCents} money />
+                <StatFigure label="To you" value={stats.netCents} money hint="after the buyer fee" />
+              </div>
+              {doorDay ? (
+                <div>
+                  <div className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-1.5">
+                    {phase === "today" ? "Latest at the door" : "Last through the door"}
+                  </div>
+                  {arrivals.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">Nobody yet.</p>
+                  ) : (
+                    <ul className="space-y-1">
+                      {arrivals.map((a, i) => (
+                        <li key={a.id} className="flex items-baseline justify-between gap-2 text-xs motion-safe:animate-fade-in" style={{ animationDelay: `${i * 50}ms` }}>
+                          <span className="font-semibold truncate">{a.name}</span>
+                          <span className="text-muted-foreground shrink-0 tabular-nums">{relativeTime(a.scannedAt as string)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {phase === "past" && stats.totalTickets > 0 && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      {stats.totalTickets - stats.checkedIn === 0 ? "Everyone came." : `${stats.totalTickets - stats.checkedIn} didn't come.`}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  {lastSale ? `Last ticket sold ${relativeTime(lastSale)}.` : "No tickets sold yet."}
+                </p>
+              )}
             </div>
           </div>
         </section>

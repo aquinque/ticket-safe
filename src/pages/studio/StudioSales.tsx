@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Download, Loader2, Search, Receipt, FileText, ChevronDown } from "lucide-react";
 import { StatFigure } from "@/components/studio/StatFigure";
 import { FilterChips } from "@/components/studio/FilterChips";
-import { eur, plural, fmtDate, fmtTime, startOfDay } from "@/lib/studioFormat";
+import { eur, plural, fmtDate, fmtTime, startOfDay, relativeTime } from "@/lib/studioFormat";
 import { toast } from "sonner";
 import { StudioLayout } from "@/components/studio/StudioLayout";
 import { SEOHead } from "@/components/SEOHead";
@@ -217,6 +217,39 @@ const StudioSales = () => {
     return { days, total, max, tickets: days.reduce((a, d) => a + d.tickets, 0) };
   }, [rows, eventFilter]);
 
+  // Four facts an organizer actually acts on, for the chosen event(s):
+  // what sells, when it sells, how often it comes back, and whether the
+  // promo codes are doing anything.
+  const highlights = useMemo(() => {
+    const base = rows.filter((r) => eventFilter === "all" || r.event_title === eventFilter);
+    const paid = base.filter((r) => r.status === "paid");
+    if (paid.length === 0) return null;
+    const byTier = new Map<string, number>();
+    const byDay = new Map<string, number>();
+    let qty = 0;
+    for (const r of paid) {
+      byTier.set(r.tier_name, (byTier.get(r.tier_name) ?? 0) + r.quantity);
+      const day = r.created_at.slice(0, 10);
+      byDay.set(day, (byDay.get(day) ?? 0) + r.quantity);
+      qty += r.quantity;
+    }
+    const best = [...byTier.entries()].sort((a, b) => b[1] - a[1])[0];
+    const peak = [...byDay.entries()].sort((a, b) => b[1] - a[1])[0];
+    const refunds = base.filter((r) => r.status === "refunded").length;
+    const promo = paid.filter((r) => (r.discount_cents ?? 0) > 0);
+    const promoCents = promo.reduce((a, r) => a + (r.discount_cents ?? 0), 0);
+    const lastOrder = paid.reduce<string | null>((m, r) => (!m || r.created_at > m ? r.created_at : m), null);
+    return {
+      best: best ? { name: best[0], share: Math.round((best[1] / qty) * 100) } : null,
+      peak: peak ? { day: peak[0], tickets: peak[1] } : null,
+      refunds,
+      refundRate: base.length ? Math.round((refunds / base.length) * 100) : 0,
+      promoOrders: promo.length,
+      promoCents,
+      lastOrder,
+    };
+  }, [rows, eventFilter]);
+
   if (!user || orgLoading) {
     return (
       <StudioLayout active="sales" organizer={null}>
@@ -234,6 +267,7 @@ const StudioSales = () => {
             <h1 className="text-xl md:text-2xl font-bold text-foreground">Sales</h1>
             <p className="text-xs text-muted-foreground mt-0.5">
               {rows.length === 0 ? "No orders yet" : `${eur(allTime.cents)} from ${plural(allTime.tickets, "ticket")}, all time`}
+              {highlights?.lastOrder ? ` · last order ${relativeTime(highlights.lastOrder)}` : ""}
             </p>
           </div>
           <button
@@ -307,6 +341,30 @@ const StudioSales = () => {
                 <span>today</span>
               </div>
             </>
+          )}
+          {highlights && (
+            <dl className="grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-3 mt-5 pt-4 border-t border-border">
+              <div>
+                <dt className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Sells best</dt>
+                <dd className="text-sm font-semibold truncate">{highlights.best?.name ?? "—"}</dd>
+                <dd className="text-[11px] text-muted-foreground">{highlights.best ? `${highlights.best.share}% of tickets` : ""}</dd>
+              </div>
+              <div>
+                <dt className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Busiest day</dt>
+                <dd className="text-sm font-semibold">{highlights.peak ? fmtDate(highlights.peak.day) : "—"}</dd>
+                <dd className="text-[11px] text-muted-foreground">{highlights.peak ? plural(highlights.peak.tickets, "ticket") : ""}</dd>
+              </div>
+              <div>
+                <dt className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Refunds</dt>
+                <dd className={`text-sm font-semibold ${highlights.refundRate >= 10 ? "text-amber-700" : ""}`}>{highlights.refunds}</dd>
+                <dd className="text-[11px] text-muted-foreground">{highlights.refunds > 0 ? `${highlights.refundRate}% of orders` : "none"}</dd>
+              </div>
+              <div>
+                <dt className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Promo codes</dt>
+                <dd className="text-sm font-semibold">{highlights.promoOrders > 0 ? plural(highlights.promoOrders, "order") : "Not used"}</dd>
+                <dd className="text-[11px] text-muted-foreground">{highlights.promoOrders > 0 ? `${eur(highlights.promoCents)} given away` : ""}</dd>
+              </div>
+            </dl>
           )}
         </section>
 
