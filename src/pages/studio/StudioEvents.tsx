@@ -422,7 +422,7 @@ const EventRow = ({ event: e, index, activity, duplicating, onDuplicate }: { eve
           <button type="button" onClick={onDuplicate} disabled={duplicating} title="Duplicate" aria-label={`Duplicate ${e.title}`} className={iconBtn}>
             {duplicating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Copy className="w-3.5 h-3.5" />}
           </button>
-          <Link to={`/studio/events/${e.id}/attendees`} className="hidden md:inline-flex items-center gap-1 h-9 px-3 text-xs font-bold border border-border hover:border-primary/40 hover:text-primary transition-colors">
+          <Link to={`/studio/events/${e.id}/attendees`} className="ml-auto md:ml-0 inline-flex items-center gap-1 h-10 md:h-9 px-3 text-xs font-bold border border-border hover:border-primary/40 hover:text-primary transition-colors">
             Guests <ArrowRight className="w-3 h-3" />
           </Link>
         </div>
