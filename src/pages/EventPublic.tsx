@@ -16,6 +16,8 @@ import {
   Info,
   CreditCard,
   BadgeCheck,
+  Check,
+  Flame,
 } from "lucide-react";
 import { SEOHead } from "@/components/SEOHead";
 import { useTierServiceFee } from "@/hooks/useServiceFee";
@@ -467,6 +469,17 @@ const EventPublic = () => {
 
   const fmtPrice = (cents: number) => `€${(cents / 100).toFixed(cents % 100 === 0 ? 0 : 2)}`;
 
+  // The tier people choose most, when there is a real choice to make.
+  const mostPopularId = (() => {
+    if (tiers.length < 2) return null;
+    const ranked = tiers.map((t) => ({ id: t.tier_id, sold: Math.max(0, t.total_qty - t.available_qty) })).sort((a, b) => b.sold - a.sold);
+    return ranked[0].sold > 0 && ranked[0].sold > (ranked[1]?.sold ?? 0) ? ranked[0].id : null;
+  })();
+  const isEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
+  const attendeeReady = (a: AttendeeForm) =>
+    a.first_name.trim().length > 0 && a.last_name.trim().length > 0 && isEmail(a.email) && a.confirm_email.trim().toLowerCase() === a.email.trim().toLowerCase() && a.gender !== "";
+  const readyCount = attendees.filter(attendeeReady).length;
+
   // Order summary, rendered both in the desktop sticky rail (with CTA) and as a
   // mobile inline breakdown (without CTA — the sticky bottom bar carries that).
   const renderSummary = (showCta: boolean) => {
@@ -584,7 +597,7 @@ const EventPublic = () => {
             <button
               onClick={handleBuy}
               disabled={buying}
-              className="w-full inline-flex items-center justify-center gap-2 py-3.5 px-6 bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-60 transition-colors hover:bg-primary-hover"
+              className="group w-full inline-flex items-center justify-center gap-2 py-3.5 px-6 bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-60 transition-colors hover:bg-primary-hover"
             >
               {buying ? (
                 <>
@@ -594,10 +607,15 @@ const EventPublic = () => {
               ) : (
                 <>
                   {grandCents === 0 ? "Get my free ticket" : "Continue to payment"}
-                  <ArrowRight className="w-4 h-4" />
+                  <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
                 </>
               )}
             </button>
+            {readyCount < qty && !buying && (
+              <p className="text-[11px] text-muted-foreground text-center mt-2.5">
+                {qty === 1 ? "Fill in the name and email first." : `${qty - readyCount} ticket${qty - readyCount > 1 ? "s" : ""} still need a name and email.`}
+              </p>
+            )}
             {!user && (
               <p className="text-[11px] text-muted-foreground text-center mt-2.5">
                 No account needed — the ticket goes straight to the email above.
@@ -762,59 +780,101 @@ const EventPublic = () => {
                     Tickets will be on sale soon. Check back shortly.
                   </p>
                 ) : (
-                  <div>
-                    {!eventSoldOut && (
-                      <p className="text-sm text-muted-foreground mb-4">Select a ticket to continue.</p>
-                    )}
-                    {tiers.map((t) => {
+                  <div className="space-y-2.5" role="radiogroup" aria-label="Ticket type">
+                    {tiers.map((t, i) => {
                       const isSelected = selectedTier === t.tier_id;
                       const soldOut = t.available_qty <= 0;
-                      // Buyers never see exact stock counts (Studio-only). We
-                      // only surface a scarcity nudge when fewer than 30% remain.
-                      const fewLeft = !soldOut && t.total_qty > 0 && t.available_qty / t.total_qty < 0.3;
+                      // Buyers never see exact stock counts (Studio-only): only a
+                      // proportion, and only once fewer than 30% remain.
+                      const remaining = t.total_qty > 0 ? t.available_qty / t.total_qty : 1;
+                      const fewLeft = !soldOut && t.total_qty > 0 && remaining < 0.3;
+                      const popular = mostPopularId === t.tier_id && !soldOut;
+                      const choose = () => {
+                        if (soldOut) return;
+                        if (!isSelected) { setSelectedTier(t.tier_id); setQty(1); }
+                      };
                       return (
-                        <button
+                        <div
                           key={t.tier_id}
-                          onClick={() => {
-                            if (soldOut) return;
-                            setSelectedTier(t.tier_id);
-                            setQty(1);
-                          }}
-                          disabled={soldOut}
-                          aria-pressed={isSelected}
-                          className={`w-full flex items-stretch gap-4 text-left border-t border-border first:border-t-0 transition-colors ${
-                            soldOut ? "opacity-40 cursor-not-allowed" : "hover:bg-muted/30"
+                          role="radio"
+                          aria-checked={isSelected}
+                          aria-disabled={soldOut}
+                          tabIndex={soldOut ? -1 : 0}
+                          onClick={choose}
+                          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); choose(); } }}
+                          style={{ animationDelay: `${i * 60}ms`, animationFillMode: "both" }}
+                          className={`relative motion-safe:animate-fade-in border transition-all duration-200 ${
+                            soldOut
+                              ? "opacity-40 cursor-not-allowed border-border"
+                              : isSelected
+                              ? "cursor-pointer border-primary bg-primary/10 shadow-[inset_0_0_0_1px_hsl(var(--primary))]"
+                              : "cursor-pointer border-border bg-card/40 hover:border-foreground/40 hover:bg-card/70 motion-safe:hover:-translate-y-px"
                           }`}
                         >
-                          <span className={`w-[3px] shrink-0 ${isSelected && !soldOut ? "bg-primary" : "bg-transparent"}`} />
-                          <span className="flex-1 flex items-center justify-between gap-4 py-4 min-w-0">
-                            <span className="flex items-center gap-3 min-w-0">
-                              {/* Radio-style indicator — makes it unambiguous that
-                                  each row is a selectable option, not just text. */}
-                              <span
-                                className={`w-4 h-4 rounded-full border shrink-0 flex items-center justify-center ${
-                                  isSelected && !soldOut ? "border-primary" : "border-muted-foreground/50"
-                                }`}
-                              >
-                                {isSelected && !soldOut && <span className="w-2 h-2 rounded-full bg-primary" />}
-                              </span>
-                              <span className="min-w-0">
+                          <div className="flex items-start gap-4 p-4 md:p-5">
+                            <span
+                              aria-hidden
+                              className={`mt-0.5 w-5 h-5 rounded-full border shrink-0 flex items-center justify-center transition-colors ${
+                                isSelected && !soldOut ? "bg-primary border-primary text-primary-foreground" : "border-muted-foreground/50"
+                              }`}
+                            >
+                              {isSelected && !soldOut && <Check className="w-3 h-3 motion-safe:animate-scale-in" strokeWidth={3} />}
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
                                 <span className="font-medium text-foreground">{t.name}</span>
-                                {t.description && (
-                                  <span className="block text-sm text-muted-foreground mt-0.5 line-clamp-2">{t.description}</span>
+                                {popular && (
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.12em] text-primary bg-primary/15 px-1.5 py-0.5">
+                                    <Flame className="w-3 h-3" strokeWidth={2} /> Most popular
+                                  </span>
                                 )}
-                                {soldOut ? (
-                                  <span className="block text-xs text-muted-foreground mt-1.5">Sold out</span>
-                                ) : fewLeft ? (
-                                  <span className="block text-xs text-primary mt-1.5">Few tickets left</span>
-                                ) : null}
-                              </span>
-                            </span>
-                            <span className="text-base font-semibold tabular-nums text-foreground shrink-0">
-                              {fmtPrice(t.price_cents)}
-                            </span>
-                          </span>
-                        </button>
+                                {t.price_cents === 0 && !soldOut && (
+                                  <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-emerald-400 bg-emerald-400/15 px-1.5 py-0.5">Free</span>
+                                )}
+                              </div>
+                              {t.description && (
+                                <span className="block text-sm text-muted-foreground mt-0.5 line-clamp-2">{t.description}</span>
+                              )}
+                              {soldOut ? (
+                                <span className="block text-xs text-muted-foreground mt-2">Sold out</span>
+                              ) : fewLeft ? (
+                                <div className="mt-2.5">
+                                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-primary">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                                    Almost gone
+                                  </span>
+                                  <div className="h-1 w-32 bg-border mt-1.5 overflow-hidden" aria-hidden>
+                                    <div className="h-full bg-primary motion-safe:transition-[width] motion-safe:duration-700" style={{ width: `${Math.max(6, Math.round(remaining * 100))}%` }} />
+                                  </div>
+                                </div>
+                              ) : null}
+                              {isSelected && !soldOut && (
+                                <div className="mt-4 pt-4 border-t border-primary/30 flex items-center justify-between gap-3 motion-safe:animate-fade-in" onClick={(e) => e.stopPropagation()}>
+                                  <span className="text-sm text-muted-foreground">How many?</span>
+                                  <QtyStepper
+                                    qty={qty}
+                                    onDecrease={() => setQty((n) => Math.max(1, n - 1))}
+                                    onIncrease={() =>
+                                      setQty((n) => {
+                                        const hardCap = Math.min(10, t.available_qty);
+                                        const finalCap = maxPerBuyer ? Math.min(hardCap, maxPerBuyer) : hardCap;
+                                        return Math.min(finalCap, n + 1);
+                                      })
+                                    }
+                                    disableDecrease={qty <= 1}
+                                    disableIncrease={qty >= Math.min(10, t.available_qty) || (maxPerBuyer != null && qty >= maxPerBuyer)}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                            <div className="text-right shrink-0">
+                              <div className={`font-semibold tabular-nums text-foreground ${isSelected ? "text-xl" : "text-base"} transition-all`}>{fmtPrice(t.price_cents)}</div>
+                              {isSelected && !soldOut && qty > 1 && (
+                                <div className="text-xs text-muted-foreground tabular-nums mt-0.5 motion-safe:animate-fade-in">× {qty} = {fmtPrice(t.price_cents * qty)}</div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
                       );
                     })}
                   </div>
@@ -834,37 +894,31 @@ const EventPublic = () => {
               {/* Attendee ticket forms — buyer writes the name "on the ticket" */}
               {selected && (
                 <Section>
-                  <div className="flex items-center justify-between mb-5">
+                  <div className="flex items-center justify-between gap-3 mb-5">
                     <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                      {qty === 1 ? "Your ticket" : `Your ${qty} tickets`}
+                      {qty === 1 ? "Who's coming" : `Who's coming · ${qty} tickets`}
                     </h2>
-                    <QtyStepper
-                      qty={qty}
-                      onDecrease={() => setQty((n) => Math.max(1, n - 1))}
-                      onIncrease={() =>
-                        setQty((n) => {
-                          const hardCap = Math.min(10, selected.available_qty);
-                          const finalCap = maxPerBuyer ? Math.min(hardCap, maxPerBuyer) : hardCap;
-                          return Math.min(finalCap, n + 1);
-                        })
-                      }
-                      disableDecrease={qty <= 1}
-                      disableIncrease={qty >= Math.min(10, selected.available_qty) || (maxPerBuyer != null && qty >= maxPerBuyer)}
-                    />
+                    <span className={`text-xs tabular-nums ${readyCount === qty ? "text-emerald-400" : "text-muted-foreground"}`}>
+                      {readyCount === qty ? (qty === 1 ? "Ready" : "All ready") : `${readyCount} of ${qty} ready`}
+                    </span>
                   </div>
 
                   <div className="space-y-5">
                     {attendees.map((a, i) => {
                       const emailMismatch =
                         a.confirm_email.length > 0 && a.confirm_email.trim().toLowerCase() !== a.email.trim().toLowerCase();
+                      const ready = attendeeReady(a);
                       return (
-                        <div key={i} className="border border-border p-5">
+                        <div key={i} className={`border p-5 transition-colors motion-safe:animate-fade-in ${ready ? "border-emerald-400/50" : "border-border"}`} style={{ animationDelay: `${i * 60}ms`, animationFillMode: "both" }}>
                           <div className="flex items-center justify-between gap-3 mb-4 pb-4 border-b border-dashed border-border">
-                            <div className="min-w-0">
-                              <div className="text-sm font-medium text-foreground truncate">{selected.name}</div>
-                              {qty > 1 && (
-                                <div className="text-xs text-muted-foreground mt-0.5">Ticket {i + 1} of {qty}</div>
-                              )}
+                            <div className="min-w-0 flex items-center gap-2.5">
+                              <span className={`w-5 h-5 rounded-full shrink-0 flex items-center justify-center text-[11px] font-bold transition-colors ${ready ? "bg-emerald-400 text-background" : "border border-border text-muted-foreground"}`} aria-hidden>
+                                {ready ? <Check className="w-3 h-3 motion-safe:animate-scale-in" strokeWidth={3} /> : i + 1}
+                              </span>
+                              <div className="min-w-0">
+                                <div className="text-sm font-medium text-foreground truncate">{selected.name}</div>
+                                <div className="text-xs text-muted-foreground mt-0.5">{qty > 1 ? `Ticket ${i + 1} of ${qty}` : "This name goes on the ticket"}{ready ? " · ready" : ""}</div>
+                              </div>
                             </div>
                             <div className="text-sm font-semibold tabular-nums text-foreground shrink-0">
                               {fmtPrice(selected.price_cents)}
@@ -1080,12 +1134,12 @@ const EventPublic = () => {
 
       {/* ===== Sticky mobile checkout bar ===== */}
       {selected && !eventSoldOut && (
-        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background px-4 pt-3 pb-[calc(0.75rem_+_env(safe-area-inset-bottom))]">
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/95 backdrop-blur px-4 pt-3 pb-[calc(0.75rem_+_env(safe-area-inset-bottom))] motion-safe:animate-slide-up">
           <div className="container mx-auto max-w-4xl flex items-center gap-3">
             <div className="flex-1 min-w-0">
-              <div className="text-[11px] text-muted-foreground truncate">{qty} × {selected.name}</div>
+              <div className="text-[11px] text-muted-foreground truncate">{qty} × {selected.name}{readyCount < qty ? ` · ${qty - readyCount} to fill in` : ""}</div>
               <div className="text-lg font-semibold tabular-nums leading-tight text-foreground">
-                {fmtPrice(grandCents)}
+                <AnimatedNumber value={grandCents / 100} prefix="€" durationMs={150} />
               </div>
             </div>
             <button
@@ -1168,23 +1222,25 @@ const QtyStepper = ({
   disableDecrease: boolean;
   disableIncrease: boolean;
 }) => (
-  <div className="inline-flex items-center gap-3">
+  <div className="inline-flex items-center gap-2">
     <button
+      type="button"
       onClick={onDecrease}
       disabled={disableDecrease}
-      className="w-8 h-8 border border-border flex items-center justify-center hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+      className="w-10 h-10 border border-border flex items-center justify-center hover:bg-muted active:scale-95 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
       aria-label="Remove a ticket"
     >
-      <Minus className="w-3.5 h-3.5" strokeWidth={1.75} />
+      <Minus className="w-4 h-4" strokeWidth={1.75} />
     </button>
-    <span className="w-6 text-center text-sm font-medium tabular-nums text-foreground">{qty}</span>
+    <span key={qty} className="w-8 text-center text-base font-semibold tabular-nums text-foreground motion-safe:animate-scale-in" aria-live="polite">{qty}</span>
     <button
+      type="button"
       onClick={onIncrease}
       disabled={disableIncrease}
-      className="w-8 h-8 border border-border flex items-center justify-center hover:bg-muted transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+      className="w-10 h-10 border border-border flex items-center justify-center hover:bg-muted active:scale-95 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
       aria-label="Add a ticket"
     >
-      <Plus className="w-3.5 h-3.5" strokeWidth={1.75} />
+      <Plus className="w-4 h-4" strokeWidth={1.75} />
     </button>
   </div>
 );
