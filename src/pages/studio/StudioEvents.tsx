@@ -4,12 +4,12 @@ import {
   Plus,
   Search,
   Calendar,
-  MapPin,
   Pencil,
   ExternalLink,
   Copy,
   Loader2,
   AlertCircle,
+  ArrowRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import { StudioLayout } from "@/components/studio/StudioLayout";
@@ -19,6 +19,8 @@ import { useOrganizer } from "@/hooks/useOrganizer";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { supabase } from "@/integrations/supabase/client";
 import EventStatusBadge, { deriveEventStatusKind, type EventStatus } from "@/components/studio/EventStatusBadge";
+import { FilterChips } from "@/components/studio/FilterChips";
+import { eur, plural, phaseOf, whenLabel, startOfDay } from "@/lib/studioFormat";
 
 interface EventRow {
   id: string;
@@ -130,6 +132,27 @@ const StudioEvents = () => {
       .filter((e) => (q ? e.title.toLowerCase().includes(q) || (e.location ?? "").toLowerCase().includes(q) : true));
   }, [events, filter, search]);
 
+  // Two groups, two orders: what is coming (soonest first) and what is done
+  // (most recent first). The list reads as a timeline, not a database.
+  const groups = useMemo(() => {
+    const today = startOfDay(new Date()).getTime();
+    const upcoming = filtered
+      .filter((e) => startOfDay(new Date(e.date)).getTime() >= today)
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const past = filtered
+      .filter((e) => startOfDay(new Date(e.date)).getTime() < today)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return { upcoming, past };
+  }, [filtered]);
+
+  const summary = useMemo(() => {
+    const parts: string[] = [];
+    if (counts.live) parts.push(`${plural(counts.live, "event")} on sale`);
+    if (counts.draft) parts.push(plural(counts.draft, "draft"));
+    if (counts.past) parts.push(`${counts.past} past`);
+    return parts.join(" · ") || "No events yet";
+  }, [counts]);
+
   const duplicateEvent = async (eventId: string) => {
     if (!organizer || !user) return;
     setDuplicatingId(eventId);
@@ -205,185 +228,172 @@ const StudioEvents = () => {
     <StudioLayout active="events" organizer={organizer ? { name: organizer.name, logo_url: organizer.logo_url } : null}>
       <SEOHead title="Events · Studio" description="Manage all your events." />
       <div className="p-4 md:p-6 max-w-6xl mx-auto">
-        <div className="flex items-center justify-between gap-3 mb-6">
-          <div>
+        <div className="flex items-center justify-between gap-3 mb-5">
+          <div className="min-w-0">
             <h1 className="text-xl md:text-2xl font-bold text-foreground">Events</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">Manage, edit, and track every event you run.</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{summary}</p>
           </div>
           <Link
             to="/studio/events/new"
-            className="inline-flex items-center justify-center gap-2 px-4 min-h-[44px] rounded-lg font-bold text-sm bg-primary text-primary-foreground hover:bg-primary-hover transition-colors shrink-0"
+            className="inline-flex items-center justify-center gap-2 px-4 min-h-[44px] font-bold text-sm bg-primary text-primary-foreground hover:bg-primary-hover transition-colors shrink-0"
           >
             <Plus className="w-4 h-4" />
             New event
           </Link>
         </div>
 
-        {/* Filters */}
-        <div className="flex flex-wrap gap-2 mb-5">
+        {/* Search + filters */}
+        <div className="flex flex-wrap items-center gap-2 mb-5">
           <div className="relative flex-1 min-w-[200px]">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
             <input
+              type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by title or location…"
-              className="w-full pl-9 pr-3 py-2 rounded-lg border border-border bg-card text-sm"
+              placeholder="Find an event"
+              aria-label="Find an event"
+              className="w-full pl-9 pr-3 h-11 border border-border bg-card text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
           </div>
-          <div className="flex flex-wrap gap-1.5">
-            {([
-              { key: "all", label: "All" },
-              { key: "live", label: "Live" },
-              { key: "draft", label: "Drafts" },
-              { key: "past", label: "Past" },
-            ] as { key: Filter; label: string }[]).map((tab) => (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => setFilter(tab.key)}
-                className={`inline-flex items-center gap-1.5 px-3.5 min-h-[36px] rounded-full text-sm font-bold border transition-colors ${
-                  filter === tab.key
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-card text-muted-foreground border-border hover:border-primary/40 hover:text-foreground"
-                }`}
-              >
-                {tab.label}
-                <span className={`inline-flex items-center justify-center min-w-[20px] h-5 px-1 rounded-full text-[11px] font-black ${filter === tab.key ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"}`}>
-                  {counts[tab.key]}
-                </span>
-              </button>
-            ))}
-          </div>
+          <FilterChips<Filter>
+            label="Filter events"
+            value={filter}
+            onChange={setFilter}
+            items={[
+              { key: "all", label: "All", count: counts.all },
+              { key: "live", label: "On sale", count: counts.live },
+              { key: "draft", label: "Drafts", count: counts.draft },
+              { key: "past", label: "Past", count: counts.past },
+            ]}
+          />
         </div>
 
-        {/* Table */}
-        <div className="bg-card border border-border rounded-2xl overflow-hidden">
-          {loading ? (
-            <div className="p-10 flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
-          ) : events.length === 0 ? (
-            <div className="text-center py-14 px-6">
-              <div className="inline-flex w-14 h-14 rounded-2xl items-center justify-center mb-4 text-white" style={{ background: "var(--gradient-hero)" }}>
-                <Calendar className="w-7 h-7" />
-              </div>
-              <h3 className="text-lg font-black mb-1.5">Create your first event</h3>
-              <p className="text-sm text-muted-foreground mb-5 max-w-sm mx-auto">
-                Set up a branded listing, add ticket types, and start selling in minutes.
-              </p>
-              <Link
-                to="/studio/events/new"
-                className="inline-flex items-center justify-center gap-2 px-5 min-h-[44px] rounded-xl font-bold bg-primary text-primary-foreground hover:bg-primary-hover"
-              >
-                <Plus className="w-4 h-4" />
-                Create your first event
-              </Link>
+        {loading ? (
+          <div className="space-y-2">{[0, 1, 2].map((i) => <div key={i} className="h-20 bg-muted animate-pulse" />)}</div>
+        ) : events.length === 0 ? (
+          <div className="text-center py-14 px-6 bg-card border border-border">
+            <div className="inline-flex w-14 h-14 items-center justify-center mb-4 text-white" style={{ background: "var(--gradient-hero)" }}>
+              <Calendar className="w-7 h-7" />
             </div>
-          ) : filtered.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-10">No events match your filters.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border bg-muted/30 text-left">
-                    <th className="px-4 py-2.5 font-bold text-xs uppercase tracking-wider text-muted-foreground">Event</th>
-                    <th className="px-4 py-2.5 font-bold text-xs uppercase tracking-wider text-muted-foreground">Status</th>
-                    <th className="px-4 py-2.5 font-bold text-xs uppercase tracking-wider text-muted-foreground">Date</th>
-                    <th className="px-4 py-2.5 font-bold text-xs uppercase tracking-wider text-muted-foreground">Tickets</th>
-                    <th className="px-4 py-2.5 font-bold text-xs uppercase tracking-wider text-muted-foreground text-right">Revenue</th>
-                    <th className="px-4 py-2.5 font-bold text-xs uppercase tracking-wider text-muted-foreground text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map((e) => {
-                    const soldPct = e.total_capacity > 0 ? Math.round((e.sold_count / e.total_capacity) * 100) : 0;
-                    const soldOut = e.total_capacity > 0 && e.sold_count >= e.total_capacity;
-                    const accent = e.primary_color && /^#[0-9a-fA-F]{6}$/.test(e.primary_color) ? e.primary_color : null;
-                    return (
-                      <tr key={e.id} className="border-b border-border/60 last:border-0 hover:bg-muted/20">
-                        <td className="px-4 py-3 max-w-[260px]">
-                          <Link to={`/studio/events/${e.id}`} className="flex items-center gap-3 group">
-                            <div
-                              className="w-11 h-11 rounded-lg shrink-0 overflow-hidden bg-cover bg-center"
-                              style={{ background: accent ?? "var(--gradient-hero)" }}
-                            >
-                              {e.banner_url && <img src={e.banner_url} alt="" className="w-full h-full object-cover" />}
-                            </div>
-                            <div className="min-w-0">
-                              <div className="font-semibold text-sm truncate group-hover:text-primary transition-colors">{e.title}</div>
-                              {e.location && (
-                                <div className="text-xs text-muted-foreground flex items-center gap-1 truncate">
-                                  <MapPin className="w-3 h-3 shrink-0" />
-                                  {e.location}
-                                </div>
-                              )}
-                            </div>
-                          </Link>
-                        </td>
-                        <td className="px-4 py-3">
-                          <EventStatusBadge status={e.status} date={e.date} soldOut={soldOut} size="sm" />
-                        </td>
-                        <td className="px-4 py-3 text-muted-foreground whitespace-nowrap">
-                          <span className="inline-flex items-center gap-1">
-                            <Calendar className="w-3 h-3" />
-                            {new Date(e.date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 min-w-[140px]">
-                          {e.total_capacity > 0 ? (
-                            <div>
-                              <div className="h-1.5 w-28 rounded-full bg-muted overflow-hidden">
-                                <div className="h-full rounded-full" style={{ width: `${Math.min(100, soldPct)}%`, background: accent ?? "hsl(var(--primary))" }} />
-                              </div>
-                              <div className="text-xs text-muted-foreground mt-1">{e.sold_count}/{e.total_capacity} · {soldPct}%</div>
-                            </div>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 text-xs text-amber-700">
-                              <AlertCircle className="w-3 h-3" />
-                              No tiers
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-right font-bold tabular-nums">€{(e.revenue_cents / 100).toFixed(0)}</td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center justify-end gap-1.5">
-                            <Link
-                              to={`/studio/events/${e.id}`}
-                              title="Edit"
-                              className="w-8 h-8 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/40"
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </Link>
-                            {e.status === "published" && e.slug && (
-                              <a
-                                href={`/e/${e.slug}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                title="View public page"
-                                className="w-8 h-8 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/40"
-                              >
-                                <ExternalLink className="w-3.5 h-3.5" />
-                              </a>
-                            )}
-                            <button
-                              type="button"
-                              onClick={() => duplicateEvent(e.id)}
-                              disabled={duplicatingId === e.id}
-                              title="Duplicate"
-                              className="w-8 h-8 rounded-lg border border-border flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/40 disabled:opacity-50"
-                            >
-                              {duplicatingId === e.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Copy className="w-3.5 h-3.5" />}
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+            <h3 className="font-display text-2xl font-bold mb-1.5">Your first event starts here</h3>
+            <p className="text-sm text-muted-foreground mb-5 max-w-sm mx-auto">
+              Name it, add ticket types, share the page. It takes a few minutes.
+            </p>
+            <Link
+              to="/studio/events/new"
+              className="inline-flex items-center justify-center gap-2 px-5 min-h-[44px] font-bold bg-primary text-primary-foreground hover:bg-primary-hover"
+            >
+              <Plus className="w-4 h-4" />
+              Create an event
+            </Link>
+          </div>
+        ) : filtered.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-10 bg-card border border-border">
+            {search ? `Nothing matches "${search}".` : "Nothing here."}
+          </p>
+        ) : (
+          <div className="space-y-6">
+            {groups.upcoming.length > 0 && (
+              <section aria-labelledby="upcoming-heading">
+                <h2 id="upcoming-heading" className="text-sm font-bold mb-2">
+                  Coming up <span className="text-muted-foreground font-medium">{groups.upcoming.length}</span>
+                </h2>
+                <ul className="bg-card border border-border divide-y divide-border">
+                  {groups.upcoming.map((e, i) => (
+                    <EventRow key={e.id} event={e} index={i} duplicating={duplicatingId === e.id} onDuplicate={() => duplicateEvent(e.id)} />
+                  ))}
+                </ul>
+              </section>
+            )}
+            {groups.past.length > 0 && (
+              <section aria-labelledby="past-heading">
+                <h2 id="past-heading" className="text-sm font-bold mb-2">
+                  Past <span className="text-muted-foreground font-medium">{groups.past.length}</span>
+                </h2>
+                <ul className="bg-card border border-border divide-y divide-border">
+                  {groups.past.map((e, i) => (
+                    <EventRow key={e.id} event={e} index={i} duplicating={duplicatingId === e.id} onDuplicate={() => duplicateEvent(e.id)} />
+                  ))}
+                </ul>
+              </section>
+            )}
+          </div>
+        )}
       </div>
     </StudioLayout>
+  );
+};
+
+/**
+ * One event, read left to right as a sentence: when, what, how it is doing,
+ * what it has made. Actions sit at the end and only ask for attention on
+ * hover (always visible on touch screens, which have no hover).
+ */
+const EventRow = ({ event: e, index, duplicating, onDuplicate }: { event: EventRow; index: number; duplicating: boolean; onDuplicate: () => void }) => {
+  const d = new Date(e.date);
+  const phase = phaseOf(e.date);
+  const soldPct = e.total_capacity > 0 ? Math.min(100, Math.round((e.sold_count / e.total_capacity) * 100)) : 0;
+  const soldOut = e.total_capacity > 0 && e.sold_count >= e.total_capacity;
+  const left = e.total_capacity - e.sold_count;
+  const accent = e.primary_color && /^#[0-9a-fA-F]{6}$/.test(e.primary_color) ? e.primary_color : "hsl(var(--primary))";
+  const salesNote =
+    e.total_capacity === 0 ? "No ticket types yet" : soldOut ? "Sold out" : phase === "past" ? `${e.sold_count} attended` : `${left.toLocaleString("en-GB")} left`;
+  const iconBtn = "w-9 h-9 border border-border flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary/40 disabled:opacity-50 transition-colors";
+
+  return (
+    <li className="group relative motion-safe:animate-fade-in" style={{ animationDelay: `${Math.min(index, 8) * 40}ms` }}>
+      <span aria-hidden className="absolute left-0 top-0 bottom-0 w-[3px]" style={{ background: accent, opacity: phase === "past" ? 0.35 : 1 }} />
+      <div className="grid grid-cols-[auto_1fr] md:grid-cols-[auto_1fr_auto_auto_auto] items-center gap-x-4 gap-y-2 pl-5 pr-4 py-3 min-h-[72px]">
+        <Link to={`/studio/events/${e.id}`} className="w-11 text-center leading-tight self-start md:self-center">
+          <div className={`font-display text-xl font-bold tabular-nums ${phase === "past" ? "text-muted-foreground" : "text-foreground"}`}>{d.getDate()}</div>
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground">{d.toLocaleDateString("en-GB", { month: "short" })}</div>
+        </Link>
+        <div className="min-w-0">
+          <Link to={`/studio/events/${e.id}`} className="block">
+            <div className="text-sm font-semibold truncate hover:text-primary transition-colors">{e.title}</div>
+            <div className="text-[11px] text-muted-foreground truncate">
+              {whenLabel(e.date)}{e.location ? ` · ${e.location}` : ""}
+            </div>
+          </Link>
+          {/* Phone: numbers under the title */}
+          <div className="md:hidden mt-2 flex items-center gap-3 text-[11px] text-muted-foreground">
+            <EventStatusBadge status={e.status} date={e.date} soldOut={soldOut} size="sm" />
+            <span className="tabular-nums">{e.total_capacity > 0 ? `${e.sold_count}/${e.total_capacity} · ${salesNote}` : salesNote}</span>
+            <span className="font-bold text-foreground tabular-nums ml-auto">{eur(e.revenue_cents)}</span>
+          </div>
+        </div>
+        <div className="hidden md:block"><EventStatusBadge status={e.status} date={e.date} soldOut={soldOut} size="sm" /></div>
+        <div className="hidden md:block w-44">
+          {e.total_capacity > 0 ? (
+            <>
+              <div className="h-1.5 w-full bg-muted overflow-hidden" aria-hidden>
+                <div className="h-full" style={{ width: `${soldPct}%`, background: accent }} />
+              </div>
+              <div className="flex justify-between text-[11px] text-muted-foreground mt-1 tabular-nums">
+                <span>{e.sold_count}/{e.total_capacity}</span>
+                <span className={soldOut ? "font-bold text-foreground" : ""}>{salesNote}</span>
+              </div>
+            </>
+          ) : (
+            <span className="inline-flex items-center gap-1 text-[11px] text-amber-700"><AlertCircle className="w-3 h-3" /> {salesNote}</span>
+          )}
+        </div>
+        <div className="hidden md:block text-sm font-bold tabular-nums text-right w-20">{eur(e.revenue_cents)}</div>
+        {/* Actions */}
+        <div className="col-span-2 md:col-span-1 md:absolute md:right-4 md:top-1/2 md:-translate-y-1/2 flex items-center gap-1.5 md:bg-card md:pl-2 md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100 transition-opacity">
+          <Link to={`/studio/events/${e.id}`} title="Edit" aria-label={`Edit ${e.title}`} className={iconBtn}><Pencil className="w-3.5 h-3.5" /></Link>
+          {e.status === "published" && e.slug && (
+            <a href={`/e/${e.slug}`} target="_blank" rel="noopener noreferrer" title="Public page" aria-label={`Open the public page of ${e.title}`} className={iconBtn}><ExternalLink className="w-3.5 h-3.5" /></a>
+          )}
+          <button type="button" onClick={onDuplicate} disabled={duplicating} title="Duplicate" aria-label={`Duplicate ${e.title}`} className={iconBtn}>
+            {duplicating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Copy className="w-3.5 h-3.5" />}
+          </button>
+          <Link to={`/studio/events/${e.id}/attendees`} className="hidden md:inline-flex items-center gap-1 h-9 px-3 text-xs font-bold border border-border hover:border-primary/40 hover:text-primary transition-colors">
+            Guests <ArrowRight className="w-3 h-3" />
+          </Link>
+        </div>
+      </div>
+    </li>
   );
 };
 

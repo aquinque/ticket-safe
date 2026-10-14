@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Download, Loader2, Search, TrendingUp, Ticket, Tag, Receipt, FileText, ChevronDown, Calendar } from "lucide-react";
+import { Download, Loader2, Search, Receipt, FileText, ChevronDown } from "lucide-react";
+import { StatFigure } from "@/components/studio/StatFigure";
+import { FilterChips } from "@/components/studio/FilterChips";
+import { eur, plural, fmtDate, fmtTime, startOfDay } from "@/lib/studioFormat";
 import { toast } from "sonner";
 import { StudioLayout } from "@/components/studio/StudioLayout";
 import { SEOHead } from "@/components/SEOHead";
@@ -173,6 +176,46 @@ const StudioSales = () => {
   const paidFiltered = filtered.filter((r) => r.status === "paid");
   const totalRevenueCents = paidFiltered.reduce((a, r) => a + r.total_cents - (r.fee_cents ?? 0), 0);
   const totalTickets = paidFiltered.reduce((a, r) => a + r.quantity, 0);
+  const avgOrderCents = paidFiltered.length > 0 ? Math.round(totalRevenueCents / paidFiltered.length) : 0;
+
+  const statusCounts = useMemo(() => {
+    const base = rows.filter((r) => eventFilter === "all" || r.event_title === eventFilter);
+    const count = (st: string) => base.filter((r) => r.status === st).length;
+    return { all: base.length, paid: count("paid"), pending: count("pending"), refunded: count("refunded"), cancelled: count("cancelled") };
+  }, [rows, eventFilter]);
+
+  const allTime = useMemo(() => {
+    const paid = rows.filter((r) => r.status === "paid");
+    return {
+      cents: paid.reduce((a, r) => a + r.total_cents - (r.fee_cents ?? 0), 0),
+      tickets: paid.reduce((a, r) => a + r.quantity, 0),
+    };
+  }, [rows]);
+
+  // Ticket revenue per day over the last 30 days, from the orders already
+  // loaded (same event filter as the table, so the strip follows the chooser).
+  const strip = useMemo(() => {
+    const since = startOfDay(new Date());
+    since.setDate(since.getDate() - 29);
+    const days: { day: string; cents: number; tickets: number }[] = [];
+    for (let i = 0; i < 30; i++) {
+      const d = new Date(since);
+      d.setDate(d.getDate() + i);
+      days.push({ day: d.toISOString().slice(0, 10), cents: 0, tickets: 0 });
+    }
+    const idx = new Map(days.map((d, i) => [d.day, i]));
+    for (const r of rows) {
+      if (r.status !== "paid") continue;
+      if (eventFilter !== "all" && r.event_title !== eventFilter) continue;
+      const i = idx.get(r.created_at.slice(0, 10));
+      if (i == null) continue;
+      days[i].cents += r.total_cents - (r.fee_cents ?? 0);
+      days[i].tickets += r.quantity;
+    }
+    const total = days.reduce((a, d) => a + d.cents, 0);
+    const max = Math.max(1, ...days.map((d) => d.cents));
+    return { days, total, max, tickets: days.reduce((a, d) => a + d.tickets, 0) };
+  }, [rows, eventFilter]);
 
   if (!user || orgLoading) {
     return (
@@ -186,188 +229,217 @@ const StudioSales = () => {
     <StudioLayout active="sales" organizer={organizer ? { name: organizer.name, logo_url: organizer.logo_url } : null}>
       <SEOHead title="Sales · Studio" description="All sales across your events." />
       <div className="p-4 md:p-6 max-w-6xl mx-auto">
-        <div className="flex items-center justify-between gap-3 mb-6">
-          <div>
+        <div className="flex items-center justify-between gap-3 mb-5">
+          <div className="min-w-0">
             <h1 className="text-xl md:text-2xl font-bold text-foreground">Sales</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">Every order across all your events, in one place.</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {rows.length === 0 ? "No orders yet" : `${eur(allTime.cents)} from ${plural(allTime.tickets, "ticket")}, all time`}
+            </p>
           </div>
           <button
             onClick={() => exportCsv(filtered)}
             disabled={filtered.length === 0}
-            className="inline-flex items-center gap-1.5 px-3 min-h-[40px] rounded-lg text-sm font-bold bg-card border border-border hover:bg-muted disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-3 min-h-[44px] text-sm font-bold bg-card border border-border hover:bg-muted disabled:opacity-50 shrink-0"
           >
             <Download className="w-4 h-4" />
             Export CSV
           </button>
         </div>
 
-        {/* Summary cards */}
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
-          <div className="rounded-xl bg-card border border-border p-4">
-            <div className="flex items-center gap-2 text-muted-foreground mb-1">
-              <TrendingUp className="w-4 h-4" />
-              <span className="text-[10px] font-bold uppercase tracking-wider">Revenue (filtered)</span>
-            </div>
-            <div className="text-2xl font-black tabular-nums">€{(totalRevenueCents / 100).toFixed(0)}</div>
+        {/* Event chooser + search: everything below follows them */}
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buyer email or event"
+              aria-label="Search orders"
+              className="w-full pl-9 pr-3 h-11 border border-border bg-card text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            />
           </div>
-          <div className="rounded-xl bg-card border border-border p-4">
-            <div className="flex items-center gap-2 text-muted-foreground mb-1">
-              <Ticket className="w-4 h-4" />
-              <span className="text-[10px] font-bold uppercase tracking-wider">Tickets sold</span>
-            </div>
-            <div className="text-2xl font-black tabular-nums">{totalTickets}</div>
-          </div>
-          <div className="rounded-xl bg-card border border-border p-4">
-            <div className="flex items-center gap-2 text-muted-foreground mb-1">
-              <Tag className="w-4 h-4" />
-              <span className="text-[10px] font-bold uppercase tracking-wider">Orders</span>
-            </div>
-            <div className="text-2xl font-black tabular-nums">{filtered.length}</div>
-          </div>
+          {eventOptions.length > 1 && (
+            <select
+              value={eventFilter}
+              onChange={(e) => setEventFilter(e.target.value)}
+              aria-label="Event"
+              className="h-11 px-3 border border-border bg-card text-sm font-semibold max-w-[240px]"
+            >
+              <option value="all">All events</option>
+              {eventOptions.map((e) => (
+                <option key={e} value={e}>{e}</option>
+              ))}
+            </select>
+          )}
         </div>
 
-        {/* Per-event documents — sales statement + service invoice */}
-        {eventSummaries.length > 0 && (
-          <section className="bg-card border border-border rounded-2xl overflow-hidden mb-6">
-            <div className="flex items-center justify-between px-4 md:px-5 py-3 border-b border-border">
-              <h2 className="text-sm font-bold flex items-center gap-1.5">
-                <Receipt className="w-4 h-4 text-primary" />
-                Documents per event
-              </h2>
-            </div>
-            <div className="divide-y divide-border">
-              {eventSummaries.map((e) => (
-                <div key={e.eventId} className="flex items-center justify-between gap-3 px-4 md:px-5 py-3">
-                  <div className="min-w-0">
-                    <Link to={`/studio/events/${e.eventId}`} className="font-semibold text-sm hover:text-primary truncate block">
-                      {e.title}
-                    </Link>
-                    <div className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                      <Calendar className="w-3 h-3" />
-                      {e.orders} order{e.orders === 1 ? "" : "s"} · €{(e.grossCents / 100).toFixed(0)} gross
+        {/* Figures for the current selection, and the last 30 days */}
+        <section className="bg-card border border-border p-4 md:p-5 mb-4" aria-label="Sales summary">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
+            <StatFigure label="Ticket revenue" value={totalRevenueCents} money hint="paid orders, after the buyer fee" />
+            <StatFigure label="Tickets" value={totalTickets} />
+            <StatFigure label="Orders" value={filtered.length} hint={statusFilter === "all" ? `${paidFiltered.length} paid` : statusFilter} />
+            <StatFigure label="Per order" value={avgOrderCents} money decimals={2} hint="average, paid" />
+          </div>
+          <div className="flex items-baseline justify-between mb-2">
+            <h2 className="text-xs font-bold">Last 30 days</h2>
+            <span className="text-[11px] text-muted-foreground tabular-nums">{eur(strip.total)} · {plural(strip.tickets, "ticket")}</span>
+          </div>
+          {loading ? (
+            <div className="h-14 bg-muted animate-pulse" />
+          ) : strip.total === 0 ? (
+            <p className="text-xs text-muted-foreground py-4">No paid orders in the last 30 days.</p>
+          ) : (
+            <>
+              <div className="flex items-end gap-[3px] h-14" role="img" aria-label="Ticket revenue per day, last 30 days">
+                {strip.days.map((d, i) => (
+                  <div
+                    key={d.day}
+                    title={`${fmtDate(d.day)}: ${eur(d.cents)}, ${plural(d.tickets, "ticket")}`}
+                    className={`flex-1 ${i === strip.days.length - 1 ? "bg-primary" : d.cents > 0 ? "bg-primary/60" : "bg-muted"}`}
+                    style={{ height: `${Math.max(4, (d.cents / strip.max) * 100)}%` }}
+                  />
+                ))}
+              </div>
+              <div className="flex justify-between text-[10px] text-muted-foreground mt-1.5">
+                <span>{fmtDate(strip.days[0].day)}</span>
+                <span>today</span>
+              </div>
+            </>
+          )}
+        </section>
+
+        <div className="mb-3">
+          <FilterChips<StatusFilter>
+            label="Order status"
+            value={statusFilter}
+            onChange={setStatusFilter}
+            items={[
+              { key: "all", label: "All", count: statusCounts.all },
+              { key: "paid", label: "Paid", count: statusCounts.paid },
+              { key: "pending", label: "Pending", count: statusCounts.pending },
+              { key: "refunded", label: "Refunded", count: statusCounts.refunded },
+              { key: "cancelled", label: "Cancelled", count: statusCounts.cancelled },
+            ]}
+          />
+        </div>
+
+        {/* Orders */}
+        <section className="bg-card border border-border mb-6" aria-label="Orders">
+          {loading ? (
+            <div className="p-4 space-y-2">{[0, 1, 2, 3].map((i) => <div key={i} className="h-10 bg-muted animate-pulse" />)}</div>
+          ) : filtered.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-10">
+              {rows.length === 0 ? "Your first order will appear here." : "No orders match this selection."}
+            </p>
+          ) : (
+            <>
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-left">
+                      {["When", "Event", "Tier", "Buyer", "Qty", "Total", "Status"].map((h, i) => (
+                        <th key={h} className={`px-4 py-2.5 text-[10px] uppercase tracking-wider font-bold text-muted-foreground ${i === 4 || i === 5 ? "text-right" : ""}`}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map((r) => (
+                      <tr key={r.id} className="border-b border-border last:border-0 hover:bg-muted/40">
+                        <td className="px-4 py-2.5 text-muted-foreground whitespace-nowrap tabular-nums">
+                          {fmtDate(r.created_at)} <span className="opacity-60">{fmtTime(r.created_at)}</span>
+                        </td>
+                        <td className="px-4 py-2.5 font-medium max-w-[220px] truncate">
+                          <Link to={`/studio/events/${r.event_id}`} className="hover:text-primary">{r.event_title}</Link>
+                        </td>
+                        <td className="px-4 py-2.5 text-muted-foreground">{r.tier_name}</td>
+                        <td className="px-4 py-2.5 text-muted-foreground max-w-[200px] truncate">{r.buyer_email}</td>
+                        <td className="px-4 py-2.5 text-right tabular-nums">{r.quantity}</td>
+                        <td className="px-4 py-2.5 text-right font-bold tabular-nums">{eur(r.total_cents, 2)}</td>
+                        <td className="px-4 py-2.5"><StatusPill status={r.status} /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <ul className="md:hidden divide-y divide-border">
+                {filtered.map((r) => (
+                  <li key={r.id} className="px-4 py-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <Link to={`/studio/events/${r.event_id}`} className="text-sm font-semibold truncate block">{r.event_title}</Link>
+                        <div className="text-[11px] text-muted-foreground truncate">{r.tier_name} · {r.buyer_email}</div>
+                      </div>
+                      <div className="text-sm font-bold tabular-nums shrink-0">{eur(r.total_cents, 2)}</div>
                     </div>
+                    <div className="flex items-center justify-between mt-1.5 text-[11px] text-muted-foreground">
+                      <span className="tabular-nums">{fmtDate(r.created_at)} {fmtTime(r.created_at)} · ×{r.quantity}</span>
+                      <StatusPill status={r.status} />
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </section>
+
+        {/* Statements and invoices, per event */}
+        {eventSummaries.length > 0 && (
+          <section className="bg-card border border-border" aria-labelledby="docs-heading">
+            <div className="flex items-center justify-between px-4 md:px-5 py-3 border-b border-border">
+              <h2 id="docs-heading" className="text-sm font-bold flex items-center gap-1.5">
+                <Receipt className="w-4 h-4 text-primary" />
+                Statements and invoices
+              </h2>
+              <span className="text-[11px] text-muted-foreground">PDF, one per event</span>
+            </div>
+            <ul className="divide-y divide-border">
+              {eventSummaries.map((e) => (
+                <li key={e.eventId} className="flex items-center justify-between gap-3 px-4 md:px-5 py-3">
+                  <div className="min-w-0">
+                    <Link to={`/studio/events/${e.eventId}`} className="font-semibold text-sm hover:text-primary truncate block">{e.title}</Link>
+                    <div className="text-xs text-muted-foreground mt-0.5 tabular-nums">{plural(e.orders, "order")} · {eur(e.grossCents)} gross</div>
                   </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <button
                         type="button"
-                        disabled={downloading === `${e.eventId}:sales_statement` || downloading === `${e.eventId}:service_invoice`}
-                        className="inline-flex items-center gap-1.5 px-3 min-h-[36px] rounded-lg text-xs font-bold bg-muted hover:bg-muted/80 border border-border disabled:opacity-60 shrink-0"
+                        disabled={downloading?.startsWith(e.eventId) ?? false}
+                        className="inline-flex items-center gap-1.5 px-3 min-h-[40px] text-xs font-bold bg-card border border-border hover:bg-muted disabled:opacity-60 shrink-0"
                       >
                         {downloading?.startsWith(e.eventId) ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-                        Download receipt
+                        Download
                         <ChevronDown className="w-3 h-3" />
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem onClick={() => downloadDocument(e.eventId, "sales_statement")}>
                         <FileText className="w-3.5 h-3.5 mr-2" />
-                        Relevé de ventes (PDF)
+                        Sales statement (relevé de ventes)
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => downloadDocument(e.eventId, "service_invoice")}>
                         <Receipt className="w-3.5 h-3.5 mr-2" />
-                        Facture des frais de service (PDF)
+                        Service fee invoice
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
-                </div>
+                </li>
               ))}
-            </div>
+            </ul>
           </section>
         )}
-
-        {/* Filters */}
-        <div className="flex flex-wrap gap-2 mb-4">
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search buyer email or event…"
-              className="w-full pl-9 pr-3 py-2 rounded-lg border border-border bg-card text-sm"
-            />
-          </div>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-            className="px-3 py-2 rounded-lg border border-border bg-card text-sm"
-          >
-            <option value="all">All statuses</option>
-            <option value="paid">Paid</option>
-            <option value="pending">Pending</option>
-            <option value="refunded">Refunded</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
-          <select
-            value={eventFilter}
-            onChange={(e) => setEventFilter(e.target.value)}
-            className="px-3 py-2 rounded-lg border border-border bg-card text-sm max-w-[220px]"
-          >
-            <option value="all">All events</option>
-            {eventOptions.map((e) => (
-              <option key={e} value={e}>{e}</option>
-            ))}
-          </select>
-        </div>
-
-        {/* Table */}
-        <div className="bg-card border border-border rounded-2xl overflow-hidden">
-          {loading ? (
-            <div className="p-10 flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
-          ) : filtered.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-10">No sales match your filters.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border bg-muted/30 text-left">
-                    <th className="px-4 py-2.5 font-bold text-xs uppercase tracking-wider text-muted-foreground">Date</th>
-                    <th className="px-4 py-2.5 font-bold text-xs uppercase tracking-wider text-muted-foreground">Event</th>
-                    <th className="px-4 py-2.5 font-bold text-xs uppercase tracking-wider text-muted-foreground">Tier</th>
-                    <th className="px-4 py-2.5 font-bold text-xs uppercase tracking-wider text-muted-foreground">Buyer</th>
-                    <th className="px-4 py-2.5 font-bold text-xs uppercase tracking-wider text-muted-foreground text-right">Qty</th>
-                    <th className="px-4 py-2.5 font-bold text-xs uppercase tracking-wider text-muted-foreground text-right">Total</th>
-                    <th className="px-4 py-2.5 font-bold text-xs uppercase tracking-wider text-muted-foreground">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map((r) => (
-                    <tr key={r.id} className="border-b border-border/60 last:border-0 hover:bg-muted/20">
-                      <td className="px-4 py-2.5 text-muted-foreground whitespace-nowrap">
-                        {new Date(r.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
-                      </td>
-                      <td className="px-4 py-2.5 font-medium truncate max-w-[200px]">
-                        <Link to={`/studio/events/${r.event_id}`} className="hover:text-primary">
-                          {r.event_title}
-                        </Link>
-                      </td>
-                      <td className="px-4 py-2.5 text-muted-foreground">{r.tier_name}</td>
-                      <td className="px-4 py-2.5 text-muted-foreground truncate max-w-[180px]">{r.buyer_email}</td>
-                      <td className="px-4 py-2.5 text-right tabular-nums">{r.quantity}</td>
-                      <td className="px-4 py-2.5 text-right font-bold tabular-nums">€{(r.total_cents / 100).toFixed(2)}</td>
-                      <td className="px-4 py-2.5">
-                        <span
-                          className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wide ${
-                            r.status === "paid"
-                              ? "bg-success/15 text-success"
-                              : r.status === "pending"
-                              ? "bg-warning/15 text-warning"
-                              : "bg-muted text-muted-foreground"
-                          }`}
-                        >
-                          {r.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
       </div>
     </StudioLayout>
   );
+};
+
+const StatusPill = ({ status }: { status: string }) => {
+  const cls =
+    status === "paid" ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+    : status === "pending" ? "bg-amber-50 text-amber-700 border-amber-200"
+    : "bg-muted text-muted-foreground border-border";
+  return <span className={`inline-flex px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase tracking-wide ${cls}`}>{status}</span>;
 };
 
 export default StudioSales;

@@ -11,13 +11,14 @@ import {
   Loader2,
   Search,
   FileText,
-  Users,
   CheckCircle2,
-  Banknote,
-  Ticket,
   ArrowUpDown,
   ArrowLeft,
+  QrCode,
 } from "lucide-react";
+import { StatFigure } from "@/components/studio/StatFigure";
+import { FilterChips } from "@/components/studio/FilterChips";
+import { eur as eurFmt, fmtDate, fmtTime, phaseOf, whenLabel } from "@/lib/studioFormat";
 import { StudioLayout } from "@/components/studio/StudioLayout";
 import { SEOHead } from "@/components/SEOHead";
 import { useAuth } from "@/hooks/useAuth";
@@ -63,7 +64,7 @@ interface TicketRow {
 type SortKey = "name" | "date" | "amount" | "status";
 type StatusFilter = "all" | "checked_in" | "not_checked_in" | "cancelled";
 
-const eur = (cents: number) => `€${(cents / 100).toFixed(2)}`;
+const eur = (cents: number) => eurFmt(cents, 2);
 
 function exportCsv(eventTitle: string, rows: ReturnType<typeof buildRows>) {
   const esc = (v: unknown): string => {
@@ -233,6 +234,23 @@ const StudioEventAttendees = () => {
     };
   }, [rows, orders]);
 
+  const byTier = useMemo(() => {
+    const m = new Map<string, { sold: number; inCount: number }>();
+    for (const r of rows) {
+      const cur = m.get(r.tierName) ?? { sold: 0, inCount: 0 };
+      cur.sold += 1;
+      if (r.checkedIn) cur.inCount += 1;
+      m.set(r.tierName, cur);
+    }
+    return Array.from(m.entries()).map(([name, v]) => ({ name, ...v })).sort((a, b) => b.sold - a.sold);
+  }, [rows]);
+
+  const statusCounts = useMemo(() => ({
+    all: rows.length,
+    checked_in: rows.filter((r) => r.checkedIn).length,
+    not_checked_in: rows.filter((r) => !r.checkedIn).length,
+  }), [rows]);
+
   if (authLoading || orgLoading || loading || !event) {
     return (
       <div className="theme-studio min-h-screen flex items-center justify-center bg-background">
@@ -246,159 +264,185 @@ const StudioEventAttendees = () => {
       <SEOHead title={`Attendees · ${event.title} · Studio`} description={`Attendee list for ${event.title}.`} />
 
       <div className="p-4 md:p-6 max-w-5xl mx-auto">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6">
-          <div>
+        {(() => { const phase = phaseOf(event.date); const doorDay = phase !== "upcoming"; return (
+        <>
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-3 mb-5">
+          <div className="min-w-0">
             <Link to={`/studio/events/${event.id}`} className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-primary mb-1.5">
               <ArrowLeft className="w-3.5 h-3.5" />
               Back to event
             </Link>
-            <h1 className="text-2xl md:text-3xl font-black">{event.title}</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              {new Date(event.date).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
-              {event.location ? ` · ${event.location}` : ""}
+            <h1 className="font-display text-2xl md:text-3xl font-bold leading-tight text-balance">{event.title}</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              {whenLabel(event.date)} · {fmtDate(event.date)}{event.location ? ` · ${event.location}` : ""}
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => exportCsv(event.title, filteredSorted)}
-            disabled={filteredSorted.length === 0}
-            className="inline-flex items-center justify-center gap-2 px-4 h-11 rounded-xl font-bold text-sm bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-50 shrink-0"
-          >
-            <FileText className="w-4 h-4" />
-            Export CSV
-          </button>
+          <div className="flex flex-wrap gap-2 shrink-0">
+            <Link
+              to={`/organizer/scan?event_id=${event.id}`}
+              className={`inline-flex items-center justify-center gap-2 px-4 min-h-[44px] font-bold text-sm transition-colors ${doorDay ? "bg-primary text-primary-foreground hover:bg-primary-hover" : "bg-card border border-border hover:bg-muted"}`}
+            >
+              <QrCode className="w-4 h-4" />
+              Open scanner
+            </Link>
+            <button
+              type="button"
+              onClick={() => exportCsv(event.title, filteredSorted)}
+              disabled={filteredSorted.length === 0}
+              className="inline-flex items-center justify-center gap-2 px-4 min-h-[44px] font-bold text-sm bg-card border border-border hover:bg-muted disabled:opacity-50"
+            >
+              <FileText className="w-4 h-4" />
+              Export CSV
+            </button>
+          </div>
         </div>
 
-        {/* Stat tiles */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-          <div className="rounded-xl border border-border bg-card p-4">
-            <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-1.5">
-              <Ticket className="w-3.5 h-3.5" /> Tickets sold
+        {/* The numbers that matter for this event, and how they split by tier */}
+        <section className="bg-card border border-border p-4 md:p-5 mb-4" aria-label="Attendance summary">
+          <div className="grid gap-5 md:grid-cols-[1fr_auto] md:items-start">
+            <div>
+              <div className="flex items-baseline gap-2">
+                <span className="font-display text-4xl md:text-5xl font-bold tabular-nums leading-none">{stats.checkedIn}</span>
+                <span className="text-sm text-muted-foreground">of {stats.totalTickets} {doorDay ? "checked in" : "ticket holders"}</span>
+                <span className="ml-auto text-sm font-bold tabular-nums">{stats.checkedInPct}%</span>
+              </div>
+              <div className="mt-3 h-2 w-full bg-muted overflow-hidden" aria-hidden>
+                <div className="h-full bg-emerald-500 motion-safe:transition-[width] motion-safe:duration-700" style={{ width: `${stats.checkedInPct}%` }} />
+              </div>
+              {byTier.length > 0 && (
+                <ul className="mt-4 grid gap-x-6 gap-y-2 sm:grid-cols-2">
+                  {byTier.map((t) => (
+                    <li key={t.name} className="text-xs">
+                      <div className="flex justify-between gap-2">
+                        <span className="font-semibold truncate">{t.name}</span>
+                        <span className="text-muted-foreground tabular-nums shrink-0">{doorDay ? `${t.inCount} / ${t.sold} in` : `${t.sold} sold`}</span>
+                      </div>
+                      <div className="h-1 bg-muted mt-1 overflow-hidden" aria-hidden>
+                        <div className="h-full bg-primary/70" style={{ width: `${rows.length ? (t.sold / rows.length) * 100 : 0}%` }} />
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
-            <div className="text-2xl font-black">{stats.totalTickets}</div>
-          </div>
-          <div className="rounded-xl border border-border bg-card p-4">
-            <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-1.5">
-              <CheckCircle2 className="w-3.5 h-3.5" /> Checked in
+            <div className="grid grid-cols-2 md:grid-cols-1 gap-4 md:min-w-[150px] md:border-l md:border-border md:pl-5">
+              <StatFigure label="Gross" value={stats.grossCents} money />
+              <StatFigure label="To you" value={stats.netCents} money hint="after the buyer fee" />
             </div>
-            <div className="text-2xl font-black">{stats.checkedIn} <span className="text-sm font-semibold text-muted-foreground">({stats.checkedInPct}%)</span></div>
           </div>
-          <div className="rounded-xl border border-border bg-card p-4">
-            <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-1.5">
-              <Banknote className="w-3.5 h-3.5" /> Gross revenue
-            </div>
-            <div className="text-2xl font-black tabular-nums">{eur(stats.grossCents)}</div>
-          </div>
-          <div className="rounded-xl border border-border bg-card p-4">
-            <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-1.5">
-              <Users className="w-3.5 h-3.5" /> Net payout
-            </div>
-            <div className="text-2xl font-black tabular-nums">{eur(stats.netCents)}</div>
-          </div>
-        </div>
+        </section>
 
         {/* Filters */}
-        <div className="flex flex-col sm:flex-row gap-2.5 mb-4">
-          <div className="relative flex-1">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+        <div className="flex flex-wrap items-center gap-2 mb-3">
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
             <input
+              type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search by name or email…"
-              className="w-full pl-9 pr-3 h-11 rounded-xl border border-border bg-card text-sm"
+              placeholder="Name or email"
+              aria-label="Find a guest"
+              className="w-full pl-9 pr-3 h-11 border border-border bg-card text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
           </div>
-          <select
-            value={tierFilter}
-            onChange={(e) => setTierFilter(e.target.value)}
-            className="h-11 px-3 rounded-xl border border-border bg-card text-sm font-semibold"
-          >
-            <option value="all">All tiers</option>
-            {tiers.map((t) => (
-              <option key={t.id} value={t.name}>{t.name}</option>
-            ))}
-          </select>
-          <select
+          {tiers.length > 1 && (
+            <select
+              value={tierFilter}
+              onChange={(e) => setTierFilter(e.target.value)}
+              aria-label="Tier"
+              className="h-11 px-3 border border-border bg-card text-sm font-semibold"
+            >
+              <option value="all">All tiers</option>
+              {tiers.map((t) => (
+                <option key={t.id} value={t.name}>{t.name}</option>
+              ))}
+            </select>
+          )}
+          <FilterChips<StatusFilter>
+            label="Check-in status"
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-            className="h-11 px-3 rounded-xl border border-border bg-card text-sm font-semibold"
-          >
-            <option value="all">All statuses</option>
-            <option value="checked_in">Checked in</option>
-            <option value="not_checked_in">Not checked in</option>
-          </select>
+            onChange={setStatusFilter}
+            items={[
+              { key: "all", label: "All", count: statusCounts.all },
+              { key: "checked_in", label: "In", count: statusCounts.checked_in },
+              { key: "not_checked_in", label: "Not yet", count: statusCounts.not_checked_in },
+            ]}
+          />
         </div>
 
         {/* Desktop table */}
-        <div className="hidden md:block rounded-lg border border-border bg-card overflow-hidden">
+        <div className="hidden md:block border border-border bg-card">
           <table className="w-full text-sm">
             <thead className="sticky top-0 z-10">
-              <tr className="border-b border-border bg-muted/60 backdrop-blur-sm text-left">
+              <tr className="border-b border-border bg-card text-left">
                 {([
                   ["name", "Name"],
-                  ["date", "Order date"],
-                  ["amount", "Amount"],
-                  ["status", "Status"],
+                  ["date", "Ordered"],
+                  ["amount", "Paid"],
+                  ["status", "Door"],
                 ] as [SortKey, string][]).map(([key, label]) => (
-                  <th key={key} className="px-4 py-3 font-bold text-xs uppercase tracking-wider text-muted-foreground">
-                    <button type="button" onClick={() => toggleSort(key)} className="inline-flex items-center gap-1 hover:text-foreground">
+                  <th key={key} className="px-4 py-2.5 text-[10px] uppercase tracking-wider font-bold text-muted-foreground">
+                    <button type="button" onClick={() => toggleSort(key)} className={`inline-flex items-center gap-1 hover:text-foreground ${sortKey === key ? "text-foreground" : ""}`}>
                       {label}
                       <ArrowUpDown className="w-3 h-3" />
                     </button>
                   </th>
                 ))}
-                <th className="px-4 py-3 font-bold text-xs uppercase tracking-wider text-muted-foreground">Email</th>
-                <th className="px-4 py-3 font-bold text-xs uppercase tracking-wider text-muted-foreground">Tier</th>
+                <th className="px-4 py-2.5 text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Email</th>
+                <th className="px-4 py-2.5 text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Tier</th>
               </tr>
             </thead>
             <tbody>
               {filteredSorted.map((r) => (
-                <tr key={r.id} className="border-b border-border last:border-0 hover:bg-muted/20">
-                  <td className="px-4 py-3 font-semibold">{r.name}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{new Date(r.orderDate).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</td>
-                  <td className="px-4 py-3 font-semibold tabular-nums">{eur(r.amountCents)}</td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold ${r.checkedIn ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-muted text-muted-foreground border border-border"}`}>
-                      {r.checkedIn ? <CheckCircle2 className="w-3 h-3" /> : null}
-                      {r.checkedIn ? "Checked in" : "Not yet"}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground break-all">{r.email}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{r.tierName}</td>
+                <tr key={r.id} className="border-b border-border last:border-0 hover:bg-muted/40">
+                  <td className="px-4 py-2.5 font-semibold">{r.name}</td>
+                  <td className="px-4 py-2.5 text-muted-foreground tabular-nums">{fmtDate(r.orderDate)}</td>
+                  <td className="px-4 py-2.5 font-semibold tabular-nums">{eur(r.amountCents)}</td>
+                  <td className="px-4 py-2.5"><DoorPill checkedIn={r.checkedIn} at={r.scannedAt} /></td>
+                  <td className="px-4 py-2.5 text-muted-foreground break-all">{r.email}</td>
+                  <td className="px-4 py-2.5 text-muted-foreground">{r.tierName}</td>
                 </tr>
               ))}
             </tbody>
           </table>
           {filteredSorted.length === 0 && (
-            <p className="text-sm text-muted-foreground text-center py-10">No attendees match your filters.</p>
+            <p className="text-sm text-muted-foreground text-center py-10">{rows.length === 0 ? "No tickets sold yet." : "No one matches this selection."}</p>
           )}
         </div>
 
-        {/* Mobile cards */}
-        <div className="md:hidden space-y-2.5">
+        {/* Phone cards */}
+        <ul className="md:hidden bg-card border border-border divide-y divide-border">
           {filteredSorted.map((r) => (
-            <div key={r.id} className="rounded-xl border border-border bg-card p-3.5">
-              <div className="flex items-start justify-between gap-2 mb-1">
-                <div className="font-bold text-sm">{r.name}</div>
-                <span className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${r.checkedIn ? "bg-emerald-50 text-emerald-700 border border-emerald-200" : "bg-muted text-muted-foreground border border-border"}`}>
-                  {r.checkedIn ? <CheckCircle2 className="w-3 h-3" /> : null}
-                  {r.checkedIn ? "Checked in" : "Not yet"}
-                </span>
+            <li key={r.id} className="px-4 py-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="font-semibold text-sm truncate">{r.name}</div>
+                  <div className="text-[11px] text-muted-foreground break-all">{r.email}</div>
+                </div>
+                <DoorPill checkedIn={r.checkedIn} at={r.scannedAt} />
               </div>
-              <div className="text-xs text-muted-foreground break-all mb-1.5">{r.email}</div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">{r.tierName} · {new Date(r.orderDate).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</span>
+              <div className="flex items-center justify-between mt-1.5 text-[11px] text-muted-foreground">
+                <span>{r.tierName} · {fmtDate(r.orderDate)}</span>
                 <span className="font-bold text-foreground tabular-nums">{eur(r.amountCents)}</span>
               </div>
-            </div>
+            </li>
           ))}
           {filteredSorted.length === 0 && (
-            <p className="text-sm text-muted-foreground text-center py-10">No attendees match your filters.</p>
+            <li className="text-sm text-muted-foreground text-center py-10">{rows.length === 0 ? "No tickets sold yet." : "No one matches this selection."}</li>
           )}
-        </div>
+        </ul>
+        </>
+        ); })()}
       </div>
     </StudioLayout>
   );
 };
+
+const DoorPill = ({ checkedIn, at }: { checkedIn: boolean; at: string | null }) => (
+  <span className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[10px] font-bold tabular-nums ${checkedIn ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-muted text-muted-foreground border-border"}`}>
+    {checkedIn ? <CheckCircle2 className="w-3 h-3" /> : null}
+    {checkedIn ? (at ? `In at ${fmtTime(at)}` : "In") : "Not yet"}
+  </span>
+);
 
 export default StudioEventAttendees;
