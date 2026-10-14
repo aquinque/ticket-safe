@@ -770,9 +770,6 @@ const EventPublic = () => {
                       <Flame className="w-3 h-3" strokeWidth={2} /> Most popular
                     </span>
                   )}
-                  {t.price_cents === 0 && !soldOut && (
-                    <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-emerald-400 bg-emerald-400/15 rounded-full px-2 py-0.5">Free</span>
-                  )}
                 </div>
                 {t.description && <span className="block text-sm text-muted-foreground mt-0.5 line-clamp-2">{t.description}</span>}
                 {soldOut ? (
@@ -808,7 +805,7 @@ const EventPublic = () => {
                 )}
               </div>
               <div className="text-right shrink-0">
-                <div className={`font-semibold tabular-nums text-foreground transition-all ${isSelected ? "text-xl" : "text-base"}`}>{fmtPrice(t.price_cents)}</div>
+                <div className={`font-semibold tabular-nums transition-all ${isSelected ? "text-xl" : "text-base"} ${t.price_cents === 0 ? "text-emerald-400" : "text-foreground"}`}>{t.price_cents === 0 ? "Free" : fmtPrice(t.price_cents)}</div>
                 {isSelected && !soldOut && qty > 1 && (
                   <div className="text-xs text-muted-foreground tabular-nums mt-0.5 motion-safe:animate-fade-in">× {qty} = {fmtPrice(t.price_cents * qty)}</div>
                 )}
@@ -936,7 +933,7 @@ const EventPublic = () => {
       {/* ===== Poster: the image runs under the transparent header and
           fades into the page; the title sits on it. ===== */}
       <section className="relative">
-        <div className="relative w-full h-[56vh] min-h-[380px] max-h-[560px] sm:h-auto sm:min-h-0 sm:max-h-none sm:aspect-[16/9] lg:aspect-[21/9] overflow-hidden" style={{ background: accent }}>
+        <div className={`relative w-full overflow-hidden ${event.video_url || event.banner_url ? "h-[56vh] min-h-[380px] max-h-[560px] sm:h-auto sm:min-h-0 sm:max-h-none sm:aspect-[16/9] lg:aspect-[21/9]" : "h-[38vh] min-h-[300px] max-h-[420px] sm:h-auto sm:min-h-0 sm:max-h-none sm:aspect-[21/9] lg:aspect-[3/1]"}`} style={{ background: accent }}>
           <div className="absolute inset-0 will-change-transform" style={{ transform: `translate3d(0, ${parallax}px, 0) scale(${1 + parallax / 1400})` }}>
             {event.video_url ? (
               <video src={event.video_url} className="absolute inset-0 w-full h-full object-cover" autoPlay muted loop playsInline />
