@@ -21,9 +21,7 @@ import {
   CalendarPlus,
   Users,
   Navigation,
-  X,
   ChevronDown,
-  ChevronLeft,
 } from "lucide-react";
 import { SEOHead } from "@/components/SEOHead";
 import { useTierServiceFee } from "@/hooks/useServiceFee";
@@ -157,9 +155,6 @@ const EventPublic = () => {
   const [followBusy, setFollowBusy] = useState(false);
   const [promoCode, setPromoCode] = useState("");
   const [showPromoInput, setShowPromoInput] = useState(false);
-  // Phone flow: a bottom sheet in two steps (tickets, then details).
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const [sheetStep, setSheetStep] = useState<1 | 2>(1);
   const [aboutOpen, setAboutOpen] = useState(false);
   const nowTs = useNow(30_000);
   const [scrollY, setScrollY] = useState(0);
@@ -172,14 +167,7 @@ const EventPublic = () => {
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => { window.removeEventListener("scroll", onScroll); cancelAnimationFrame(raf); };
   }, []);
-  useEffect(() => {
-    if (!sheetOpen) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setSheetOpen(false); };
-    window.addEventListener("keydown", onKey);
-    return () => { document.body.style.overflow = prev; window.removeEventListener("keydown", onKey); };
-  }, [sheetOpen]);
+
 
   // Keep the attendees array sized to the current quantity. When quantity grows,
   // we add empty slots; when it shrinks, we trim. The first slot auto-fills from
@@ -574,7 +562,7 @@ const EventPublic = () => {
       toast.success("Link copied");
     } catch { /* share sheet dismissed */ }
   };
-  const openSheet = () => { setSheetStep(selected ? 2 : 1); setSheetOpen(true); };
+  const scrollToTickets = () => document.getElementById("tickets")?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
   const longAbout = (event.description ?? "").length > 280;
 
   // Order summary, rendered both in the desktop sticky rail (with CTA) and as a
@@ -917,8 +905,6 @@ const EventPublic = () => {
     return <span className={cls}>{inner}</span>;
   };
 
-  const ctaLabel = isPast ? "Ended" : eventSoldOut ? "Sold out" : selected ? "Continue" : "Get tickets";
-  const ctaDisabled = isPast || eventSoldOut || tiers.length === 0;
 
   return (
     <div className="theme-night min-h-screen flex flex-col bg-background">
@@ -950,7 +936,7 @@ const EventPublic = () => {
       {/* ===== Poster: the image runs under the transparent header and
           fades into the page; the title sits on it. ===== */}
       <section className="relative">
-        <div className="relative w-full h-[72vh] min-h-[460px] max-h-[720px] sm:h-auto sm:min-h-0 sm:max-h-none sm:aspect-[16/9] lg:aspect-[21/9] overflow-hidden" style={{ background: accent }}>
+        <div className="relative w-full h-[56vh] min-h-[380px] max-h-[560px] sm:h-auto sm:min-h-0 sm:max-h-none sm:aspect-[16/9] lg:aspect-[21/9] overflow-hidden" style={{ background: accent }}>
           <div className="absolute inset-0 will-change-transform" style={{ transform: `translate3d(0, ${parallax}px, 0) scale(${1 + parallax / 1400})` }}>
             {event.video_url ? (
               <video src={event.video_url} className="absolute inset-0 w-full h-full object-cover" autoPlay muted loop playsInline />
@@ -1025,7 +1011,7 @@ const EventPublic = () => {
             <InfoChip icon={Clock} tone={clock.live ? "live" : "default"}>{clock.label}</InfoChip>
             {goingLabel && !clock.over && <InfoChip icon={Users}>{goingLabel}</InfoChip>}
             {minPriceCents != null && !eventSoldOut && !isPast && (
-              <InfoChip icon={Ticket} tone="accent" onClick={openSheet}>{minPriceCents === 0 ? "Free" : `From ${fmtPrice(minPriceCents)}`}</InfoChip>
+              <InfoChip icon={Ticket} tone="accent" onClick={scrollToTickets}>{minPriceCents === 0 ? "Free" : `From ${fmtPrice(minPriceCents)}`}</InfoChip>
             )}
           </div>
         </div>
@@ -1057,8 +1043,27 @@ const EventPublic = () => {
               {selected && !eventSoldOut && <div className="lg:sticky lg:top-24">{renderSummary(true)}</div>}
             </aside>
 
-            {/* ===== RIGHT: the story ===== */}
+            {/* ===== RIGHT: the story (on a phone: tickets first, then the story) ===== */}
             <div className="min-w-0 space-y-4">
+              <section id="tickets" className="lg:hidden rounded-2xl border border-border bg-card/50 p-4 scroll-mt-20">
+                <div className="flex items-baseline justify-between mb-3">
+                  <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Tickets</h2>
+                  {tiers.length > 1 && <span className="text-[11px] text-muted-foreground">{tiers.length} options</span>}
+                </div>
+                {tiers.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-4">Tickets will be on sale soon. Check back shortly.</p>
+                ) : eventSoldOut ? (
+                  renderSummary(true)
+                ) : (
+                  renderTiers()
+                )}
+              </section>
+              {selected && !eventSoldOut && (
+                <section className="lg:hidden rounded-2xl border border-border bg-card/50 p-4 motion-safe:animate-fade-in">
+                  {renderAttendees()}
+                </section>
+              )}
+              {selected && !eventSoldOut && <div id="checkout" className="lg:hidden scroll-mt-20">{renderSummary(true)}</div>}
               {event.description && (
                 <section className="rounded-2xl border border-border bg-card/50 p-5">
                   <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground mb-3">About</h2>
@@ -1175,87 +1180,27 @@ const EventPublic = () => {
         </div>
       </main>
 
-      {/* ===== Phone: the bar that is always there ===== */}
-      <div className="lg:hidden fixed bottom-0 inset-x-0 z-40 border-t border-border bg-background/90 backdrop-blur px-4 pt-3 pb-[calc(0.75rem_+_env(safe-area-inset-bottom))]">
-        <div className="flex items-center gap-3">
-          <div className="flex-1 min-w-0">
-            {selected ? (
-              <>
-                <div className="text-[11px] text-muted-foreground truncate">{qty} × {selected.name}{readyCount < qty ? ` · ${qty - readyCount} to fill in` : ""}</div>
-                <div className="text-lg font-semibold tabular-nums leading-tight text-foreground"><AnimatedNumber value={grandCents / 100} prefix="€" durationMs={150} /></div>
-              </>
-            ) : (
-              <>
-                <div className="text-[11px] text-muted-foreground truncate">{isPast ? "This event has ended" : eventSoldOut ? "No tickets left" : tiers.length > 1 ? `${tiers.length} ticket types` : "Tickets"}</div>
-                <div className="text-lg font-semibold tabular-nums leading-tight text-foreground">
-                  {minPriceCents == null ? "Soon" : minPriceCents === 0 ? "Free" : `From ${fmtPrice(minPriceCents)}`}
-                </div>
-              </>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={openSheet}
-            disabled={ctaDisabled}
-            className="shrink-0 inline-flex items-center justify-center gap-1.5 min-h-[48px] px-6 rounded-full bg-primary text-primary-foreground font-semibold text-sm disabled:opacity-50 transition-colors hover:bg-primary-hover motion-safe:active:scale-[0.98]"
-          >
-            {ctaLabel}{!ctaDisabled && <ArrowRight className="w-4 h-4" />}
-          </button>
-        </div>
-      </div>
-
-      {/* ===== Phone: bottom sheet, two steps ===== */}
-      {sheetOpen && (
-        <div className="lg:hidden fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label="Tickets">
-          <div className="absolute inset-0 bg-black/60 motion-safe:animate-fade-in" onClick={() => setSheetOpen(false)} />
-          <div className="absolute inset-x-0 bottom-0 max-h-[92vh] flex flex-col rounded-t-[20px] bg-background border-t border-border motion-safe:animate-[ts-sheet_260ms_cubic-bezier(0.32,0.72,0,1)]">
-            <div className="flex items-center gap-2 px-4 pt-3 pb-2 border-b border-border">
-              {sheetStep === 2 ? (
-                <button type="button" onClick={() => setSheetStep(1)} aria-label="Back to tickets" className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-muted"><ChevronLeft className="w-5 h-5" /></button>
-              ) : (
-                <span className="w-9" />
-              )}
-              <div className="flex-1 text-center">
-                <div className="text-sm font-semibold text-foreground">{sheetStep === 1 ? "Choose your ticket" : "Your details"}</div>
-                <div className="text-[11px] text-muted-foreground">Step {sheetStep} of 2</div>
-              </div>
-              <button type="button" onClick={() => setSheetOpen(false)} aria-label="Close" className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-muted"><X className="w-5 h-5" /></button>
+      {/* ===== Phone: a bar only once a ticket is picked, taking you to the checkout ===== */}
+      {selected && !eventSoldOut && (
+        <div className="lg:hidden fixed bottom-0 inset-x-0 z-40 border-t border-border bg-background/90 backdrop-blur px-4 pt-3 pb-[calc(0.75rem_+_env(safe-area-inset-bottom))] motion-safe:animate-slide-up">
+          <div className="flex items-center gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="text-[11px] text-muted-foreground truncate">{qty} × {selected.name}{readyCount < qty ? ` · ${qty - readyCount} to fill in` : ""}</div>
+              <div className="text-lg font-semibold tabular-nums leading-tight text-foreground"><AnimatedNumber value={grandCents / 100} prefix="€" durationMs={150} /></div>
             </div>
-            <div className="h-1 bg-border/60"><div className="h-full bg-primary motion-safe:transition-[width] duration-300" style={{ width: sheetStep === 1 ? "50%" : "100%" }} /></div>
-
-            <div className="flex-1 overflow-y-auto px-4 py-4">
-              {sheetStep === 1 ? (
-                tiers.length === 0 ? <p className="text-sm text-muted-foreground py-6">Tickets will be on sale soon.</p> : renderTiers()
-              ) : (
-                <div className="space-y-5">
-                  {renderAttendees()}
-                  {renderSummary(true)}
-                </div>
-              )}
-            </div>
-
-            {sheetStep === 1 && (
-              <div className="border-t border-border px-4 pt-3 pb-[calc(0.75rem_+_env(safe-area-inset-bottom))] flex items-center gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="text-[11px] text-muted-foreground truncate">{selected ? `${qty} × ${selected.name}` : "Pick a ticket"}</div>
-                  <div className="text-lg font-semibold tabular-nums leading-tight text-foreground">{selected ? <AnimatedNumber value={grandCents / 100} prefix="€" durationMs={150} /> : "—"}</div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setSheetStep(2)}
-                  disabled={!selected}
-                  className="shrink-0 inline-flex items-center justify-center gap-1.5 min-h-[48px] px-6 rounded-full bg-primary text-primary-foreground font-semibold text-sm disabled:opacity-50 hover:bg-primary-hover transition-colors"
-                >
-                  Continue <ArrowRight className="w-4 h-4" />
-                </button>
-              </div>
-            )}
+            <button
+              type="button"
+              onClick={() => (readyCount < qty ? document.getElementById("checkout")?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" }) : handleBuy())}
+              disabled={buying}
+              className="shrink-0 inline-flex items-center justify-center gap-1.5 min-h-[48px] px-6 rounded-full bg-primary text-primary-foreground font-semibold text-sm disabled:opacity-60 transition-colors hover:bg-primary-hover motion-safe:active:scale-[0.98]"
+            >
+              {buying ? <Loader2 className="w-4 h-4 animate-spin" /> : <>{readyCount < qty ? "Fill in details" : grandCents === 0 ? "Get my ticket" : "Pay"} <ArrowRight className="w-4 h-4" /></>}
+            </button>
           </div>
         </div>
       )}
 
       <style>{`
-        @keyframes ts-sheet { from { transform: translateY(100%); } to { transform: translateY(0); } }
         .ts-chips { scrollbar-width: none; }
         .ts-chips::-webkit-scrollbar { display: none; }
         .ts-field-input {
