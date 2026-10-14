@@ -13,11 +13,17 @@ import {
   ShieldCheck,
   Mail,
   QrCode,
-  Info,
   CreditCard,
   BadgeCheck,
   Check,
   Flame,
+  Share2,
+  CalendarPlus,
+  Users,
+  Navigation,
+  X,
+  ChevronDown,
+  ChevronLeft,
 } from "lucide-react";
 import { SEOHead } from "@/components/SEOHead";
 import { useTierServiceFee } from "@/hooks/useServiceFee";
@@ -56,6 +62,55 @@ interface PublicEvent {
     primary_color: string;
     website: string | null;
   } | null;
+}
+
+/** Re-renders on a timer so the countdown and "happening now" stay true. */
+function useNow(tickMs: number): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), tickMs);
+    return () => clearInterval(id);
+  }, [tickMs]);
+  return now;
+}
+
+/** "In 26 days", "In 3 h 12 min", "Happening now", "Ended". Short, for a chip. */
+function countdown(startIso: string, endIso: string | null, now: number): { label: string; live: boolean; over: boolean } {
+  const start = new Date(startIso).getTime();
+  const end = endIso ? new Date(endIso).getTime() : start + 6 * 3_600_000;
+  if (now >= end) return { label: "Ended", live: false, over: true };
+  if (now >= start) return { label: "Happening now", live: true, over: false };
+  const diff = start - now;
+  const d = Math.floor(diff / 86_400_000);
+  const h = Math.floor((diff % 86_400_000) / 3_600_000);
+  const m = Math.floor((diff % 3_600_000) / 60_000);
+  if (d >= 2) return { label: `In ${d} days`, live: false, over: false };
+  if (d === 1) return { label: "Tomorrow", live: false, over: false };
+  if (h >= 1) return { label: `In ${h} h ${m.toString().padStart(2, "0")}`, live: false, over: false };
+  return { label: `In ${Math.max(1, m)} min`, live: false, over: false };
+}
+
+/** Calendar file for Apple, Google, Outlook: one download, every app opens it. */
+function downloadIcs(ev: { title: string; date: string; ends_at: string | null; location: string | null; slug: string; description: string | null }) {
+  const stamp = (iso: string) => new Date(iso).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+  const end = ev.ends_at ?? new Date(new Date(ev.date).getTime() + 4 * 3_600_000).toISOString();
+  const esc = (t: string) => t.replace(/\\/g, "\\\\").replace(/\n/g, "\\n").replace(/,/g, "\\,").replace(/;/g, "\\;");
+  const lines = [
+    "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Ticket Safe//EN", "BEGIN:VEVENT",
+    `UID:${ev.slug}@ticket-safe.eu`, `DTSTAMP:${stamp(new Date().toISOString())}`, `DTSTART:${stamp(ev.date)}`, `DTEND:${stamp(end)}`,
+    `SUMMARY:${esc(ev.title)}`, ...(ev.location ? [`LOCATION:${esc(ev.location)}`] : []),
+    `DESCRIPTION:${esc((ev.description ?? "").slice(0, 400))}${ev.description ? "\\n\\n" : ""}Tickets: https://ticket-safe.eu/e/${ev.slug}`,
+    `URL:https://ticket-safe.eu/e/${ev.slug}`, "END:VEVENT", "END:VCALENDAR",
+  ];
+  const blob = new Blob([lines.join("\r\n")], { type: "text/calendar;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${ev.slug}.ics`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 }
 
 interface AttendeeForm {
@@ -102,6 +157,29 @@ const EventPublic = () => {
   const [followBusy, setFollowBusy] = useState(false);
   const [promoCode, setPromoCode] = useState("");
   const [showPromoInput, setShowPromoInput] = useState(false);
+  // Phone flow: a bottom sheet in two steps (tickets, then details).
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [sheetStep, setSheetStep] = useState<1 | 2>(1);
+  const [aboutOpen, setAboutOpen] = useState(false);
+  const nowTs = useNow(30_000);
+  const [scrollY, setScrollY] = useState(0);
+  useEffect(() => {
+    let raf = 0;
+    const onScroll = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => setScrollY(window.scrollY));
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => { window.removeEventListener("scroll", onScroll); cancelAnimationFrame(raf); };
+  }, []);
+  useEffect(() => {
+    if (!sheetOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setSheetOpen(false); };
+    window.addEventListener("keydown", onKey);
+    return () => { document.body.style.overflow = prev; window.removeEventListener("keydown", onKey); };
+  }, [sheetOpen]);
 
   // Keep the attendees array sized to the current quantity. When quantity grows,
   // we add empty slots; when it shrinks, we trim. The first slot auto-fills from
@@ -480,6 +558,25 @@ const EventPublic = () => {
     a.first_name.trim().length > 0 && a.last_name.trim().length > 0 && isEmail(a.email) && a.confirm_email.trim().toLowerCase() === a.email.trim().toLowerCase() && a.gender !== "";
   const readyCount = attendees.filter(attendeeReady).length;
 
+  // Time, attendance, atmosphere.
+  const clock = countdown(event.date, event.ends_at, nowTs);
+  const soldTotal = tiers.reduce((n, t) => n + Math.max(0, t.total_qty - t.available_qty), 0);
+  const goingLabel = soldTotal >= 10 ? `${Math.floor(soldTotal / 10) * 10}+ going` : null;
+  const startDate = new Date(event.date);
+  const reduceMotion = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  const parallax = reduceMotion ? 0 : Math.min(scrollY * 0.3, 140);
+  const accent = /^#[0-9a-fA-F]{6}$/.test(event.primary_color ?? "") ? event.primary_color : "#3A5FE6";
+  const shareEvent = async () => {
+    const url = `https://ticket-safe.eu/e/${event.slug}`;
+    try {
+      if (navigator.share) { await navigator.share({ title: event.title, text: `${event.title} · ${startDate.toLocaleDateString("en-GB", { day: "numeric", month: "long" })}`, url }); return; }
+      await navigator.clipboard.writeText(url);
+      toast.success("Link copied");
+    } catch { /* share sheet dismissed */ }
+  };
+  const openSheet = () => { setSheetStep(selected ? 2 : 1); setSheetOpen(true); };
+  const longAbout = (event.description ?? "").length > 280;
+
   // Order summary, rendered both in the desktop sticky rail (with CTA) and as a
   // mobile inline breakdown (without CTA — the sticky bottom bar carries that).
   const renderSummary = (showCta: boolean) => {
@@ -636,6 +733,193 @@ const EventPublic = () => {
     );
   };
 
+  // ── Pieces shared by the desktop rail and the phone sheet ──
+  const renderTiers = () => (
+    <div className="space-y-2.5" role="radiogroup" aria-label="Ticket type">
+      {tiers.map((t, i) => {
+        const isSelected = selectedTier === t.tier_id;
+        const soldOut = t.available_qty <= 0;
+        // Buyers never see exact stock counts (Studio-only): only a proportion, once under 30%.
+        const remaining = t.total_qty > 0 ? t.available_qty / t.total_qty : 1;
+        const fewLeft = !soldOut && t.total_qty > 0 && remaining < 0.3;
+        const popular = mostPopularId === t.tier_id && !soldOut;
+        const choose = () => {
+          if (soldOut) return;
+          if (!isSelected) { setSelectedTier(t.tier_id); setQty(1); }
+        };
+        return (
+          <div
+            key={t.tier_id}
+            role="radio"
+            aria-checked={isSelected}
+            aria-disabled={soldOut}
+            tabIndex={soldOut ? -1 : 0}
+            onClick={choose}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); choose(); } }}
+            style={{ animationDelay: `${i * 60}ms`, animationFillMode: "both" }}
+            className={`relative motion-safe:animate-fade-in border rounded-2xl transition-all duration-200 ${
+              soldOut
+                ? "opacity-40 cursor-not-allowed border-border bg-card/40"
+                : isSelected
+                ? "cursor-pointer border-primary bg-primary/10 shadow-[inset_0_0_0_1px_hsl(var(--primary))]"
+                : "cursor-pointer border-border bg-card/60 hover:border-foreground/40 hover:bg-card motion-safe:active:scale-[0.99]"
+            }`}
+          >
+            <div className="flex items-start gap-3.5 p-4">
+              <span
+                aria-hidden
+                className={`mt-0.5 w-5 h-5 rounded-full border shrink-0 flex items-center justify-center transition-colors ${
+                  isSelected && !soldOut ? "bg-primary border-primary text-primary-foreground" : "border-muted-foreground/50"
+                }`}
+              >
+                {isSelected && !soldOut && <Check className="w-3 h-3 motion-safe:animate-scale-in" strokeWidth={3} />}
+              </span>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-medium text-foreground">{t.name}</span>
+                  {popular && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.12em] text-primary bg-primary/15 rounded-full px-2 py-0.5">
+                      <Flame className="w-3 h-3" strokeWidth={2} /> Most popular
+                    </span>
+                  )}
+                  {t.price_cents === 0 && !soldOut && (
+                    <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-emerald-400 bg-emerald-400/15 rounded-full px-2 py-0.5">Free</span>
+                  )}
+                </div>
+                {t.description && <span className="block text-sm text-muted-foreground mt-0.5 line-clamp-2">{t.description}</span>}
+                {soldOut ? (
+                  <span className="block text-xs text-muted-foreground mt-2">Sold out</span>
+                ) : fewLeft ? (
+                  <div className="mt-2.5">
+                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-primary">
+                      <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                      Almost gone
+                    </span>
+                    <div className="h-1 w-32 bg-border rounded-full mt-1.5 overflow-hidden" aria-hidden>
+                      <div className="h-full bg-primary rounded-full motion-safe:transition-[width] motion-safe:duration-700" style={{ width: `${Math.max(6, Math.round(remaining * 100))}%` }} />
+                    </div>
+                  </div>
+                ) : null}
+                {isSelected && !soldOut && (
+                  <div className="mt-3.5 pt-3.5 border-t border-primary/30 flex items-center justify-between gap-3 motion-safe:animate-fade-in" onClick={(e) => e.stopPropagation()}>
+                    <span className="text-sm text-muted-foreground">How many?</span>
+                    <QtyStepper
+                      qty={qty}
+                      onDecrease={() => setQty((n) => Math.max(1, n - 1))}
+                      onIncrease={() =>
+                        setQty((n) => {
+                          const hardCap = Math.min(10, t.available_qty);
+                          const finalCap = maxPerBuyer ? Math.min(hardCap, maxPerBuyer) : hardCap;
+                          return Math.min(finalCap, n + 1);
+                        })
+                      }
+                      disableDecrease={qty <= 1}
+                      disableIncrease={qty >= Math.min(10, t.available_qty) || (maxPerBuyer != null && qty >= maxPerBuyer)}
+                    />
+                  </div>
+                )}
+              </div>
+              <div className="text-right shrink-0">
+                <div className={`font-semibold tabular-nums text-foreground transition-all ${isSelected ? "text-xl" : "text-base"}`}>{fmtPrice(t.price_cents)}</div>
+                {isSelected && !soldOut && qty > 1 && (
+                  <div className="text-xs text-muted-foreground tabular-nums mt-0.5 motion-safe:animate-fade-in">× {qty} = {fmtPrice(t.price_cents * qty)}</div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+      {resaleCount > 0 && (
+        <Link
+          to={`/event/${event.id}/tickets`}
+          className="flex items-center justify-between gap-2 px-4 py-3 rounded-2xl border border-dashed border-border text-sm text-foreground hover:border-primary hover:text-primary transition-colors"
+        >
+          <span>Resale: {resaleCount} ticket{resaleCount > 1 ? "s" : ""} from other students</span>
+          <ArrowRight className="w-4 h-4 shrink-0" />
+        </Link>
+      )}
+    </div>
+  );
+
+  const renderAttendees = () => {
+    if (!selected) return null;
+    return (
+      <div>
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+            {qty === 1 ? "Who's coming" : `Who's coming · ${qty} tickets`}
+          </h2>
+          <span className={`text-xs tabular-nums ${readyCount === qty ? "text-emerald-400" : "text-muted-foreground"}`}>
+            {readyCount === qty ? (qty === 1 ? "Ready" : "All ready") : `${readyCount} of ${qty} ready`}
+          </span>
+        </div>
+        <div className="space-y-4">
+          {attendees.map((a, i) => {
+            const emailMismatch = a.confirm_email.length > 0 && a.confirm_email.trim().toLowerCase() !== a.email.trim().toLowerCase();
+            const ready = attendeeReady(a);
+            return (
+              <div key={i} className={`border rounded-2xl p-4 transition-colors motion-safe:animate-fade-in ${ready ? "border-emerald-400/50" : "border-border"}`} style={{ animationDelay: `${i * 60}ms`, animationFillMode: "both" }}>
+                <div className="flex items-center justify-between gap-3 mb-4 pb-3 border-b border-dashed border-border">
+                  <div className="min-w-0 flex items-center gap-2.5">
+                    <span className={`w-5 h-5 rounded-full shrink-0 flex items-center justify-center text-[11px] font-bold transition-colors ${ready ? "bg-emerald-400 text-background" : "border border-border text-muted-foreground"}`} aria-hidden>
+                      {ready ? <Check className="w-3 h-3 motion-safe:animate-scale-in" strokeWidth={3} /> : i + 1}
+                    </span>
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium text-foreground truncate">{selected.name}</div>
+                      <div className="text-xs text-muted-foreground mt-0.5">{qty > 1 ? `Ticket ${i + 1} of ${qty}` : "This name goes on the ticket"}{ready ? " · ready" : ""}</div>
+                    </div>
+                  </div>
+                  <div className="text-sm font-semibold tabular-nums text-foreground shrink-0">{fmtPrice(selected.price_cents)}</div>
+                </div>
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field label="First name">
+                      <input value={a.first_name} onChange={(e) => updateAttendee(i, { first_name: e.target.value })} placeholder="First name" className="ts-field-input" maxLength={100} autoComplete="given-name" aria-label={qty > 1 ? `Ticket ${i + 1} first name` : "First name"} />
+                    </Field>
+                    <Field label="Last name">
+                      <input value={a.last_name} onChange={(e) => updateAttendee(i, { last_name: e.target.value })} placeholder="Last name" className="ts-field-input" maxLength={100} autoComplete="family-name" aria-label={qty > 1 ? `Ticket ${i + 1} last name` : "Last name"} />
+                    </Field>
+                  </div>
+                  <Field label="Email (ticket delivery)">
+                    <input type="email" value={a.email} onChange={(e) => updateAttendee(i, { email: e.target.value })} placeholder="name@example.com" className="ts-field-input" maxLength={254} autoComplete="email" inputMode="email" aria-label={qty > 1 ? `Ticket ${i + 1} email` : "Email"} />
+                  </Field>
+                  <Field label="Confirm email">
+                    <input type="email" value={a.confirm_email} onChange={(e) => updateAttendee(i, { confirm_email: e.target.value })} placeholder="name@example.com" className={`ts-field-input ${emailMismatch ? "border-rose-400" : ""}`} maxLength={254} autoComplete="email" inputMode="email" aria-label={qty > 1 ? `Ticket ${i + 1} confirm email` : "Confirm email"} />
+                    {emailMismatch && <p className="text-[11px] text-rose-400 mt-1">Emails don't match</p>}
+                  </Field>
+                  <Field label="Gender">
+                    <select value={a.gender} onChange={(e) => updateAttendee(i, { gender: e.target.value as AttendeeForm["gender"] })} className="ts-field-input" aria-label={qty > 1 ? `Ticket ${i + 1} gender` : "Gender"}>
+                      <option value="" disabled>Select…</option>
+                      <option value="female">Female</option>
+                      <option value="male">Male</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </Field>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        {maxPerBuyer != null && qty >= maxPerBuyer && (
+          <p className="text-[11px] text-muted-foreground text-center mt-4">Limit reached — {maxPerBuyer} ticket{maxPerBuyer > 1 ? "s" : ""} per person.</p>
+        )}
+      </div>
+    );
+  };
+
+  const InfoChip = ({ icon: Icon, children, onClick, href, tone = "default" }: { icon: typeof Calendar; children: React.ReactNode; onClick?: () => void; href?: string; tone?: "default" | "live" | "accent" }) => {
+    const cls = `snap-start shrink-0 inline-flex items-center gap-1.5 h-9 pl-3 pr-3.5 rounded-full border text-sm whitespace-nowrap transition-colors ${
+      tone === "live" ? "border-emerald-400/40 bg-emerald-400/10 text-emerald-300" : tone === "accent" ? "border-primary/50 bg-primary/15 text-foreground" : "border-border bg-card/70 text-foreground"
+    } ${onClick || href ? "hover:border-foreground/50" : ""}`;
+    const inner = <><Icon className={`w-4 h-4 ${tone === "live" ? "text-emerald-400" : "text-primary"}`} strokeWidth={1.75} />{children}</>;
+    if (href) return <a href={href} target="_blank" rel="noopener noreferrer" className={cls}>{inner}</a>;
+    if (onClick) return <button type="button" onClick={onClick} className={cls}>{inner}</button>;
+    return <span className={cls}>{inner}</span>;
+  };
+
+  const ctaLabel = isPast ? "Ended" : eventSoldOut ? "Sold out" : selected ? "Continue" : "Get tickets";
+  const ctaDisabled = isPast || eventSoldOut || tiers.length === 0;
+
   return (
     <div className="theme-night min-h-screen flex flex-col bg-background">
       <HeaderNight />
@@ -654,513 +938,337 @@ const EventPublic = () => {
           ...(event.ends_at ? { endDate: event.ends_at } : {}),
           eventStatus: "https://schema.org/EventScheduled",
           eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
-          location: event.location
-            ? { "@type": "Place", name: event.location, address: event.location }
-            : undefined,
+          location: event.location ? { "@type": "Place", name: event.location, address: event.location } : undefined,
           image: event.og_image_url ?? event.banner_url ?? event.organizer?.logo_url ?? undefined,
-          organizer: event.organizer?.name
-            ? {
-                "@type": "Organization",
-                name: event.organizer.name,
-                url: event.organizer.website ?? undefined,
-              }
-            : undefined,
+          organizer: event.organizer?.name ? { "@type": "Organization", name: event.organizer.name, url: event.organizer.website ?? undefined } : undefined,
           offers: tiers
             .filter((t) => t.is_active && (t.total_qty ?? 0) - (t.sold_qty ?? 0) > 0)
-            .map((t) => ({
-              "@type": "Offer",
-              name: t.name,
-              price: (t.price_cents / 100).toFixed(2),
-              priceCurrency: "EUR",
-              availability: "https://schema.org/InStock",
-              url: `https://ticket-safe.eu/e/${event.slug}`,
-            })),
+            .map((t) => ({ "@type": "Offer", name: t.name, price: (t.price_cents / 100).toFixed(2), priceCurrency: "EUR", availability: "https://schema.org/InStock", url: `https://ticket-safe.eu/e/${event.slug}` })),
         }}
       />
 
-      {/* ===== Hero — image/video if there's one, no gradient placeholder
-          when there isn't. The caption (status, category, organizer, title,
-          date/place) sits on the page background below the image, not
-          layered on top of it. ===== */}
-      <section className="pt-16 md:pt-20">
-        {(event.video_url || event.banner_url) && (
-          <div className="container mx-auto max-w-5xl px-0 sm:px-4 sm:pt-6">
-            <div className="relative w-full aspect-[16/9] overflow-hidden bg-black/20">
-              {event.video_url ? (
-                <video
-                  src={event.video_url}
-                  className="absolute inset-0 w-full h-full object-cover"
-                  autoPlay
-                  muted
-                  loop
-                  playsInline
-                />
-              ) : (
-                <img
-                  src={event.banner_url ?? undefined}
-                  alt={event.title}
-                  className="absolute inset-0 w-full h-full object-cover"
-                  fetchPriority="high"
-                  decoding="async"
-                />
+      {/* ===== Poster: the image runs under the transparent header and
+          fades into the page; the title sits on it. ===== */}
+      <section className="relative">
+        <div className="relative w-full h-[72vh] min-h-[460px] max-h-[720px] sm:h-auto sm:min-h-0 sm:max-h-none sm:aspect-[16/9] lg:aspect-[21/9] overflow-hidden" style={{ background: accent }}>
+          <div className="absolute inset-0 will-change-transform" style={{ transform: `translate3d(0, ${parallax}px, 0) scale(${1 + parallax / 1400})` }}>
+            {event.video_url ? (
+              <video src={event.video_url} className="absolute inset-0 w-full h-full object-cover" autoPlay muted loop playsInline />
+            ) : event.banner_url ? (
+              <img src={event.banner_url} alt="" className="absolute inset-0 w-full h-full object-cover" fetchPriority="high" decoding="async" />
+            ) : (
+              <div className="absolute inset-0" style={{ background: `radial-gradient(120% 80% at 30% 20%, ${accent} 0%, hsl(var(--background)) 75%)` }} />
+            )}
+          </div>
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/55 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-b from-background/50 via-transparent to-transparent" />
+
+          {/* Floating controls, under the header's own row */}
+          <div className="absolute top-[4.5rem] md:top-24 inset-x-0 px-4">
+            <div className="container mx-auto max-w-5xl flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => { if (location.key && location.key !== "default") navigate(-1); else navigate("/tickets"); }}
+                aria-label="Back"
+                className="w-10 h-10 rounded-full bg-background/60 backdrop-blur border border-border/60 flex items-center justify-center text-foreground hover:bg-background/80"
+              >
+                <ArrowLeft className="w-5 h-5" strokeWidth={1.75} />
+              </button>
+              <button
+                type="button"
+                onClick={shareEvent}
+                aria-label="Share"
+                className="w-10 h-10 rounded-full bg-background/60 backdrop-blur border border-border/60 flex items-center justify-center text-foreground hover:bg-background/80"
+              >
+                <Share2 className="w-5 h-5" strokeWidth={1.75} />
+              </button>
+            </div>
+          </div>
+
+          {/* Caption on the image */}
+          <div className="absolute inset-x-0 bottom-0 px-4 pb-5 md:pb-8">
+            <div className="container mx-auto max-w-5xl">
+              <div className="flex items-center gap-2.5 flex-wrap text-[11px] font-bold uppercase tracking-[0.12em] mb-3 motion-safe:animate-fade-in">
+                <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 bg-background/60 backdrop-blur border border-border/60 ${statusText.colorClass}`}>
+                  {statusText.pulse && <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />}
+                  {statusText.label}
+                </span>
+                {categoryLabel && <span className="text-foreground/80">{categoryLabel}</span>}
+              </div>
+              <h1 className="text-[2.6rem] leading-[0.98] sm:text-5xl md:text-6xl lg:text-7xl font-semibold tracking-tight text-foreground text-balance drop-shadow-[0_2px_12px_rgba(0,0,0,0.45)] motion-safe:animate-slide-up">
+                {event.title}
+              </h1>
+              {event.organizer && (
+                <div className="mt-3.5 inline-flex items-center gap-2 text-sm text-foreground/90 motion-safe:animate-fade-in" style={{ animationDelay: "120ms", animationFillMode: "both" }}>
+                  {event.organizer.logo_url ? (
+                    <img src={event.organizer.logo_url} alt="" className="w-7 h-7 rounded-full object-cover border border-border/60" />
+                  ) : (
+                    <span className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-primary-foreground bg-primary">{event.organizer.name[0]?.toUpperCase()}</span>
+                  )}
+                  <span className="font-medium">{event.organizer.name}</span>
+                  <BadgeCheck className="w-4 h-4 text-primary" strokeWidth={1.75} aria-label="Verified organiser" />
+                </div>
               )}
             </div>
           </div>
-        )}
+        </div>
 
-        <div className="container mx-auto max-w-5xl px-4 pt-6">
-          <button
-            type="button"
-            onClick={() => {
-              if (location.key && location.key !== "default") navigate(-1);
-              else navigate("/tickets");
-            }}
-            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-6"
-          >
-            <ArrowLeft className="w-4 h-4" strokeWidth={1.5} />
-            Back
-          </button>
-
-          <div className="flex items-center gap-3 flex-wrap text-[11px] font-bold uppercase tracking-[0.12em] mb-3">
-            <span className={`inline-flex items-center gap-1.5 ${statusText.colorClass}`}>
-              {statusText.pulse && <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />}
-              {statusText.label}
-            </span>
-            {categoryLabel && <span className="text-muted-foreground">{categoryLabel}</span>}
-            {event.organizer && (
-              <span className="inline-flex items-center gap-1.5 text-muted-foreground">
-                {event.organizer.name}
-                <BadgeCheck className="w-3.5 h-3.5 text-primary" strokeWidth={1.75} />
-              </span>
-            )}
-          </div>
-
-          <h1 className="text-3xl md:text-5xl font-semibold tracking-tight leading-[1.08] mb-4 text-foreground">
-            {event.title}
-          </h1>
-
-          <div className="flex items-center gap-4 flex-wrap text-sm text-muted-foreground">
-            <span className="inline-flex items-center gap-1.5">
-              <Calendar className="w-4 h-4" strokeWidth={1.5} />
-              {new Date(event.date).toLocaleString("en-GB", { dateStyle: "long", timeStyle: "short" })}
-            </span>
+        {/* Chips: the facts, swipeable on a phone */}
+        <div className="container mx-auto max-w-5xl px-4">
+          <div className="ts-chips flex gap-2 overflow-x-auto snap-x py-3 -mx-4 px-4 sm:mx-0 sm:px-0 motion-safe:animate-fade-in" style={{ animationDelay: "200ms", animationFillMode: "both" }}>
+            <InfoChip icon={Calendar}>{startDate.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })} · {startDate.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</InfoChip>
             {event.location && (
-              <span className="inline-flex items-center gap-1.5">
-                <MapPin className="w-4 h-4" strokeWidth={1.5} />
-                {event.location}
-              </span>
+              <InfoChip icon={MapPin} href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`}>
+                <span className="max-w-[180px] truncate">{event.location}</span>
+              </InfoChip>
             )}
-            {event.ends_at && (
-              <span className="inline-flex items-center gap-1.5">
-                <Clock className="w-4 h-4" strokeWidth={1.5} />
-                Until {new Date(event.ends_at).toLocaleString("en-GB", { timeStyle: "short" })}
-              </span>
+            <InfoChip icon={Clock} tone={clock.live ? "live" : "default"}>{clock.label}</InfoChip>
+            {goingLabel && !clock.over && <InfoChip icon={Users}>{goingLabel}</InfoChip>}
+            {minPriceCents != null && !eventSoldOut && !isPast && (
+              <InfoChip icon={Ticket} tone="accent" onClick={openSheet}>{minPriceCents === 0 ? "Free" : `From ${fmtPrice(minPriceCents)}`}</InfoChip>
             )}
           </div>
         </div>
       </section>
 
-      {/* pb-28 leaves room for the mobile sticky checkout bar so nothing is hidden behind it */}
-      <main className="flex-1 mt-8 md:mt-10 pb-28 lg:pb-14">
+      <main className="flex-1 pb-32 lg:pb-16">
         <div className="container mx-auto px-4 max-w-5xl">
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-10 lg:gap-14 lg:items-start">
-            {/* ===== LEFT: selection + event info ===== */}
-            <div className="min-w-0">
-              {/* Ticket picker */}
-              <Section title="Pick a ticket" first>
-                {eventSoldOut && (
-                  <p className="flex items-start gap-2 text-sm text-rose-400 mb-5">
-                    <Info className="w-4 h-4 mt-0.5 shrink-0" strokeWidth={1.5} />
-                    This event is sold out. Follow the organizer below to hear about new dates.
-                  </p>
-                )}
-
-                {tiers.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-6">
-                    Tickets will be on sale soon. Check back shortly.
-                  </p>
-                ) : (
-                  <div className="space-y-2.5" role="radiogroup" aria-label="Ticket type">
-                    {tiers.map((t, i) => {
-                      const isSelected = selectedTier === t.tier_id;
-                      const soldOut = t.available_qty <= 0;
-                      // Buyers never see exact stock counts (Studio-only): only a
-                      // proportion, and only once fewer than 30% remain.
-                      const remaining = t.total_qty > 0 ? t.available_qty / t.total_qty : 1;
-                      const fewLeft = !soldOut && t.total_qty > 0 && remaining < 0.3;
-                      const popular = mostPopularId === t.tier_id && !soldOut;
-                      const choose = () => {
-                        if (soldOut) return;
-                        if (!isSelected) { setSelectedTier(t.tier_id); setQty(1); }
-                      };
-                      return (
-                        <div
-                          key={t.tier_id}
-                          role="radio"
-                          aria-checked={isSelected}
-                          aria-disabled={soldOut}
-                          tabIndex={soldOut ? -1 : 0}
-                          onClick={choose}
-                          onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); choose(); } }}
-                          style={{ animationDelay: `${i * 60}ms`, animationFillMode: "both" }}
-                          className={`relative motion-safe:animate-fade-in border transition-all duration-200 ${
-                            soldOut
-                              ? "opacity-40 cursor-not-allowed border-border"
-                              : isSelected
-                              ? "cursor-pointer border-primary bg-primary/10 shadow-[inset_0_0_0_1px_hsl(var(--primary))]"
-                              : "cursor-pointer border-border bg-card/40 hover:border-foreground/40 hover:bg-card/70 motion-safe:hover:-translate-y-px"
-                          }`}
-                        >
-                          <div className="flex items-start gap-4 p-4 md:p-5">
-                            <span
-                              aria-hidden
-                              className={`mt-0.5 w-5 h-5 rounded-full border shrink-0 flex items-center justify-center transition-colors ${
-                                isSelected && !soldOut ? "bg-primary border-primary text-primary-foreground" : "border-muted-foreground/50"
-                              }`}
-                            >
-                              {isSelected && !soldOut && <Check className="w-3 h-3 motion-safe:animate-scale-in" strokeWidth={3} />}
-                            </span>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="font-medium text-foreground">{t.name}</span>
-                                {popular && (
-                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.12em] text-primary bg-primary/15 px-1.5 py-0.5">
-                                    <Flame className="w-3 h-3" strokeWidth={2} /> Most popular
-                                  </span>
-                                )}
-                                {t.price_cents === 0 && !soldOut && (
-                                  <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-emerald-400 bg-emerald-400/15 px-1.5 py-0.5">Free</span>
-                                )}
-                              </div>
-                              {t.description && (
-                                <span className="block text-sm text-muted-foreground mt-0.5 line-clamp-2">{t.description}</span>
-                              )}
-                              {soldOut ? (
-                                <span className="block text-xs text-muted-foreground mt-2">Sold out</span>
-                              ) : fewLeft ? (
-                                <div className="mt-2.5">
-                                  <span className="inline-flex items-center gap-1.5 text-xs font-medium text-primary">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                                    Almost gone
-                                  </span>
-                                  <div className="h-1 w-32 bg-border mt-1.5 overflow-hidden" aria-hidden>
-                                    <div className="h-full bg-primary motion-safe:transition-[width] motion-safe:duration-700" style={{ width: `${Math.max(6, Math.round(remaining * 100))}%` }} />
-                                  </div>
-                                </div>
-                              ) : null}
-                              {isSelected && !soldOut && (
-                                <div className="mt-4 pt-4 border-t border-primary/30 flex items-center justify-between gap-3 motion-safe:animate-fade-in" onClick={(e) => e.stopPropagation()}>
-                                  <span className="text-sm text-muted-foreground">How many?</span>
-                                  <QtyStepper
-                                    qty={qty}
-                                    onDecrease={() => setQty((n) => Math.max(1, n - 1))}
-                                    onIncrease={() =>
-                                      setQty((n) => {
-                                        const hardCap = Math.min(10, t.available_qty);
-                                        const finalCap = maxPerBuyer ? Math.min(hardCap, maxPerBuyer) : hardCap;
-                                        return Math.min(finalCap, n + 1);
-                                      })
-                                    }
-                                    disableDecrease={qty <= 1}
-                                    disableIncrease={qty >= Math.min(10, t.available_qty) || (maxPerBuyer != null && qty >= maxPerBuyer)}
-                                  />
-                                </div>
-                              )}
-                            </div>
-                            <div className="text-right shrink-0">
-                              <div className={`font-semibold tabular-nums text-foreground ${isSelected ? "text-xl" : "text-base"} transition-all`}>{fmtPrice(t.price_cents)}</div>
-                              {isSelected && !soldOut && qty > 1 && (
-                                <div className="text-xs text-muted-foreground tabular-nums mt-0.5 motion-safe:animate-fade-in">× {qty} = {fmtPrice(t.price_cents * qty)}</div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-
-                {resaleCount > 0 && (
-                  <Link
-                    to={`/event/${event.id}/tickets`}
-                    className="flex items-center justify-between gap-2 py-3 mt-1 border-t border-border text-sm text-foreground hover:text-primary transition-colors"
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-8 lg:gap-12 lg:items-start mt-2 md:mt-4">
+            {/* ===== LEFT: the story ===== */}
+            <div className="min-w-0 space-y-4">
+              {event.description && (
+                <section className="rounded-2xl border border-border bg-card/50 p-5">
+                  <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground mb-3">About</h2>
+                  <p
+                    className={`text-[15px] text-foreground/90 leading-relaxed whitespace-pre-line ${!aboutOpen && longAbout ? "line-clamp-5" : ""}`}
+                    style={{ fontFamily: descriptionFontFamily(event.description_font) }}
                   >
-                    <span>Resale available ({resaleCount} ticket{resaleCount > 1 ? "s" : ""})</span>
-                    <ArrowRight className="w-4 h-4 shrink-0" />
-                  </Link>
-                )}
-              </Section>
-
-              {/* Attendee ticket forms — buyer writes the name "on the ticket" */}
-              {selected && (
-                <Section>
-                  <div className="flex items-center justify-between gap-3 mb-5">
-                    <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                      {qty === 1 ? "Who's coming" : `Who's coming · ${qty} tickets`}
-                    </h2>
-                    <span className={`text-xs tabular-nums ${readyCount === qty ? "text-emerald-400" : "text-muted-foreground"}`}>
-                      {readyCount === qty ? (qty === 1 ? "Ready" : "All ready") : `${readyCount} of ${qty} ready`}
-                    </span>
-                  </div>
-
-                  <div className="space-y-5">
-                    {attendees.map((a, i) => {
-                      const emailMismatch =
-                        a.confirm_email.length > 0 && a.confirm_email.trim().toLowerCase() !== a.email.trim().toLowerCase();
-                      const ready = attendeeReady(a);
-                      return (
-                        <div key={i} className={`border p-5 transition-colors motion-safe:animate-fade-in ${ready ? "border-emerald-400/50" : "border-border"}`} style={{ animationDelay: `${i * 60}ms`, animationFillMode: "both" }}>
-                          <div className="flex items-center justify-between gap-3 mb-4 pb-4 border-b border-dashed border-border">
-                            <div className="min-w-0 flex items-center gap-2.5">
-                              <span className={`w-5 h-5 rounded-full shrink-0 flex items-center justify-center text-[11px] font-bold transition-colors ${ready ? "bg-emerald-400 text-background" : "border border-border text-muted-foreground"}`} aria-hidden>
-                                {ready ? <Check className="w-3 h-3 motion-safe:animate-scale-in" strokeWidth={3} /> : i + 1}
-                              </span>
-                              <div className="min-w-0">
-                                <div className="text-sm font-medium text-foreground truncate">{selected.name}</div>
-                                <div className="text-xs text-muted-foreground mt-0.5">{qty > 1 ? `Ticket ${i + 1} of ${qty}` : "This name goes on the ticket"}{ready ? " · ready" : ""}</div>
-                              </div>
-                            </div>
-                            <div className="text-sm font-semibold tabular-nums text-foreground shrink-0">
-                              {fmtPrice(selected.price_cents)}
-                            </div>
-                          </div>
-
-                          <div className="space-y-3">
-                            <div className="grid grid-cols-2 gap-3">
-                              <Field label="First name">
-                                <input
-                                  value={a.first_name}
-                                  onChange={(e) => updateAttendee(i, { first_name: e.target.value })}
-                                  placeholder="First name"
-                                  className="ts-field-input"
-                                  maxLength={100}
-                                  autoComplete="given-name"
-                                  aria-label={qty > 1 ? `Ticket ${i + 1} first name` : "First name"}
-                                />
-                              </Field>
-                              <Field label="Last name">
-                                <input
-                                  value={a.last_name}
-                                  onChange={(e) => updateAttendee(i, { last_name: e.target.value })}
-                                  placeholder="Last name"
-                                  className="ts-field-input"
-                                  maxLength={100}
-                                  autoComplete="family-name"
-                                  aria-label={qty > 1 ? `Ticket ${i + 1} last name` : "Last name"}
-                                />
-                              </Field>
-                            </div>
-                            <Field label="Email (ticket delivery)">
-                              <input
-                                type="email"
-                                value={a.email}
-                                onChange={(e) => updateAttendee(i, { email: e.target.value })}
-                                placeholder="name@example.com"
-                                className="ts-field-input"
-                                maxLength={254}
-                                autoComplete="email"
-                                aria-label={qty > 1 ? `Ticket ${i + 1} email` : "Email"}
-                              />
-                            </Field>
-                            <Field label="Confirm email">
-                              <input
-                                type="email"
-                                value={a.confirm_email}
-                                onChange={(e) => updateAttendee(i, { confirm_email: e.target.value })}
-                                placeholder="name@example.com"
-                                className={`ts-field-input ${emailMismatch ? "border-rose-400" : ""}`}
-                                maxLength={254}
-                                autoComplete="email"
-                                aria-label={qty > 1 ? `Ticket ${i + 1} confirm email` : "Confirm email"}
-                              />
-                              {emailMismatch && (
-                                <p className="text-[11px] text-rose-400 mt-1">Emails don't match</p>
-                              )}
-                            </Field>
-                            <Field label="Gender">
-                              <select
-                                value={a.gender}
-                                onChange={(e) => updateAttendee(i, { gender: e.target.value as AttendeeForm["gender"] })}
-                                className="ts-field-input"
-                                aria-label={qty > 1 ? `Ticket ${i + 1} gender` : "Gender"}
-                              >
-                                <option value="" disabled>Select…</option>
-                                <option value="female">Female</option>
-                                <option value="male">Male</option>
-                                <option value="other">Other</option>
-                              </select>
-                            </Field>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {maxPerBuyer != null && qty >= maxPerBuyer && (
-                    <p className="text-[11px] text-muted-foreground text-center mt-4">
-                      Limit reached — {maxPerBuyer} ticket{maxPerBuyer > 1 ? "s" : ""} per person.
-                    </p>
+                    {event.description}
+                  </p>
+                  {longAbout && (
+                    <button type="button" onClick={() => setAboutOpen((v) => !v)} className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline">
+                      {aboutOpen ? "Show less" : "Read more"}
+                      <ChevronDown className={`w-4 h-4 transition-transform ${aboutOpen ? "rotate-180" : ""}`} />
+                    </button>
                   )}
-
-                  {/* Mobile inline summary (desktop uses the sticky rail) */}
-                  <div className="lg:hidden mt-6">{renderSummary(false)}</div>
-                </Section>
+                </section>
               )}
 
               {/* When & where */}
-              <Section title="When & where">
-                <div className="space-y-4">
-                  <div className="flex items-start gap-3">
-                    <Calendar className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" strokeWidth={1.5} />
-                    <div>
-                      <div className="text-sm text-foreground">
-                        {new Date(event.date).toLocaleString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        {new Date(event.date).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
-                        {event.ends_at && <> – {new Date(event.ends_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</>}
-                      </div>
+              <section className="rounded-2xl border border-border bg-card/50 p-5">
+                <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground mb-4">When & where</h2>
+                <div className="flex items-start gap-4">
+                  <div className="w-14 shrink-0 text-center rounded-xl border border-border bg-background/60 py-1.5">
+                    <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">{startDate.toLocaleDateString("en-GB", { month: "short" })}</div>
+                    <div className="text-2xl font-semibold leading-none text-foreground">{startDate.getDate()}</div>
+                    <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">{startDate.toLocaleDateString("en-GB", { weekday: "short" })}</div>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm text-foreground">
+                      {startDate.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
+                      {event.ends_at && <> – {new Date(event.ends_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</>}
+                      <span className="text-muted-foreground"> · {clock.label}</span>
+                    </div>
+                    {event.location && <div className="text-sm text-foreground mt-1">{event.location}</div>}
+                    <div className="flex flex-wrap gap-2 mt-3">
+                      {!clock.over && (
+                        <button type="button" onClick={() => downloadIcs(event)} className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full border border-border text-sm text-foreground hover:bg-muted transition-colors">
+                          <CalendarPlus className="w-4 h-4" strokeWidth={1.75} /> Add to calendar
+                        </button>
+                      )}
+                      {event.location && (
+                        <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 h-9 px-3 rounded-full border border-border text-sm text-foreground hover:bg-muted transition-colors">
+                          <Navigation className="w-4 h-4" strokeWidth={1.75} /> Open in Maps
+                        </a>
+                      )}
                     </div>
                   </div>
-                  {event.location && (
-                    <div className="flex items-start gap-3">
-                      <MapPin className="w-4 h-4 text-muted-foreground mt-0.5 shrink-0" strokeWidth={1.5} />
-                      <div>
-                        <div className="text-sm text-foreground">{event.location}</div>
-                        <a
-                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm text-primary hover:underline"
-                        >
-                          View on map
-                        </a>
-                      </div>
-                    </div>
-                  )}
                 </div>
-              </Section>
+              </section>
 
-              {/* About */}
-              {event.description && (
-                <Section title="About this event">
-                  <p className="text-sm text-foreground/85 leading-relaxed whitespace-pre-line" style={{ fontFamily: descriptionFontFamily(event.description_font) }}>{event.description}</p>
-                </Section>
+              {/* Desktop: the ticket forms live here, under the story */}
+              {selected && !eventSoldOut && (
+                <section className="hidden lg:block rounded-2xl border border-border bg-card/50 p-5">
+                  {renderAttendees()}
+                </section>
               )}
 
-              {/* What happens after you pay */}
-              <Section title="After you pay">
-                <ul className="space-y-3 text-sm">
-                  <li className="flex items-start gap-3">
-                    <CreditCard className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" strokeWidth={1.5} />
-                    <span className="text-foreground/85">
-                      Secure payment via <span className="font-medium text-foreground">{paymentProvider === "stripe" ? "Stripe" : "Revolut"}</span> — your card details never touch Ticket Safe.
-                    </span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <Mail className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" strokeWidth={1.5} />
-                    <span className="text-foreground/85">Your QR ticket arrives by email, as an image and a PDF.</span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <QrCode className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" strokeWidth={1.5} />
-                    <span className="text-foreground/85">
-                      Find it anytime in <Link to="/my-tickets" className="font-medium text-primary hover:underline">My Tickets</Link> and show the QR at the door.
-                    </span>
-                  </li>
-                  <li className="flex items-start gap-3">
-                    <ShieldCheck className="w-4 h-4 text-muted-foreground mt-0.5 flex-shrink-0" strokeWidth={1.5} />
-                    <span className="text-foreground/85">Automatic refund if the organizer cancels the event.</span>
-                  </li>
-                </ul>
-              </Section>
-
-              {/* Organizer */}
+              {/* Organiser */}
               {event.organizer && (
-                <Section title="Organized by">
-                  <div className="flex items-center gap-3">
+                <section className="rounded-2xl border border-border bg-card/50 p-5" style={{ borderLeft: `3px solid ${/^#[0-9a-fA-F]{6}$/.test(event.organizer.primary_color ?? "") ? event.organizer.primary_color : accent}` }}>
+                  <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground mb-4">Organised by</h2>
+                  <div className="flex items-center gap-4">
                     {event.organizer.logo_url ? (
-                      <img src={event.organizer.logo_url} alt={event.organizer.name} className="w-11 h-11 rounded-full object-cover shrink-0" />
+                      <img src={event.organizer.logo_url} alt={event.organizer.name} className="w-14 h-14 rounded-xl object-cover shrink-0" />
                     ) : (
-                      <div className="w-11 h-11 rounded-full flex items-center justify-center font-semibold text-primary-foreground bg-primary shrink-0">
-                        {event.organizer.name[0]?.toUpperCase()}
-                      </div>
+                      <div className="w-14 h-14 rounded-xl flex items-center justify-center text-xl font-bold text-primary-foreground bg-primary shrink-0">{event.organizer.name[0]?.toUpperCase()}</div>
                     )}
                     <div className="flex-1 min-w-0">
                       <div className="font-medium text-foreground inline-flex items-center gap-1.5">
                         {event.organizer.name}
-                        <BadgeCheck className="w-4 h-4 text-primary" strokeWidth={1.75} aria-label="Verified organizer" />
+                        <BadgeCheck className="w-4 h-4 text-primary" strokeWidth={1.75} aria-label="Verified organiser" />
                       </div>
+                      <div className="text-xs text-muted-foreground">Verified organiser{goingLabel ? ` · ${goingLabel} to this event` : ""}</div>
                       {event.organizer.website && (
-                        <a href={event.organizer.website} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">
-                          {event.organizer.website}
-                        </a>
+                        <a href={event.organizer.website} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">{event.organizer.website.replace(/^https?:\/\//, "")}</a>
                       )}
                     </div>
                     <button
                       type="button"
                       onClick={handleToggleFollow}
                       disabled={followBusy}
-                      className={`flex-shrink-0 px-4 py-2 text-sm font-medium border transition-colors disabled:opacity-60 ${
-                        following
-                          ? "border-border text-foreground hover:bg-muted"
-                          : "border-primary bg-primary text-primary-foreground hover:bg-primary-hover"
-                      }`}
                       aria-pressed={following}
+                      className={`shrink-0 h-10 px-4 rounded-full text-sm font-medium border transition-colors disabled:opacity-60 ${following ? "border-border text-foreground hover:bg-muted" : "border-primary bg-primary text-primary-foreground hover:bg-primary-hover"}`}
                     >
                       {following ? "Following" : "Follow"}
                     </button>
                   </div>
-                </Section>
+                </section>
               )}
 
-              {/* Footer */}
-              <div className="pt-8 pb-2 text-center text-xs text-muted-foreground">
-                Powered by{" "}
-                <Link to="/" className="font-medium text-foreground hover:underline">Ticket Safe</Link>
-                {" · "}
-                <Link to="/terms" className="hover:underline">Terms</Link>
-                {" · "}
-                <Link to="/privacy" className="hover:underline">Privacy</Link>
+              {/* How it works */}
+              <section className="rounded-2xl border border-border bg-card/50 p-5">
+                <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground mb-4">How it works</h2>
+                <ul className="grid gap-3 sm:grid-cols-2">
+                  {[
+                    { icon: CreditCard, text: <>Pay by card, Apple Pay or Google Pay through {paymentProvider === "stripe" ? "Stripe" : "Revolut"}. Your card never touches Ticket Safe.</> },
+                    { icon: Mail, text: <>Your QR ticket lands in your inbox within a minute, as an image and a PDF.</> },
+                    { icon: QrCode, text: <>Show the QR at the door. It's also in <Link to="/my-tickets" className="font-medium text-primary hover:underline">My Tickets</Link>.</> },
+                    { icon: ShieldCheck, text: <>Automatic refund if the organiser cancels.</> },
+                  ].map((s, i) => {
+                    const Icon = s.icon;
+                    return (
+                      <li key={i} className="flex items-start gap-3 text-sm text-foreground/85">
+                        <span className="w-8 h-8 rounded-full bg-primary/15 text-primary flex items-center justify-center shrink-0"><Icon className="w-4 h-4" strokeWidth={1.75} /></span>
+                        <span className="pt-1.5">{s.text}</span>
+                      </li>
+                    );
+                  })}
+                </ul>
+                <div className="mt-4 pt-4 border-t border-border"><ProtectionBadge /></div>
+              </section>
+
+              <div className="pt-4 pb-2 text-center text-xs text-muted-foreground">
+                Powered by <Link to="/" className="font-medium text-foreground hover:underline">Ticket Safe</Link>
+                {" · "}<Link to="/terms" className="hover:underline">Terms</Link>
+                {" · "}<Link to="/privacy" className="hover:underline">Privacy</Link>
               </div>
             </div>
 
-            {/* ===== RIGHT: sticky order summary (desktop) ===== */}
+            {/* ===== RIGHT (desktop): tickets, sticky ===== */}
             <aside className="hidden lg:block">
-              <div className="lg:sticky lg:top-24">{renderSummary(true)}</div>
+              <div className="lg:sticky lg:top-24 space-y-4">
+                <section className="rounded-2xl border border-border bg-card/50 p-5">
+                  <div className="flex items-baseline justify-between mb-4">
+                    <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Tickets</h2>
+                    {tiers.length > 1 && <span className="text-[11px] text-muted-foreground">{tiers.length} options</span>}
+                  </div>
+                  {tiers.length === 0 ? (
+                    <p className="text-sm text-muted-foreground py-4">Tickets will be on sale soon. Check back shortly.</p>
+                  ) : eventSoldOut ? (
+                    renderSummary(true)
+                  ) : (
+                    renderTiers()
+                  )}
+                </section>
+                {selected && !eventSoldOut && renderSummary(true)}
+              </div>
             </aside>
           </div>
         </div>
       </main>
 
-      {/* ===== Sticky mobile checkout bar ===== */}
-      {selected && !eventSoldOut && (
-        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/95 backdrop-blur px-4 pt-3 pb-[calc(0.75rem_+_env(safe-area-inset-bottom))] motion-safe:animate-slide-up">
-          <div className="container mx-auto max-w-4xl flex items-center gap-3">
-            <div className="flex-1 min-w-0">
-              <div className="text-[11px] text-muted-foreground truncate">{qty} × {selected.name}{readyCount < qty ? ` · ${qty - readyCount} to fill in` : ""}</div>
-              <div className="text-lg font-semibold tabular-nums leading-tight text-foreground">
-                <AnimatedNumber value={grandCents / 100} prefix="€" durationMs={150} />
+      {/* ===== Phone: the bar that is always there ===== */}
+      <div className="lg:hidden fixed bottom-0 inset-x-0 z-40 border-t border-border bg-background/90 backdrop-blur px-4 pt-3 pb-[calc(0.75rem_+_env(safe-area-inset-bottom))]">
+        <div className="flex items-center gap-3">
+          <div className="flex-1 min-w-0">
+            {selected ? (
+              <>
+                <div className="text-[11px] text-muted-foreground truncate">{qty} × {selected.name}{readyCount < qty ? ` · ${qty - readyCount} to fill in` : ""}</div>
+                <div className="text-lg font-semibold tabular-nums leading-tight text-foreground"><AnimatedNumber value={grandCents / 100} prefix="€" durationMs={150} /></div>
+              </>
+            ) : (
+              <>
+                <div className="text-[11px] text-muted-foreground truncate">{isPast ? "This event has ended" : eventSoldOut ? "No tickets left" : tiers.length > 1 ? `${tiers.length} ticket types` : "Tickets"}</div>
+                <div className="text-lg font-semibold tabular-nums leading-tight text-foreground">
+                  {minPriceCents == null ? "Soon" : minPriceCents === 0 ? "Free" : `From ${fmtPrice(minPriceCents)}`}
+                </div>
+              </>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={openSheet}
+            disabled={ctaDisabled}
+            className="shrink-0 inline-flex items-center justify-center gap-1.5 min-h-[48px] px-6 rounded-full bg-primary text-primary-foreground font-semibold text-sm disabled:opacity-50 transition-colors hover:bg-primary-hover motion-safe:active:scale-[0.98]"
+          >
+            {ctaLabel}{!ctaDisabled && <ArrowRight className="w-4 h-4" />}
+          </button>
+        </div>
+      </div>
+
+      {/* ===== Phone: bottom sheet, two steps ===== */}
+      {sheetOpen && (
+        <div className="lg:hidden fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label="Tickets">
+          <div className="absolute inset-0 bg-black/60 motion-safe:animate-fade-in" onClick={() => setSheetOpen(false)} />
+          <div className="absolute inset-x-0 bottom-0 max-h-[92vh] flex flex-col rounded-t-[20px] bg-background border-t border-border motion-safe:animate-[ts-sheet_260ms_cubic-bezier(0.32,0.72,0,1)]">
+            <div className="flex items-center gap-2 px-4 pt-3 pb-2 border-b border-border">
+              {sheetStep === 2 ? (
+                <button type="button" onClick={() => setSheetStep(1)} aria-label="Back to tickets" className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-muted"><ChevronLeft className="w-5 h-5" /></button>
+              ) : (
+                <span className="w-9" />
+              )}
+              <div className="flex-1 text-center">
+                <div className="text-sm font-semibold text-foreground">{sheetStep === 1 ? "Choose your ticket" : "Your details"}</div>
+                <div className="text-[11px] text-muted-foreground">Step {sheetStep} of 2</div>
               </div>
+              <button type="button" onClick={() => setSheetOpen(false)} aria-label="Close" className="w-9 h-9 rounded-full flex items-center justify-center hover:bg-muted"><X className="w-5 h-5" /></button>
             </div>
-            <button
-              onClick={handleBuy}
-              disabled={buying}
-              className="flex-shrink-0 inline-flex items-center justify-center gap-1.5 min-h-[44px] px-5 bg-primary text-primary-foreground font-semibold text-sm disabled:opacity-60 transition-colors hover:bg-primary-hover"
-            >
-              {buying ? <Loader2 className="w-4 h-4 animate-spin" /> : <>Continue <ArrowRight className="w-4 h-4" /></>}
-            </button>
+            <div className="h-1 bg-border/60"><div className="h-full bg-primary motion-safe:transition-[width] duration-300" style={{ width: sheetStep === 1 ? "50%" : "100%" }} /></div>
+
+            <div className="flex-1 overflow-y-auto px-4 py-4">
+              {sheetStep === 1 ? (
+                tiers.length === 0 ? <p className="text-sm text-muted-foreground py-6">Tickets will be on sale soon.</p> : renderTiers()
+              ) : (
+                <div className="space-y-5">
+                  {renderAttendees()}
+                  {renderSummary(true)}
+                </div>
+              )}
+            </div>
+
+            {sheetStep === 1 && (
+              <div className="border-t border-border px-4 pt-3 pb-[calc(0.75rem_+_env(safe-area-inset-bottom))] flex items-center gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="text-[11px] text-muted-foreground truncate">{selected ? `${qty} × ${selected.name}` : "Pick a ticket"}</div>
+                  <div className="text-lg font-semibold tabular-nums leading-tight text-foreground">{selected ? <AnimatedNumber value={grandCents / 100} prefix="€" durationMs={150} /> : "—"}</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSheetStep(2)}
+                  disabled={!selected}
+                  className="shrink-0 inline-flex items-center justify-center gap-1.5 min-h-[48px] px-6 rounded-full bg-primary text-primary-foreground font-semibold text-sm disabled:opacity-50 hover:bg-primary-hover transition-colors"
+                >
+                  Continue <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
 
       <style>{`
+        @keyframes ts-sheet { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        .ts-chips { scrollbar-width: none; }
+        .ts-chips::-webkit-scrollbar { display: none; }
         .ts-field-input {
           width: 100%;
-          padding: 10px 12px;
+          padding: 11px 12px;
           border: 1px solid hsl(var(--border));
+          border-radius: 10px;
           background: hsl(var(--input));
           color: hsl(var(--foreground));
-          font-size: 14px;
+          font-size: 16px;
           line-height: 1.4;
           transition: border-color 150ms, box-shadow 150ms;
         }
@@ -1179,24 +1287,6 @@ const EventPublic = () => {
 // Presentational building blocks — reused across the sections above. Kept
 // local to this page since none of them encode any business rule.
 // ────────────────────────────────────────────────────────────────────────────
-
-/** A content block separated from the next one by a single hairline, with a
- *  small-caps label — the page's whole "editorial" rhythm instead of
- *  repeated bordered/shadowed cards. */
-const Section = ({
-  title,
-  children,
-  first = false,
-}: {
-  title?: string;
-  children: React.ReactNode;
-  first?: boolean;
-}) => (
-  <section className={`py-8 border-t border-border ${first ? "pt-0 border-t-0" : ""}`}>
-    {title && <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground mb-5">{title}</h2>}
-    {children}
-  </section>
-);
 
 /** Labelled field wrapper for the attendee form inputs. */
 const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
