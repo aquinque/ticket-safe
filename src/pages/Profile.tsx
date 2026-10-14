@@ -64,7 +64,7 @@ const Figure = ({ label, value, money, locale }: { label: string; value: number;
     : shown.toLocaleString(locale);
   return (
     <div className="min-w-0">
-      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground truncate">{label}</p>
+      <p className="text-[10px] font-bold uppercase tracking-wider text-foreground/60 truncate">{label}</p>
       <p className="text-2xl md:text-3xl font-bold tabular-nums leading-tight mt-0.5 text-foreground">{text}</p>
     </div>
   );
@@ -532,11 +532,11 @@ const Profile = () => {
           {/* ===== Next night out ===== */}
           <section className="motion-safe:animate-fade-in" style={{ animationDelay: "60ms", animationFillMode: "both" }} aria-labelledby="next-heading">
             {nextTicket ? (
-              <div className="relative overflow-hidden rounded-2xl border border-border bg-card">
+              <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-card shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08),0_12px_32px_-18px_rgba(0,0,0,0.7)]">
                 <div className="absolute inset-y-0 left-0 w-1.5 bg-primary" aria-hidden />
                 <div className="relative p-5 pl-6">
                   <div className="flex items-center justify-between gap-3 mb-2">
-                    <h2 id="next-heading" className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">{fr ? "Prochaine sortie" : "Next night out"}</h2>
+                    <h2 id="next-heading" className="text-[11px] font-bold uppercase tracking-[0.14em] text-foreground/70">{fr ? "Prochaine sortie" : "Next night out"}</h2>
                     {nextTicket.eventDate && (
                       <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold bg-primary/15 text-primary">
                         <Clock className="w-3 h-3" />{soonLabel(nextTicket.eventDate, fr)}
@@ -561,7 +561,7 @@ const Profile = () => {
                     )}
                   </div>
                   {otherTickets.length > 0 && (
-                    <ul className="mt-4 pt-4 border-t border-border divide-y divide-border">
+                    <ul className="mt-4 pt-4 border-t border-border divide-y divide-white/10">
                       {otherTickets.map((tk) => (
                         <li key={tk.id} className="flex items-center gap-3 py-2.5">
                           <span className="w-2 h-2 rounded-full shrink-0 bg-primary" aria-hidden />
@@ -579,7 +579,7 @@ const Profile = () => {
                 </div>
               </div>
             ) : (
-              <div className="rounded-2xl border border-dashed border-border bg-card/60 p-5 flex flex-col sm:flex-row sm:items-center gap-4">
+              <div className="rounded-2xl border border-dashed border-white/20 bg-card/70 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)] p-5 flex flex-col sm:flex-row sm:items-center gap-4">
                 <div className="w-12 h-12 rounded-2xl bg-primary/15 text-primary flex items-center justify-center shrink-0"><Sparkles className="w-6 h-6" /></div>
                 <div className="flex-1 min-w-0">
                   <h2 id="next-heading" className="text-base font-bold">{fr ? "Rien de prévu pour l'instant" : "Nothing planned yet"}</h2>
@@ -594,13 +594,13 @@ const Profile = () => {
 
           {/* ===== Numbers ===== */}
           <section className="grid grid-cols-2 sm:grid-cols-4 gap-3 motion-safe:animate-fade-in" style={{ animationDelay: "120ms", animationFillMode: "both" }} aria-label={fr ? "Mes chiffres" : "My numbers"}>
-            <div className="rounded-2xl border border-border bg-card p-4"><Figure label={fr ? "Billets à venir" : "Upcoming"} value={upcomingTickets.length} locale={dateLocale} /></div>
-            <div className="rounded-2xl border border-border bg-card p-4"><Figure label={fr ? "Événements" : "Events"} value={eventsCount} locale={dateLocale} /></div>
-            <div className="rounded-2xl border border-border bg-card p-4"><Figure label={fr ? "Dépensé" : "Spent"} value={totalSpent} money locale={dateLocale} /></div>
+            <div className="rounded-2xl border border-white/10 bg-card shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08),0_12px_32px_-18px_rgba(0,0,0,0.7)] p-4"><Figure label={fr ? "Billets à venir" : "Upcoming"} value={upcomingTickets.length} locale={dateLocale} /></div>
+            <div className="rounded-2xl border border-white/10 bg-card shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08),0_12px_32px_-18px_rgba(0,0,0,0.7)] p-4"><Figure label={fr ? "Événements" : "Events"} value={eventsCount} locale={dateLocale} /></div>
+            <div className="rounded-2xl border border-white/10 bg-card shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08),0_12px_32px_-18px_rgba(0,0,0,0.7)] p-4"><Figure label={fr ? "Dépensé" : "Spent"} value={totalSpent} money locale={dateLocale} /></div>
             {RESALE_ENABLED ? (
-              <div className="rounded-2xl border border-border bg-card p-4"><Figure label={fr ? "Vendus" : "Sold"} value={totalSold} locale={dateLocale} /></div>
+              <div className="rounded-2xl border border-white/10 bg-card shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08),0_12px_32px_-18px_rgba(0,0,0,0.7)] p-4"><Figure label={fr ? "Vendus" : "Sold"} value={totalSold} locale={dateLocale} /></div>
             ) : (
-              <div className="rounded-2xl border border-border bg-card p-4"><Figure label={fr ? "Achats" : "Purchases"} value={purchases.length} locale={dateLocale} /></div>
+              <div className="rounded-2xl border border-white/10 bg-card shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08),0_12px_32px_-18px_rgba(0,0,0,0.7)] p-4"><Figure label={fr ? "Achats" : "Purchases"} value={purchases.length} locale={dateLocale} /></div>
             )}
           </section>
 
@@ -613,7 +613,7 @@ const Profile = () => {
                   key={tile.to}
                   type="button"
                   onClick={() => navigate(tile.to)}
-                  className="group relative text-left rounded-2xl border border-border bg-card p-4 min-h-[104px] transition-all hover:border-primary/50 hover:-translate-y-0.5 motion-safe:animate-fade-in"
+                  className="group relative text-left rounded-2xl border border-white/10 bg-card shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08),0_12px_32px_-18px_rgba(0,0,0,0.7)] p-4 min-h-[104px] transition-all hover:border-primary/50 hover:-translate-y-0.5 motion-safe:animate-fade-in"
                   style={{ animationDelay: `${160 + i * 40}ms`, animationFillMode: "both" }}
                 >
                   <span className="w-10 h-10 rounded-xl bg-primary/15 text-primary flex items-center justify-center mb-3 transition-colors group-hover:bg-primary group-hover:text-primary-foreground"><Icon className="w-5 h-5" /></span>
@@ -627,14 +627,14 @@ const Profile = () => {
 
           {/* ===== Recent activity ===== */}
           {txRows.length > 0 && (
-            <section className="rounded-2xl border border-border bg-card p-5" aria-labelledby="activity-heading">
+            <section className="rounded-2xl border border-white/10 bg-card shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08),0_12px_32px_-18px_rgba(0,0,0,0.7)] p-5" aria-labelledby="activity-heading">
               <div className="flex items-baseline justify-between mb-2">
-                <h2 id="activity-heading" className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">{fr ? "Activité récente" : "Recent activity"}</h2>
+                <h2 id="activity-heading" className="text-[11px] font-bold uppercase tracking-[0.14em] text-foreground/70">{fr ? "Activité récente" : "Recent activity"}</h2>
                 <button type="button" onClick={() => navigate("/settings/purchases")} className="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1">
                   {fr ? "Tout voir" : "See all"} <ArrowRight className="w-3 h-3" />
                 </button>
               </div>
-              <ul className="divide-y divide-border">
+              <ul className="divide-y divide-white/10">
                 {txRows.slice(0, 5).map((tx) => {
                   const isPurchase = tx.kind === "purchase";
                   return (
@@ -658,7 +658,7 @@ const Profile = () => {
           )}
 
           {/* ===== About you ===== */}
-          <section className="rounded-2xl border border-border bg-card p-5 space-y-4" aria-labelledby="about-heading">
+          <section className="rounded-2xl border border-white/10 bg-card shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08),0_12px_32px_-18px_rgba(0,0,0,0.7)] p-5 space-y-4" aria-labelledby="about-heading">
             <div className="flex items-center gap-2">
               <span className="w-8 h-8 rounded-xl bg-primary/15 text-primary flex items-center justify-center"><User className="w-4 h-4" /></span>
               <div>
@@ -698,7 +698,7 @@ const Profile = () => {
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Campus</Label>
                 <Select value={userData.campus || undefined} onValueChange={handleSaveCampus} disabled={savingCampus}>
-                  <SelectTrigger className="h-11 rounded-xl bg-muted/40">
+                  <SelectTrigger className="h-11 rounded-xl bg-white/5 border-white/10">
                     <span className="flex items-center gap-2">
                       <MapPin className="w-4 h-4 text-muted-foreground shrink-0" />
                       <SelectValue placeholder={fr ? "Choisissez votre campus" : "Choose your campus"} />
@@ -711,7 +711,7 @@ const Profile = () => {
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">{fr ? "Email" : "Email"}</Label>
-                <div className="flex items-center gap-2 h-11 px-3 rounded-xl bg-muted/40 border border-border">
+                <div className="flex items-center gap-2 h-11 px-3 rounded-xl bg-white/5 border border-white/10">
                   <Mail className="w-4 h-4 text-muted-foreground shrink-0" />
                   <span className="text-sm font-medium truncate">{userData.email || "—"}</span>
                   <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 ml-auto" aria-label={fr ? "Email verrouillé" : "Email locked"} />
@@ -729,7 +729,7 @@ const Profile = () => {
           </section>
 
           {/* ===== Password, folded away ===== */}
-          <section className="rounded-2xl border border-border bg-card" aria-labelledby="password-heading">
+          <section className="rounded-2xl border border-white/10 bg-card shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08),0_12px_32px_-18px_rgba(0,0,0,0.7)]" aria-labelledby="password-heading">
             <button type="button" onClick={() => setShowPassword((v) => !v)} aria-expanded={showPassword} className="w-full flex items-center gap-3 p-5 text-left">
               <span className="w-8 h-8 rounded-xl bg-muted flex items-center justify-center text-foreground"><Lock className="w-4 h-4" /></span>
               <div className="flex-1 min-w-0">
