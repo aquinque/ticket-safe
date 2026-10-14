@@ -42,20 +42,9 @@ import {
 } from "lucide-react";
 import { useCountUp } from "@/hooks/useCountUp";
 
-/** The colours a member can pick for their page. Index 0 is the brand blue. */
-const ACCENTS = [
-  { name: "Blue", hex: "#3A5FE6" },
-  { name: "Violet", hex: "#8B5CF6" },
-  { name: "Pink", hex: "#EC4899" },
-  { name: "Coral", hex: "#F43F5E" },
-  { name: "Orange", hex: "#F97316" },
-  { name: "Gold", hex: "#F59E0B" },
-  { name: "Mint", hex: "#10B981" },
-  { name: "Sky", hex: "#06B6D4" },
-] as const;
-
-/** A stable default colour per account, so two friends don't get the same page. */
-const defaultAccentFor = (id: string) => ACCENTS[[...id].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % ACCENTS.length].hex;
+/** The page's one colour: the site's own blue, for the cover, the chips and the buttons. */
+const ACCENT = "hsl(var(--primary))";
+const COVER = "linear-gradient(120deg, hsl(var(--primary)) 0%, hsl(var(--primary-hover)) 100%)";
 
 /** "In 27 days", "Tonight", "Tomorrow", "Today" for the next ticket. */
 function soonLabel(iso: string, fr: boolean): string {
@@ -68,7 +57,7 @@ function soonLabel(iso: string, fr: boolean): string {
   return fr ? `Dans ${days} jours` : `In ${days} days`;
 }
 
-const Figure = ({ label, value, money, accent, locale }: { label: string; value: number; money?: boolean; accent?: string; locale: string }) => {
+const Figure = ({ label, value, money, locale }: { label: string; value: number; money?: boolean; locale: string }) => {
   const shown = useCountUp(Math.round(money ? value * 100 : value));
   const text = money
     ? new Intl.NumberFormat(locale, { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(shown / 100)
@@ -76,7 +65,7 @@ const Figure = ({ label, value, money, accent, locale }: { label: string; value:
   return (
     <div className="min-w-0">
       <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground truncate">{label}</p>
-      <p className="text-2xl md:text-3xl font-bold tabular-nums leading-tight mt-0.5" style={accent ? { color: accent } : undefined}>{text}</p>
+      <p className="text-2xl md:text-3xl font-bold tabular-nums leading-tight mt-0.5 text-foreground">{text}</p>
     </div>
   );
 };
@@ -90,7 +79,6 @@ interface UpcomingTicket {
   location: string | null;
   tierName: string | null;
   holderName: string | null;
-  eventColor: string | null;
 }
 
 /** Tickets stay "upcoming" until 12 hours after the event starts, so a night event is still there after midnight. */
@@ -147,8 +135,6 @@ const Profile = () => {
   const [savingPassword, setSavingPassword] = useState(false);
   const [savingCampus, setSavingCampus] = useState(false);
   const [memberSince, setMemberSince] = useState<string | null>(null);
-  const [accent, setAccent] = useState<string>(ACCENTS[0].hex);
-  const [savingAccent, setSavingAccent] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -162,12 +148,6 @@ const Profile = () => {
       navigate("/auth", { replace: true });
     }
   }, [user, authLoading, navigate]);
-
-  useEffect(() => {
-    if (!user) return;
-    const saved = user.user_metadata?.accent as string | undefined;
-    setAccent(saved && ACCENTS.some((a) => a.hex === saved) ? saved : defaultAccentFor(user.id));
-  }, [user]);
 
   useEffect(() => {
     if (authLoading || !user) return;
@@ -232,7 +212,7 @@ const Profile = () => {
           .from("event_tickets")
           .select(
             `id, order_id, status, holder_first_name, holder_last_name,
-             event:events(title, date, location, primary_color),
+             event:events(title, date, location),
              tier:event_tiers(name)`,
           )
           .eq("buyer_id", user.id)
@@ -260,7 +240,7 @@ const Profile = () => {
         setUpcomingTickets(
           (ticketData ?? [])
             .map((row) => {
-              const event = one(row.event as { title: string | null; date: string | null; location: string | null; primary_color: string | null } | null);
+              const event = one(row.event as { title: string | null; date: string | null; location: string | null } | null);
               const tier = one(row.tier as { name: string | null } | null);
               return {
                 id: row.id,
@@ -270,7 +250,6 @@ const Profile = () => {
                 location: event?.location ?? null,
                 tierName: tier?.name ?? null,
                 holderName: [row.holder_first_name, row.holder_last_name].filter(Boolean).join(" ") || null,
-                eventColor: event?.primary_color && /^#[0-9a-fA-F]{6}$/.test(event.primary_color) ? event.primary_color : null,
               };
             })
             .filter((tk) => !tk.eventDate || new Date(tk.eventDate).getTime() >= cutoff)
@@ -404,22 +383,6 @@ const Profile = () => {
     }
   };
 
-  const handleSaveAccent = async (hex: string) => {
-    if (!user || hex === accent) return;
-    const previous = accent;
-    setAccent(hex);
-    try {
-      setSavingAccent(true);
-      const { error } = await supabase.auth.updateUser({ data: { accent: hex } });
-      if (error) throw error;
-    } catch {
-      setAccent(previous);
-      toast({ title: t("toast.error"), description: fr ? "Couleur non enregistrée." : "Colour not saved.", variant: "destructive" });
-    } finally {
-      setSavingAccent(false);
-    }
-  };
-
   const handleSaveCampus = async (campus: string) => {
     if (!user || campus === userData.campus) return;
     const previous = userData.campus;
@@ -513,19 +476,18 @@ const Profile = () => {
     new Date(s).toLocaleDateString(dateLocale, { weekday: "short", day: "numeric", month: "short" });
   const formatTime = (s: string) => new Date(s).toLocaleTimeString(dateLocale, { hour: "2-digit", minute: "2-digit" });
 
-  const accentIndex = Math.max(0, ACCENTS.findIndex((a) => a.hex === accent));
-  const accent2 = ACCENTS[(accentIndex + 1) % ACCENTS.length].hex;
-  const cover = `linear-gradient(120deg, ${accent} 0%, ${accent2} 100%)`;
+  const accent = ACCENT;
+  const cover = COVER;
 
-  // The things people come here to do, each with its own colour.
+  // The things people come here to do.
   const tiles = [
-    { to: "/my-tickets", icon: Ticket, label: t("profile.myTickets"), hint: fr ? `${upcomingTickets.length} à venir` : `${upcomingTickets.length} upcoming`, color: accent },
-    { to: "/tickets", icon: Sparkles, label: fr ? "Événements" : "Browse events", hint: fr ? "Trouver une soirée" : "Find a night out", color: "#F97316" },
-    { to: "/settings/purchases", icon: Banknote, label: fr ? "Mes achats" : "Purchases", hint: totalSpent > 0 ? formatEuros(totalSpent) : fr ? "Rien encore" : "Nothing yet", color: "#10B981" },
-    ...(RESALE_ENABLED ? [{ to: "/settings/listings", icon: Tag, label: fr ? "Portefeuille" : "Wallet", hint: activeListings > 0 ? (fr ? `${activeListings} annonce${activeListings > 1 ? "s" : ""}` : `${activeListings} listed`) : fr ? "Revendre" : "Resell a ticket", color: "#F59E0B" }] : []),
-    { to: "/messages", icon: MessageCircle, label: "Messages", hint: fr ? "Vos conversations" : "Your conversations", color: "#06B6D4" },
-    { to: "/settings/privacy", icon: PrivacyIcon, label: fr ? "Données" : "Privacy & data", hint: fr ? "Exporter, supprimer" : "Export, delete", color: "#8B5CF6" },
-    { to: "/settings/interface", icon: SettingsIcon, label: fr ? "Interface" : "Interface", hint: fr ? "Thème, affichage" : "Theme, display", color: "#EC4899" },
+    { to: "/my-tickets", icon: Ticket, label: t("profile.myTickets"), hint: fr ? `${upcomingTickets.length} à venir` : `${upcomingTickets.length} upcoming` },
+    { to: "/tickets", icon: Sparkles, label: fr ? "Événements" : "Browse events", hint: fr ? "Trouver une soirée" : "Find a night out" },
+    { to: "/settings/purchases", icon: Banknote, label: fr ? "Mes achats" : "Purchases", hint: totalSpent > 0 ? formatEuros(totalSpent) : fr ? "Rien encore" : "Nothing yet" },
+    ...(RESALE_ENABLED ? [{ to: "/settings/listings", icon: Tag, label: fr ? "Portefeuille" : "Wallet", hint: activeListings > 0 ? (fr ? `${activeListings} annonce${activeListings > 1 ? "s" : ""}` : `${activeListings} listed`) : fr ? "Revendre" : "Resell a ticket" }] : []),
+    { to: "/messages", icon: MessageCircle, label: "Messages", hint: fr ? "Vos conversations" : "Your conversations" },
+    { to: "/settings/privacy", icon: PrivacyIcon, label: fr ? "Données" : "Privacy & data", hint: fr ? "Exporter, supprimer" : "Export, delete" },
+    { to: "/settings/interface", icon: SettingsIcon, label: fr ? "Interface" : "Interface", hint: fr ? "Thème, affichage" : "Theme, display" },
   ];
 
   return (
@@ -541,25 +503,9 @@ const Profile = () => {
             <div className="relative p-5 md:p-7">
               <div className="flex items-start justify-between gap-3">
                 <BackButton />
-                <div className="flex items-center gap-1.5 bg-black/25 backdrop-blur rounded-full p-1" role="radiogroup" aria-label={fr ? "Couleur de ma page" : "My page colour"}>
-                  {ACCENTS.map((a) => (
-                    <button
-                      key={a.hex}
-                      type="button"
-                      role="radio"
-                      aria-checked={a.hex === accent}
-                      aria-label={a.name}
-                      title={a.name}
-                      disabled={savingAccent}
-                      onClick={() => handleSaveAccent(a.hex)}
-                      className={`w-5 h-5 rounded-full border-2 transition-transform ${a.hex === accent ? "border-white scale-110" : "border-white/30 hover:scale-110"}`}
-                      style={{ background: a.hex }}
-                    />
-                  ))}
-                </div>
               </div>
               <div className="mt-8 md:mt-10 flex items-end gap-4">
-                <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-white text-3xl md:text-4xl font-bold flex items-center justify-center shrink-0 shadow-lg ring-4 ring-white/30" style={{ color: accent }} aria-hidden>
+                <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-white text-primary text-3xl md:text-4xl font-bold flex items-center justify-center shrink-0 shadow-lg ring-4 ring-white/30" aria-hidden>
                   {initials}
                 </div>
                 <div className="min-w-0 pb-1 text-white">
@@ -587,13 +533,12 @@ const Profile = () => {
           <section className="motion-safe:animate-fade-in" style={{ animationDelay: "60ms", animationFillMode: "both" }} aria-labelledby="next-heading">
             {nextTicket ? (
               <div className="relative overflow-hidden rounded-2xl border border-border bg-card">
-                <div className="absolute inset-y-0 left-0 w-1.5" style={{ background: nextTicket.eventColor ?? accent }} aria-hidden />
-                <div className="absolute -right-8 -top-8 w-40 h-40 rounded-full blur-3xl opacity-30 pointer-events-none" style={{ background: nextTicket.eventColor ?? accent }} aria-hidden />
+                <div className="absolute inset-y-0 left-0 w-1.5 bg-primary" aria-hidden />
                 <div className="relative p-5 pl-6">
                   <div className="flex items-center justify-between gap-3 mb-2">
                     <h2 id="next-heading" className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">{fr ? "Prochaine sortie" : "Next night out"}</h2>
                     {nextTicket.eventDate && (
-                      <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold text-white" style={{ background: nextTicket.eventColor ?? accent }}>
+                      <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold bg-primary/15 text-primary">
                         <Clock className="w-3 h-3" />{soonLabel(nextTicket.eventDate, fr)}
                       </span>
                     )}
@@ -604,12 +549,13 @@ const Profile = () => {
                     {nextTicket.location ? ` · ${nextTicket.location}` : ""}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">{[nextTicket.tierName, nextTicket.holderName].filter(Boolean).join(" · ")}</p>
-                  <div className="flex flex-wrap gap-2 mt-4">
-                    <Button onClick={() => navigate(`/my-tickets/${nextTicket.orderId}`)} className="gap-1.5 rounded-full px-5">
-                      <QrCode className="w-4 h-4" />{fr ? "Afficher le QR" : "Show my QR"}
+                  <div className="mt-4 flex flex-col sm:flex-row sm:items-center gap-2.5">
+                    <Button onClick={() => navigate(`/my-tickets/${nextTicket.orderId}`)} className="h-12 w-full sm:w-auto gap-2 rounded-full px-6 text-base">
+                      <QrCode className="w-5 h-5" />{fr ? "Afficher mon QR" : "Show my QR"}
                     </Button>
+                    <span className="text-xs text-muted-foreground sm:ml-1">{fr ? "À montrer à l'entrée. Aussi dans votre email." : "Show it at the door. It's in your email too."}</span>
                     {RESALE_ENABLED && (
-                      <Button variant="outline" onClick={() => navigate("/marketplace/sell")} className="gap-1.5 rounded-full">
+                      <Button variant="outline" onClick={() => navigate("/marketplace/sell")} className="h-12 w-full sm:w-auto sm:ml-auto gap-1.5 rounded-full">
                         <Tag className="w-4 h-4" />{fr ? "Revendre" : "Resell"}
                       </Button>
                     )}
@@ -618,7 +564,7 @@ const Profile = () => {
                     <ul className="mt-4 pt-4 border-t border-border divide-y divide-border">
                       {otherTickets.map((tk) => (
                         <li key={tk.id} className="flex items-center gap-3 py-2.5">
-                          <span className="w-2 h-2 rounded-full shrink-0" style={{ background: tk.eventColor ?? accent }} aria-hidden />
+                          <span className="w-2 h-2 rounded-full shrink-0 bg-primary" aria-hidden />
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-semibold truncate">{tk.eventTitle}</p>
                             <p className="text-xs text-muted-foreground truncate">{tk.eventDate ? formatDay(tk.eventDate) : ""}{tk.tierName ? ` · ${tk.tierName}` : ""}{tk.holderName ? ` · ${tk.holderName}` : ""}</p>
@@ -634,7 +580,7 @@ const Profile = () => {
               </div>
             ) : (
               <div className="rounded-2xl border border-dashed border-border bg-card/60 p-5 flex flex-col sm:flex-row sm:items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 text-white" style={{ background: cover }}><Sparkles className="w-6 h-6" /></div>
+                <div className="w-12 h-12 rounded-2xl bg-primary/15 text-primary flex items-center justify-center shrink-0"><Sparkles className="w-6 h-6" /></div>
                 <div className="flex-1 min-w-0">
                   <h2 id="next-heading" className="text-base font-bold">{fr ? "Rien de prévu pour l'instant" : "Nothing planned yet"}</h2>
                   <p className="text-sm text-muted-foreground">{fr ? "Vos prochains billets apparaîtront ici, prêts à être scannés." : "Your next tickets will sit here, ready to scan at the door."}</p>
@@ -648,11 +594,11 @@ const Profile = () => {
 
           {/* ===== Numbers ===== */}
           <section className="grid grid-cols-2 sm:grid-cols-4 gap-3 motion-safe:animate-fade-in" style={{ animationDelay: "120ms", animationFillMode: "both" }} aria-label={fr ? "Mes chiffres" : "My numbers"}>
-            <div className="rounded-2xl border border-border bg-card p-4"><Figure label={fr ? "Billets à venir" : "Upcoming"} value={upcomingTickets.length} accent={accent} locale={dateLocale} /></div>
+            <div className="rounded-2xl border border-border bg-card p-4"><Figure label={fr ? "Billets à venir" : "Upcoming"} value={upcomingTickets.length} locale={dateLocale} /></div>
             <div className="rounded-2xl border border-border bg-card p-4"><Figure label={fr ? "Événements" : "Events"} value={eventsCount} locale={dateLocale} /></div>
             <div className="rounded-2xl border border-border bg-card p-4"><Figure label={fr ? "Dépensé" : "Spent"} value={totalSpent} money locale={dateLocale} /></div>
             {RESALE_ENABLED ? (
-              <div className="rounded-2xl border border-border bg-card p-4"><Figure label={fr ? "Vendus" : "Sold"} value={totalSold} accent="#10B981" locale={dateLocale} /></div>
+              <div className="rounded-2xl border border-border bg-card p-4"><Figure label={fr ? "Vendus" : "Sold"} value={totalSold} locale={dateLocale} /></div>
             ) : (
               <div className="rounded-2xl border border-border bg-card p-4"><Figure label={fr ? "Achats" : "Purchases"} value={purchases.length} locale={dateLocale} /></div>
             )}
@@ -667,12 +613,13 @@ const Profile = () => {
                   key={tile.to}
                   type="button"
                   onClick={() => navigate(tile.to)}
-                  className="group text-left rounded-2xl border border-border bg-card p-4 min-h-[96px] transition-all hover:-translate-y-0.5 hover:shadow-lg motion-safe:animate-fade-in"
+                  className="group relative text-left rounded-2xl border border-border bg-card p-4 min-h-[104px] transition-all hover:border-primary/50 hover:-translate-y-0.5 motion-safe:animate-fade-in"
                   style={{ animationDelay: `${160 + i * 40}ms`, animationFillMode: "both" }}
                 >
-                  <span className="w-9 h-9 rounded-xl flex items-center justify-center text-white mb-3 transition-transform group-hover:scale-105" style={{ background: tile.color }}><Icon className="w-4 h-4" /></span>
+                  <span className="w-10 h-10 rounded-xl bg-primary/15 text-primary flex items-center justify-center mb-3 transition-colors group-hover:bg-primary group-hover:text-primary-foreground"><Icon className="w-5 h-5" /></span>
                   <p className="text-sm font-bold text-foreground">{tile.label}</p>
                   <p className="text-xs text-muted-foreground truncate">{tile.hint}</p>
+                  <ArrowRight className="absolute right-4 top-4 w-4 h-4 text-muted-foreground/60 transition-all group-hover:text-primary group-hover:translate-x-0.5" aria-hidden />
                 </button>
               );
             })}
@@ -692,7 +639,7 @@ const Profile = () => {
                   const isPurchase = tx.kind === "purchase";
                   return (
                     <li key={tx.id} className="flex items-center gap-3 py-3">
-                      <span className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isPurchase ? "bg-primary/15 text-primary" : "bg-emerald-500/15 text-emerald-400"}`}>
+                      <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-primary/15 text-primary">
                         {isPurchase ? <ArrowDownLeft className="w-4 h-4" /> : <ArrowUpRight className="w-4 h-4" />}
                       </span>
                       <div className="flex-1 min-w-0">
@@ -713,7 +660,7 @@ const Profile = () => {
           {/* ===== About you ===== */}
           <section className="rounded-2xl border border-border bg-card p-5 space-y-4" aria-labelledby="about-heading">
             <div className="flex items-center gap-2">
-              <span className="w-8 h-8 rounded-xl flex items-center justify-center text-white" style={{ background: accent }}><User className="w-4 h-4" /></span>
+              <span className="w-8 h-8 rounded-xl bg-primary/15 text-primary flex items-center justify-center"><User className="w-4 h-4" /></span>
               <div>
                 <h2 id="about-heading" className="text-sm font-bold">{fr ? "À propos de vous" : "About you"}</h2>
                 <p className="text-xs text-muted-foreground">{fr ? "Le nom qui apparaît sur vos billets" : "The name that goes on your tickets"}</p>
@@ -739,9 +686,8 @@ const Profile = () => {
                     aria-pressed={editGender === option.value}
                     onClick={() => setEditGender(editGender === option.value ? "" : option.value)}
                     className={`min-h-10 px-2 py-2 rounded-xl border text-xs sm:text-sm font-semibold leading-tight transition-colors ${
-                      editGender === option.value ? "border-transparent text-white" : "border-border text-muted-foreground hover:text-foreground"
+                      editGender === option.value ? "border-primary bg-primary text-primary-foreground" : "border-border text-muted-foreground hover:text-foreground"
                     }`}
-                    style={editGender === option.value ? { background: accent } : undefined}
                   >
                     {option.label}
                   </button>
