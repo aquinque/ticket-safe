@@ -532,7 +532,7 @@ const Profile = () => {
           {/* ===== Next night out ===== */}
           <section className="motion-safe:animate-fade-in" style={{ animationDelay: "60ms", animationFillMode: "both" }} aria-labelledby="next-heading">
             {nextTicket ? (
-              <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-card shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08),0_12px_32px_-18px_rgba(0,0,0,0.7)]">
+              <div className="relative overflow-hidden rounded-2xl relative isolate border border-[rgba(130,160,255,0.22)] bg-card bg-[linear-gradient(180deg,rgba(58,95,230,0.22)_0%,rgba(58,95,230,0.07)_55%,rgba(58,95,230,0)_100%)] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.14),0_14px_36px_-18px_rgba(58,95,230,0.55)] before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] before:pointer-events-none before:bg-[radial-gradient(110%_70%_at_18%_-12%,rgba(255,255,255,0.13),transparent_58%)]">
                 <div className="absolute inset-y-0 left-0 w-1.5 bg-primary" aria-hidden />
                 <div className="relative p-5 pl-6">
                   <div className="flex items-center justify-between gap-3 mb-2">
@@ -594,13 +594,13 @@ const Profile = () => {
 
           {/* ===== Numbers ===== */}
           <section className="grid grid-cols-2 sm:grid-cols-4 gap-3 motion-safe:animate-fade-in" style={{ animationDelay: "120ms", animationFillMode: "both" }} aria-label={fr ? "Mes chiffres" : "My numbers"}>
-            <div className="rounded-2xl border border-white/10 bg-card shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08),0_12px_32px_-18px_rgba(0,0,0,0.7)] p-4"><Figure label={fr ? "Billets à venir" : "Upcoming"} value={upcomingTickets.length} locale={dateLocale} /></div>
-            <div className="rounded-2xl border border-white/10 bg-card shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08),0_12px_32px_-18px_rgba(0,0,0,0.7)] p-4"><Figure label={fr ? "Événements" : "Events"} value={eventsCount} locale={dateLocale} /></div>
-            <div className="rounded-2xl border border-white/10 bg-card shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08),0_12px_32px_-18px_rgba(0,0,0,0.7)] p-4"><Figure label={fr ? "Dépensé" : "Spent"} value={totalSpent} money locale={dateLocale} /></div>
+            <div className="rounded-2xl relative isolate border border-[rgba(130,160,255,0.22)] bg-card bg-[linear-gradient(180deg,rgba(58,95,230,0.22)_0%,rgba(58,95,230,0.07)_55%,rgba(58,95,230,0)_100%)] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.14),0_14px_36px_-18px_rgba(58,95,230,0.55)] before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] before:pointer-events-none before:bg-[radial-gradient(110%_70%_at_18%_-12%,rgba(255,255,255,0.13),transparent_58%)] p-4"><Figure label={fr ? "Billets à venir" : "Upcoming"} value={upcomingTickets.length} locale={dateLocale} /></div>
+            <div className="rounded-2xl relative isolate border border-[rgba(130,160,255,0.22)] bg-card bg-[linear-gradient(180deg,rgba(58,95,230,0.22)_0%,rgba(58,95,230,0.07)_55%,rgba(58,95,230,0)_100%)] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.14),0_14px_36px_-18px_rgba(58,95,230,0.55)] before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] before:pointer-events-none before:bg-[radial-gradient(110%_70%_at_18%_-12%,rgba(255,255,255,0.13),transparent_58%)] p-4"><Figure label={fr ? "Événements" : "Events"} value={eventsCount} locale={dateLocale} /></div>
+            <div className="rounded-2xl relative isolate border border-[rgba(130,160,255,0.22)] bg-card bg-[linear-gradient(180deg,rgba(58,95,230,0.22)_0%,rgba(58,95,230,0.07)_55%,rgba(58,95,230,0)_100%)] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.14),0_14px_36px_-18px_rgba(58,95,230,0.55)] before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] before:pointer-events-none before:bg-[radial-gradient(110%_70%_at_18%_-12%,rgba(255,255,255,0.13),transparent_58%)] p-4"><Figure label={fr ? "Dépensé" : "Spent"} value={totalSpent} money locale={dateLocale} /></div>
             {RESALE_ENABLED ? (
-              <div className="rounded-2xl border border-white/10 bg-card shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08),0_12px_32px_-18px_rgba(0,0,0,0.7)] p-4"><Figure label={fr ? "Vendus" : "Sold"} value={totalSold} locale={dateLocale} /></div>
+              <div className="rounded-2xl relative isolate border border-[rgba(130,160,255,0.22)] bg-card bg-[linear-gradient(180deg,rgba(58,95,230,0.22)_0%,rgba(58,95,230,0.07)_55%,rgba(58,95,230,0)_100%)] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.14),0_14px_36px_-18px_rgba(58,95,230,0.55)] before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] before:pointer-events-none before:bg-[radial-gradient(110%_70%_at_18%_-12%,rgba(255,255,255,0.13),transparent_58%)] p-4"><Figure label={fr ? "Vendus" : "Sold"} value={totalSold} locale={dateLocale} /></div>
             ) : (
-              <div className="rounded-2xl border border-white/10 bg-card shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08),0_12px_32px_-18px_rgba(0,0,0,0.7)] p-4"><Figure label={fr ? "Achats" : "Purchases"} value={purchases.length} locale={dateLocale} /></div>
+              <div className="rounded-2xl relative isolate border border-[rgba(130,160,255,0.22)] bg-card bg-[linear-gradient(180deg,rgba(58,95,230,0.22)_0%,rgba(58,95,230,0.07)_55%,rgba(58,95,230,0)_100%)] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.14),0_14px_36px_-18px_rgba(58,95,230,0.55)] before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] before:pointer-events-none before:bg-[radial-gradient(110%_70%_at_18%_-12%,rgba(255,255,255,0.13),transparent_58%)] p-4"><Figure label={fr ? "Achats" : "Purchases"} value={purchases.length} locale={dateLocale} /></div>
             )}
           </section>
 
@@ -613,7 +613,7 @@ const Profile = () => {
                   key={tile.to}
                   type="button"
                   onClick={() => navigate(tile.to)}
-                  className="group relative text-left rounded-2xl border border-white/10 bg-card shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08),0_12px_32px_-18px_rgba(0,0,0,0.7)] p-4 min-h-[104px] transition-all hover:border-primary/50 hover:-translate-y-0.5 motion-safe:animate-fade-in"
+                  className="group relative text-left rounded-2xl relative isolate border border-[rgba(130,160,255,0.22)] bg-card bg-[linear-gradient(180deg,rgba(58,95,230,0.22)_0%,rgba(58,95,230,0.07)_55%,rgba(58,95,230,0)_100%)] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.14),0_14px_36px_-18px_rgba(58,95,230,0.55)] before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] before:pointer-events-none before:bg-[radial-gradient(110%_70%_at_18%_-12%,rgba(255,255,255,0.13),transparent_58%)] p-4 min-h-[104px] transition-all hover:border-primary/50 hover:-translate-y-0.5 motion-safe:animate-fade-in"
                   style={{ animationDelay: `${160 + i * 40}ms`, animationFillMode: "both" }}
                 >
                   <span className="w-10 h-10 rounded-xl bg-primary/15 text-primary flex items-center justify-center mb-3 transition-colors group-hover:bg-primary group-hover:text-primary-foreground"><Icon className="w-5 h-5" /></span>
@@ -627,7 +627,7 @@ const Profile = () => {
 
           {/* ===== Recent activity ===== */}
           {txRows.length > 0 && (
-            <section className="rounded-2xl border border-white/10 bg-card shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08),0_12px_32px_-18px_rgba(0,0,0,0.7)] p-5" aria-labelledby="activity-heading">
+            <section className="rounded-2xl relative isolate border border-[rgba(130,160,255,0.22)] bg-card bg-[linear-gradient(180deg,rgba(58,95,230,0.22)_0%,rgba(58,95,230,0.07)_55%,rgba(58,95,230,0)_100%)] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.14),0_14px_36px_-18px_rgba(58,95,230,0.55)] before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] before:pointer-events-none before:bg-[radial-gradient(110%_70%_at_18%_-12%,rgba(255,255,255,0.13),transparent_58%)] p-5" aria-labelledby="activity-heading">
               <div className="flex items-baseline justify-between mb-2">
                 <h2 id="activity-heading" className="text-[11px] font-bold uppercase tracking-[0.14em] text-foreground/70">{fr ? "Activité récente" : "Recent activity"}</h2>
                 <button type="button" onClick={() => navigate("/settings/purchases")} className="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1">
@@ -658,7 +658,7 @@ const Profile = () => {
           )}
 
           {/* ===== About you ===== */}
-          <section className="rounded-2xl border border-white/10 bg-card shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08),0_12px_32px_-18px_rgba(0,0,0,0.7)] p-5 space-y-4" aria-labelledby="about-heading">
+          <section className="rounded-2xl relative isolate border border-[rgba(130,160,255,0.22)] bg-card bg-[linear-gradient(180deg,rgba(58,95,230,0.22)_0%,rgba(58,95,230,0.07)_55%,rgba(58,95,230,0)_100%)] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.14),0_14px_36px_-18px_rgba(58,95,230,0.55)] before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] before:pointer-events-none before:bg-[radial-gradient(110%_70%_at_18%_-12%,rgba(255,255,255,0.13),transparent_58%)] p-5 space-y-4" aria-labelledby="about-heading">
             <div className="flex items-center gap-2">
               <span className="w-8 h-8 rounded-xl bg-primary/15 text-primary flex items-center justify-center"><User className="w-4 h-4" /></span>
               <div>
@@ -729,7 +729,7 @@ const Profile = () => {
           </section>
 
           {/* ===== Password, folded away ===== */}
-          <section className="rounded-2xl border border-white/10 bg-card shadow-[inset_0_1px_0_0_rgba(255,255,255,0.08),0_12px_32px_-18px_rgba(0,0,0,0.7)]" aria-labelledby="password-heading">
+          <section className="rounded-2xl relative isolate border border-[rgba(130,160,255,0.22)] bg-card bg-[linear-gradient(180deg,rgba(58,95,230,0.22)_0%,rgba(58,95,230,0.07)_55%,rgba(58,95,230,0)_100%)] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.14),0_14px_36px_-18px_rgba(58,95,230,0.55)] before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] before:pointer-events-none before:bg-[radial-gradient(110%_70%_at_18%_-12%,rgba(255,255,255,0.13),transparent_58%)]" aria-labelledby="password-heading">
             <button type="button" onClick={() => setShowPassword((v) => !v)} aria-expanded={showPassword} className="w-full flex items-center gap-3 p-5 text-left">
               <span className="w-8 h-8 rounded-xl bg-muted flex items-center justify-center text-foreground"><Lock className="w-4 h-4" /></span>
               <div className="flex-1 min-w-0">
