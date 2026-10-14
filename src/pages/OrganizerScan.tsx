@@ -31,13 +31,13 @@ import {
   Loader2,
   Clock,
   RefreshCw,
-  Users,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { SEOHead } from "@/components/SEOHead";
 import { QRScanner } from "@/components/QRScanner";
+import { GuestList, type Guest } from "@/components/scan/GuestList";
 import { decodeQRFromFile } from "@/lib/qrValidator";
 
 // ---------------------------------------------------------------------------
@@ -161,8 +161,10 @@ const OrganizerScan = () => {
   // (unlike scanHistory above, which is local-only). Polled rather than
   // pushed: simplest thing that reliably updates "in real time" from a
   // human's perspective without fighting Realtime+RLS edge cases.
-  const [checkins, setCheckins] = useState<{ id: string; name: string; tier_name: string | null; scanned_at: string }[]>([]);
+  const [guests, setGuests] = useState<Guest[]>([]);
+  const [guestsLoaded, setGuestsLoaded] = useState(false);
   const [checkinTotals, setCheckinTotals] = useState<{ scanned: number; total: number } | null>(null);
+  const [busyGuestId, setBusyGuestId] = useState<string | null>(null);
 
   // Redirect if not logged in
   useEffect(() => {
@@ -245,7 +247,11 @@ const OrganizerScan = () => {
       });
       const data = await res.json();
       if (res.ok && data.ok) {
-        setCheckins(data.checkins ?? []);
+        // `guests` is the whole list; older deployments only send `checkins` (scanned only).
+        const list: Guest[] = data.guests
+          ?? (data.checkins ?? []).map((c: { id: string; name: string; tier_name: string | null; scanned_at: string }) => ({ ...c, email_hint: null, status: "scanned" as const }));
+        setGuests(list);
+        setGuestsLoaded(true);
         setCheckinTotals({ scanned: data.total_scanned ?? 0, total: data.total_tickets ?? 0 });
       }
     } catch (err) {
@@ -255,15 +261,54 @@ const OrganizerScan = () => {
 
   useEffect(() => {
     if (!selectedEventId) {
-      setCheckins([]);
+      setGuests([]);
+      setGuestsLoaded(false);
       setCheckinTotals(null);
       return;
     }
+    setGuestsLoaded(false);
     loadCheckins();
     const interval = setInterval(loadCheckins, 4000);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedEventId]);
+
+  // Manual check-in from the guest list (lost QR, dead phone) and its undo.
+  // Same server-side guards and audit trail as a scan, see manual-checkin.
+  const manualCheckin = async (guest: Guest, undo: boolean) => {
+    if (!selectedEventId || busyGuestId) return;
+    setBusyGuestId(guest.id);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manual-checkin`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({ ticket_id: guest.id, event_id: selectedEventId, undo }),
+      });
+      const data = await res.json();
+      if (data.guest) {
+        setGuests((prev) => prev.map((g) => (g.id === guest.id ? { ...g, status: data.guest.status, scanned_at: data.guest.scanned_at } : g)));
+      }
+      if (data.ok) {
+        setCheckinTotals((t) => (t ? { ...t, scanned: Math.max(0, t.scanned + (undo ? -1 : 1)) } : t));
+        toast.success(data.message);
+        if (!undo) playBeep(true);
+      } else {
+        toast.error(data.message ?? data.error ?? "Check-in failed");
+      }
+      loadCheckins();
+    } catch (err) {
+      console.error("[OrganizerScan] manual check-in failed:", err);
+      toast.error("Network error — check your connection");
+    } finally {
+      setBusyGuestId(null);
+    }
+  };
 
   // ---------------------------------------------------------------------------
   // Validation
@@ -892,46 +937,17 @@ const OrganizerScan = () => {
                 </CardContent>
               </Card>
 
-              {/* Live check-ins — event-wide, updates from every device/staff
+              {/* Guest list — event-wide and live (polled), with manual check-in
+                  for a guest whose QR is lost. Updates from every device/staff
                   link scanning this event, not just this session. */}
-              <Card>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <Users className="w-4 h-4" />
-                      Checked in
-                    </CardTitle>
-                    {checkinTotals && (
-                      <span className="text-xs font-bold text-muted-foreground tabular-nums">
-                        {checkinTotals.scanned}/{checkinTotals.total}
-                      </span>
-                    )}
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {checkins.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-4">No one checked in yet</p>
-                  ) : (
-                    <div className="space-y-2 max-h-80 overflow-y-auto">
-                      {checkins.map((c) => (
-                        <div
-                          key={c.id}
-                          className="flex items-center gap-2 p-2 rounded text-sm bg-green-100 dark:bg-green-950/40"
-                        >
-                          <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium truncate">{c.name}</p>
-                            <p className="text-xs text-muted-foreground truncate">
-                              {c.tier_name ? `${c.tier_name} · ` : ""}
-                              {new Date(c.scanned_at).toLocaleTimeString("fr-FR")}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+              <GuestList
+                guests={guests}
+                totals={checkinTotals}
+                loaded={guestsLoaded}
+                busyId={busyGuestId}
+                onCheckIn={(g) => manualCheckin(g, false)}
+                onUndo={(g) => manualCheckin(g, true)}
+              />
 
               {/* History */}
               <Card>

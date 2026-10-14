@@ -8,15 +8,19 @@
  *                                        event is server-determined, not client-supplied)
  * Body: { event_id?: string, staff_token?: string }
  *
- * Powers the live "who's been scanned" list on the door-scan screens
- * (OrganizerScan.tsx, ScanStaff.tsx). Polled every few seconds by the
+ * Powers the live guest list on the door-scan screens (OrganizerScan.tsx,
+ * ScanStaff.tsx): everyone holding a ticket, checked in or not, so a door
+ * agent can find a name and check a guest in by hand when the QR is lost
+ * (see manual-checkin). Polled every few seconds by the
  * client rather than pushed via Realtime — a staff-token caller has no
  * Supabase Auth session, so a postgres_changes subscription would hit the
  * exact same RLS wall a direct table read would; one plain endpoint that
  * both caller types can hit keeps this simple and correct for both.
  *
- * Returns only what a door agent needs to recheck a name — never email,
- * never buyer contact info.
+ * Returns only what a door agent needs to recheck a name — the full email
+ * is never sent, only a hint ("a•••@edu.escp.eu") to tell two namesakes
+ * apart. `checkins` (scanned only, newest first) is kept for older clients;
+ * `guests` is the whole list, alphabetical.
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -70,32 +74,47 @@ serve(async (req) => {
 
   const { data: tickets } = await supabase
     .from("event_tickets")
-    .select("id, holder_first_name, holder_last_name, scanned_at, status, tier:event_tiers(name)")
+    .select("id, holder_first_name, holder_last_name, holder_email, scanned_at, status, tier:event_tiers(name)")
     .eq("event_id", eventId);
 
   const rows = (tickets ?? []) as {
     id: string;
     holder_first_name: string | null;
     holder_last_name: string | null;
+    holder_email: string | null;
     scanned_at: string | null;
     status: string;
     tier: { name: string } | { name: string }[] | null;
   }[];
 
-  const checkins = rows
-    .filter((t) => t.scanned_at != null)
-    .map((t) => {
-      const tier = Array.isArray(t.tier) ? t.tier[0] : t.tier;
-      return {
-        id: t.id,
-        name: [t.holder_first_name, t.holder_last_name].filter(Boolean).join(" ") || "Unnamed ticket",
-        tier_name: tier?.name ?? null,
-        scanned_at: t.scanned_at,
-      };
-    })
+  const emailHint = (email: string | null): string | null => {
+    if (!email) return null;
+    const at = email.indexOf("@");
+    if (at < 1) return null;
+    return `${email[0]}•••${email.slice(at)}`;
+  };
+  const nameOf = (t: typeof rows[number]) => [t.holder_first_name, t.holder_last_name].filter(Boolean).join(" ") || "Unnamed ticket";
+  const tierOf = (t: typeof rows[number]) => { const tier = Array.isArray(t.tier) ? t.tier[0] : t.tier; return tier?.name ?? null; };
+
+  // Everyone who can walk in: cancelled / refunded / transferred tickets are
+  // not on the list at all (a transferred ticket has a new row for the buyer).
+  const live = rows.filter((t) => t.status === "valid" || t.status === "scanned");
+
+  const guests = live
+    .map((t) => ({
+      id: t.id,
+      name: nameOf(t),
+      tier_name: tierOf(t),
+      email_hint: emailHint(t.holder_email),
+      status: t.scanned_at ? "scanned" : "valid",
+      scanned_at: t.scanned_at,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name, "fr", { sensitivity: "base" }));
+
+  const checkins = guests
+    .filter((g) => g.scanned_at != null)
+    .map(({ id, name, tier_name, scanned_at }) => ({ id, name, tier_name, scanned_at }))
     .sort((a, b) => new Date(b.scanned_at as string).getTime() - new Date(a.scanned_at as string).getTime());
 
-  const totalValid = rows.filter((t) => t.status !== "cancelled" && t.status !== "refunded").length;
-
-  return json({ ok: true, checkins, total_scanned: checkins.length, total_tickets: totalValid });
+  return json({ ok: true, guests, checkins, total_scanned: checkins.length, total_tickets: live.length });
 });

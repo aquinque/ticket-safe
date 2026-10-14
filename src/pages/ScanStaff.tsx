@@ -1,5 +1,4 @@
 /**
-import { BackButton } from "@/components/BackButton";
  * ScanStaff — /scan/:token, the door-scan page for staff/volunteers handed
  * a link from Studio's "Scan staff" panel (see ScanStaffPanel.tsx +
  * event_scan_staff). No Supabase Auth login, no account — the token in the
@@ -8,14 +7,16 @@ import { BackButton } from "@/components/BackButton";
  * header nav, no event picker, nothing beyond "scan a ticket, see the
  * result".
  */
+import { BackButton } from "@/components/BackButton";
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
-import { Camera, Scan, Loader2, CheckCircle2, XCircle, AlertTriangle, RefreshCw, ShieldCheck, Users, Clock } from "lucide-react";
+import { Camera, Scan, Loader2, CheckCircle2, XCircle, AlertTriangle, RefreshCw, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import Logo from "@/components/Logo";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { QRScanner } from "@/components/QRScanner";
+import { GuestList, type Guest } from "@/components/scan/GuestList";
 import { decodeQRFromFile } from "@/lib/qrValidator";
 import { SEOHead } from "@/components/SEOHead";
 
@@ -47,13 +48,6 @@ const RESULT_SEMANTICS: Record<ScanResultCode, { emphasis: "ok" | "warn" | "dang
   RATE_LIMITED: { emphasis: "warn", label: "Too many scans" },
 };
 
-interface CheckinRow {
-  id: string;
-  name: string;
-  tier_name: string | null;
-  scanned_at: string;
-}
-
 const ScanStaff = () => {
   const { token } = useParams<{ token: string }>();
   const [inputMode, setInputMode] = useState<"camera" | "manual">("camera");
@@ -66,8 +60,10 @@ const ScanStaff = () => {
   // Live "who's been checked in" list — shared across every device scanning
   // this event (polled, since this page has no Supabase Auth session for a
   // Realtime subscription to authorize against).
-  const [checkins, setCheckins] = useState<CheckinRow[]>([]);
+  const [guests, setGuests] = useState<Guest[]>([]);
+  const [guestsLoaded, setGuestsLoaded] = useState(false);
   const [totals, setTotals] = useState<{ scanned: number; total: number } | null>(null);
+  const [busyGuestId, setBusyGuestId] = useState<string | null>(null);
   const loadingRef = useRef(false);
 
   const loadCheckins = async () => {
@@ -81,7 +77,11 @@ const ScanStaff = () => {
       });
       const data = await res.json();
       if (res.ok && data.ok) {
-        setCheckins(data.checkins ?? []);
+        // `guests` is the whole list; older deployments only send `checkins` (scanned only).
+        const list: Guest[] = data.guests
+          ?? (data.checkins ?? []).map((c: { id: string; name: string; tier_name: string | null; scanned_at: string }) => ({ ...c, email_hint: null, status: "scanned" as const }));
+        setGuests(list);
+        setGuestsLoaded(true);
         setTotals({ scanned: data.total_scanned ?? 0, total: data.total_tickets ?? 0 });
       }
     } catch (err) {
@@ -97,6 +97,36 @@ const ScanStaff = () => {
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
+
+  // Manual check-in from the guest list (lost QR, dead phone) and its undo.
+  // The staff link decides the event server-side; every call is audited.
+  const manualCheckin = async (guest: Guest, undo: boolean) => {
+    if (!token || busyGuestId) return;
+    setBusyGuestId(guest.id);
+    try {
+      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manual-checkin`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY },
+        body: JSON.stringify({ ticket_id: guest.id, staff_token: token, undo }),
+      });
+      const data = await res.json();
+      if (data.guest) {
+        setGuests((prev) => prev.map((g) => (g.id === guest.id ? { ...g, status: data.guest.status, scanned_at: data.guest.scanned_at } : g)));
+      }
+      if (data.ok) {
+        setTotals((t) => (t ? { ...t, scanned: Math.max(0, t.scanned + (undo ? -1 : 1)) } : t));
+        toast.success(data.message);
+      } else {
+        toast.error(data.message ?? data.error ?? "Check-in failed");
+      }
+      loadCheckins();
+    } catch (err) {
+      console.error("[ScanStaff] manual check-in failed:", err);
+      toast.error("Network error — check your connection");
+    } finally {
+      setBusyGuestId(null);
+    }
+  };
 
   const validate = async (qrText: string) => {
     if (!token) return;
@@ -284,44 +314,17 @@ const ScanStaff = () => {
           })()}
         </div>
 
-        {/* Live check-in list — shared across every device scanning this
-            event, polled every few seconds. */}
-        <div className="max-w-md mx-auto lg:mx-0 mt-6 lg:mt-0">
-          <div className="rounded-2xl border border-border bg-card p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-bold flex items-center gap-1.5">
-                <Users className="w-4 h-4 text-primary" />
-                Checked in
-              </h2>
-              {totals && (
-                <span className="text-xs font-bold text-muted-foreground tabular-nums">
-                  {totals.scanned}/{totals.total}
-                </span>
-              )}
-            </div>
-            {checkins.length === 0 ? (
-              <p className="text-xs text-muted-foreground text-center py-6">No one checked in yet.</p>
-            ) : (
-              <div className="space-y-1.5 max-h-[60vh] overflow-y-auto">
-                {checkins.map((c) => (
-                  <div key={c.id} className="flex items-center gap-2 px-2.5 py-2 rounded-lg bg-emerald-50 border border-emerald-200">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <div className="text-sm font-semibold truncate">{c.name}</div>
-                      <div className="text-[11px] text-muted-foreground flex items-center gap-1.5">
-                        {c.tier_name && <span className="truncate">{c.tier_name}</span>}
-                        <span className="inline-flex items-center gap-0.5 shrink-0">
-                          <Clock className="w-2.5 h-2.5" />
-                          {new Date(c.scanned_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
+        {/* Guest list — shared across every device scanning this event,
+            polled every few seconds, with manual check-in for a lost QR. */}
+        <GuestList
+          className="max-w-md mx-auto lg:mx-0 mt-6 lg:mt-0"
+          guests={guests}
+          totals={totals}
+          loaded={guestsLoaded}
+          busyId={busyGuestId}
+          onCheckIn={(g) => manualCheckin(g, false)}
+          onUndo={(g) => manualCheckin(g, true)}
+        />
         </div>
       </main>
     </div>
