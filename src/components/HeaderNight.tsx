@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Menu, X, Globe, User, Ticket, Banknote, LayoutDashboard, LogOut, CalendarDays, Repeat2, Building2, ArrowRight } from "lucide-react";
+import { Menu, X, Globe, User, Ticket, Banknote, LayoutDashboard, LogOut, CalendarDays, Repeat2, ChevronRight, ArrowRight } from "lucide-react";
 import Logo from "@/components/Logo";
 import WalletBalanceButton from "@/components/WalletBalanceButton";
 import { Button } from "@/components/ui/button";
@@ -218,9 +218,9 @@ const HeaderNight = () => {
             </button>
           </div>
 
-          <nav className="flex-1 overflow-y-auto px-4 pt-2 pb-4 flex flex-col gap-3">
+          <nav className="flex-1 overflow-y-auto px-4 pt-2 pb-4 flex flex-col">
             <p className="px-1 text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Explore</p>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="mt-2.5 flex flex-col gap-2.5">
               {exploreLinks.map((link) => {
                 const meta = mobileNavMeta[link.key];
                 const Icon = meta?.icon ?? CalendarDays;
@@ -232,60 +232,51 @@ const HeaderNight = () => {
                     to={link.to}
                     onClick={() => setMenuOpen(false)}
                     aria-current={active ? "page" : undefined}
-                    className={`flex flex-col justify-between gap-8 min-h-[200px] [@media(max-height:720px)]:min-h-[150px] [@media(max-height:720px)]:gap-4 rounded-2xl border p-4 transition-colors ${
+                    className={`group flex items-center gap-3.5 rounded-xl border px-3.5 min-h-[68px] transition-colors ${
                       solid
-                        ? "bg-primary border-primary text-primary-foreground hover:bg-primary-hover"
-                        : "bg-primary/10 border-primary/50 text-foreground hover:bg-primary/20"
-                    } ${active ? "ring-2 ring-foreground/70" : ""}`}
+                        ? "border-primary bg-primary text-primary-foreground hover:bg-primary-hover"
+                        : "border-primary/40 bg-primary/10 text-foreground hover:bg-primary/20"
+                    } ${active ? "ring-1 ring-foreground/35" : ""}`}
                   >
                     <span
-                      className={`w-14 h-14 [@media(max-height:720px)]:w-11 [@media(max-height:720px)]:h-11 rounded-xl flex items-center justify-center ${
-                        solid ? "bg-white/20" : "bg-primary text-primary-foreground"
+                      className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
+                        solid ? "bg-white/15" : "bg-primary text-primary-foreground"
                       }`}
                     >
-                      <Icon className="w-7 h-7" />
+                      <Icon className="w-5 h-5" />
                     </span>
-                    <span className="block">
-                      <span className="flex items-center justify-between gap-2">
-                        <span className="text-3xl font-black leading-none">{t(link.labelKey)}</span>
-                        <ArrowRight className="w-5 h-5 shrink-0" />
-                      </span>
+                    <span className="flex-1 min-w-0">
+                      <span className="block text-[17px] font-semibold leading-tight">{t(link.labelKey)}</span>
                       {meta?.subtitle && (
-                        <span className={`block text-xs mt-2 leading-snug ${solid ? "text-white/80" : "text-muted-foreground"}`}>
+                        <span className={`block text-[13px] mt-0.5 truncate ${solid ? "text-white/75" : "text-muted-foreground"}`}>
                           {meta.subtitle}
                         </span>
                       )}
                     </span>
+                    <ChevronRight className="w-4 h-4 shrink-0 opacity-70 transition-transform group-hover:translate-x-0.5" />
                   </Link>
                 );
               })}
             </div>
 
             {organizersLink && (
-              <div className="mt-auto pt-6 [@media(max-height:720px)]:pt-2">
-                <p className="px-1 mb-2 text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">For organizers</p>
+              <div className="mt-7 pt-5 border-t border-border">
+                <p className="px-1 mb-2.5 text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">For organizers</p>
                 <Link
                   to={organizersLink.to}
                   onClick={() => setMenuOpen(false)}
                   aria-current={isActive(organizersLink.to) ? "page" : undefined}
-                  className="block rounded-2xl p-4 bg-foreground text-background"
+                  className="flex items-center gap-3 rounded-xl border border-[hsl(222_100%_84%/0.3)] bg-gradient-to-br from-primary/25 via-primary/10 to-transparent px-3.5 py-3 transition-colors hover:border-[hsl(222_100%_84%/0.55)]"
                 >
-                  <span className="flex items-center gap-3">
-                    <span className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0 bg-primary text-primary-foreground">
-                      <Building2 className="w-5 h-5" />
-                    </span>
-                    <span className="block min-w-0">
-                      <span className="block text-lg font-black leading-tight">Ticket Safe Studio</span>
-                      <span className="block text-sm mt-0.5 leading-snug opacity-75">
-                        {isStudioOrganizer
-                          ? "Your sales, guests and door scanning."
-                          : "Sell your tickets. 0% commission, you keep every euro."}
-                      </span>
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-[15px] font-semibold leading-tight text-foreground">Ticket Safe Studio</span>
+                    <span className="block text-[13px] mt-0.5 leading-snug text-muted-foreground">
+                      {isStudioOrganizer ? "Sales, guests, scanning." : "Sell with 0% commission."}
                     </span>
                   </span>
-                  <span className="mt-4 flex items-center justify-center gap-2 min-h-[44px] rounded-lg bg-primary text-primary-foreground text-sm font-bold">
+                  <span className="shrink-0 inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg bg-foreground text-background text-[13px] font-semibold">
                     {isStudioOrganizer ? "Open Studio" : "Request access"}
-                    <ArrowRight className="w-4 h-4" />
+                    <ArrowRight className="w-3.5 h-3.5" />
                   </span>
                 </Link>
               </div>

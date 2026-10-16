@@ -240,26 +240,28 @@ export const GuestlistsPanel = ({ eventId }: { eventId: string }) => {
 
                 {isOpen && (
                   <div className="border-t border-border p-3 space-y-2 bg-muted/20">
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex gap-2">
                       <input
                         value={entryDrafts[list.id]?.firstName ?? ""}
                         onChange={(e) => setEntryDrafts((prev) => ({ ...prev, [list.id]: { firstName: e.target.value, lastName: prev[list.id]?.lastName ?? "" } }))}
                         placeholder="First name"
-                        className="flex-1 min-w-[120px] px-2.5 min-h-[44px] rounded-md border border-border bg-background text-sm"
+                        className="flex-1 min-w-0 px-2.5 min-h-[44px] rounded-md border border-border bg-background text-sm"
                       />
                       <input
                         value={entryDrafts[list.id]?.lastName ?? ""}
                         onChange={(e) => setEntryDrafts((prev) => ({ ...prev, [list.id]: { firstName: prev[list.id]?.firstName ?? "", lastName: e.target.value } }))}
                         placeholder="Last name"
-                        className="flex-1 min-w-[120px] px-2.5 min-h-[44px] rounded-md border border-border bg-background text-sm"
+                        className="flex-1 min-w-0 px-2.5 min-h-[44px] rounded-md border border-border bg-background text-sm"
                         onKeyDown={(e) => e.key === "Enter" && addEntry(list.id, list.gender_restriction)}
                       />
                       <button
                         type="button"
                         onClick={() => addEntry(list.id, list.gender_restriction)}
-                        className="w-full sm:w-auto px-4 min-h-[44px] rounded-md bg-primary text-primary-foreground text-sm font-bold shrink-0"
+                        aria-label="Add this name"
+                        className="inline-flex items-center justify-center gap-1.5 w-11 sm:w-auto sm:px-4 min-h-[44px] rounded-md bg-primary text-primary-foreground text-sm font-bold shrink-0"
                       >
-                        Add
+                        <Plus className="w-4 h-4" />
+                        <span className="hidden sm:inline">Add</span>
                       </button>
                     </div>
                     {listEntries.length === 0 ? (

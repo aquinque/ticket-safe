@@ -571,9 +571,9 @@ const StudioEventEdit = () => {
           })()}
 
           {/* Share link — right under the header so the organizer can grab it
-              first. One line of explanation, the link, one big Copy button
-              (plus the phone's own share sheet when there is one). A light
-              wash of the brand blue behind it, nothing louder. */}
+              first. The whole link row is the Copy button (big tap target,
+              small on screen); the phone's share sheet sits beside it when
+              there is one. A light wash of the brand blue, nothing louder. */}
           {event.status === "published" && event.slug && (() => {
             const shareUrl = `https://ticket-safe.eu/e/${event.slug}`;
             const shortUrl = shareUrl.replace(/^https?:\/\//, "");
@@ -585,7 +585,7 @@ const StudioEventEdit = () => {
                 toast.success("Link copied");
                 setTimeout(() => setShareCopied(false), 2000);
               } catch {
-                toast.error("Could not copy. Press and hold the link to copy it.");
+                toast.error("Could not copy the link.");
               }
             };
             const nativeShare = async () => {
@@ -595,62 +595,43 @@ const StudioEventEdit = () => {
                 /* the share sheet was closed */
               }
             };
-            const btnBase =
-              "inline-flex items-center justify-center gap-2 px-4 min-h-[48px] font-bold text-sm transition-colors";
             return (
               <section
-                className="border border-primary/25 p-4 md:p-5 mb-6"
+                className="border border-primary/20 p-3.5 md:p-4"
                 style={{
                   background:
-                    "linear-gradient(135deg, hsl(var(--primary) / 0.12), hsl(var(--primary) / 0.04) 55%, hsl(var(--card)))",
+                    "linear-gradient(120deg, hsl(var(--primary) / 0.10), hsl(var(--primary) / 0.03) 60%, hsl(var(--card)))",
                 }}
                 aria-labelledby="share-heading"
               >
-                <div className="flex items-center gap-3">
-                  <span className="w-10 h-10 shrink-0 flex items-center justify-center bg-primary text-primary-foreground">
-                    <Share2 className="w-5 h-5" />
-                  </span>
-                  <div className="min-w-0">
-                    <h2 id="share-heading" className="text-base font-bold leading-tight">Share your event</h2>
-                    <p className="text-sm text-muted-foreground mt-0.5">Send this link. It opens your ticket page.</p>
-                  </div>
-                </div>
-
-                <div className="mt-4 flex flex-col sm:flex-row gap-2">
-                  <div className="flex-1 min-w-0 flex items-center gap-2 min-h-[48px] px-3 bg-card border border-border">
-                    <Link2 className="w-4 h-4 text-muted-foreground shrink-0" />
-                    <span className="flex-1 min-w-0 truncate text-sm font-semibold text-foreground select-all">{shortUrl}</span>
-                  </div>
-                  <div className="grid grid-cols-2 sm:flex gap-2">
+                <div className="flex items-center justify-between gap-3">
+                  <h2 id="share-heading" className="text-sm font-bold">Share your event</h2>
+                  {canNativeShare && (
                     <button
                       type="button"
-                      onClick={copyLink}
-                      className={`${btnBase} col-span-2 sm:col-span-1 bg-primary text-primary-foreground hover:bg-primary-hover`}
+                      onClick={nativeShare}
+                      className="shrink-0 inline-flex items-center gap-1.5 h-9 px-3 bg-card border border-border text-[13px] font-semibold text-foreground hover:border-primary/40 transition-colors"
                     >
-                      {shareCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                      {shareCopied ? "Copied" : "Copy link"}
+                      <Share2 className="w-3.5 h-3.5" />
+                      Share
                     </button>
-                    {canNativeShare && (
-                      <button
-                        type="button"
-                        onClick={nativeShare}
-                        className={`${btnBase} bg-card text-foreground border border-border hover:bg-muted`}
-                      >
-                        <Share2 className="w-4 h-4" />
-                        Share
-                      </button>
-                    )}
-                    <a
-                      href={shareUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={`${btnBase} ${canNativeShare ? "" : "col-span-2 sm:col-span-1"} bg-card text-foreground border border-border hover:bg-muted`}
-                    >
-                      <ExternalLink className="w-4 h-4" />
-                      Open page
-                    </a>
-                  </div>
+                  )}
                 </div>
+                <p className="text-[13px] text-muted-foreground mt-0.5">Send this link. It opens your ticket page.</p>
+
+                <button
+                  type="button"
+                  onClick={copyLink}
+                  aria-label={`Copy link ${shortUrl}`}
+                  className="mt-3 w-full md:max-w-xl flex items-center gap-2 h-12 pl-3 pr-1.5 bg-card border border-border text-left hover:border-primary/40 transition-colors"
+                >
+                  <Link2 className="w-4 h-4 text-muted-foreground shrink-0" />
+                  <span className="flex-1 min-w-0 truncate text-[13px] font-medium text-foreground">{shortUrl}</span>
+                  <span className="shrink-0 inline-flex items-center gap-1.5 h-9 px-3 bg-primary text-primary-foreground text-[13px] font-semibold">
+                    {shareCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                    {shareCopied ? "Copied" : "Copy"}
+                  </span>
+                </button>
               </section>
             );
           })()}
