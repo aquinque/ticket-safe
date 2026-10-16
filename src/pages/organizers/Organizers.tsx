@@ -17,11 +17,12 @@ import {
   LayoutDashboard,
   Clock,
 } from "lucide-react";
-import Header from "@/components/Header";
+import HeaderNight from "@/components/HeaderNight";
 import Footer from "@/components/Footer";
 import { BackButton } from "@/components/BackButton";
 import { SEOHead } from "@/components/SEOHead";
 import { useOrganizer } from "@/hooks/useOrganizer";
+import { useThemeMode } from "@/hooks/useThemeMode";
 
 const features = [
   {
@@ -72,6 +73,7 @@ const compareRows = [
 ];
 
 const Organizers = () => {
+  useThemeMode("night");
   const { organizer } = useOrganizer();
 
   // Smart primary CTA: route based on organizer status.
@@ -86,50 +88,38 @@ const Organizers = () => {
   })();
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="theme-night min-h-screen flex flex-col bg-background">
       <SEOHead
         title="TicketSafe Studio — Sell your event tickets"
         description="The ticketing platform for event organizers. Branded pages, secure QR ticketing, real-time dashboard."
       />
 
-      <Header minimal />
+      <HeaderNight />
 
       <main className="flex-1">
         {/* ===================== HERO ===================== */}
-        <section
-          className="relative overflow-hidden text-white"
-          style={{ background: "var(--gradient-hero)" }}
-        >
-          <div
-            className="pointer-events-none absolute -top-32 -left-32 w-[36rem] h-[36rem] rounded-full opacity-40 blur-3xl"
-            style={{ background: "radial-gradient(circle, hsl(210 100% 65%), transparent 70%)" }}
-          />
-          <div
-            className="pointer-events-none absolute top-20 -right-32 w-[28rem] h-[28rem] rounded-full opacity-30 blur-3xl"
-            style={{ background: "radial-gradient(circle, hsl(240 100% 67%), transparent 70%)" }}
-          />
-
-          <div className="container mx-auto px-4 py-12 md:py-24 relative">
+        <section className="border-b border-border pt-16 md:pt-20">
+          <div className="container mx-auto px-4 py-10 md:py-20">
             <div className="max-w-3xl">
               <div className="mb-5">
                 <BackButton />
               </div>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 border border-white/20 text-[10px] md:text-xs font-semibold tracking-wider uppercase mb-4 md:mb-5">
-                <Sparkles className="w-3 h-3" />
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/15 border border-primary/30 text-foreground text-[10px] md:text-xs font-semibold tracking-wider uppercase mb-4 md:mb-5">
+                <Sparkles className="w-3 h-3 text-primary" />
                 <span className="leading-tight">TicketSafe Studio — for event organizers</span>
               </div>
-              <h1 className="text-[28px] sm:text-3xl md:text-6xl font-black tracking-tight leading-[1.05] mb-4 md:mb-5">
+              <h1 className="text-[28px] sm:text-3xl md:text-6xl font-black tracking-tight leading-[1.05] mb-4 md:mb-5 text-foreground">
                 Sell your event tickets,<br />
-                <span className="text-white/90">the safe way.</span>
+                <span className="text-muted-foreground">the safe way.</span>
               </h1>
-              <p className="text-sm md:text-lg text-white/80 max-w-xl mb-6 md:mb-8 leading-relaxed">
+              <p className="text-sm md:text-lg text-muted-foreground max-w-xl mb-6 md:mb-8 leading-relaxed">
                 Built for event organizers. Branded event pages, ticket tiers, promo codes, real-time dashboard — and official resale built in for your buyers.
               </p>
 
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3">
                 <Link
                   to={cta.to}
-                  className="inline-flex items-center justify-center gap-2 px-6 min-h-[52px] rounded-xl font-bold bg-white text-primary hover:bg-white/95 transition-all shadow-lg text-sm md:text-base"
+                  className="inline-flex items-center justify-center gap-2 px-6 min-h-[52px] rounded-xl font-bold bg-primary text-primary-foreground hover:bg-primary-hover transition-colors text-sm md:text-base"
                 >
                   <cta.icon className="w-4 h-4" />
                   {cta.label}
@@ -137,14 +127,14 @@ const Organizers = () => {
                 </Link>
                 <a
                   href="#how"
-                  className="inline-flex items-center justify-center gap-1.5 px-5 min-h-[52px] rounded-xl font-semibold text-white/90 hover:text-white border border-white/25 hover:border-white/40 hover:bg-white/5 transition-colors text-sm md:text-base"
+                  className="inline-flex items-center justify-center gap-1.5 px-5 min-h-[52px] rounded-xl font-semibold text-foreground border border-border hover:bg-muted transition-colors text-sm md:text-base"
                 >
                   How it works
                   <ChevronRight className="w-4 h-4" />
                 </a>
               </div>
 
-              <div className="flex flex-wrap items-center gap-x-4 sm:gap-x-5 gap-y-2 text-[11px] md:text-xs text-white/70 mt-6 md:mt-7">
+              <div className="flex flex-wrap items-center gap-x-4 sm:gap-x-5 gap-y-2 text-[11px] md:text-xs text-muted-foreground mt-6 md:mt-7">
                 <span className="inline-flex items-center gap-1.5">
                   <Lock className="w-3.5 h-3.5" /> Bank transfer payouts
                 </span>
@@ -163,7 +153,7 @@ const Organizers = () => {
         <section className="py-12 md:py-20">
           <div className="container mx-auto px-4">
             <div className="text-center mb-8 md:mb-12 max-w-2xl mx-auto">
-              <div className="text-[10px] md:text-xs uppercase tracking-[0.2em] font-bold text-primary mb-2 md:mb-3">
+              <div className="text-[10px] md:text-xs uppercase tracking-[0.2em] font-bold text-[hsl(var(--brand-200))] mb-2 md:mb-3">
                 What you get
               </div>
               <h2 className="text-2xl md:text-4xl font-black text-foreground mb-2 md:mb-3">
@@ -201,7 +191,7 @@ const Organizers = () => {
         <section id="how" className="py-12 md:py-20 bg-muted/30 border-y border-border">
           <div className="container mx-auto px-4">
             <div className="text-center mb-8 md:mb-12 max-w-2xl mx-auto">
-              <div className="text-[10px] md:text-xs uppercase tracking-[0.2em] font-bold text-primary mb-2 md:mb-3">
+              <div className="text-[10px] md:text-xs uppercase tracking-[0.2em] font-bold text-[hsl(var(--brand-200))] mb-2 md:mb-3">
                 Four steps
               </div>
               <h2 className="text-2xl md:text-4xl font-black text-foreground mb-2 md:mb-3">
@@ -237,7 +227,7 @@ const Organizers = () => {
           <div className="container mx-auto px-4">
             <div className="max-w-3xl mx-auto">
               <div className="text-center mb-8 md:mb-10">
-                <div className="text-[10px] md:text-xs uppercase tracking-[0.2em] font-bold text-primary mb-2 md:mb-3">
+                <div className="text-[10px] md:text-xs uppercase tracking-[0.2em] font-bold text-[hsl(var(--brand-200))] mb-2 md:mb-3">
                   The difference
                 </div>
                 <h2 className="text-2xl md:text-4xl font-black text-foreground">
@@ -260,7 +250,7 @@ const Organizers = () => {
                     <div className="flex items-start gap-2.5 px-4 py-3 bg-primary/[0.04] border-b border-border">
                       <Check className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
                       <div className="flex-1 min-w-0">
-                        <div className="text-[10px] uppercase tracking-wider font-bold text-primary mb-0.5">
+                        <div className="text-[10px] uppercase tracking-wider font-bold text-[hsl(var(--brand-200))] mb-0.5">
                           TicketSafe Studio
                         </div>
                         <div className="text-sm text-foreground leading-snug font-medium">{row.us}</div>
@@ -284,7 +274,7 @@ const Organizers = () => {
                 <div className="grid grid-cols-[1fr_1fr_1fr] text-xs uppercase tracking-wider font-bold border-b border-border bg-muted/40">
                   <div className="px-4 py-3 text-muted-foreground">Feature</div>
                   <div className="px-4 py-3 text-muted-foreground">Other platforms</div>
-                  <div className="px-4 py-3 text-primary">TicketSafe Studio</div>
+                  <div className="px-4 py-3 text-[hsl(var(--brand-200))]">TicketSafe Studio</div>
                 </div>
                 {compareRows.map((row, i) => (
                   <div
