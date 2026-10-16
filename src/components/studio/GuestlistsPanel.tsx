@@ -159,30 +159,30 @@ export const GuestlistsPanel = ({ eventId }: { eventId: string }) => {
   };
 
   return (
-    <section className="bg-card border border-border rounded-2xl p-5 md:p-6">
+    <section className="bg-card border border-border p-4 md:p-5" aria-labelledby="guestlists-heading">
       <div className="flex items-center justify-between mb-2 gap-3">
-        <h2 className="text-lg font-bold flex items-center gap-2">
+        <h2 id="guestlists-heading" className="text-sm font-bold flex items-center gap-2">
           <ClipboardList className="w-4 h-4 text-primary" />
           Guestlists
         </h2>
-        <span className="text-xs text-muted-foreground">{lists.length} list{lists.length === 1 ? "" : "s"}</span>
+        <span className="text-[11px] text-muted-foreground">{lists.length} list{lists.length === 1 ? "" : "s"}</span>
       </div>
       <p className="text-sm text-muted-foreground mb-4">
-        Free, no-payment name lists — checked in by name at the door. Optionally restrict a list to one gender.
+        Free name lists, checked in by name at the door. A list can be limited to one gender.
       </p>
 
-      <div className="flex flex-wrap gap-2 mb-4">
+      <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 mb-4">
         <input
           value={newListName}
           onChange={(e) => setNewListName(e.target.value)}
           placeholder="e.g. Girls before midnight"
           maxLength={120}
-          className="flex-1 min-w-[160px] px-3 py-2 rounded-lg border border-border bg-background text-sm"
+          className="col-span-2 sm:flex-1 sm:min-w-[160px] px-3 min-h-[44px] rounded-lg border border-border bg-background text-sm"
         />
         <select
           value={newListGender}
           onChange={(e) => setNewListGender(e.target.value as "" | "female" | "male")}
-          className="px-3 py-2 rounded-lg border border-border bg-background text-sm"
+          className="px-3 min-h-[44px] rounded-lg border border-border bg-background text-sm"
         >
           <option value="">Any gender</option>
           <option value="female">Girls only</option>
@@ -192,7 +192,7 @@ export const GuestlistsPanel = ({ eventId }: { eventId: string }) => {
           type="button"
           onClick={createList}
           disabled={creatingList}
-          className="inline-flex items-center gap-1.5 px-4 min-h-[40px] rounded-lg font-bold text-sm bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-60 shrink-0"
+          className="inline-flex items-center justify-center gap-1.5 px-4 min-h-[44px] rounded-lg font-bold text-sm bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-60 shrink-0"
         >
           <Plus className="w-4 h-4" />
           Create list
@@ -245,21 +245,23 @@ export const GuestlistsPanel = ({ eventId }: { eventId: string }) => {
                         value={entryDrafts[list.id]?.firstName ?? ""}
                         onChange={(e) => setEntryDrafts((prev) => ({ ...prev, [list.id]: { firstName: e.target.value, lastName: prev[list.id]?.lastName ?? "" } }))}
                         placeholder="First name"
-                        className="flex-1 px-2.5 py-1.5 rounded-md border border-border bg-background text-sm"
+                        className="flex-1 min-w-0 px-2.5 min-h-[44px] rounded-md border border-border bg-background text-sm"
                       />
                       <input
                         value={entryDrafts[list.id]?.lastName ?? ""}
                         onChange={(e) => setEntryDrafts((prev) => ({ ...prev, [list.id]: { firstName: prev[list.id]?.firstName ?? "", lastName: e.target.value } }))}
                         placeholder="Last name"
-                        className="flex-1 px-2.5 py-1.5 rounded-md border border-border bg-background text-sm"
+                        className="flex-1 min-w-0 px-2.5 min-h-[44px] rounded-md border border-border bg-background text-sm"
                         onKeyDown={(e) => e.key === "Enter" && addEntry(list.id, list.gender_restriction)}
                       />
                       <button
                         type="button"
                         onClick={() => addEntry(list.id, list.gender_restriction)}
-                        className="px-3 rounded-md bg-primary text-primary-foreground text-xs font-bold shrink-0"
+                        aria-label="Add this name"
+                        className="inline-flex items-center justify-center gap-1.5 w-11 sm:w-auto sm:px-4 min-h-[44px] rounded-md bg-primary text-primary-foreground text-sm font-bold shrink-0"
                       >
-                        Add
+                        <Plus className="w-4 h-4" />
+                        <span className="hidden sm:inline">Add</span>
                       </button>
                     </div>
                     {listEntries.length === 0 ? (
@@ -267,15 +269,25 @@ export const GuestlistsPanel = ({ eventId }: { eventId: string }) => {
                     ) : (
                       <div className="space-y-1 max-h-64 overflow-y-auto">
                         {listEntries.map((e) => (
-                          <div key={e.id} className="flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-card border border-border text-sm">
-                            <button type="button" onClick={() => toggleCheckedIn(e)} className="shrink-0">
-                              {e.checked_in_at ? <CheckCircle2 className="w-4 h-4 text-success" /> : <Circle className="w-4 h-4 text-muted-foreground" />}
+                          <div key={e.id} className="flex items-center gap-1 pr-1 rounded-md bg-card border border-border text-sm">
+                            <button
+                              type="button"
+                              onClick={() => toggleCheckedIn(e)}
+                              aria-label={e.checked_in_at ? "Mark as not arrived" : "Mark as arrived"}
+                              className="shrink-0 w-11 h-11 flex items-center justify-center"
+                            >
+                              {e.checked_in_at ? <CheckCircle2 className="w-5 h-5 text-success" /> : <Circle className="w-5 h-5 text-muted-foreground" />}
                             </button>
                             <span className={`flex-1 min-w-0 truncate ${e.checked_in_at ? "text-muted-foreground line-through" : ""}`}>
                               {e.first_name} {e.last_name}
                             </span>
-                            <button type="button" onClick={() => removeEntry(e.id, list.id)} className="text-muted-foreground hover:text-destructive shrink-0">
-                              <Trash2 className="w-3 h-3" />
+                            <button
+                              type="button"
+                              onClick={() => removeEntry(e.id, list.id)}
+                              aria-label="Remove this name"
+                              className="w-11 h-11 flex items-center justify-center text-muted-foreground hover:text-destructive shrink-0"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         ))}

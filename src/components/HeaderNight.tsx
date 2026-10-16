@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Menu, X, Globe, User, Ticket, Banknote, LayoutDashboard, LogOut, CalendarDays, Repeat2, Building2, ChevronRight } from "lucide-react";
+import { Menu, X, Globe, User, Ticket, Banknote, LayoutDashboard, LogOut, CalendarDays, Repeat2, ChevronRight, ArrowRight } from "lucide-react";
 import Logo from "@/components/Logo";
 import WalletBalanceButton from "@/components/WalletBalanceButton";
 import { Button } from "@/components/ui/button";
@@ -85,16 +85,15 @@ const HeaderNight = () => {
     link.key === "organizers" && isStudioOrganizer ? { ...link, to: "/studio" } : link,
   );
 
-  // Mobile menu rows: an icon and a one-line subtitle per entry, so the
-  // three destinations read as distinct choices rather than three bare words.
+  // Mobile menu: Events and Resale are the two main doors, so they get big
+  // tiles at the top. Organizers / Studio is a different audience: it sits
+  // lower, in its own card.
   const mobileNavMeta: Record<string, { icon: typeof CalendarDays; subtitle: string }> = {
     tickets: { icon: CalendarDays, subtitle: "Browse upcoming events" },
     resale: { icon: Repeat2, subtitle: "Buy or resell a ticket safely" },
-    organizers: {
-      icon: Building2,
-      subtitle: isStudioOrganizer ? "Open your Studio dashboard" : "Ticket Safe Studio for organizers",
-    },
   };
+  const exploreLinks = navLinks.filter((link) => link.key !== "organizers");
+  const organizersLink = navLinks.find((link) => link.key === "organizers");
 
   return (
     <>
@@ -219,37 +218,69 @@ const HeaderNight = () => {
             </button>
           </div>
 
-          <nav className="flex-1 overflow-y-auto px-4 pt-2 pb-4 flex flex-col gap-2">
-            <p className="px-1 mb-1 text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Explore</p>
-            {navLinks.map((link) => {
-              const meta = mobileNavMeta[link.key];
-              const Icon = meta?.icon ?? CalendarDays;
-              const active = isActive(link.to);
-              return (
+          <nav className="flex-1 overflow-y-auto px-4 pt-2 pb-4 flex flex-col">
+            <p className="px-1 text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Explore</p>
+            <div className="mt-2.5 flex flex-col gap-2.5">
+              {exploreLinks.map((link) => {
+                const meta = mobileNavMeta[link.key];
+                const Icon = meta?.icon ?? CalendarDays;
+                const active = isActive(link.to);
+                const solid = link.key === "tickets";
+                return (
+                  <Link
+                    key={link.key}
+                    to={link.to}
+                    onClick={() => setMenuOpen(false)}
+                    aria-current={active ? "page" : undefined}
+                    className={`group flex items-center gap-3.5 rounded-xl border px-3.5 min-h-[68px] transition-colors ${
+                      solid
+                        ? "border-primary bg-primary text-primary-foreground hover:bg-primary-hover"
+                        : "border-primary/40 bg-primary/10 text-foreground hover:bg-primary/20"
+                    } ${active ? "ring-1 ring-foreground/35" : ""}`}
+                  >
+                    <span
+                      className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
+                        solid ? "bg-white/15" : "bg-primary text-primary-foreground"
+                      }`}
+                    >
+                      <Icon className="w-5 h-5" />
+                    </span>
+                    <span className="flex-1 min-w-0">
+                      <span className="block text-[17px] font-semibold leading-tight">{t(link.labelKey)}</span>
+                      {meta?.subtitle && (
+                        <span className={`block text-[13px] mt-0.5 truncate ${solid ? "text-white/75" : "text-muted-foreground"}`}>
+                          {meta.subtitle}
+                        </span>
+                      )}
+                    </span>
+                    <ChevronRight className="w-4 h-4 shrink-0 opacity-70 transition-transform group-hover:translate-x-0.5" />
+                  </Link>
+                );
+              })}
+            </div>
+
+            {organizersLink && (
+              <div className="mt-7 pt-5 border-t border-border">
+                <p className="px-1 mb-2.5 text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">For organizers</p>
                 <Link
-                  key={link.key}
-                  to={link.to}
+                  to={organizersLink.to}
                   onClick={() => setMenuOpen(false)}
-                  aria-current={active ? "page" : undefined}
-                  className={`flex items-center gap-3 rounded-xl border px-4 py-3.5 transition-colors ${
-                    active
-                      ? "border-primary/60 bg-primary/10"
-                      : "border-border bg-card hover:border-primary/40"
-                  }`}
+                  aria-current={isActive(organizersLink.to) ? "page" : undefined}
+                  className="flex items-center gap-3 rounded-xl border border-[hsl(222_100%_84%/0.3)] bg-gradient-to-br from-primary/25 via-primary/10 to-transparent px-3.5 py-3 transition-colors hover:border-[hsl(222_100%_84%/0.55)]"
                 >
-                  <span className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${active ? "bg-primary text-primary-foreground" : "bg-secondary text-primary"}`}>
-                    <Icon className="w-5 h-5" />
-                  </span>
                   <span className="flex-1 min-w-0">
-                    <span className="block text-base font-bold text-foreground leading-tight">{t(link.labelKey)}</span>
-                    {meta?.subtitle && (
-                      <span className="block text-xs text-muted-foreground mt-0.5 truncate">{meta.subtitle}</span>
-                    )}
+                    <span className="block text-[15px] font-semibold leading-tight text-foreground">Ticket Safe Studio</span>
+                    <span className="block text-[13px] mt-0.5 leading-snug text-muted-foreground">
+                      {isStudioOrganizer ? "Sales, guests, scanning." : "Sell with 0% commission."}
+                    </span>
                   </span>
-                  <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                  <span className="shrink-0 inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg bg-foreground text-background text-[13px] font-semibold">
+                    {isStudioOrganizer ? "Open Studio" : "Request access"}
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </span>
                 </Link>
-              );
-            })}
+              </div>
+            )}
           </nav>
 
           <div className="px-4 pb-6 pt-3 border-t border-border flex flex-col gap-3">
@@ -280,11 +311,6 @@ const HeaderNight = () => {
                     <Link to="/settings/listings">My Wallet</Link>
                   </Button>
                 </div>
-                {isStudioOrganizer && (
-                  <Button variant="outline" size="lg" asChild onClick={() => setMenuOpen(false)}>
-                    <Link to="/studio">Ticket Safe Studio</Link>
-                  </Button>
-                )}
                 <Button
                   variant="primary"
                   size="lg"
