@@ -25,7 +25,6 @@ import {
   Copy,
   Check,
   Share2,
-  Sparkles,
   Video,
   Search,
   ChevronDown,
@@ -571,15 +570,100 @@ const StudioEventEdit = () => {
             );
           })()}
 
+          {/* Share link — right under the header so the organizer can grab it
+              first. One line of explanation, the link, one big Copy button
+              (plus the phone's own share sheet when there is one). A light
+              wash of the brand blue behind it, nothing louder. */}
+          {event.status === "published" && event.slug && (() => {
+            const shareUrl = `https://ticket-safe.eu/e/${event.slug}`;
+            const shortUrl = shareUrl.replace(/^https?:\/\//, "");
+            const canNativeShare = typeof navigator !== "undefined" && "share" in navigator;
+            const copyLink = async () => {
+              try {
+                await navigator.clipboard.writeText(shareUrl);
+                setShareCopied(true);
+                toast.success("Link copied");
+                setTimeout(() => setShareCopied(false), 2000);
+              } catch {
+                toast.error("Could not copy. Press and hold the link to copy it.");
+              }
+            };
+            const nativeShare = async () => {
+              try {
+                await navigator.share({ title: event.title, url: shareUrl });
+              } catch {
+                /* the share sheet was closed */
+              }
+            };
+            const btnBase =
+              "inline-flex items-center justify-center gap-2 px-4 min-h-[48px] font-bold text-sm transition-colors";
+            return (
+              <section
+                className="border border-primary/25 p-4 md:p-5 mb-6"
+                style={{
+                  background:
+                    "linear-gradient(135deg, hsl(var(--primary) / 0.12), hsl(var(--primary) / 0.04) 55%, hsl(var(--card)))",
+                }}
+                aria-labelledby="share-heading"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="w-10 h-10 shrink-0 flex items-center justify-center bg-primary text-primary-foreground">
+                    <Share2 className="w-5 h-5" />
+                  </span>
+                  <div className="min-w-0">
+                    <h2 id="share-heading" className="text-base font-bold leading-tight">Share your event</h2>
+                    <p className="text-sm text-muted-foreground mt-0.5">Send this link. It opens your ticket page.</p>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex flex-col sm:flex-row gap-2">
+                  <div className="flex-1 min-w-0 flex items-center gap-2 min-h-[48px] px-3 bg-card border border-border">
+                    <Link2 className="w-4 h-4 text-muted-foreground shrink-0" />
+                    <span className="flex-1 min-w-0 truncate text-sm font-semibold text-foreground select-all">{shortUrl}</span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:flex gap-2">
+                    <button
+                      type="button"
+                      onClick={copyLink}
+                      className={`${btnBase} col-span-2 sm:col-span-1 bg-primary text-primary-foreground hover:bg-primary-hover`}
+                    >
+                      {shareCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                      {shareCopied ? "Copied" : "Copy link"}
+                    </button>
+                    {canNativeShare && (
+                      <button
+                        type="button"
+                        onClick={nativeShare}
+                        className={`${btnBase} bg-card text-foreground border border-border hover:bg-muted`}
+                      >
+                        <Share2 className="w-4 h-4" />
+                        Share
+                      </button>
+                    )}
+                    <a
+                      href={shareUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`${btnBase} ${canNativeShare ? "" : "col-span-2 sm:col-span-1"} bg-card text-foreground border border-border hover:bg-muted`}
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      Open page
+                    </a>
+                  </div>
+                </div>
+              </section>
+            );
+          })()}
+
           <GroupLabel>Performance</GroupLabel>
 
           {/* Highlights — 4 KPI cards at a glance */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-4">
             <Highlight
               icon={Banknote}
-              label="Revenue (paid)"
-              value={`€${(grossCents / 100).toFixed(0)}`}
-              sub={`€${(payoutCents / 100).toFixed(0)} payout · €${(feeTotalCents / 100).toFixed(0)} fee`}
+              label="Revenue"
+              value={`€${(payoutCents / 100).toFixed(0)}`}
+              sub={`${paidOrders.length} paid order${paidOrders.length === 1 ? "" : "s"}`}
               accent="emerald"
             />
             <Highlight
@@ -661,6 +745,12 @@ const StudioEventEdit = () => {
             )}
           </section>
 
+          {/* Guestlists — high on the page: organizers add names and check
+              people in from here, mostly on a phone. */}
+          <div className="mb-6">
+            <GuestlistsPanel eventId={event.id} />
+          </div>
+
           {/* Event statistics — one consolidated, detailed table: overview,
               ticket types (with check-in rate), tables, promo codes,
               demographics. This is the main reporting surface for the
@@ -704,15 +794,10 @@ const StudioEventEdit = () => {
               <section className="bg-card border border-border rounded-2xl p-5 md:p-6 mb-6">
                 <h2 className="text-lg font-bold mb-4">Event statistics</h2>
 
-                {/* Money */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
-                  <KpiCard label="Gross revenue" value={`€${(grossCents / 100).toFixed(0)}`} />
-                  <KpiCard label="TicketSafe fee" value={`− €${(feeTotalCents / 100).toFixed(0)}`} muted />
-                  <KpiCard label="Net to organizer" value={`€${(payoutCents / 100).toFixed(0)}`} emphasize />
-                </div>
-
-                {/* Activity */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4 mt-3 md:mt-4">
+                {/* Headline numbers — revenue is what the organizer receives
+                    (the buyer pays the service fee on top). */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+                  <KpiCard label="Revenue" value={`€${(payoutCents / 100).toFixed(0)}`} emphasize />
                   <KpiCard label="Paid orders" value={String(paidOrders.length)} />
                   <KpiCard
                     label="Tickets sold"
@@ -893,97 +978,6 @@ const StudioEventEdit = () => {
               email reads as intentional rather than generic. */}
           <SocialSharingControl event={event} onSaved={(patch) => setEvent({ ...event, ...patch })} />
 
-          {/* ===== Share link box — only when the event is published =====
-              Built so an organizer can drop the URL in an Instagram story,
-              WhatsApp group, or poster QR with one click. The URL itself is
-              copy-friendly (slug-based) so it looks clean in the wild. */}
-          {event.status === "published" && event.slug && (() => {
-            const shareUrl = `https://ticket-safe.eu/e/${event.slug}`;
-            return (
-              <section className="relative overflow-hidden bg-card border-2 rounded-2xl p-5 md:p-6 mb-6 shadow-sm" style={{ borderColor: "hsl(220 100% 30% / 0.2)" }}>
-                {/* Soft brand gradient overlay for visual punch */}
-                <div
-                  className="absolute inset-0 opacity-[0.06] pointer-events-none"
-                  style={{ background: "linear-gradient(135deg, hsl(220 100% 30%), hsl(210 100% 45%))" }}
-                />
-                <div className="relative">
-                  <div className="flex items-start gap-3 mb-4">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-primary/10">
-                      <Share2 className="w-5 h-5 text-primary" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h2 className="text-base md:text-lg font-bold leading-tight">Share your event</h2>
-                      <p className="text-xs md:text-sm text-muted-foreground mt-0.5">
-                        Drop this link in your Instagram story, WhatsApp group, posters — anywhere your crowd hangs out.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* URL pill — monospace, big, selectable */}
-                  <div className="flex items-stretch gap-2">
-                    <div className="flex-1 min-w-0 inline-flex items-center gap-2 px-3 md:px-4 py-3 rounded-xl border border-border bg-muted/40 overflow-hidden">
-                      <Link2 className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-                      <code className="text-xs md:text-sm font-mono text-foreground truncate select-all">
-                        {shareUrl}
-                      </code>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        try {
-                          await navigator.clipboard.writeText(shareUrl);
-                          setShareCopied(true);
-                          toast.success("Link copied — paste it anywhere!");
-                          setTimeout(() => setShareCopied(false), 2000);
-                        } catch {
-                          toast.error("Could not copy. Long-press the link to copy it manually.");
-                        }
-                      }}
-                      // Stay on brand blue both before AND after copy — never green.
-                      // The "copied" state is communicated by the icon (Check vs Copy)
-                      // + the inline ring, not by a color swap.
-                      className="inline-flex items-center justify-center gap-1.5 px-3 md:px-4 rounded-xl font-bold text-white text-sm transition-all hover:shadow-md active:scale-[0.98] flex-shrink-0"
-                      style={{
-                        background: "linear-gradient(135deg, hsl(220 100% 30%), hsl(210 100% 45%))",
-                        boxShadow: shareCopied
-                          ? "0 0 0 3px hsl(210 100% 45% / 0.25)"
-                          : undefined,
-                      }}
-                    >
-                      {shareCopied ? (
-                        <>
-                          <Check className="w-4 h-4" />
-                          <span className="hidden sm:inline">Copied</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-4 h-4" />
-                          <span className="hidden sm:inline">Copy</span>
-                        </>
-                      )}
-                    </button>
-                    <a
-                      href={shareUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center justify-center gap-1.5 px-3 md:px-4 rounded-xl font-bold text-sm border-2 border-border bg-background hover:bg-muted hover:border-primary/40 transition-colors flex-shrink-0"
-                      aria-label="Open public page in a new tab"
-                    >
-                      <ExternalLink className="w-4 h-4" />
-                      <span className="hidden md:inline">Open</span>
-                    </a>
-                  </div>
-
-                  {/* Suggestion / micro-copy */}
-                  <p className="text-[11px] text-muted-foreground mt-3 inline-flex items-center gap-1.5">
-                    <Sparkles className="w-3 h-3 text-primary" />
-                    Tip: pair it with a sticker like "Get your ticket 👇" — works great in Instagram stories.
-                  </p>
-                </div>
-              </section>
-            );
-          })()}
-
           <GroupLabel>Sales</GroupLabel>
 
           {/* Buyers — every order, with the named attendees that order issued */}
@@ -1115,8 +1109,6 @@ const StudioEventEdit = () => {
           {/* Door-scan access for staff/volunteers — no login needed, see
               src/components/studio/ScanStaffPanel.tsx */}
           <ScanStaffPanel eventId={event.id} />
-
-          <GuestlistsPanel eventId={event.id} />
       </div>
 
       {/* Cancel-event confirmation dialog. Surfaces the real impact (buyer
