@@ -19,7 +19,6 @@ import {
   FileText,
   Pencil,
   QrCode,
-  BarChart3,
   CheckCircle2,
   Banknote,
   Link2,
@@ -483,93 +482,99 @@ const StudioEventEdit = () => {
             </Link>
           </div>
 
-          {/* Header strip — flat card, matching every other Studio page
-              (no gradient hero: that look is specific to the public
-              marketing pages, not the management UI). */}
-          <div className="bg-card border border-border rounded-2xl p-5 md:p-6 mb-6">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div className="min-w-0">
-                <div className="mb-2">
-                  <EventStatusBadge
-                    status={event.status}
-                    date={event.date}
-                    soldOut={totalCapacity > 0 && totalSold >= totalCapacity}
-                  />
+          {/* Header — same language as the dashboard's "next up" hero: the event's
+              own color and banner, display font, square edges, 44px actions. */}
+          {(() => {
+            const accent = event.primary_color && /^#[0-9a-fA-F]{6}$/.test(event.primary_color) ? event.primary_color : null;
+            const btnPrimary =
+              "inline-flex items-center justify-center gap-2 px-4 min-h-[44px] font-bold text-sm bg-white text-foreground hover:bg-white/90 transition-colors disabled:opacity-60";
+            const btnGhost =
+              "inline-flex items-center justify-center gap-2 px-4 min-h-[44px] font-bold text-sm text-white border border-white/40 hover:bg-white/10 transition-colors disabled:opacity-60";
+            return (
+              <section
+                className="relative overflow-hidden text-white mb-6"
+                style={{ background: accent ?? "hsl(var(--primary))" }}
+                aria-labelledby="event-heading"
+              >
+                {event.banner_url && (
+                  <img src={event.banner_url} alt="" className="absolute inset-0 w-full h-full object-cover opacity-35" />
+                )}
+                <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/35 to-black/20" />
+                <div className="relative p-5 md:p-7">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-[11px] uppercase tracking-wider font-bold text-white/75">
+                        {new Date(event.date).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+                      </p>
+                      <h1 id="event-heading" className="font-display text-3xl md:text-[40px] leading-[1.05] font-bold mt-1.5 text-balance break-words">
+                        {event.title}
+                      </h1>
+                      {event.location && (
+                        <p className="text-sm text-white/80 mt-1.5 flex items-center gap-1.5 min-w-0">
+                          <MapPin className="w-3.5 h-3.5 shrink-0" />
+                          <span className="truncate">{event.location}</span>
+                        </p>
+                      )}
+                    </div>
+                    <EventStatusBadge
+                      status={event.status}
+                      date={event.date}
+                      soldOut={totalCapacity > 0 && totalSold >= totalCapacity}
+                      size="sm"
+                      className="shrink-0"
+                    />
+                  </div>
+
+                  <div className="mt-6 grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
+                    {event.status === "published" && (
+                      <Link
+                        to={`/organizer/scan?event_id=${event.id}`}
+                        className={`${btnPrimary} col-span-2 sm:col-span-1`}
+                        title="Open the door scanner with this event pre-selected"
+                      >
+                        <QrCode className="w-4 h-4" />
+                        Scan tickets
+                      </Link>
+                    )}
+                    {event.status !== "published" && (
+                      <button onClick={publish} disabled={saving} className={`${btnPrimary} col-span-2 sm:col-span-1`}>
+                        <Eye className="w-4 h-4" />
+                        Publish
+                      </button>
+                    )}
+                    {event.status === "published" && event.slug && (
+                      <a href={`/e/${event.slug}`} target="_blank" rel="noopener noreferrer" className={btnGhost}>
+                        Public page
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    )}
+                    {event.status === "published" && (
+                      <button onClick={unpublish} disabled={saving} className={btnGhost}>
+                        <EyeOff className="w-4 h-4" />
+                        Unpublish
+                      </button>
+                    )}
+                    {event.status !== "cancelled" && (
+                      <button
+                        onClick={openCancelDialog}
+                        disabled={saving}
+                        className={`${btnGhost} col-span-2 sm:col-span-1 sm:ml-auto`}
+                        title="Cancel event and refund all buyers"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Cancel event
+                      </button>
+                    )}
+                  </div>
                 </div>
-                <h1 className="text-2xl md:text-3xl font-black text-foreground truncate">{event.title}</h1>
-                <div className="text-sm text-muted-foreground mt-2 flex items-center gap-3 flex-wrap">
-                  <span className="inline-flex items-center gap-1">
-                    <Calendar className="w-3.5 h-3.5" />
-                    {new Date(event.date).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}
-                  </span>
-                  {event.location && (
-                    <span className="inline-flex items-center gap-1">
-                      <MapPin className="w-3.5 h-3.5" />
-                      {event.location}
-                    </span>
-                  )}
-                </div>
-              </div>
-              <div className="flex gap-2 flex-wrap">
-                {event.status === "published" ? (
-                  <button
-                    onClick={unpublish}
-                    disabled={saving}
-                    className="inline-flex items-center gap-2 px-4 min-h-[40px] rounded-lg font-bold text-sm border border-border bg-background hover:bg-muted disabled:opacity-60"
-                  >
-                    <EyeOff className="w-4 h-4" />
-                    Unpublish
-                  </button>
-                ) : (
-                  <button
-                    onClick={publish}
-                    disabled={saving}
-                    className="inline-flex items-center gap-2 px-4 min-h-[40px] rounded-lg font-bold text-sm bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-60"
-                  >
-                    <Eye className="w-4 h-4" />
-                    Publish
-                  </button>
-                )}
-                {event.status === "published" && event.slug && (
-                  <a
-                    href={`/e/${event.slug}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 px-4 min-h-[40px] rounded-lg font-bold text-sm border border-border bg-background hover:bg-muted"
-                  >
-                    Public page
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
-                )}
-                {event.status === "published" && (
-                  <Link
-                    to={`/organizer/scan?event_id=${event.id}`}
-                    className="inline-flex items-center gap-2 px-4 min-h-[40px] rounded-lg font-bold text-sm bg-emerald-600 text-white hover:bg-emerald-700"
-                    title="Open the door scanner with this event pre-selected"
-                  >
-                    <QrCode className="w-4 h-4" />
-                    Scan tickets
-                  </Link>
-                )}
-                {event.status !== "cancelled" && (
-                  <button
-                    onClick={openCancelDialog}
-                    disabled={saving}
-                    className="inline-flex items-center gap-1.5 px-4 min-h-[40px] rounded-lg font-bold text-sm text-destructive border border-destructive/30 hover:bg-destructive/5 disabled:opacity-60"
-                    title="Cancel event and refund all buyers"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    Cancel event
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
+              </section>
+            );
+          })()}
 
           <GroupLabel>Performance</GroupLabel>
 
           {/* Highlights — 4 KPI cards at a glance */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-5">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-4">
             <Highlight
               icon={Banknote}
               label="Revenue (paid)"
@@ -601,22 +606,19 @@ const StudioEventEdit = () => {
           </div>
 
           {/* Sales over time chart */}
-          <section className="bg-card border border-border rounded-2xl p-5 md:p-6 mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <BarChart3 className="w-5 h-5 text-primary" />
-                <h2 className="text-lg font-bold">Sales over time</h2>
-              </div>
-              <span className="text-xs text-muted-foreground">
+          <section className="bg-card border border-border p-4 md:p-5 mb-6" aria-labelledby="sales-heading">
+            <div className="flex items-baseline justify-between gap-3 mb-3">
+              <h2 id="sales-heading" className="text-sm font-bold">Sales over time</h2>
+              <span className="text-[11px] text-muted-foreground text-right">
                 {salesSeries.length > 0 ? `${salesSeries.length} order${salesSeries.length > 1 ? "s" : ""}` : "Waiting for the first sale"}
               </span>
             </div>
             {salesSeries.length === 0 ? (
-              <div className="h-40 flex items-center justify-center text-sm text-muted-foreground">
+              <div className="h-32 flex items-center justify-center text-sm text-muted-foreground text-center px-4">
                 The chart fills in as orders come in.
               </div>
             ) : (
-              <div className="h-56">
+              <div className="h-48 md:h-56">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={salesSeries} margin={{ top: 10, right: 8, left: -16, bottom: 0 }}>
                     <defs>
@@ -630,6 +632,7 @@ const StudioEventEdit = () => {
                       tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
                       tickLine={false}
                       axisLine={false}
+                      minTickGap={48}
                     />
                     <YAxis
                       tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
@@ -639,7 +642,7 @@ const StudioEventEdit = () => {
                       width={48}
                     />
                     <Tooltip
-                      contentStyle={{ borderRadius: 10, border: "1px solid hsl(var(--border))" }}
+                      contentStyle={{ borderRadius: 0, border: "1px solid hsl(var(--border))" }}
                       labelStyle={{ fontSize: 11 }}
                       formatter={(v: number, name: string) =>
                         name === "cumRev" ? [`€${v}`, "Revenue"] : [v, "Tickets"]
@@ -2215,28 +2218,23 @@ const Highlight = ({
   label: string;
   value: string;
   sub: string;
-  accent: "emerald" | "blue" | "violet" | "amber";
-}) => {
-  const map = {
-    emerald: { ring: "border-emerald-200", iconBg: "bg-emerald-100 text-emerald-700" },
-    blue: { ring: "border-blue-200", iconBg: "bg-blue-100 text-blue-700" },
-    violet: { ring: "border-violet-200", iconBg: "bg-violet-100 text-violet-700" },
-    amber: { ring: "border-amber-200", iconBg: "bg-amber-100 text-amber-700" },
-  } as const;
-  const c = map[accent];
-  return (
-    <div className={`bg-card border ${c.ring} rounded-xl px-4 py-4`}>
-      <div className="flex items-center gap-2 mb-2">
-        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${c.iconBg}`}>
-          <Icon className="w-4 h-4" />
-        </div>
-        <span className="text-[11px] uppercase tracking-wider font-bold text-muted-foreground">{label}</span>
-      </div>
-      <div className="text-xl md:text-2xl font-black leading-tight">{value}</div>
-      <div className="text-[11px] text-muted-foreground mt-0.5 truncate">{sub}</div>
+  accent?: "emerald" | "blue" | "violet" | "amber";
+}) => (
+  <div className="bg-card border border-border p-4 md:p-5 min-w-0">
+    <div className="flex items-center gap-1.5 text-muted-foreground">
+      <Icon className="w-3.5 h-3.5 shrink-0" />
+      <span className="text-[10px] uppercase tracking-wider font-bold truncate">{label}</span>
     </div>
-  );
-};
+    <div
+      className={`font-display text-2xl md:text-3xl font-bold tabular-nums leading-tight mt-1 truncate ${
+        accent === "emerald" ? "text-emerald-700" : "text-foreground"
+      }`}
+    >
+      {value}
+    </div>
+    <div className="text-xs text-muted-foreground mt-0.5 truncate">{sub}</div>
+  </div>
+);
 
 // Plain KPI card for the "Event statistics" grid — label + big number + an
 // optional sub line (progress bar, %, revenue). No icon by design: this
