@@ -18,7 +18,6 @@ import {
   Type,
   FileText,
   Pencil,
-  QrCode,
   CheckCircle2,
   Banknote,
   Link2,
@@ -525,16 +524,6 @@ const StudioEventEdit = () => {
                   </div>
 
                   <div className="mt-6 grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
-                    {event.status === "published" && (
-                      <Link
-                        to={`/organizer/scan?event_id=${event.id}`}
-                        className={`${btnPrimary} col-span-2 sm:col-span-1`}
-                        title="Open the door scanner with this event pre-selected"
-                      >
-                        <QrCode className="w-4 h-4" />
-                        Scan tickets
-                      </Link>
-                    )}
                     {event.status !== "published" && (
                       <button onClick={publish} disabled={saving} className={`${btnPrimary} col-span-2 sm:col-span-1`}>
                         <Eye className="w-4 h-4" />
