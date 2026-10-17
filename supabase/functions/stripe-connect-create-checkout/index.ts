@@ -16,10 +16,10 @@
  * The payout to the organizer's bank is a separate, later step
  * (stripe-connect-payout-cron). Refunds: _shared/stripeRefund.ts.
  *
- * Fee model: the service fee comes from get_studio_commission_cents (4 % +
- * 0,80 € per ticket, min 0,70 €, max 3,50 €, or the event's override); it is
- * not defined here. Tickets are issued by stripe-connect-webhook on
- * checkout.session.completed.
+ * Fee model: the service fee comes from get_studio_commission_cents (a
+ * percentage of the ticket price, set in service_fee_settings, between a
+ * minimum and a maximum, or the event's override); it is not defined here.
+ * Tickets are issued by stripe-connect-webhook on checkout.session.completed.
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
