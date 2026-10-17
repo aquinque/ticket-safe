@@ -1,26 +1,21 @@
 /**
- * Marketplace — Editorial redesign, unified with the site-wide .theme-night
- * tokens (flat navy surfaces, no gradients/glow/glassmorphism).
+ * Resale marketplace, kept simple for buyers.
  *
  * Top-down anatomy:
- *   1. Flat editorial hero with headline, animated KPI strip (total
- *      billets / new today / avg price), and a prominent search input.
- *   2. Sticky chip-filter rail (categories, price buckets, schools).
- *   3. Result bar with live count + sort dropdown.
- *   4. Bento grid: a Featured event card spans 2×2 (boosted listings float
- *      to the top), followed by uniform standard cards in a 3-column grid
- *      with staggered fade-in on mount and on filter change.
- *   5. Skeleton loading + editorial empty state.
+ *   1. A short intro: one headline, one line of reassurance, a search field
+ *      and a Filters button (price, school and campus live behind it).
+ *   2. Sticky category chips (All / Parties / Galas / ...).
+ *   3. Result count and sort.
+ *   4. One uniform grid of event cards: photo, title, date and place, the
+ *      cheapest price and a "View tickets" button. The tickets of an event
+ *      open inside its card.
  *
- * Motion rules
- * - prefers-reduced-motion: instantly snaps counters + disables stagger.
- * - Cards fade-in with a 50ms-per-index stagger when filterHash changes.
- * - Counter targets are debounced 250ms after filter state settles so the
- *   number doesn't twitch on every keystroke.
+ * Same .theme-night tokens as the rest of the public site: navy surfaces,
+ * brand-blue actions, the light blue only for urgency tags.
  */
 
-import { useEffect, useMemo, useState, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import HeaderNight from "@/components/HeaderNight";
 import { BackButton } from "@/components/BackButton";
 import Footer from "@/components/Footer";
@@ -34,17 +29,15 @@ import {
 } from "@/components/ui/select";
 import {
   Search,
-  MapPin,
-  Calendar,
+  SlidersHorizontal,
   Ticket,
   ShieldCheck,
   ArrowRight,
   Sparkles,
-  GraduationCap,
-  X,
-  MessageSquare,
   Flame,
   Clock,
+  MessageSquare,
+  X,
 } from "lucide-react";
 import { SEOHead } from "@/components/SEOHead";
 import { useTicketListings, TicketListing } from "@/contexts/TicketListingsContext";
@@ -61,17 +54,6 @@ import { toast } from "sonner";
 const isBoosted = (l: TicketListing): boolean =>
   !!l.boostedUntil && new Date(l.boostedUntil).getTime() > Date.now();
 
-const isToday = (iso?: string): boolean => {
-  if (!iso) return false;
-  const d = new Date(iso);
-  const n = new Date();
-  return (
-    d.getFullYear() === n.getFullYear() &&
-    d.getMonth() === n.getMonth() &&
-    d.getDate() === n.getDate()
-  );
-};
-
 const daysUntil = (iso: string): number => {
   const target = new Date(iso).getTime();
   const today = new Date();
@@ -79,46 +61,8 @@ const daysUntil = (iso: string): number => {
   return Math.ceil((target - today.getTime()) / (1000 * 60 * 60 * 24));
 };
 
-const reducedMotion = () =>
-  typeof window !== "undefined" &&
-  window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-// ────────────────────────────────────────────────────────────────────────────
-// Animated counter — rAF easing, snaps under prefers-reduced-motion.
-// ────────────────────────────────────────────────────────────────────────────
-
-function useAnimatedCount(target: number, durationMs = 600, debounceMs = 250): number {
-  const [display, setDisplay] = useState(target);
-  const rafRef = useRef<number | null>(null);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => {
-      if (reducedMotion()) {
-        setDisplay(target);
-        return;
-      }
-      const from = display;
-      const start = performance.now();
-      const easeOutQuart = (t: number) => 1 - Math.pow(1 - t, 4);
-      const tick = (now: number) => {
-        const elapsed = Math.min((now - start) / durationMs, 1);
-        const v = Math.round(from + (target - from) * easeOutQuart(elapsed));
-        setDisplay(v);
-        if (elapsed < 1) rafRef.current = requestAnimationFrame(tick);
-      };
-      rafRef.current = requestAnimationFrame(tick);
-    }, debounceMs);
-    return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [target]);
-
-  return display;
-}
+const shortDate = (iso: string): string =>
+  new Date(iso).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
 
 // ────────────────────────────────────────────────────────────────────────────
 // Data model — event groups derived from listings
@@ -129,9 +73,6 @@ interface EventGroup {
   eventTitle: string;
   eventDate: string;
   eventLocation: string;
-  eventCategory: string;
-  eventUniversity: string;
-  eventCampus: string | null;
   tickets: TicketListing[];
   minPrice: number;
   totalAvailable: number;
@@ -150,9 +91,6 @@ function groupByEvent(listings: TicketListing[]): EventGroup[] {
         eventTitle: l.event.title,
         eventDate: l.event.date,
         eventLocation: l.event.location,
-        eventCategory: l.event.category,
-        eventUniversity: l.university,
-        eventCampus: l.campus,
         tickets: [],
         minPrice: Infinity,
         totalAvailable: 0,
@@ -167,12 +105,10 @@ function groupByEvent(listings: TicketListing[]): EventGroup[] {
     if (l.sellingPrice < g.minPrice) g.minPrice = l.sellingPrice;
     if (isBoosted(l)) g.hasBoosted = true;
   }
-  // Sort tickets within each group: boosted first, then cheapest. The first
-  // ticket with real media wins the card's hero image/video — falling back
-  // to the event's own official banner/video (set by the organizer) when no
-  // reseller in the group uploaded a custom listing photo, which is the
-  // common case. Without this fallback, events with a real banner still
-  // showed the generic gradient on every resale card.
+  // Tickets inside a group: boosted first, then cheapest. The first ticket
+  // with real media wins the card's photo/video, falling back to the event's
+  // own official banner/video (set by the organizer) when no reseller
+  // uploaded one, which is the common case.
   for (const g of map.values()) {
     g.tickets.sort((a, b) => {
       const ab = Number(isBoosted(b)) - Number(isBoosted(a));
@@ -210,6 +146,7 @@ const Buy = () => {
 
   // ── Filter state ────────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState("");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [activePriceBucket, setActivePriceBucket] = useState<string | null>(null);
   const [activeCategories, setActiveCategories] = useState<Set<string>>(new Set());
   const [activeUniversities, setActiveUniversities] = useState<Set<string>>(new Set());
@@ -288,31 +225,11 @@ const Buy = () => {
     });
   }, [filteredListings, sortBy]);
 
-  // Featured group = first that has boosted, fallback to first group.
-  const featuredGroup = filteredGroups.find((g) => g.hasBoosted) ?? filteredGroups[0] ?? null;
-  const standardGroups = featuredGroup
-    ? filteredGroups.filter((g) => g.eventId !== featuredGroup.eventId)
-    : filteredGroups;
-
-  // ── KPI targets ─────────────────────────────────────────────────
-  const totalTickets = filteredListings.reduce((sum, l) => sum + l.quantity, 0);
-  const newToday = filteredListings.filter((l) => isToday(l.timestamp)).length;
-  const avgPrice = filteredListings.length
-    ? Math.round(filteredListings.reduce((s, l) => s + l.sellingPrice, 0) / filteredListings.length)
-    : 0;
-  const displayTickets = useAnimatedCount(totalTickets);
-  const displayNew = useAnimatedCount(newToday);
-  const displayAvg = useAnimatedCount(avgPrice);
-
-  // filterHash → unique key to retrigger stagger fade-in
-  const filterHash = `${searchQuery}|${activePriceBucket}|${Array.from(activeCategories).sort().join(",")}|${Array.from(activeUniversities).sort().join(",")}|${Array.from(activeCampuses).sort().join(",")}|${sortBy}`;
-
+  // Filters behind the button (what the chip row and the search box don't show).
+  const panelFilterCount =
+    (activePriceBucket ? 1 : 0) + activeUniversities.size + activeCampuses.size;
   const activeFilterCount =
-    (searchQuery.trim() ? 1 : 0) +
-    (activePriceBucket ? 1 : 0) +
-    activeCategories.size +
-    activeUniversities.size +
-    activeCampuses.size;
+    panelFilterCount + activeCategories.size + (searchQuery.trim() ? 1 : 0);
 
   // ── Actions ────────────────────────────────────────────────────
   const handleMakeOffer = async (ticket: TicketListing) => {
@@ -336,10 +253,6 @@ const Buy = () => {
     navigate(`/checkout?listing_id=${ticket.id}`);
   };
 
-  const scrollToGrid = () => {
-    document.getElementById("marketplace-grid")?.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
-
   // ── Render ─────────────────────────────────────────────────────
   return (
     <div className="theme-night min-h-screen bg-background flex flex-col">
@@ -349,205 +262,146 @@ const Buy = () => {
       />
       <HeaderNight />
 
-      {/* =================== HERO =================== */}
-      <section className="relative border-b border-border pt-16 md:pt-20">
-        <div className="relative container mx-auto max-w-6xl px-4 md:px-6 pt-12 md:pt-20 pb-10 md:pb-16">
-          <BackButton className="mb-6" />
-          <p className="text-[10px] md:text-xs font-bold tracking-[0.3em] uppercase text-muted-foreground mb-5">
-            The student marketplace
+      {/* =================== INTRO =================== */}
+      <section className="pt-16 md:pt-20">
+        <div className="container mx-auto max-w-6xl px-4 md:px-6 pt-6 md:pt-10 pb-6 md:pb-8">
+          <BackButton className="mb-4" />
+          <h1 className="text-3xl md:text-5xl font-bold tracking-tight text-foreground">
+            Tickets, student to student.
+          </h1>
+          <p className="mt-2 md:mt-3 text-base md:text-lg text-muted-foreground max-w-xl">
+            Buy from other students. Your payment is protected.
           </p>
 
-          <h1
-            className="font-bold leading-[0.95] tracking-tight mb-7 md:mb-9 max-w-4xl text-foreground"
-            style={{ fontSize: "clamp(2.5rem, 7vw, 5.5rem)" }}
-          >
-            Tickets, <br className="hidden sm:block" />
-            <span className="italic font-normal">student to student.</span>{" "}
-            <span className="text-muted-foreground">Protected.</span>
-          </h1>
-
-          {/* KPI strip — three editorial metrics with animated count-up */}
-          <div className="flex flex-wrap items-end gap-x-6 md:gap-x-10 gap-y-4 mb-8 md:mb-10">
-            <div>
-              <div className="text-3xl md:text-5xl font-black tabular-nums leading-none text-foreground">
-                {displayTickets.toLocaleString("en-GB")}
-              </div>
-              <div className="text-[10px] md:text-xs uppercase tracking-[0.18em] font-bold text-muted-foreground mt-1.5">
-                tickets available
-              </div>
+          {/* Search + Filters */}
+          <div className="mt-5 md:mt-7 flex items-center gap-2 max-w-2xl">
+            <div className="relative flex-1 min-w-0">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search events, schools…"
+                className="h-12 pl-11 text-base bg-input text-foreground placeholder:text-muted-foreground border border-border focus-visible:ring-1 focus-visible:ring-primary"
+              />
             </div>
-            <div className="h-10 w-px bg-border hidden md:block" />
-            <div>
-              <div className="text-3xl md:text-5xl font-black tabular-nums leading-none text-foreground">
-                {displayNew}
-              </div>
-              <div className="text-[10px] md:text-xs uppercase tracking-[0.18em] font-bold text-muted-foreground mt-1.5">
-                new today
-              </div>
-            </div>
-            <div className="h-10 w-px bg-border hidden md:block" />
-            <div>
-              <div className="text-3xl md:text-5xl font-black tabular-nums leading-none text-foreground">
-                €{displayAvg}
-              </div>
-              <div className="text-[10px] md:text-xs uppercase tracking-[0.18em] font-bold text-muted-foreground mt-1.5">
-                average price
-              </div>
-            </div>
-          </div>
-
-          {/* Search — oversized, single CTA inline */}
-          <div className="relative max-w-2xl">
-            <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground pointer-events-none" />
-            <Input
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search an event, a school, a campus…"
-              className="h-14 md:h-16 pl-14 pr-32 md:pr-36 text-base md:text-lg bg-input text-foreground placeholder:text-muted-foreground border border-border focus-visible:ring-1 focus-visible:ring-primary"
-            />
             <button
-              onClick={scrollToGrid}
-              className="absolute right-2 top-1/2 -translate-y-1/2 h-10 md:h-12 px-4 md:px-5 inline-flex items-center gap-1.5 bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary-hover transition-colors"
+              type="button"
+              onClick={() => setFiltersOpen((v) => !v)}
+              aria-expanded={filtersOpen}
+              className={`shrink-0 inline-flex items-center gap-2 h-12 px-4 border text-sm font-semibold text-foreground transition-colors ${
+                filtersOpen || panelFilterCount > 0
+                  ? "border-primary bg-primary/10"
+                  : "border-border hover:bg-muted"
+              }`}
             >
-              Explore
-              <ArrowRight className="w-4 h-4" />
+              <SlidersHorizontal className="w-4 h-4" />
+              Filters
+              {panelFilterCount > 0 && (
+                <span className="min-w-5 h-5 px-1 inline-flex items-center justify-center bg-primary text-primary-foreground text-[11px] font-bold tabular-nums">
+                  {panelFilterCount}
+                </span>
+              )}
             </button>
           </div>
+
+          {filtersOpen && (
+            <div className="mt-3 max-w-2xl rounded-xl border border-border bg-card p-4 space-y-4">
+              <FilterGroup label="Price">
+                {PRICE_BUCKETS.map((b) => (
+                  <Chip
+                    key={b.id}
+                    onCard
+                    active={activePriceBucket === b.id}
+                    onClick={() => setActivePriceBucket(activePriceBucket === b.id ? null : b.id)}
+                  >
+                    {b.label}
+                  </Chip>
+                ))}
+              </FilterGroup>
+              {allUniversities.length > 1 && (
+                <FilterGroup label="School">
+                  {allUniversities.map((u) => (
+                    <Chip
+                      key={u}
+                      onCard
+                      active={activeUniversities.has(u)}
+                      onClick={() => setActiveUniversities(toggleInSet(activeUniversities, u))}
+                    >
+                      {u}
+                    </Chip>
+                  ))}
+                </FilterGroup>
+              )}
+              {allCampuses.length > 1 && (
+                <FilterGroup label="Campus">
+                  {allCampuses.map((c) => (
+                    <Chip
+                      key={c}
+                      onCard
+                      active={activeCampuses.has(c)}
+                      onClick={() => setActiveCampuses(toggleInSet(activeCampuses, c))}
+                    >
+                      {c}
+                    </Chip>
+                  ))}
+                </FilterGroup>
+              )}
+            </div>
+          )}
+
+          <p className="mt-4 text-sm text-muted-foreground">
+            Got a ticket to sell?{" "}
+            <Link
+              to="/marketplace/sell"
+              className="font-semibold text-foreground underline underline-offset-4 decoration-border hover:decoration-primary transition-colors"
+            >
+              Sell yours
+            </Link>
+          </p>
         </div>
       </section>
 
-      {/* =================== SELL YOUR TICKET — always visible, not just on empty state =================== */}
-      <div className="border-b border-border bg-muted/20">
-        <div className="container mx-auto max-w-6xl px-4 md:px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-primary/10 flex items-center justify-center shrink-0">
-              <Ticket className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <p className="text-sm font-bold text-foreground">Got a ticket to sell?</p>
-              <p className="text-xs text-muted-foreground">List it in a couple of minutes — protected, escrow payment.</p>
-            </div>
-          </div>
-          <button
-            onClick={() => navigate("/marketplace/sell")}
-            className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2.5 font-bold text-sm bg-primary text-primary-foreground hover:bg-primary-hover transition-colors"
-          >
-            Sell your ticket
-            <ArrowRight className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-
-      {/* =================== FILTER RAIL (sticky) =================== */}
-      <div className="sticky top-16 md:top-20 z-30 bg-background border-b border-border">
-        <div className="container mx-auto max-w-6xl px-4 md:px-6 py-3 md:py-4">
-          <div className="flex items-center gap-2 md:gap-3 overflow-x-auto scrollbar-hide -mx-1 px-1">
-            {/* Category chips */}
-            {CATEGORY_CHIPS.map((c) => {
-              const active = activeCategories.has(c.id);
-              return (
-                <button
-                  key={c.id}
-                  onClick={() => setActiveCategories(toggleInSet(activeCategories, c.id))}
-                  className={`shrink-0 px-3.5 py-1.5 text-xs md:text-sm font-semibold whitespace-nowrap transition-all ${
-                    active
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-foreground/75 hover:bg-muted/80"
-                  }`}
-                >
-                  {c.label}
-                </button>
-              );
-            })}
-            <div className="h-5 w-px bg-border shrink-0 mx-1" />
-            {/* Price buckets */}
-            {PRICE_BUCKETS.map((b) => {
-              const active = activePriceBucket === b.id;
-              return (
-                <button
-                  key={b.id}
-                  onClick={() => setActivePriceBucket(active ? null : b.id)}
-                  className={`shrink-0 px-3.5 py-1.5 text-xs md:text-sm font-semibold whitespace-nowrap transition-all tabular-nums ${
-                    active
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-foreground/75 hover:bg-muted/80"
-                  }`}
-                >
-                  {b.label}
-                </button>
-              );
-            })}
-            {allUniversities.length > 0 && (
-              <>
-                <div className="h-5 w-px bg-border shrink-0 mx-1" />
-                {allUniversities.map((u) => {
-                  const active = activeUniversities.has(u);
-                  return (
-                    <button
-                      key={u}
-                      onClick={() => setActiveUniversities(toggleInSet(activeUniversities, u))}
-                      className={`shrink-0 px-3.5 py-1.5 text-xs md:text-sm font-semibold whitespace-nowrap transition-all ${
-                        active
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted text-foreground/75 hover:bg-muted/80"
-                      }`}
-                    >
-                      {u}
-                    </button>
-                  );
-                })}
-              </>
-            )}
-            {allCampuses.length > 0 && (
-              <>
-                <div className="h-5 w-px bg-border shrink-0 mx-1" />
-                {allCampuses.map((c) => {
-                  const active = activeCampuses.has(c);
-                  return (
-                    <button
-                      key={c}
-                      onClick={() => setActiveCampuses(toggleInSet(activeCampuses, c))}
-                      className={`shrink-0 px-3 py-1.5 text-xs md:text-sm font-semibold whitespace-nowrap transition-all ${
-                        active
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-muted text-foreground/75 hover:bg-muted/80"
-                      }`}
-                    >
-                      {c}
-                    </button>
-                  );
-                })}
-              </>
-            )}
-            {activeFilterCount > 0 && (
-              <button
-                onClick={resetAll}
-                className="shrink-0 ml-auto px-3 py-1.5 text-xs md:text-sm font-semibold text-muted-foreground hover:text-foreground inline-flex items-center gap-1 transition-colors"
+      {/* =================== CATEGORIES (sticky) =================== */}
+      <div className="sticky top-16 md:top-20 z-30 bg-background border-y border-border">
+        <div className="container mx-auto max-w-6xl px-4 md:px-6 py-2.5">
+          <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide -mx-1 px-1">
+            <Chip active={activeCategories.size === 0} onClick={() => setActiveCategories(new Set())}>
+              All
+            </Chip>
+            {CATEGORY_CHIPS.map((c) => (
+              <Chip
+                key={c.id}
+                active={activeCategories.has(c.id)}
+                onClick={() => setActiveCategories(toggleInSet(activeCategories, c.id))}
               >
-                <X className="w-3.5 h-3.5" />
-                Reset
-              </button>
-            )}
+                {c.label}
+              </Chip>
+            ))}
           </div>
         </div>
       </div>
 
       {/* =================== RESULT BAR =================== */}
-      <div id="marketplace-grid" className="container mx-auto max-w-6xl px-4 md:px-6 pt-7 md:pt-10">
-        <div className="flex items-end justify-between gap-3 mb-5 md:mb-7">
-          <div>
-            <div className="text-[10px] md:text-xs uppercase tracking-[0.18em] font-bold text-muted-foreground">
-              {activeFilterCount > 0 ? "Filtered results" : "All tickets"}
-            </div>
-            <div className="text-2xl md:text-3xl font-black tabular-nums text-foreground leading-tight mt-0.5">
-              {filteredGroups.length}
-              <span className="text-base md:text-lg font-bold text-muted-foreground ml-1.5">
-                event{filteredGroups.length === 1 ? "" : "s"}
-              </span>
-            </div>
-          </div>
+      <div id="marketplace-grid" className="container mx-auto max-w-6xl px-4 md:px-6 pt-5 md:pt-7">
+        <div className="flex items-center justify-between gap-3 mb-4 md:mb-5">
+          <p className="text-sm text-muted-foreground flex items-center gap-3 min-w-0">
+            <span>
+              <span className="font-semibold text-foreground tabular-nums">{filteredGroups.length}</span>{" "}
+              event{filteredGroups.length === 1 ? "" : "s"}
+            </span>
+            {activeFilterCount > 0 && (
+              <button
+                type="button"
+                onClick={resetAll}
+                className="inline-flex items-center gap-1 font-semibold hover:text-foreground transition-colors"
+              >
+                <X className="w-3.5 h-3.5" />
+                Reset
+              </button>
+            )}
+          </p>
           <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
-            <SelectTrigger className="w-[180px] md:w-[210px] h-10 text-sm">
+            <SelectTrigger className="w-[170px] md:w-[200px] h-10 text-sm shrink-0">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -571,34 +425,14 @@ const Buy = () => {
               onSell={() => navigate("/marketplace/sell")}
             />
           ) : (
-            <div
-              key={filterHash}
-              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6 [grid-auto-flow:dense]"
-            >
-              {featuredGroup && (
-                <FeaturedCard
-                  key={featuredGroup.eventId}
-                  group={featuredGroup}
-                  index={0}
-                  expanded={expandedEvent === featuredGroup.eventId}
-                  onToggle={() =>
-                    setExpandedEvent(
-                      expandedEvent === featuredGroup.eventId ? null : featuredGroup.eventId,
-                    )
-                  }
-                  onBuy={handleBuy}
-                  onOffer={handleMakeOffer}
-                />
-              )}
-              {standardGroups.map((g, i) => (
-                <StandardCard
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5 items-start">
+              {filteredGroups.map((g, i) => (
+                <EventCard
                   key={g.eventId}
                   group={g}
-                  index={featuredGroup ? i + 1 : i}
+                  index={i}
                   expanded={expandedEvent === g.eventId}
-                  onToggle={() =>
-                    setExpandedEvent(expandedEvent === g.eventId ? null : g.eventId)
-                  }
+                  onToggle={() => setExpandedEvent(expandedEvent === g.eventId ? null : g.eventId)}
                   onBuy={handleBuy}
                   onOffer={handleMakeOffer}
                 />
@@ -612,18 +446,14 @@ const Buy = () => {
 
       <style>{`
         @keyframes ts-fade-up {
-          from { opacity: 0; transform: translateY(14px); }
+          from { opacity: 0; transform: translateY(10px); }
           to   { opacity: 1; transform: translateY(0); }
         }
-        .ts-fade-up { animation: ts-fade-up 0.55s cubic-bezier(0.16, 1, 0.3, 1) both; }
+        .ts-fade-up { animation: ts-fade-up 0.45s cubic-bezier(0.16, 1, 0.3, 1) both; }
         .scrollbar-hide::-webkit-scrollbar { display: none; }
         .scrollbar-hide { scrollbar-width: none; -ms-overflow-style: none; }
         @media (prefers-reduced-motion: reduce) {
           .ts-fade-up { animation: none; }
-          *, *::before, *::after {
-            animation-duration: 0.01ms !important;
-            transition-duration: 0.01ms !important;
-          }
         }
       `}</style>
     </div>
@@ -631,129 +461,55 @@ const Buy = () => {
 };
 
 // ────────────────────────────────────────────────────────────────────────────
-// Featured card — 2×2 magazine cover layout
+// Small building blocks
 // ────────────────────────────────────────────────────────────────────────────
 
-function FeaturedCard({
-  group,
-  index,
-  expanded,
-  onToggle,
-  onBuy,
-  onOffer,
+function Chip({
+  active,
+  onClick,
+  children,
+  onCard = false,
 }: {
-  group: EventGroup;
-  index: number;
-  expanded: boolean;
-  onToggle: () => void;
-  onBuy: (t: TicketListing) => void;
-  onOffer: (t: TicketListing) => void;
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+  /** Chip sits on a card surface (the filter panel) instead of the page background. */
+  onCard?: boolean;
 }) {
-  const days = daysUntil(group.eventDate);
   return (
-    <div
-      className="ts-fade-up sm:col-span-2 lg:col-span-2 lg:row-span-2 relative rounded-2xl overflow-hidden bg-card border border-border group"
-      style={{ animationDelay: `${index * 50}ms` }}
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`shrink-0 min-h-[40px] px-4 text-sm font-semibold whitespace-nowrap transition-colors ${
+        active
+          ? "bg-primary text-primary-foreground"
+          : onCard
+          ? "bg-background text-foreground/80 hover:bg-background/70"
+          : "bg-muted text-foreground/80 hover:bg-muted/80"
+      }`}
     >
-      {/* Hero image — seller's real photo/video when they uploaded one,
-          otherwise a flat surface block (never a broken image or a
-          generated gradient). The title/date/location overlay below still
-          reads fine against the flat surface, so there's no second copy of
-          the event name here. */}
-      <div className="relative aspect-[16/10] sm:aspect-[16/9] overflow-hidden bg-muted">
-        {group.videoUrl ? (
-          <video src={group.videoUrl} className="absolute inset-0 w-full h-full object-cover" autoPlay muted loop playsInline />
-        ) : group.photoUrl ? (
-          <img src={group.photoUrl} alt={group.eventTitle} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
-        ) : null}
-        {/* Dark scrim for legibility — kept even on the flat fallback so the
-            white overlay text stays readable either way. */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/15 to-transparent" />
+      {children}
+    </button>
+  );
+}
 
-        {/* Featured ribbon */}
-        {group.hasBoosted && (
-          <div className="absolute top-4 left-4 inline-flex items-center gap-1.5 px-3 py-1.5 bg-cta text-cta-foreground font-bold text-[10px] uppercase tracking-wider">
-            <Sparkles className="w-3 h-3" />
-            Featured
-          </div>
-        )}
-
-        {/* Urgency badge */}
-        {days >= 0 && days <= 7 && (
-          <div className="absolute top-4 right-4 inline-flex items-center gap-1.5 px-3 py-1.5 bg-card text-foreground font-bold text-[10px] uppercase tracking-wider">
-            <Clock className="w-3 h-3" />
-            {days === 0 ? "Tonight" : days === 1 ? "Tomorrow" : `In ${days}d`}
-          </div>
-        )}
-
-        {/* Title overlay bottom */}
-        <div className="absolute inset-x-0 bottom-0 p-6 md:p-8 text-white">
-          <div className="text-[10px] md:text-xs uppercase tracking-[0.2em] font-bold text-white/80 mb-2">
-            {group.eventUniversity || "Event"} · {group.eventCategory || "Event"}
-          </div>
-          <h2
-            className="font-bold leading-[0.98] tracking-tight mb-3 max-w-2xl"
-            style={{ fontSize: "clamp(1.5rem, 3.2vw, 2.5rem)" }}
-          >
-            {group.eventTitle}
-          </h2>
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs md:text-sm text-white/85">
-            <span className="inline-flex items-center gap-1.5">
-              <Calendar className="w-3.5 h-3.5" />
-              {new Date(group.eventDate).toLocaleDateString("en-GB", {
-                weekday: "long",
-                day: "numeric",
-                month: "long",
-              })}
-            </span>
-            {group.eventLocation && (
-              <span className="inline-flex items-center gap-1.5">
-                <MapPin className="w-3.5 h-3.5" />
-                {group.eventLocation}
-              </span>
-            )}
-          </div>
-        </div>
+function FilterGroup({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div className="text-[11px] uppercase tracking-[0.18em] font-bold text-muted-foreground mb-2">
+        {label}
       </div>
-
-      {/* Footer info bar */}
-      <div className="p-5 md:p-6 flex items-center justify-between gap-4">
-        <div>
-          <div className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">
-            From
-          </div>
-          <div className="text-2xl md:text-3xl font-black text-foreground tabular-nums leading-none mt-0.5">
-            €{group.minPrice.toFixed(0)}
-          </div>
-          <div className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-medium text-muted-foreground">
-            <ShieldCheck className="w-3 h-3 text-primary/70" />
-            TicketSafe protection included
-          </div>
-        </div>
-        <div className="text-right">
-          <div className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-2">
-            {group.totalAvailable} ticket{group.totalAvailable === 1 ? "" : "s"}
-          </div>
-          <button
-            onClick={onToggle}
-            className="inline-flex items-center gap-1.5 px-4 md:px-5 py-2.5 rounded-lg font-bold text-sm bg-primary text-primary-foreground hover:bg-primary-hover transition-all hover:gap-2.5"
-          >
-            {expanded ? "Hide" : "View tickets"}
-            <ArrowRight className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-
-      {expanded && <ExpandedTickets group={group} onBuy={onBuy} onOffer={onOffer} />}
+      <div className="flex flex-wrap gap-2">{children}</div>
     </div>
   );
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Standard card
+// Event card
 // ────────────────────────────────────────────────────────────────────────────
 
-function StandardCard({
+function EventCard({
   group,
   index,
   expanded,
@@ -774,92 +530,58 @@ function StandardCard({
   return (
     <div
       className="ts-fade-up flex flex-col rounded-2xl overflow-hidden bg-card border border-border hover:border-primary/30 transition-colors duration-300"
-      style={{ animationDelay: `${index * 50}ms` }}
+      style={{ animationDelay: `${Math.min(index, 8) * 40}ms` }}
     >
-      {/* Image — seller's real photo/video when present, see FeaturedCard comment above. */}
+      {/* Photo — the seller's own when there is one, else the event banner,
+          else a flat surface (never a broken image). */}
       <div className="relative aspect-[16/10] overflow-hidden bg-muted">
         {group.videoUrl ? (
           <video src={group.videoUrl} className="absolute inset-0 w-full h-full object-cover" autoPlay muted loop playsInline />
         ) : group.photoUrl ? (
           <img src={group.photoUrl} alt={group.eventTitle} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
         ) : null}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/45 to-transparent" />
 
-        {/* Top badges */}
-        <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
-          {group.eventCategory && (
-            <span className="px-2.5 py-1 bg-black/55 text-white text-[10px] font-bold uppercase tracking-wider">
-              {group.eventCategory}
-            </span>
-          )}
-          {group.eventCampus && (
-            <span className="px-2.5 py-1 bg-black/45 text-white text-[10px] font-bold uppercase tracking-wider">
-              {group.eventCampus}
-            </span>
-          )}
-          {sellingFast && (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-cta text-cta-foreground text-[10px] font-bold uppercase tracking-wider">
-              <Flame className="w-3 h-3" />
-              Selling out
-            </span>
-          )}
-        </div>
-
+        {/* One tag at most per corner: what's special, and how soon. */}
+        {(group.hasBoosted || sellingFast) && (
+          <span className="absolute top-3 left-3 inline-flex items-center gap-1.5 px-2.5 py-1 bg-cta text-cta-foreground text-[11px] font-bold uppercase tracking-wider">
+            {group.hasBoosted ? <Sparkles className="w-3 h-3" /> : <Flame className="w-3 h-3" />}
+            {group.hasBoosted ? "Featured" : "Selling out"}
+          </span>
+        )}
         {days >= 0 && days <= 7 && (
-          <div className="absolute top-3 right-3 px-2.5 py-1 bg-card text-foreground text-[10px] font-bold uppercase tracking-wider inline-flex items-center gap-1">
+          <span className="absolute top-3 right-3 inline-flex items-center gap-1.5 px-2.5 py-1 bg-card text-foreground text-[11px] font-bold uppercase tracking-wider">
             <Clock className="w-3 h-3" />
             {days === 0 ? "Tonight" : days === 1 ? "Tomorrow" : `In ${days}d`}
-          </div>
+          </span>
         )}
       </div>
 
       {/* Content */}
-      <div className="flex-1 flex flex-col p-5">
-        <div className="text-[10px] uppercase tracking-wider font-bold text-primary/80 mb-1">
-          {group.eventUniversity || "Event"}
-        </div>
-        <h3
-          className="font-bold text-foreground leading-tight mb-2.5 line-clamp-2"
-          style={{ fontSize: "1.15rem" }}
-        >
+      <div className="flex-1 flex flex-col p-4 md:p-5">
+        <h3 className="font-bold text-foreground text-lg leading-snug line-clamp-2">
           {group.eventTitle}
         </h3>
-        <div className="space-y-1.5 text-xs text-muted-foreground mb-4">
-          <div className="inline-flex items-center gap-1.5">
-            <Calendar className="w-3.5 h-3.5 shrink-0" />
-            {new Date(group.eventDate).toLocaleDateString("en-GB", {
-              day: "numeric",
-              month: "short",
-              year: "numeric",
-            })}
-          </div>
-          {group.eventLocation && (
-            <div className="inline-flex items-center gap-1.5">
-              <MapPin className="w-3.5 h-3.5 shrink-0" />
-              <span className="truncate">{group.eventLocation}</span>
-            </div>
-          )}
-        </div>
+        <p className="mt-1 text-sm text-muted-foreground truncate">
+          {shortDate(group.eventDate)}
+          {group.eventLocation ? ` · ${group.eventLocation}` : ""}
+        </p>
 
-        <div className="mt-auto flex items-end justify-between gap-3 pt-3 border-t border-border">
+        <div className="mt-4 flex items-end justify-between gap-3">
           <div>
-            <div className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">
-              From
-            </div>
-            <div className="text-xl font-black text-foreground tabular-nums leading-none mt-0.5">
+            <div className="text-xs text-muted-foreground">From</div>
+            <div className="text-2xl font-black text-foreground tabular-nums leading-none mt-1">
               €{group.minPrice.toFixed(0)}
-            </div>
-            <div className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-medium text-muted-foreground">
-              <ShieldCheck className="w-3 h-3 text-primary/70" />
-              Protection included
             </div>
           </div>
           <button
+            type="button"
             onClick={onToggle}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg font-bold text-xs bg-primary text-primary-foreground hover:bg-primary-hover transition-all hover:gap-2"
+            aria-expanded={expanded}
+            className="inline-flex items-center gap-1.5 px-4 min-h-[44px] rounded-lg font-bold text-sm bg-primary text-primary-foreground hover:bg-primary-hover transition-colors"
           >
-            {expanded ? "Hide" : "View"}
-            <ArrowRight className="w-3.5 h-3.5" />
+            {expanded ? "Hide" : `View ${group.totalAvailable} ticket${group.totalAvailable === 1 ? "" : "s"}`}
+            {!expanded && <ArrowRight className="w-4 h-4" />}
           </button>
         </div>
       </div>
@@ -870,7 +592,7 @@ function StandardCard({
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Expanded tickets row — shared by Featured + Standard cards
+// Tickets of one event, opened inside its card
 // ────────────────────────────────────────────────────────────────────────────
 
 function ExpandedTickets({
@@ -883,58 +605,55 @@ function ExpandedTickets({
   onOffer: (t: TicketListing) => void;
 }) {
   return (
-    <div className="border-t border-border bg-muted/30 p-5 space-y-2.5">
+    <div className="border-t border-border bg-muted/30 p-4 space-y-2.5">
+      <p className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+        <ShieldCheck className="w-3.5 h-3.5 text-primary" />
+        Protected by TicketSafe · escrow payment
+      </p>
       {group.tickets.map((t) => {
         const allIn = calcBreakdown(t.sellingPrice, 1).buyerTotalEuros;
         return (
-          <div
-            key={t.id}
-            className="flex flex-col sm:flex-row sm:items-center gap-3 p-3.5 rounded-xl bg-card border border-border"
-          >
-            <div className="flex-1 min-w-0">
-              <div className="flex flex-wrap items-baseline gap-2">
-                <span className="font-black text-xl text-foreground tabular-nums">
-                  €{allIn.toFixed(2)}
+          <div key={t.id} className="p-3.5 rounded-xl bg-card border border-border">
+            <div className="flex items-baseline gap-2">
+              <span className="font-black text-xl text-foreground tabular-nums">
+                €{allIn.toFixed(2)}
+              </span>
+              <span className="text-xs text-muted-foreground">all fees included</span>
+            </div>
+            <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-muted-foreground">
+              <span>{t.quantity} left</span>
+              {isBoosted(t) && (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-cta text-cta-foreground font-bold uppercase text-[10px]">
+                  <Sparkles className="w-2.5 h-2.5" />
+                  Featured
                 </span>
-                <span className="text-[10px] text-muted-foreground -ml-0.5">all fees included</span>
-                {isBoosted(t) && (
-                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-cta text-cta-foreground text-[10px] font-bold uppercase">
-                    <Sparkles className="w-2.5 h-2.5" />
-                    Featured
-                  </span>
-                )}
-                {t.verified && (
-                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-success/15 text-success text-[10px] font-bold uppercase">
-                    <ShieldCheck className="w-2.5 h-2.5" />
-                    Verified
-                  </span>
-                )}
-                <span className="text-[10px] text-muted-foreground">
-                  {t.quantity} left
+              )}
+              {t.verified && (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-success/15 text-success font-bold uppercase text-[10px]">
+                  <ShieldCheck className="w-2.5 h-2.5" />
+                  Verified
                 </span>
-              </div>
-              <p className="text-[11px] text-muted-foreground mt-1 inline-flex items-center gap-1">
-                <GraduationCap className="w-3 h-3" />
-                Verified student seller · escrow payment
-              </p>
-              {t.description && (
-                <p className="text-xs text-foreground/75 mt-1.5 line-clamp-2">{t.description}</p>
               )}
             </div>
-            <div className="flex gap-2 shrink-0">
+            {t.description && (
+              <p className="mt-1.5 text-sm text-foreground/75 line-clamp-2">{t.description}</p>
+            )}
+            <div className="mt-3 grid grid-cols-[1fr_auto] gap-2">
               <button
-                onClick={() => onOffer(t)}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-primary/30 text-primary font-semibold text-xs hover:bg-primary/5 transition-colors"
-              >
-                <MessageSquare className="w-3.5 h-3.5" />
-                Offer
-              </button>
-              <button
+                type="button"
                 onClick={() => onBuy(t)}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg font-bold text-xs bg-primary text-primary-foreground hover:bg-primary-hover transition-colors"
+                className="inline-flex items-center justify-center gap-1.5 min-h-[44px] rounded-lg font-bold text-sm bg-primary text-primary-foreground hover:bg-primary-hover transition-colors"
               >
                 Buy
-                <ArrowRight className="w-3.5 h-3.5" />
+                <ArrowRight className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => onOffer(t)}
+                className="inline-flex items-center justify-center gap-1.5 px-4 min-h-[44px] rounded-lg border border-border text-foreground font-semibold text-sm hover:bg-muted transition-colors"
+              >
+                <MessageSquare className="w-4 h-4" />
+                Make an offer
               </button>
             </div>
           </div>
@@ -950,22 +669,14 @@ function ExpandedTickets({
 
 function SkeletonGrid() {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6">
-      <div className="sm:col-span-2 lg:col-span-2 lg:row-span-2 rounded-2xl overflow-hidden bg-card border border-border">
-        <div className="aspect-[16/9] bg-muted animate-pulse" />
-        <div className="p-6 space-y-3">
-          <div className="h-3 bg-muted rounded animate-pulse w-1/3" />
-          <div className="h-6 bg-muted rounded animate-pulse w-3/4" />
-          <div className="h-4 bg-muted rounded animate-pulse w-1/2" />
-        </div>
-      </div>
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
       {Array.from({ length: 6 }).map((_, i) => (
         <div key={i} className="rounded-2xl overflow-hidden bg-card border border-border">
           <div className="aspect-[16/10] bg-muted animate-pulse" />
           <div className="p-5 space-y-3">
-            <div className="h-3 bg-muted rounded animate-pulse w-1/3" />
             <div className="h-5 bg-muted rounded animate-pulse w-3/4" />
             <div className="h-4 bg-muted rounded animate-pulse w-1/2" />
+            <div className="h-8 bg-muted rounded animate-pulse w-1/3" />
           </div>
         </div>
       ))}
@@ -984,8 +695,8 @@ function EmptyState({
 }) {
   return (
     <div className="text-center py-16 md:py-24 max-w-md mx-auto">
-      <div className="inline-flex w-20 h-20 rounded-2xl bg-primary/8 items-center justify-center mb-5">
-        <Ticket className="w-9 h-9 text-primary/60" strokeWidth={1.5} />
+      <div className="inline-flex w-16 h-16 rounded-2xl bg-primary/10 items-center justify-center mb-5">
+        <Ticket className="w-8 h-8 text-primary/70" strokeWidth={1.5} />
       </div>
       <h3 className="text-2xl font-bold text-foreground mb-2">
         {hasAnyListing ? "No tickets match" : "No tickets yet"}
@@ -998,15 +709,17 @@ function EmptyState({
       <div className="flex flex-wrap justify-center gap-3">
         {hasAnyListing ? (
           <button
+            type="button"
             onClick={onReset}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg font-bold text-sm bg-primary text-primary-foreground hover:bg-primary-hover transition-colors"
+            className="inline-flex items-center gap-2 px-5 min-h-[44px] rounded-lg font-bold text-sm bg-primary text-primary-foreground hover:bg-primary-hover transition-colors"
           >
             Reset filters
           </button>
         ) : (
           <button
+            type="button"
             onClick={onSell}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg font-bold text-sm bg-primary text-primary-foreground hover:bg-primary-hover transition-colors"
+            className="inline-flex items-center gap-2 px-5 min-h-[44px] rounded-lg font-bold text-sm bg-primary text-primary-foreground hover:bg-primary-hover transition-colors"
           >
             Sell my ticket
             <ArrowRight className="w-4 h-4" />

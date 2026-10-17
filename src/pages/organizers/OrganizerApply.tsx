@@ -18,11 +18,12 @@ import {
   XCircle,
 } from "lucide-react";
 import { z } from "zod";
-import Header from "@/components/Header";
+import HeaderNight from "@/components/HeaderNight";
 import Footer from "@/components/Footer";
 import { BackButton } from "@/components/BackButton";
 import { SEOHead } from "@/components/SEOHead";
 import { useAuth } from "@/hooks/useAuth";
+import { useThemeMode } from "@/hooks/useThemeMode";
 import { supabase } from "@/integrations/supabase/client";
 import { authRedirect } from "@/lib/siteUrl";
 import { toast } from "sonner";
@@ -122,6 +123,7 @@ const STEP_LABELS: Record<StepKey, { label: string; icon: typeof User }> = {
 };
 
 const OrganizerApply = () => {
+  useThemeMode("night");
   const { user } = useAuth();
   // Signed-out visitors create their account in the same flow, so they start on the account step.
   const activeSteps: StepKey[] = user
@@ -383,10 +385,10 @@ const OrganizerApply = () => {
   // Account already exists: send them to sign in, then back here to apply.
   if (existingEmail) {
     return (
-      <div className="min-h-screen flex flex-col bg-background">
+      <div className="theme-night min-h-screen flex flex-col bg-background">
         <SEOHead title="Account exists — TicketSafe Studio" description="Sign in to activate Studio on your account." />
-        <Header minimal />
-        <main className="flex-1 flex items-center justify-center px-4 py-16">
+        <HeaderNight />
+        <main className="flex-1 flex items-center justify-center px-4 pt-28 pb-16 md:pt-32">
           <div className="bg-card border border-border rounded-3xl p-10 max-w-lg text-center shadow-card">
             <h1 className="text-2xl md:text-3xl font-black text-foreground mb-4">You already have an account</h1>
             <p className="text-muted-foreground mb-8 leading-relaxed">
@@ -409,10 +411,10 @@ const OrganizerApply = () => {
   // Signed-out signup done: the user must confirm the email first.
   if (pendingConfirmEmail) {
     return (
-      <div className="min-h-screen flex flex-col bg-background">
+      <div className="theme-night min-h-screen flex flex-col bg-background">
         <SEOHead title="Check your inbox — TicketSafe Studio" description="Confirm your email to continue." />
-        <Header minimal />
-        <main className="flex-1 flex items-center justify-center px-4 py-16">
+        <HeaderNight />
+        <main className="flex-1 flex items-center justify-center px-4 pt-28 pb-16 md:pt-32">
           <div className="bg-card border border-border rounded-3xl p-10 max-w-lg text-center shadow-card">
             <div className="w-16 h-16 rounded-2xl mx-auto flex items-center justify-center mb-6 bg-primary/10">
               <Mail className="w-8 h-8 text-primary" />
@@ -448,10 +450,10 @@ const OrganizerApply = () => {
 
   if (submitted) {
     return (
-      <div className="min-h-screen flex flex-col bg-background">
+      <div className="theme-night min-h-screen flex flex-col bg-background">
         <SEOHead title="Application sent — TicketSafe Studio" description="Your organizer application has been submitted." />
-        <Header minimal />
-        <main className="flex-1 flex items-center justify-center px-4 py-16">
+        <HeaderNight />
+        <main className="flex-1 flex items-center justify-center px-4 pt-28 pb-16 md:pt-32">
           <div className="bg-card border border-border rounded-3xl p-10 max-w-lg text-center shadow-card">
             <div
               className="w-20 h-20 rounded-2xl mx-auto flex items-center justify-center mb-6"
@@ -497,14 +499,14 @@ const OrganizerApply = () => {
   ];
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="theme-night min-h-screen flex flex-col bg-background">
       <SEOHead
         title="Become an organizer — TicketSafe Studio"
         description="Apply to join TicketSafe Studio and sell your tickets directly."
       />
-      <Header minimal />
+      <HeaderNight />
 
-      <main className="flex-1 relative">
+      <main className="flex-1 relative pt-16 md:pt-20">
         {/* Subtle ambient blue */}
         <div
           className="pointer-events-none absolute -top-32 -left-32 w-[36rem] h-[36rem] rounded-full opacity-15 blur-3xl"
@@ -520,7 +522,7 @@ const OrganizerApply = () => {
             <BackButton fallbackPath="/organizers" />
           </div>
           <div className="text-center mb-7 md:mb-10">
-            <div className="text-[10px] md:text-xs uppercase tracking-[0.2em] font-bold text-primary mb-2 md:mb-3">
+            <div className="text-[10px] md:text-xs uppercase tracking-[0.2em] font-bold text-[hsl(var(--brand-200))] mb-2 md:mb-3">
               Studio beta
             </div>
             <h1 className="text-[26px] sm:text-3xl md:text-4xl font-black text-foreground mb-2 md:mb-3 leading-tight">
@@ -530,7 +532,7 @@ const OrganizerApply = () => {
               A few minutes. We get back to you within 24h.
             </p>
             {/* Compact step counter for mobile */}
-            <p className="md:hidden text-xs font-semibold text-primary mt-3">
+            <p className="md:hidden text-xs font-semibold text-[hsl(var(--brand-200))] mt-3">
               Step {step} of {totalSteps} · {STEP_LABELS[currentKey].label}
             </p>
           </div>
