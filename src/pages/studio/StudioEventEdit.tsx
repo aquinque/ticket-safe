@@ -70,6 +70,7 @@ interface EventRow {
   max_tickets_per_buyer: number | null;
   og_image_url: string | null;
   seo_description: string | null;
+  payment_provider?: string | null;
 }
 
 interface TierRow {
@@ -1090,6 +1091,13 @@ const StudioEventEdit = () => {
           {(() => {
             const paid = orders.filter((o) => o.status === "paid");
             const refundEuros = paid.reduce((s, o) => s + o.total_cents, 0) / 100;
+            // Stripe keeps its card fee on a refund. Estimate for European cards:
+            // 1.5 % + €0.25 per paid order (free orders never reach Stripe).
+            const stripeOrders = paid.filter((o) => o.total_cents > 0);
+            const stripeFeeEuros =
+              event.payment_provider === "stripe"
+                ? stripeOrders.reduce((s, o) => s + o.total_cents * 0.015 + 25, 0) / 100
+                : null;
             const ready =
               cancelReason.trim().length >= 5 && cancelConfirmText.trim().toUpperCase() === "CANCEL";
             return (
@@ -1108,6 +1116,13 @@ const StudioEventEdit = () => {
                         <>The event will be hidden from the public marketplace. No buyers are affected (no paid orders).</>
                       )}
                     </p>
+                    {stripeOrders.length > 0 && (
+                      <p>
+                        <strong>Stripe keeps its card fee on every refunded payment</strong>
+                        {stripeFeeEuros !== null && <>: about €{stripeFeeEuros.toFixed(2)} for these orders, more for non-European cards</>}.
+                        As the organizer, you cover that cost; otherwise TicketSafe has to pay it.
+                      </p>
+                    )}
                     <p className="text-destructive font-semibold">This cannot be undone.</p>
                   </div>
                 </AlertDialogDescription>
