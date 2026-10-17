@@ -104,7 +104,7 @@ const Organizers = () => {
               <div className="mb-5">
                 <BackButton />
               </div>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/15 border border-primary/30 text-foreground text-[10px] md:text-xs font-semibold tracking-wider uppercase mb-4 md:mb-5">
+              <div className="inline-flex items-center gap-2 px-3 py-1 bg-primary/15 border border-primary/30 text-foreground text-[10px] md:text-xs font-semibold tracking-wider uppercase mb-4 md:mb-5">
                 <Sparkles className="w-3 h-3 text-primary" />
                 <span className="leading-tight">TicketSafe Studio — for event organizers</span>
               </div>

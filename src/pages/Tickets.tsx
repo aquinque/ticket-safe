@@ -214,7 +214,7 @@ const Tickets = () => {
   const tonightCount = useMemo(() => allEvents.filter((e) => daysFromNow(e.date) === 0).length, [allEvents]);
   const showReco = recommended.length > 0 && reason === "personalized" && query.trim() === "" && category === "all" && !selectedOrg;
 
-  const chip = "shrink-0 inline-flex items-center gap-1.5 px-3.5 min-h-[40px] rounded-full text-xs font-semibold border transition-colors";
+  const chip = "shrink-0 inline-flex items-center gap-1.5 px-3.5 min-h-[40px] text-xs font-semibold border transition-colors";
 
   return (
     <div className="theme-night min-h-screen flex flex-col bg-background">
@@ -236,13 +236,6 @@ const Tickets = () => {
             <div className="mb-4"><BackButton /></div>
             <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-5">
               <div className="min-w-0">
-                <p className="inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.18em] text-foreground/75 mb-2 motion-safe:animate-fade-in">
-                  <span className="relative flex h-2 w-2">
-                    <span className="motion-safe:animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
-                  </span>
-                  {loading ? "Loading" : tonightCount > 0 ? `${tonightCount} tonight · ${thisWeekCount} this week` : thisWeekCount > 0 ? `${thisWeekCount} this week` : `${allEvents.length} coming up`}
-                </p>
                 <h1 className="font-display font-bold text-4xl md:text-6xl text-foreground leading-[0.98] text-balance motion-safe:animate-slide-up" style={{ letterSpacing: "-0.02em" }}>
                   Nights out{nearCity ? <> near <span className="text-primary">{nearCity.label}</span></> : " near you"}
                 </h1>
@@ -253,7 +246,7 @@ const Tickets = () => {
               <div className="flex flex-wrap items-center gap-2 motion-safe:animate-fade-in" style={{ animationDelay: "200ms", animationFillMode: "both" }}>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <button type="button" className="inline-flex items-center gap-2 pl-3 pr-2.5 min-h-[44px] rounded-full font-semibold text-sm bg-card/80 backdrop-blur border border-border hover:border-primary/50 transition-colors">
+                    <button type="button" className="inline-flex items-center gap-2 pl-3 pr-2.5 min-h-[44px] font-semibold text-sm bg-card/80 backdrop-blur border border-border hover:border-primary/50 transition-colors">
                       {near.locating ? <Loader2 className="w-4 h-4 animate-spin text-primary" /> : <MapPin className="w-4 h-4 text-primary" />}
                       {nearCity ? `Near ${nearCity.label}` : "Sort by my location"}
                       <ChevronDown className="w-4 h-4 text-muted-foreground" />
@@ -272,7 +265,7 @@ const Tickets = () => {
                     ))}
                   </DropdownMenuContent>
                 </DropdownMenu>
-                <Link to="/resale" className="inline-flex items-center gap-1.5 min-h-[44px] px-4 rounded-full text-sm font-semibold text-foreground border border-border bg-card/60 hover:border-primary/50 transition-colors">
+                <Link to="/resale" className="inline-flex items-center gap-1.5 min-h-[44px] px-4 text-sm font-semibold text-foreground border border-border bg-card/60 hover:border-primary/50 transition-colors">
                   <Repeat2 className="w-4 h-4 text-primary" />
                   Resale
                 </Link>
@@ -287,7 +280,7 @@ const Tickets = () => {
             <div className="flex flex-wrap items-center gap-2">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button type="button" className="shrink-0 inline-flex items-center gap-2 pl-2.5 pr-2 min-h-[40px] rounded-full font-semibold text-xs bg-card border border-border hover:border-primary/40 transition-colors">
+                  <button type="button" className="shrink-0 inline-flex items-center gap-2 pl-2.5 pr-2 min-h-[40px] font-semibold text-xs bg-card border border-border hover:border-primary/40 transition-colors">
                     {activeOrg?.logo ? (
                       <img src={activeOrg.logo} alt="" className="w-5 h-5 rounded-full object-cover shrink-0" />
                     ) : (
@@ -339,7 +332,7 @@ const Tickets = () => {
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Search"
                   aria-label="Search events"
-                  className="w-full pl-9 pr-3 h-10 rounded-full bg-muted/60 border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/40 focus:bg-background transition-colors"
+                  className="w-full pl-9 pr-3 h-10 bg-muted/60 border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/25 focus:border-primary/40 focus:bg-background transition-colors"
                 />
               </div>
             </div>
@@ -443,7 +436,7 @@ const Tickets = () => {
         <section className="py-12 md:py-20 border-t border-border bg-muted/20">
           <div className="container mx-auto px-4 max-w-5xl">
             <div className="text-center mb-8 md:mb-12">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-[10px] md:text-xs font-bold uppercase tracking-[0.18em] text-primary mb-3">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-primary/10 border border-primary/20 text-[10px] md:text-xs font-bold uppercase tracking-[0.18em] text-primary mb-3">
                 <Ticket className="w-3 h-3" />
                 Buying a ticket
               </div>
@@ -496,7 +489,7 @@ const Tickets = () => {
         {/* ===================== COMING SOON ===================== */}
         <section className="py-8 bg-muted/30 border-y border-border">
           <div className="container mx-auto px-4 text-center">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-card border border-border text-xs font-semibold text-muted-foreground">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-card border border-border text-xs font-semibold text-muted-foreground">
               <Lock className="w-3 h-3" />
               More organisers coming soon
             </div>
@@ -516,7 +509,7 @@ const Tickets = () => {
                     Apply for Ticket Safe Studio: branded event pages, ticket types, a live dashboard, door scanning and payouts.
                   </p>
                 </div>
-                <Link to="/organizers" className="inline-flex items-center justify-center gap-2 px-6 min-h-[48px] rounded-full font-bold bg-primary-foreground text-primary hover:bg-primary-foreground/90 transition-colors shrink-0">
+                <Link to="/organizers" className="inline-flex items-center justify-center gap-2 px-6 min-h-[48px] font-bold bg-primary-foreground text-primary hover:bg-primary-foreground/90 transition-colors shrink-0">
                   Apply for Studio
                   <ArrowRight className="w-4 h-4" />
                 </Link>
