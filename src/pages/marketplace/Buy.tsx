@@ -61,8 +61,6 @@ const daysUntil = (iso: string): number => {
   return Math.ceil((target - today.getTime()) / (1000 * 60 * 60 * 24));
 };
 
-const eurLabel = (n: number): string => (Number.isInteger(n) ? `€${n}` : `€${n.toFixed(2)}`);
-
 const shortDate = (iso: string): string =>
   new Date(iso).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
 
@@ -528,7 +526,6 @@ function EventCard({
 }) {
   const days = daysUntil(group.eventDate);
   const sellingFast = group.totalAvailable <= 3;
-  const fromAllIn = calcBreakdown(group.minPrice, 1).buyerTotalEuros;
 
   return (
     <div
@@ -572,9 +569,9 @@ function EventCard({
 
         <div className="mt-4 flex items-end justify-between gap-3">
           <div>
-            <div className="text-xs text-muted-foreground">From · fees included</div>
+            <div className="text-xs text-muted-foreground">From</div>
             <div className="text-2xl font-black text-foreground tabular-nums leading-none mt-1">
-              {eurLabel(fromAllIn)}
+              €{group.minPrice.toFixed(0)}
             </div>
           </div>
           <button
