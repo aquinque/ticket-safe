@@ -7,9 +7,13 @@
 -- never below min_cents (so a very cheap ticket still covers the card processing cost) and
 -- never above max_cents (so an expensive ticket isn't charged a fee out of proportion).
 --
+-- The percentage is 10 %: 1,00 € on a 10 € ticket, 2,00 € on a 20 €. No single percentage
+-- reproduces the old fees at both prices (1,20 € is 12 % of 10 €, 1,60 € is 8 % of 20 €);
+-- 10 % keeps the fee income unchanged as long as two tickets in three are at 10 €.
+--
 -- The three numbers live in one row of service_fee_settings. Changing the percentage is a
 -- one-line update, not a deploy:
---     update public.service_fee_settings set percent = 15, updated_at = now() where id;
+--     update public.service_fee_settings set percent = 12, updated_at = now() where id;
 -- Orders already placed keep the fee they were charged (it is stored on the order); only
 -- new checkouts use the new numbers, and the site shows the new fee straight away because
 -- it reads it from get_studio_commission_cents.
@@ -25,7 +29,7 @@
 
 create table if not exists public.service_fee_settings (
   id boolean primary key default true check (id), -- one row only
-  percent numeric(5, 2) not null default 13.00,
+  percent numeric(5, 2) not null default 10.00,
   min_cents integer not null default 70,
   max_cents integer not null default 350,
   updated_at timestamptz not null default now(),
@@ -50,7 +54,7 @@ create policy service_fee_settings_read on public.service_fee_settings
 comment on table public.service_fee_settings is
   'The buyer service fee on Studio tickets: percent of the ticket price, clamped to [min_cents, max_cents]. One row. Read through get_studio_commission_cents; edit with a plain UPDATE.';
 comment on column public.service_fee_settings.percent is
-  'Service fee as a percentage of the ticket price (13.00 = 13 %). Between 0 and 30.';
+  'Service fee as a percentage of the ticket price (10.00 = 10 %). Between 0 and 30.';
 comment on column public.service_fee_settings.min_cents is
   'Lowest fee charged on a paid ticket, in cents.';
 comment on column public.service_fee_settings.max_cents is
