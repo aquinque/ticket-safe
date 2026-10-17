@@ -354,6 +354,10 @@ const RefundPolicy = () => {
                       <li>You may also contact the original event organizer for a refund</li>
                       <li>TicketSafe will assist with refund coordination</li>
                     </ul>
+                    <p>
+                      Buyers never pay for a cancellation. Stripe keeps its processing fee on every refunded payment: the
+                      organizer who cancels the event covers that cost, otherwise TicketSafe has to pay it.
+                    </p>
 
                     <h3 className="font-semibold text-foreground text-lg mt-4">5.2 Event Postponement</h3>
                     <p>
