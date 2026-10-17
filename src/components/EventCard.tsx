@@ -156,8 +156,8 @@ export default EventCard;
 export const EventCardSkeleton = () => (
   <div className="relative w-full aspect-[4/5] overflow-hidden rounded-lg bg-muted animate-pulse">
     <div className="absolute inset-x-3 top-3 flex gap-1.5">
-      <div className="h-5 w-16 rounded-full bg-foreground/10" />
-      <div className="h-5 w-14 rounded-full bg-foreground/10" />
+      <div className="h-5 w-16 bg-foreground/10" />
+      <div className="h-5 w-14 bg-foreground/10" />
     </div>
     <div className="absolute inset-x-4 bottom-4 space-y-2">
       <div className="h-3 w-20 rounded bg-foreground/10" />
