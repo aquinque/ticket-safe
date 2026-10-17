@@ -2,32 +2,24 @@
  * generateServiceInvoicePdf(data) — TicketSafe's service-fee invoice to an
  * organizer, for the ticketing service fee collected on one event.
  *
- * This IS a tax invoice (facture) under French law — carries the
- * mandatory mentions of art. L441-9 C. com. / art. 242 nonies A ann. II
- * CGI: sequential number, issuer identity (SIREN, RCS, legal form,
- * share capital), client identity, designation, VAT breakdown (or the
- * franchise-en-base exemption mention), payment terms, late-payment
- * penalty clause. Generated exactly once per event, never edited —
- * corrections are a credit note (see generate-billing-document).
+ * This IS a tax invoice (facture) under French law. It carries the mandatory
+ * mentions of art. L441-9 C. com. and art. 242 nonies A annexe II CGI: sequential
+ * number, issue date, date of the service, nature of the operation, TicketSafe's
+ * identity (legal form, capital, SIREN, RCS, VAT number or the franchise mention),
+ * the client's identity (name, address, SIREN or RNA), each line's quantity, unit
+ * price excluding VAT, VAT rate and totals, the due date, the discount terms, the
+ * late-payment rate and the 40 € recovery indemnity. Generated once per event and
+ * never edited. A correction needs a credit note, which this module doesn't draw yet:
+ * a credit note has negative amounts and its own wording, and nothing issues one.
  */
-import { PDFDocument, StandardFonts, rgb, PDFFont, PDFPage } from "https://esm.sh/pdf-lib@1.17.1";
-
-export interface ServiceInvoiceLine {
-  description: string;
-  quantity: number;
-  unitPriceCents: number;
-  vatRateBps: number;
-  vatCents: number;
-  totalHtCents: number;
-  totalTtcCents: number;
-}
+import { MARGIN_X, MM, A4_W, CONTENT_W, BRAND, INK, MUTED, Sheet, type TextStyle } from "./pdfKit.ts";
+import { formatDateFr, formatEurFr, formatUnitPriceFr } from "./pdfText.ts";
+import type { InvoiceLine } from "./billingRules.ts";
 
 export interface ServiceInvoiceData {
   documentNumber: string;
-  issuedAt: string; // ISO
-  serviceDate: string; // ISO — date de la prestation
-  isCreditNote?: boolean;
-  correctsDocumentNumber?: string | null;
+  issuedAt: string; // ISO: when the number was allocated
+  serviceDate: string; // ISO: the end of the event, when the service is complete
 
   seller: {
     legalName: string;
@@ -35,14 +27,16 @@ export interface ServiceInvoiceData {
     shareCapitalCents: number;
     siren: string;
     rcsCity: string;
+    rcsLabel: string | null;
     addressLine1: string;
     postalCode: string;
     city: string;
     country: string;
     vatExempt: boolean;
     vatNumber: string | null;
+    vatOnDebits: boolean;
     vatExemptMention: string;
-    latePaymentPenaltyMention: string;
+    latePaymentMention: string;
     supportEmail: string;
   };
   client: {
@@ -56,158 +50,174 @@ export interface ServiceInvoiceData {
   };
 
   eventTitle: string;
-  lines: ServiceInvoiceLine[];
+  eventDate: string; // ISO
+  lines: InvoiceLine[];
+  vatRateBps: number;
   totalHtCents: number;
   totalVatCents: number;
   totalTtcCents: number;
 }
 
-const A4_W = 595.28;
-const A4_H = 841.89;
-const MM = 2.834645669;
+const x = (mm: number) => mm * MM;
+const RIGHT = A4_W - MARGIN_X;
+const HALF = CONTENT_W / 2 - 6;
+const SMALL: TextStyle = { size: 9, color: MUTED };
 
-const BRAND = rgb(0, 0.2, 0.6);
-const INK = rgb(0.06, 0.09, 0.16);
-const MUTED = rgb(0.39, 0.45, 0.55);
-const HAIR = rgb(0.88, 0.91, 0.94);
-const SOFT = rgb(0.97, 0.98, 0.99);
-const WHITE = rgb(1, 1, 1);
+// Column edges of the line table, in mm from the left of the page.
+const COL = { desc: 14, descW: 92, qtyR: 112, unitR: 140, vatR: 158, totalR: 196 };
 
-const eur = (cents: number) => `${(cents / 100).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
-const longDate = (iso: string) => {
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
-};
+const spacedSiren = (s: string) => s.replace(/(\d{3})(?=\d)/g, "$1 ");
+const place = (line: string | null, postal: string | null, city: string | null, country: string | null) =>
+  [[line, [postal, city].filter(Boolean).join(" ")].filter(Boolean).join(", "), country && country !== "France" ? country : null]
+    .filter(Boolean)
+    .join(", ");
 
 export async function generateServiceInvoicePdf(d: ServiceInvoiceData): Promise<Uint8Array> {
-  const pdf = await PDFDocument.create();
-  const page = pdf.addPage([A4_W, A4_H]);
-  const reg = await pdf.embedFont(StandardFonts.Helvetica);
-  const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
-  const mono = await pdf.embedFont(StandardFonts.Courier);
-  const fromTop = (mm: number) => A4_H - mm * MM;
+  const sheet = await Sheet.create({
+    title: `Facture ${d.documentNumber}`,
+    subject: `Facture de frais de service de billetterie – ${d.eventTitle}`,
+    createdAt: new Date(d.issuedAt),
+  });
+  const s = d.seller;
 
-  page.drawRectangle({ x: 0, y: A4_H - 14 * MM, width: A4_W, height: 14 * MM, color: WHITE });
-  page.drawRectangle({ x: 14 * MM, y: A4_H - 14 * MM, width: A4_W - 28 * MM, height: 0.6, color: BRAND });
-  text(page, "TICKET SAFE", { x: 14 * MM, y: fromTop(9), font: bold, size: 11, color: BRAND, spacing: 1.4 });
-  text(page, d.isCreditNote ? "AVOIR" : "FACTURE", { x: A4_W - 14 * MM, y: fromTop(9), font: bold, size: 10, color: MUTED, spacing: 1.0, anchorRight: true });
+  // ── Title and dates ──
+  sheet.text("Facture", MARGIN_X, 32, { font: "bold", size: 22 });
+  sheet.text(d.documentNumber, MARGIN_X, 41, { font: "mono", size: 12, color: BRAND });
+  const meta: [string, string][] = [
+    ["DATE D'ÉMISSION", formatDateFr(d.issuedAt)],
+    ["DATE DE LA PRESTATION", formatDateFr(d.serviceDate)],
+    ["ÉCHÉANCE", formatDateFr(d.issuedAt)],
+  ];
+  meta.forEach(([label, value], i) => {
+    sheet.label(label, RIGHT, 24 + i * 12, "right");
+    sheet.text(value, RIGHT, 29.5 + i * 12, { font: "bold", size: 10, align: "right" });
+  });
+  sheet.rule(58);
 
-  const title = d.isCreditNote ? "Avoir" : "Facture";
-  text(page, title, { x: 14 * MM, y: fromTop(32), font: bold, size: 22, color: INK });
-  text(page, d.documentNumber, { x: 14 * MM, y: fromTop(41), font: mono, size: 12, color: BRAND });
-  if (d.isCreditNote && d.correctsDocumentNumber) {
-    text(page, `Annule et remplace la facture ${d.correctsDocumentNumber}`, { x: 14 * MM, y: fromTop(47), font: reg, size: 9, color: MUTED });
+  // ── Parties ──
+  const colR = MARGIN_X + CONTENT_W / 2 + 6;
+  sheet.label("VENDEUR", MARGIN_X, 65);
+  sheet.label("CLIENT", colR, 65);
+
+  let ly = sheet.block(s.legalName, MARGIN_X, 71, HALF, { font: "bold", size: 11.5 }, 5);
+  ly = sheet.block(`${s.legalForm} au capital de ${formatEurFr(s.shareCapitalCents)}`, MARGIN_X, ly + 0.5, HALF, SMALL);
+  ly = sheet.block(place(s.addressLine1, s.postalCode, s.city, s.country), MARGIN_X, ly, HALF, SMALL);
+  ly = sheet.block(`SIREN ${spacedSiren(s.siren)} · RCS ${s.rcsCity}`, MARGIN_X, ly, HALF, SMALL);
+  ly = sheet.block(
+    s.vatExempt ? s.vatExemptMention : `N° TVA intracommunautaire : ${s.vatNumber}`,
+    MARGIN_X,
+    ly,
+    HALF,
+    SMALL,
+  );
+  if (!s.vatExempt && s.vatOnDebits) {
+    ly = sheet.block("Option pour le paiement de la TVA d'après les débits.", MARGIN_X, ly, HALF, SMALL);
   }
 
-  // Doc meta, right-aligned
-  const metaX = A4_W - 14 * MM;
-  label(page, "DATE D'ÉMISSION", metaX, fromTop(30), bold, true);
-  text(page, longDate(d.issuedAt), { x: metaX, y: fromTop(35.5), font: bold, size: 10, color: INK, anchorRight: true });
-  label(page, "DATE DE LA PRESTATION", metaX, fromTop(43), bold, true);
-  text(page, longDate(d.serviceDate), { x: metaX, y: fromTop(48.5), font: bold, size: 10, color: INK, anchorRight: true });
+  const c = d.client;
+  let ry = sheet.block(c.name, colR, 71, HALF, { font: "bold", size: 11.5 }, 5);
+  if (c.siren) ry = sheet.block(`SIREN ${spacedSiren(c.siren)}`, colR, ry + 0.5, HALF, SMALL);
+  if (c.rnaNumber) ry = sheet.block(`RNA ${c.rnaNumber}`, colR, c.siren ? ry : ry + 0.5, HALF, SMALL);
+  ry = sheet.block(place(c.addressLine1, c.postalCode, c.city, c.country), colR, ry, HALF, SMALL);
 
-  hairline(page, 56);
+  sheet.y = Math.max(ly, ry) + 4;
+  sheet.rule();
 
-  // Parties
-  const colL = 14 * MM;
-  const colR = 14 * MM + (A4_W - 28 * MM) * 0.5 + 6;
-  label(page, "VENDEUR", colL, fromTop(65), bold);
-  text(page, d.seller.legalName, { x: colL, y: fromTop(71), font: bold, size: 12, color: INK });
-  text(page, d.seller.legalForm, { x: colL, y: fromTop(76), font: reg, size: 9, color: MUTED });
-  text(page, `Capital social : ${eur(d.seller.shareCapitalCents)}`, { x: colL, y: fromTop(81), font: reg, size: 9, color: MUTED });
-  text(page, `${d.seller.addressLine1}, ${d.seller.postalCode} ${d.seller.city}, ${d.seller.country}`, { x: colL, y: fromTop(86), font: reg, size: 9, color: MUTED, maxWidth: (A4_W - 28 * MM) * 0.5 - 6 });
-  text(page, `SIREN ${d.seller.siren} · RCS ${d.seller.rcsCity}`, { x: colL, y: fromTop(91), font: reg, size: 9, color: MUTED });
-  text(page, d.seller.vatExempt ? d.seller.vatExemptMention : `N° TVA intracommunautaire : ${d.seller.vatNumber ?? "—"}`, { x: colL, y: fromTop(96), font: reg, size: 8, color: MUTED, maxWidth: (A4_W - 28 * MM) * 0.5 - 6 });
+  // ── Object ──
+  sheet.y += 7;
+  sheet.label("OBJET", MARGIN_X, sheet.y);
+  sheet.y += 5.5;
+  sheet.flow(`${d.lines[0]?.description ?? "Frais de service de billetterie"} – ${d.eventTitle}`, { font: "bold", size: 10.5 }, 5);
+  sheet.flow(`Événement du ${formatDateFr(d.eventDate)} · Nature de l'opération : prestation de services`, SMALL);
+  sheet.y += 3;
 
-  label(page, "CLIENT", colR, fromTop(65), bold);
-  text(page, d.client.name, { x: colR, y: fromTop(71), font: bold, size: 12, color: INK, maxWidth: (A4_W - 28 * MM) * 0.5 - 6 });
-  let cy = 76;
-  if (d.client.siren) {
-    text(page, `SIREN ${d.client.siren}`, { x: colR, y: fromTop(cy), font: reg, size: 9, color: MUTED });
-    cy += 5;
-  } else if (d.client.rnaNumber) {
-    text(page, `RNA ${d.client.rnaNumber}`, { x: colR, y: fromTop(cy), font: reg, size: 9, color: MUTED });
-    cy += 5;
-  }
-  if (d.client.addressLine1) {
-    text(page, `${d.client.addressLine1}, ${d.client.postalCode ?? ""} ${d.client.city ?? ""}`, { x: colR, y: fromTop(cy), font: reg, size: 9, color: MUTED, maxWidth: (A4_W - 28 * MM) * 0.5 - 6 });
-  }
-
-  hairline(page, 104);
-
-  // Line items
-  let y = 114;
-  const colDesc = colL, colQty = 112 * MM, colUnit = 135 * MM, colVat = 162 * MM, colTotal = A4_W - 14 * MM;
-  text(page, "DÉSIGNATION", { x: colDesc, y: fromTop(y), font: bold, size: 8, color: MUTED, spacing: 0.8 });
-  text(page, "QTÉ", { x: colQty, y: fromTop(y), font: bold, size: 8, color: MUTED, spacing: 0.8 });
-  text(page, "PU HT", { x: colUnit, y: fromTop(y), font: bold, size: 8, color: MUTED, spacing: 0.8 });
-  text(page, "TVA", { x: colVat, y: fromTop(y), font: bold, size: 8, color: MUTED, spacing: 0.8 });
-  text(page, "TOTAL TTC", { x: colTotal, y: fromTop(y), font: bold, size: 8, color: MUTED, spacing: 0.8, anchorRight: true });
-  y += 4;
-  hairline(page, y);
-  y += 8;
-  for (const l of d.lines) {
-    text(page, l.description, { x: colDesc, y: fromTop(y), font: reg, size: 10, color: INK, maxWidth: colQty - colDesc - 4 });
-    text(page, String(l.quantity), { x: colQty, y: fromTop(y), font: reg, size: 10, color: INK });
-    text(page, eur(l.unitPriceCents), { x: colUnit, y: fromTop(y), font: reg, size: 10, color: INK });
-    text(page, l.vatRateBps > 0 ? `${(l.vatRateBps / 100).toFixed(0)}%` : "—", { x: colVat, y: fromTop(y), font: reg, size: 10, color: INK });
-    text(page, eur(l.totalTtcCents), { x: colTotal, y: fromTop(y), font: bold, size: 10, color: INK, anchorRight: true });
-    y += 8;
-  }
-
-  y += 4;
-  hairline(page, y);
-  y += 10;
-
-  // Totals box
-  page.drawRectangle({ x: 14 * MM, y: A4_H - (y + 38) * MM, width: A4_W - 28 * MM, height: 38 * MM, color: SOFT, borderColor: HAIR, borderWidth: 0.4 });
-  const sx1 = 14 * MM + 6 * MM, sx2 = A4_W - 14 * MM - 6 * MM;
-  const row = (n: number, l: string, v: string, big = false) => {
-    const ly = y + 8 + n * 8;
-    text(page, l, { x: sx1, y: fromTop(ly), font: reg, size: big ? 11 : 10, color: big ? INK : MUTED });
-    text(page, v, { x: sx2, y: fromTop(ly), font: bold, size: big ? 14 : 10, color: big ? BRAND : INK, anchorRight: true });
+  // ── Lines ──
+  const header = () => {
+    const y = sheet.y;
+    const style: TextStyle = { font: "bold", size: 8, color: MUTED, spacing: 0.8 };
+    sheet.text("DÉSIGNATION", x(COL.desc), y, style);
+    sheet.text("QTÉ", x(COL.qtyR), y, { ...style, align: "right" });
+    sheet.text("PU HT", x(COL.unitR), y, { ...style, align: "right" });
+    sheet.text("TVA", x(COL.vatR), y, { ...style, align: "right" });
+    sheet.text("TOTAL HT", x(COL.totalR), y, { ...style, align: "right" });
+    sheet.rule(y + 2.5);
+    sheet.y = y + 8;
   };
-  row(0, "Total HT", eur(d.totalHtCents));
-  row(1, d.seller.vatExempt ? "TVA" : "TVA (20%)", d.seller.vatExempt ? "non applicable" : eur(d.totalVatCents));
-  row(2, "Total TTC", eur(d.totalTtcCents), true);
-
-  y += 46;
-
-  // Payment terms
-  label(page, "CONDITIONS DE PAIEMENT", colL, fromTop(y), bold);
-  y += 6;
-  text(page, "Montant déduit directement du reversement effectué à l'organisateur (compensation). Aucun paiement séparé n'est requis.", { x: colL, y: fromTop(y), font: reg, size: 9, color: MUTED, maxWidth: A4_W - 28 * MM });
-  y += 10;
-  text(page, d.seller.latePaymentPenaltyMention, { x: colL, y: fromTop(y), font: reg, size: 7.5, color: MUTED, maxWidth: A4_W - 28 * MM });
-
-  // Footer
-  const footY = 278;
-  hairline(page, footY);
-  text(page, "TICKET SAFE", { x: 14 * MM, y: fromTop(footY + 7), font: bold, size: 8, color: BRAND, spacing: 1.2 });
-  text(page, d.seller.supportEmail, { x: A4_W - 14 * MM, y: fromTop(footY + 7), font: reg, size: 8, color: MUTED, anchorRight: true });
-
-  return await pdf.save();
-}
-
-function text(
-  page: PDFPage,
-  t: string,
-  o: { x: number; y: number; font: PDFFont; size: number; color: ReturnType<typeof rgb>; spacing?: number; anchorRight?: boolean; maxWidth?: number },
-) {
-  let s = t;
-  if (o.maxWidth) {
-    while (o.font.widthOfTextAtSize(s, o.size) > o.maxWidth && s.length > 4) s = s.slice(0, -2);
-    if (s !== t) s = s.slice(0, -1) + "…";
+  sheet.ensure(40);
+  header();
+  const { bold, reg } = sheet.fonts;
+  for (const l of d.lines) {
+    // The ticket price sits next to the designation when it fits, under it otherwise.
+    const tag = l.detail ? ` · ${l.detail}` : "";
+    const sameLine = bold.widthOfTextAtSize(l.description, 10) + reg.widthOfTextAtSize(tag, 9) <= x(COL.descW);
+    if (sheet.ensure(sameLine ? 9 : 14)) header();
+    const top = sheet.y;
+    sheet.text(l.description, x(COL.desc), top, { font: "bold", size: 10 });
+    let bottom = top;
+    if (tag && sameLine) {
+      sheet.text(tag, x(COL.desc) + bold.widthOfTextAtSize(l.description, 10), top, SMALL);
+    } else if (l.detail) {
+      bottom = sheet.block(l.detail, x(COL.desc), top + 4.6, x(COL.descW), SMALL, 4.3) - 4.3;
+    }
+    sheet.text(String(l.quantity), x(COL.qtyR), top, { align: "right" });
+    sheet.text(formatUnitPriceFr(l.unitPriceHtCents), x(COL.unitR), top, { align: "right" });
+    sheet.text(l.vatRateBps > 0 ? `${l.vatRateBps / 100} %`.replace(".", ",") : "—", x(COL.vatR), top, { align: "right" });
+    sheet.text(formatEurFr(l.totalHtCents), x(COL.totalR), top, { font: "bold", align: "right" });
+    sheet.rule(bottom + 2.3);
+    sheet.y = bottom + 7;
   }
-  const x = o.anchorRight ? o.x - o.font.widthOfTextAtSize(s, o.size) : o.x;
-  page.drawText(s, { x, y: o.y, font: o.font, size: o.size, color: o.color, ...(o.spacing ? { characterSpacing: o.spacing } : {}) });
-}
-function label(page: PDFPage, t: string, x: number, y: number, font: PDFFont, anchorRight = false) {
-  const size = 8;
-  const dx = anchorRight ? x - font.widthOfTextAtSize(t, size) : x;
-  page.drawText(t, { x: dx, y, font, size, color: MUTED, characterSpacing: 1.1 });
-}
-function hairline(page: PDFPage, atTopMM: number) {
-  page.drawRectangle({ x: 14 * MM, y: A4_H - atTopMM * MM, width: A4_W - 28 * MM, height: 0.3, color: HAIR });
+
+  // ── Payment terms (left) beside the totals (right) ──
+  sheet.y += 1;
+  const leftW = x(94);
+  const terms: [string, string][] = [
+    ["Échéance", `${formatDateFr(d.issuedAt)}, date d'émission de la facture.`],
+    [
+      "Mode de règlement",
+      "Compensation : les frais de service, payés par les acheteurs à TicketSafe lors de la vente, sont retenus par TicketSafe sur les sommes " +
+        "qu'elle encaisse pour le compte de l'organisateur. Aucun paiement supplémentaire n'est dû.",
+    ],
+    ["Escompte", "Aucun escompte n'est accordé pour paiement anticipé."],
+  ];
+  const TERM: TextStyle = { size: 8.5, color: MUTED };
+  const termHeight = terms.reduce((h, [, text]) => h + 4.4 + sheet.wrap(text, leftW, TERM).length * 4.2 + 2.2, 6);
+  const BOX_H = 38;
+  sheet.ensure(Math.max(termHeight, BOX_H) + 8);
+  const top = sheet.y;
+
+  sheet.label("CONDITIONS DE RÈGLEMENT", MARGIN_X, top + 4);
+  let ty = top + 10;
+  for (const [label, text] of terms) {
+    sheet.text(label, MARGIN_X, ty, { font: "bold", size: 8.5 });
+    ty = sheet.block(text, MARGIN_X, ty + 4.2, leftW, TERM, 4.2) + 2.2;
+  }
+
+  const boxX = x(112);
+  const boxW = RIGHT - boxX;
+  sheet.box(boxX, top, boxW, BOX_H);
+  const row = (i: number, label: string, value: string, style: TextStyle = {}) => {
+    const y = top + 7 + i * 6.4;
+    sheet.text(label, boxX + x(5), y, { size: style.size ?? 10, color: style.color ?? MUTED });
+    sheet.text(value, RIGHT - x(5), y, { font: "bold", size: style.size ?? 10, color: style.color ?? INK, align: "right" });
+  };
+  row(0, "Total HT", formatEurFr(d.totalHtCents));
+  row(1, d.vatRateBps > 0 ? `TVA ${d.vatRateBps / 100} %`.replace(".", ",") : "TVA", d.vatRateBps > 0 ? formatEurFr(d.totalVatCents) : "non applicable");
+  row(2, "Total TTC", formatEurFr(d.totalTtcCents), { size: 12, color: BRAND });
+  row(3, "Réglé par compensation", `-${formatEurFr(d.totalTtcCents)}`);
+  row(4, "Reste à payer", formatEurFr(0));
+
+  // ── Late payment, in full ──
+  sheet.y = Math.max(ty, top + BOX_H) + 5;
+  sheet.ensure(24);
+  sheet.text("Retard de paiement", MARGIN_X, sheet.y, { font: "bold", size: 8.5 });
+  sheet.y += 4.2;
+  sheet.flow(s.latePaymentMention, TERM, 4.2);
+
+  return await sheet.finish({
+    label: "FACTURE",
+    number: d.documentNumber,
+    footer:
+      `${s.legalName}, ${s.legalForm} au capital de ${formatEurFr(s.shareCapitalCents)} · ${s.rcsLabel ?? `${spacedSiren(s.siren)} R.C.S. ${s.rcsCity}`} · ` +
+      `${place(s.addressLine1, s.postalCode, s.city, s.country)} · ${s.supportEmail}`,
+  });
 }

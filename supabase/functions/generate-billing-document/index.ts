@@ -10,15 +10,19 @@
  * already stored in the private `billing-documents` bucket.
  *
  * Two distinct documents, never mixed:
- *  - sales_statement: informal reddition de comptes for the organizer.
- *    May be regenerated while the event's revenue isn't fully paid out
- *    yet (status stays "provisoire"); frozen once "definitif" (see the
- *    FIFO payout-allocation note below — flagged for accountant review).
- *  - service_invoice: a real legal tax invoice for TicketSafe's per-ticket
- *    ticket service fee. Numbered exactly once via a gapless counter
- *    (see migration 20261002120000), immutable from creation — corrections
- *    would be a credit note (schema supports it; no UI trigger for it
- *    yet, see delivery report).
+ *  - sales_statement: the organizer's account of what TicketSafe collected,
+ *    kept as its service fee, and owes them. Not an invoice. May be regenerated
+ *    while the money hasn't all been paid out (status stays "provisoire"),
+ *    frozen once "definitif".
+ *  - service_invoice: a real tax invoice for TicketSafe's ticket service fee.
+ *    Numbered exactly once via a gapless counter (migration 20261002120000),
+ *    immutable from creation — a correction is a credit note (the schema and the
+ *    PDF support it; nothing issues one yet).
+ *
+ * Nothing irreversible happens before every rule has passed: an invoice number is
+ * allocated only for an event that is over, has paid tickets that carried a fee,
+ * and whose organizer's identity is complete, and only once TicketSafe's own
+ * details and VAT regime have been confirmed (see _shared/billingRules.ts).
  *
  * No buyer personal data (name/email) ever appears in either document —
  * only aggregates, per the RGPD requirement.
@@ -27,6 +31,16 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { generateSalesStatementPdf, type SalesStatementData } from "../_shared/salesStatementPdf.ts";
 import { generateServiceInvoicePdf, type ServiceInvoiceData } from "../_shared/serviceInvoicePdf.ts";
+import {
+  buildInvoiceAmounts,
+  clientDetailsBlocker,
+  eventEnd,
+  invoiceBlocker,
+  resolvePenaltyMention,
+  sellerSettingsProblems,
+  type InvoiceAmounts,
+} from "../_shared/billingRules.ts";
+import { parisDateKey } from "../_shared/pdfText.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -38,10 +52,38 @@ function json(body: unknown, status = 200) {
 }
 
 const SIGNED_URL_TTL_SECONDS = 300; // 5 minutes — "short duration" per spec
+const PAGE = 1000; // PostgREST returns at most 1000 rows per request
 
 async function sha256Hex(bytes: Uint8Array): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", bytes);
   return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+/**
+ * Every row of a query, not just the first thousand. A document built from a truncated
+ * list would be wrong without any error, which is the one thing a financial document
+ * must never be.
+ */
+// deno-lint-ignore no-explicit-any
+async function fetchAll<T>(page: (from: number, to: number) => any): Promise<T[]> {
+  const rows: T[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await page(from, from + PAGE - 1);
+    if (error) throw new Error(`Could not read the data this document is built from: ${error.message}`);
+    rows.push(...(data ?? []));
+    if ((data ?? []).length < PAGE) return rows;
+  }
+}
+
+interface OrderRow {
+  status: string;
+  quantity: number;
+  total_cents: number;
+  fee_cents: number | null;
+  unit_price_cents: number;
+  discount_cents: number | null;
+  tier_id: string;
+  created_at: string;
 }
 
 serve(async (req) => {
@@ -70,7 +112,7 @@ serve(async (req) => {
 
   const { data: event } = await supabase
     .from("events")
-    .select("id, title, date, location, organizer_id")
+    .select("id, title, date, ends_at, status, location, organizer_id, payment_provider")
     .eq("id", eventId)
     .maybeSingle();
   if (!event) return json({ error: "Event not found" }, 404);
@@ -118,79 +160,132 @@ async function signAndRespond(supabase: any, storagePath: string, extra: Record<
   return json({ ok: true, url: signed.signedUrl, expires_in: SIGNED_URL_TTL_SECONDS, ...extra });
 }
 
+/** TicketSafe's side of both documents, as the PDFs take it. */
+// deno-lint-ignore no-explicit-any
+function sellerFrom(settings: any) {
+  return {
+    legalName: settings.legal_name,
+    legalForm: settings.legal_form,
+    shareCapitalCents: settings.share_capital_cents,
+    siren: settings.siren,
+    rcsCity: settings.rcs_city,
+    rcsLabel: settings.rcs_full_label ?? null,
+    addressLine1: settings.address_line1,
+    postalCode: settings.postal_code,
+    city: settings.city,
+    country: settings.country,
+    supportEmail: settings.support_email,
+  };
+}
+
+// deno-lint-ignore no-explicit-any
+function organizerFrom(organizer: any) {
+  return {
+    name: organizer.name,
+    siren: organizer.siren,
+    rnaNumber: organizer.rna_number,
+    addressLine1: organizer.billing_address_line1,
+    postalCode: organizer.billing_postal_code,
+    city: organizer.billing_city,
+    country: organizer.billing_country,
+  };
+}
+
+function notReady(problems: string[]) {
+  console.error("[generate-billing-document] TicketSafe's billing settings are not ready:", problems.join(", "));
+  return json(
+    {
+      error: "Invoicing isn't open yet: TicketSafe is finishing its billing set-up. Please try again soon.",
+      code: "invoicing_not_ready",
+    },
+    503,
+  );
+}
+
 // ────────────────────────────────────────────────────────────────────────
 // Sales statement
 // ────────────────────────────────────────────────────────────────────────
 // deno-lint-ignore no-explicit-any
 async function handleSalesStatement(supabase: any, event: any, organizer: any, settings: any) {
-  const { data: orders } = await supabase
-    .from("event_orders")
-    .select("status, quantity, total_cents, fee_cents, unit_price_cents, tier_id, created_at")
-    .eq("event_id", event.id);
-  const rows: { status: string; quantity: number; total_cents: number; fee_cents: number; unit_price_cents: number; tier_id: string; created_at: string }[] = orders ?? [];
+  // A frozen statement is served as it was issued, never rebuilt.
+  const { data: existing } = await supabase
+    .from("billing_documents")
+    .select("status, storage_path, document_number")
+    .eq("event_id", event.id)
+    .eq("doc_type", "sales_statement")
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (existing?.status === "definitif" && existing.storage_path) {
+    return signAndRespond(supabase, existing.storage_path, { document_number: existing.document_number, status: "definitif" });
+  }
+
+  // The statement doesn't depend on the VAT regime, only on who TicketSafe is.
+  const problems = sellerSettingsProblems(settings).filter((p) => !p.startsWith("VAT"));
+  if (problems.length > 0) return notReady(problems);
+
+  const rows = await fetchAll<OrderRow>((from, to) =>
+    supabase
+      .from("event_orders")
+      .select("status, quantity, total_cents, fee_cents, unit_price_cents, discount_cents, tier_id, created_at")
+      .eq("event_id", event.id)
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, to),
+  );
+  const paid = rows.filter((r) => r.status === "paid");
+  // Only a paid order that was given back. Orders marked "cancelled" are checkouts that were
+  // abandoned or timed out: nobody paid, so there is nothing to list.
+  const refunded = rows.filter((r) => r.status === "refunded");
+  if (paid.length === 0 && refunded.length === 0) {
+    return json({ error: "Nothing to report yet: this event has no paid orders.", code: "no_sales" }, 409);
+  }
 
   const { data: tiers } = await supabase.from("event_tiers").select("id, name").eq("event_id", event.id);
   const tierNameById = new Map((tiers ?? []).map((t: { id: string; name: string }) => [t.id, t.name]));
 
-  const paid = rows.filter((r) => r.status === "paid");
-  const refunded = rows.filter((r) => r.status === "refunded" || r.status === "cancelled");
+  const paidByBuyersCents = paid.reduce((a, r) => a + r.total_cents, 0);
+  const serviceFeeCents = paid.reduce((a, r) => a + (r.fee_cents ?? 0), 0);
+  const netCents = paidByBuyersCents - serviceFeeCents;
+  const discountCents = paid.reduce((a, r) => a + (r.discount_cents ?? 0), 0);
+  const refundedTickets = refunded.reduce((a, r) => a + r.quantity, 0);
+  const refundedCents = refunded.reduce((a, r) => a + r.total_cents, 0);
 
-  const grossCents = paid.reduce((a, r) => a + r.total_cents, 0);
-  const ticketSafeFeeCents = paid.reduce((a, r) => a + (r.fee_cents ?? 0), 0);
-  const netCents = grossCents - ticketSafeFeeCents;
-  const refundCount = refunded.reduce((a, r) => a + r.quantity, 0);
-  const refundCents = refunded.reduce((a, r) => a + r.total_cents, 0);
-
-  const tierAgg = new Map<string, { soldQty: number; unitPriceCents: number; totalCents: number }>();
+  // One row per tier and ticket price (a price changed in the middle of the sale gives two rows).
+  const tierAgg = new Map<string, { tierId: string; unitPriceCents: number; quantity: number; discountCents: number; netCents: number }>();
   for (const r of paid) {
-    const cur = tierAgg.get(r.tier_id) ?? { soldQty: 0, unitPriceCents: r.unit_price_cents, totalCents: 0 };
-    cur.soldQty += r.quantity;
-    cur.totalCents += r.total_cents - (r.fee_cents ?? 0); // net of TicketSafe's fee, this is what the tier earned the organizer
-    tierAgg.set(r.tier_id, cur);
+    const key = `${r.tier_id}|${r.unit_price_cents}`;
+    const cur = tierAgg.get(key) ?? { tierId: r.tier_id, unitPriceCents: r.unit_price_cents, quantity: 0, discountCents: 0, netCents: 0 };
+    cur.quantity += r.quantity;
+    cur.discountCents += r.discount_cents ?? 0;
+    cur.netCents += r.total_cents - (r.fee_cents ?? 0);
+    tierAgg.set(key, cur);
   }
-  const tierBreakdown = Array.from(tierAgg.entries()).map(([tierId, v]) => ({
-    name: String(tierNameById.get(tierId) ?? "—"),
-    soldQty: v.soldQty,
-    unitPriceCents: v.unitPriceCents,
-    totalCents: v.totalCents,
-  }));
+  const tierBreakdown = [...tierAgg.values()]
+    .map((v) => ({
+      name: String(tierNameById.get(v.tierId) ?? "—"),
+      unitPriceCents: v.unitPriceCents,
+      quantity: v.quantity,
+      discountCents: v.discountCents,
+      netCents: v.netCents,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name) || a.unitPriceCents - b.unitPriceCents);
 
-  // Resales (informational) — tickets resold on TicketSafe that originated
-  // from this event's Studio tickets.
-  const { data: eventTickets } = await supabase.from("event_tickets").select("id").eq("event_id", event.id);
-  const eventTicketIds = (eventTickets ?? []).map((t: { id: string }) => t.id);
-  let resaleCount = 0, resaleGrossCents = 0, resaleFeeCents = 0;
-  if (eventTicketIds.length > 0) {
-    const { data: resales } = await supabase
-      .from("tickets")
-      .select("selling_price, quantity")
-      .in("studio_ticket_id", eventTicketIds)
-      .eq("status", "sold");
-    for (const r of resales ?? []) {
-      const qty = r.quantity ?? 1;
-      const grossEuro = (r.selling_price ?? 0) * qty;
-      resaleCount += qty;
-      resaleGrossCents += Math.round(grossEuro * 100);
-      resaleFeeCents += Math.round(grossEuro * 100 * 0.06); // buyer-side fee estimate, informational only
-    }
-  }
+  const { resaleCount, resaleVolumeCents } = await resaleSummary(supabase, event.id);
+  const payoutStatus = await computePayoutStatus(supabase, organizer.id, event, paid.length > 0);
 
-  // FIFO payout-allocation check — see header note in generateFifoPayoutStatus.
-  const payoutStatus = await computeFifoPayoutStatus(supabase, organizer.id, event.id);
-
-  const periodStart = paid.length > 0 ? paid.map((r) => r.created_at).sort()[0] : event.date;
-  const periodEnd = new Date().toISOString();
+  const periodStart = paid.length > 0 ? paid[0].created_at : event.date;
+  const issuedAt = new Date().toISOString();
 
   const totals = {
-    gross_cents: grossCents,
-    ticketsafe_fee_cents: ticketSafeFeeCents,
+    paid_by_buyers_cents: paidByBuyersCents,
+    service_fee_cents: serviceFeeCents,
     net_cents: netCents,
-    refund_count: refundCount,
-    refund_cents: refundCents,
+    discount_cents: discountCents,
+    refunded_tickets: refundedTickets,
+    refunded_cents: refundedCents,
     resale_count: resaleCount,
-    resale_gross_cents: resaleGrossCents,
-    resale_fee_cents: resaleFeeCents,
-    tier_breakdown: tierBreakdown,
+    resale_volume_cents: resaleVolumeCents,
+    tiers: tierBreakdown,
     payout_status: payoutStatus,
   };
 
@@ -201,7 +296,7 @@ async function handleSalesStatement(supabase: any, event: any, organizer: any, s
     p_related_invoice_id: null,
     p_totals: totals,
     p_period_start: periodStart,
-    p_period_end: periodEnd,
+    p_period_end: issuedAt,
     p_service_date: null,
     p_created_by: null,
   });
@@ -212,36 +307,21 @@ async function handleSalesStatement(supabase: any, event: any, organizer: any, s
   const data: SalesStatementData = {
     documentNumber: reserved.document_number,
     status: payoutStatus,
-    issuedAt: new Date().toISOString(),
+    issuedAt,
     periodStart,
-    periodEnd,
-    ticketSafe: {
-      legalName: settings.legal_name,
-      addressLine1: settings.address_line1,
-      postalCode: settings.postal_code,
-      city: settings.city,
-      country: settings.country,
-      supportEmail: settings.support_email,
-    },
-    organizer: {
-      name: organizer.name,
-      siren: organizer.siren,
-      rnaNumber: organizer.rna_number,
-      addressLine1: organizer.billing_address_line1,
-      postalCode: organizer.billing_postal_code,
-      city: organizer.billing_city,
-      country: organizer.billing_country,
-    },
+    periodEnd: issuedAt,
+    ticketSafe: sellerFrom(settings),
+    organizer: organizerFrom(organizer),
     event: { title: event.title, date: event.date, location: event.location },
-    tierBreakdown,
-    grossCents,
-    ticketSafeFeeCents,
+    tiers: tierBreakdown,
+    paidByBuyersCents,
+    serviceFeeCents,
     netCents,
-    refundCount,
-    refundCents,
+    discountCents,
+    refundedTickets,
+    refundedCents,
     resaleCount,
-    resaleGrossCents,
-    resaleFeeCents,
+    resaleVolumeCents,
   };
 
   const pdfBytes = await generateSalesStatementPdf(data);
@@ -254,44 +334,93 @@ async function handleSalesStatement(supabase: any, event: any, organizer: any, s
   });
   if (upErr) return json({ error: `Upload failed: ${upErr.message}` }, 500);
 
-  await supabase.rpc("finalize_billing_document", {
+  const { error: finErr } = await supabase.rpc("finalize_billing_document", {
     p_document_id: reserved.id,
     p_storage_path: storagePath,
     p_file_hash: hash,
     p_status: payoutStatus,
   });
+  if (finErr) return json({ error: `Could not save the statement: ${finErr.message}` }, 500);
 
   return signAndRespond(supabase, storagePath, { document_number: reserved.document_number, status: payoutStatus });
 }
 
 /**
- * FIFO payout-allocation: payouts are a pooled, organizer-level balance
- * (one SEPA transfer can cover several events), not tracked per event. To
- * still give a meaningful "has THIS event been paid out" answer, we treat
- * the organizer's net revenue as one running total ordered by event date,
- * and compare it against their cumulative SENT payouts: an event is
- * "definitif" once the cumulative revenue *up to and including it* is
- * covered by cumulative sent transfers.
- *
- * ⚠️ This is a reasonable approximation, not a true per-event ledger —
- * flagged in the delivery report for accountant sign-off. If the
- * organizer ever withdraws selectively or the payout system gains real
- * per-event allocation, this logic should be revisited.
+ * Tickets of this event resold between individuals on TicketSafe, for information.
+ * Never part of the statement's amounts, so a failure here only leaves the paragraph out.
  */
 // deno-lint-ignore no-explicit-any
-async function computeFifoPayoutStatus(supabase: any, organizerId: string, eventId: string): Promise<"provisoire" | "definitif"> {
+async function resaleSummary(supabase: any, eventId: string): Promise<{ resaleCount: number; resaleVolumeCents: number }> {
+  try {
+    const tickets = await fetchAll<{ id: string }>((from, to) =>
+      supabase.from("event_tickets").select("id").eq("event_id", eventId).order("id", { ascending: true }).range(from, to),
+    );
+    let resaleCount = 0;
+    let resaleVolumeCents = 0;
+    for (let i = 0; i < tickets.length; i += 100) {
+      const { data, error } = await supabase
+        .from("tickets")
+        .select("selling_price, quantity")
+        .in("studio_ticket_id", tickets.slice(i, i + 100).map((t) => t.id))
+        .eq("status", "sold");
+      if (error) throw error;
+      for (const r of data ?? []) {
+        const qty = r.quantity ?? 1;
+        resaleCount += qty;
+        resaleVolumeCents += Math.round((r.selling_price ?? 0) * qty * 100);
+      }
+    }
+    return { resaleCount, resaleVolumeCents };
+  } catch (err) {
+    console.error("[generate-billing-document] resale summary skipped:", err);
+    return { resaleCount: 0, resaleVolumeCents: 0 };
+  }
+}
+
+/**
+ * Has everything owed to the organizer for this event been paid out?
+ *
+ * Stripe events: exactly, from the event's own payout job. Older (Revolut) events:
+ * payouts are a pooled, organizer-level balance (one SEPA transfer can cover several
+ * events), not tracked per event. To still answer "has THIS event been paid out", the
+ * organizer's net revenue is treated as one running total ordered by event date and
+ * compared with their cumulative SENT payouts: an event is "definitif" once the
+ * cumulative revenue up to and including it is covered by the transfers sent.
+ *
+ * ⚠️ For the Revolut events that is a reasonable approximation, not a per-event
+ * ledger — flagged for accountant sign-off.
+ */
+// deno-lint-ignore no-explicit-any
+async function computePayoutStatus(supabase: any, organizerId: string, event: any, hasPaidOrders: boolean): Promise<"provisoire" | "definitif"> {
+  if (!hasPaidOrders) return "provisoire";
+
+  if (event.payment_provider === "stripe") {
+    const { data: job } = await supabase
+      .from("stripe_connect_payout_jobs")
+      .select("id")
+      .eq("event_id", event.id)
+      .eq("kind", "organizer_event_payout")
+      .eq("status", "sent")
+      .limit(1)
+      .maybeSingle();
+    return job ? "definitif" : "provisoire";
+  }
+
   const { data: orgEvents } = await supabase.from("events").select("id, date").eq("organizer_id", organizerId).order("date", { ascending: true });
-  const eventIds = (orgEvents ?? []).map((e: { id: string }) => e.id);
-  if (eventIds.length === 0) return "provisoire";
+  if ((orgEvents ?? []).length === 0) return "provisoire";
 
-  const { data: orders } = await supabase
-    .from("event_orders")
-    .select("event_id, total_cents, fee_cents")
-    .in("event_id", eventIds)
-    .eq("status", "paid");
-
+  const orders = await fetchAll<{ event_id: string; total_cents: number; fee_cents: number | null }>((from, to) =>
+    supabase
+      .from("event_orders")
+      .select("event_id, total_cents, fee_cents")
+      .eq("organizer_id", organizerId)
+      .eq("status", "paid")
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, to),
+  );
   const netByEvent = new Map<string, number>();
-  for (const o of orders ?? []) {
+  for (const o of orders) {
     netByEvent.set(o.event_id, (netByEvent.get(o.event_id) ?? 0) + o.total_cents - (o.fee_cents ?? 0));
   }
 
@@ -299,7 +428,7 @@ async function computeFifoPayoutStatus(supabase: any, organizerId: string, event
   let cumulativeAtTarget = 0;
   for (const e of orgEvents ?? []) {
     cumulative += netByEvent.get(e.id) ?? 0;
-    if (e.id === eventId) {
+    if (e.id === event.id) {
       cumulativeAtTarget = cumulative;
       break;
     }
@@ -316,9 +445,9 @@ async function computeFifoPayoutStatus(supabase: any, organizerId: string, event
 // ────────────────────────────────────────────────────────────────────────
 // deno-lint-ignore no-explicit-any
 async function handleServiceInvoice(supabase: any, event: any, organizer: any, settings: any, userId: string) {
-  // Already generated? Serve the existing file (definitif => always;
-  // provisoire => a previous attempt crashed after reserving the number
-  // but before uploading — resume with the SAME row/number below).
+  // Already issued? Serve the file as it was issued. A provisoire row means an earlier
+  // attempt crashed after allocating the number but before finishing: it is resumed below
+  // with the SAME row and number, so no number is ever lost.
   const { data: existing } = await supabase
     .from("billing_documents")
     .select("*")
@@ -331,127 +460,128 @@ async function handleServiceInvoice(supabase: any, event: any, organizer: any, s
     return signAndRespond(supabase, existing.storage_path, { document_number: existing.document_number, status: "definitif" });
   }
 
+  const problems = sellerSettingsProblems(settings);
+
   let reserved = existing;
-  let ticketCount = 0;
-  let feeTotalCents = 0;
-
   if (!reserved) {
-    const { data: orders } = await supabase.from("event_orders").select("quantity, fee_cents").eq("event_id", event.id).eq("status", "paid");
-    for (const o of orders ?? []) {
-      ticketCount += o.quantity;
-      feeTotalCents += o.fee_cents ?? 0;
-    }
-    if (ticketCount === 0) return json({ error: "Nothing to invoice yet — no paid tickets for this event." }, 400);
+    const orders = await fetchAll<{ quantity: number; fee_cents: number | null; unit_price_cents: number | null }>((from, to) =>
+      supabase
+        .from("event_orders")
+        .select("quantity, fee_cents, unit_price_cents")
+        .eq("event_id", event.id)
+        .eq("status", "paid")
+        .order("created_at", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to),
+    );
+    const blocker = invoiceBlocker({
+      event,
+      paidTickets: orders.reduce((a, o) => a + o.quantity, 0),
+      feeCents: orders.reduce((a, o) => a + (o.fee_cents ?? 0), 0),
+      client: { ...organizer },
+    });
+    // What can't be fixed on the organizer's side comes first; their own details come after
+    // TicketSafe's, since completing them wouldn't help while invoicing isn't open.
+    if (blocker && blocker.code !== "client_details_missing") return json({ error: blocker.message, code: blocker.code }, 409);
+    if (problems.length > 0) return notReady(problems);
+    if (blocker) return json({ error: blocker.message, code: blocker.code, missing: blocker.missing }, 422);
 
-    const vatExempt = !!settings.vat_exempt;
-    const vatRateBps = settings.vat_rate_bps ?? 0;
-    const totalTtcCents = feeTotalCents;
-    const totalHtCents = vatExempt ? totalTtcCents : Math.round(totalTtcCents / (1 + vatRateBps / 10000));
-    const vatCents = totalTtcCents - totalHtCents;
-
-    const totals = { ticket_count: ticketCount, total_ht_cents: totalHtCents, vat_cents: vatCents, total_ttc_cents: totalTtcCents, vat_rate_bps: vatExempt ? 0 : vatRateBps };
-
+    const amounts = buildInvoiceAmounts(orders, { exempt: !!settings.vat_exempt, rateBps: settings.vat_rate_bps ?? 0 });
     const { data: r, error: reserveErr } = await supabase.rpc("reserve_billing_document", {
       p_doc_type: "service_invoice",
       p_organizer_id: organizer.id,
       p_event_id: event.id,
       p_related_invoice_id: null,
-      p_totals: totals,
+      p_totals: amounts,
       p_period_start: null,
       p_period_end: null,
-      p_service_date: event.date,
+      p_service_date: parisDateKey(eventEnd(event)),
       p_created_by: userId,
     });
     if (reserveErr || !r) return json({ error: reserveErr?.message ?? "Could not reserve the invoice number." }, 409);
     reserved = r;
   } else {
-    // Resuming a crashed attempt — use the already-committed totals/number.
-    ticketCount = reserved.totals?.ticket_count ?? 0;
-    feeTotalCents = reserved.totals?.total_ttc_cents ?? 0;
+    // The number is already spent, so the invoice still has to end up complete before it is issued.
+    if (problems.length > 0) return notReady(problems);
+    const blocker = clientDetailsBlocker(organizer);
+    if (blocker) return json({ error: blocker.message, code: blocker.code, missing: blocker.missing }, 422);
   }
 
-  const totals = reserved.totals as { ticket_count: number; total_ht_cents: number; vat_cents: number; total_ttc_cents: number; vat_rate_bps: number };
-  const unitPriceHtCents = totals.ticket_count > 0 ? Math.round(totals.total_ht_cents / totals.ticket_count) : 0;
+  const amounts = reserved.totals as InvoiceAmounts;
+  if (!Array.isArray(amounts?.lines) || amounts.lines.length === 0) {
+    throw new Error(`Invoice ${reserved.document_number} has no line items stored; it cannot be completed automatically.`);
+  }
 
   const data: ServiceInvoiceData = {
     documentNumber: reserved.document_number,
-    issuedAt: new Date().toISOString(),
-    serviceDate: event.date,
+    issuedAt: reserved.issued_at,
+    serviceDate: (eventEnd(event) ?? new Date(reserved.issued_at)).toISOString(),
     seller: {
-      legalName: settings.legal_name,
-      legalForm: settings.legal_form,
-      shareCapitalCents: settings.share_capital_cents,
-      siren: settings.siren,
-      rcsCity: settings.rcs_city,
-      addressLine1: settings.address_line1,
-      postalCode: settings.postal_code,
-      city: settings.city,
-      country: settings.country,
-      vatExempt: settings.vat_exempt,
+      ...sellerFrom(settings),
+      vatExempt: !!settings.vat_exempt,
       vatNumber: settings.vat_number,
+      vatOnDebits: !!settings.vat_on_debits,
       vatExemptMention: settings.vat_exempt_mention,
-      latePaymentPenaltyMention: settings.late_payment_penalty_mention,
-      supportEmail: settings.support_email,
+      latePaymentMention: resolvePenaltyMention(settings.late_payment_penalty_mention),
     },
-    client: {
-      name: organizer.name,
-      siren: organizer.siren,
-      rnaNumber: organizer.rna_number,
-      addressLine1: organizer.billing_address_line1,
-      postalCode: organizer.billing_postal_code,
-      city: organizer.billing_city,
-      country: organizer.billing_country,
-    },
+    client: organizerFrom(organizer),
     eventTitle: event.title,
-    lines: [
-      {
-        description: `Frais de service billetterie – ${event.title}`,
-        quantity: totals.ticket_count,
-        unitPriceCents: unitPriceHtCents,
-        vatRateBps: totals.vat_rate_bps,
-        vatCents: totals.vat_cents,
-        totalHtCents: totals.total_ht_cents,
-        totalTtcCents: totals.total_ttc_cents,
-      },
-    ],
-    totalHtCents: totals.total_ht_cents,
-    totalVatCents: totals.vat_cents,
-    totalTtcCents: totals.total_ttc_cents,
+    eventDate: event.date,
+    lines: amounts.lines,
+    vatRateBps: amounts.vatRateBps,
+    totalHtCents: amounts.totalHtCents,
+    totalVatCents: amounts.totalVatCents,
+    totalTtcCents: amounts.totalTtcCents,
   };
 
   const pdfBytes = await generateServiceInvoicePdf(data);
   const hash = await sha256Hex(pdfBytes);
   const storagePath = `${organizer.id}/service_invoice/${reserved.id}.pdf`;
 
+  // A concurrent request may have completed this invoice while this one was drawing it.
+  const { data: current } = await supabase.from("billing_documents").select("status, storage_path").eq("id", reserved.id).single();
+  if (current?.status === "definitif") {
+    return signAndRespond(supabase, current.storage_path, { document_number: reserved.document_number, status: "definitif" });
+  }
+
+  // The file is deterministic, so writing it twice leaves the same bytes and the same hash.
   const { error: upErr } = await supabase.storage.from("billing-documents").upload(storagePath, pdfBytes, {
     contentType: "application/pdf",
-    upsert: false, // invoices are write-once
+    upsert: true,
   });
   if (upErr) return json({ error: `Upload failed: ${upErr.message}` }, 500);
 
-  await supabase.rpc("finalize_billing_document", {
+  // Structured line items — Factur-X-ready data (TODO: actual Factur-X export is not
+  // implemented; this just stores the data normalized so a future export doesn't need to
+  // re-derive it from the PDF). Written before the invoice is finalized, and only once.
+  const { count: storedLines } = await supabase
+    .from("billing_document_lines")
+    .select("id", { count: "exact", head: true })
+    .eq("document_id", reserved.id);
+  if (!storedLines) {
+    const { error: linesErr } = await supabase.from("billing_document_lines").insert(
+      data.lines.map((l, i) => ({
+        document_id: reserved.id,
+        line_no: i + 1,
+        description: [l.description, event.title, l.detail].filter(Boolean).join(" – "),
+        quantity: l.quantity,
+        unit_price_cents: l.unitPriceHtCents,
+        vat_rate_bps: l.vatRateBps,
+        vat_cents: l.vatCents,
+        total_ht_cents: l.totalHtCents,
+        total_ttc_cents: l.totalTtcCents,
+      })),
+    );
+    if (linesErr) return json({ error: `Could not save the invoice lines: ${linesErr.message}` }, 500);
+  }
+
+  const { error: finErr } = await supabase.rpc("finalize_billing_document", {
     p_document_id: reserved.id,
     p_storage_path: storagePath,
     p_file_hash: hash,
     p_status: "definitif",
   });
-
-  // Structured line items — Factur-X-ready data (TODO: actual Factur-X
-  // export is not implemented; this just stores the data normalized so a
-  // future export doesn't need to re-derive it from the PDF).
-  await supabase.from("billing_document_lines").insert(
-    data.lines.map((l, i) => ({
-      document_id: reserved.id,
-      line_no: i + 1,
-      description: l.description,
-      quantity: l.quantity,
-      unit_price_cents: l.unitPriceCents,
-      vat_rate_bps: l.vatRateBps,
-      vat_cents: l.vatCents,
-      total_ht_cents: l.totalHtCents,
-      total_ttc_cents: l.totalTtcCents,
-    })),
-  );
+  if (finErr) return json({ error: `Could not save the invoice: ${finErr.message}` }, 500);
 
   return signAndRespond(supabase, storagePath, { document_number: reserved.document_number, status: "definitif" });
 }

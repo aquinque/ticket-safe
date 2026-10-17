@@ -1,27 +1,31 @@
 /**
- * generateSalesStatementPdf(data) — "relevé de ventes" / reddition de
- * comptes: TicketSafe acting as the organizer's mandataire reports what
- * was sold, refunded, and reversed for ONE event.
+ * generateSalesStatementPdf(data) — the "relevé de ventes": what TicketSafe
+ * collected from buyers for ONE event, what it kept as its service fee, and what is
+ * left for the organizer. It accounts for money TicketSafe holds for the organizer;
+ * it is not a tax invoice (no VAT, no legal numbering) and says so.
  *
- * This is NOT a tax invoice — no VAT lines, no legal numbering requirement.
- * It can legitimately be regenerated (and its stored file overwritten)
- * while status === "provisoire"; once "definitif" the caller never
- * regenerates it again (enforced by the DB immutability trigger too).
+ * It can be regenerated while its status is "provisoire" (the stored file is
+ * overwritten); once "definitif" it is frozen, and the database refuses any change.
  *
- * Same rendering stack as _shared/orderSummaryPdf.ts (pdf-lib, no DOM/
- * canvas — works in Deno).
+ * Same rendering stack as the service invoice (_shared/pdfKit.ts).
  */
-import { PDFDocument, StandardFonts, rgb, PDFFont, PDFPage } from "https://esm.sh/pdf-lib@1.17.1";
+import { MARGIN_X, MM, A4_W, CONTENT_W, BRAND, INK, MUTED, Sheet, rgb, type TextStyle } from "./pdfKit.ts";
+import { formatDateFr, formatEurFr } from "./pdfText.ts";
 
 export interface SalesStatementData {
   documentNumber: string;
   status: "provisoire" | "definitif";
-  issuedAt: string; // ISO
+  issuedAt: string; // ISO: when this version was drawn up
   periodStart: string | null; // ISO
   periodEnd: string | null; // ISO
 
   ticketSafe: {
     legalName: string;
+    legalForm: string;
+    shareCapitalCents: number;
+    siren: string;
+    rcsCity: string;
+    rcsLabel: string | null;
     addressLine1: string;
     postalCode: string;
     city: string;
@@ -39,181 +43,171 @@ export interface SalesStatementData {
   };
   event: { title: string; date: string; location: string | null };
 
-  tierBreakdown: { name: string; soldQty: number; unitPriceCents: number; totalCents: number }[];
-  grossCents: number;
-  ticketSafeFeeCents: number;
-  netCents: number;
-  refundCount: number;
-  refundCents: number;
+  tiers: { name: string; unitPriceCents: number; quantity: number; discountCents: number; netCents: number }[];
+  paidByBuyersCents: number; // everything the buyers paid, service fee included
+  serviceFeeCents: number; // TicketSafe's service fee, paid by the buyers on top of the ticket price
+  netCents: number; // what is left for the organizer
+  discountCents: number; // promo-code discounts, already out of the net
+  refundedTickets: number;
+  refundedCents: number;
   resaleCount: number;
-  resaleGrossCents: number;
-  resaleFeeCents: number;
+  resaleVolumeCents: number;
 }
 
-const A4_W = 595.28;
-const A4_H = 841.89;
-const MM = 2.834645669;
+const x = (mm: number) => mm * MM;
+const RIGHT = A4_W - MARGIN_X;
+const HALF = CONTENT_W / 2 - 6;
+const SMALL: TextStyle = { size: 9, color: MUTED };
 
-const BRAND = rgb(0, 0.2, 0.6);
-const INK = rgb(0.06, 0.09, 0.16);
-const MUTED = rgb(0.39, 0.45, 0.55);
-const HAIR = rgb(0.88, 0.91, 0.94);
-const SOFT = rgb(0.97, 0.98, 0.99);
-const WHITE = rgb(1, 1, 1);
-const AMBER_BG = rgb(1, 0.96, 0.87);
-const AMBER_FG = rgb(0.57, 0.36, 0.04);
-const GREEN_BG = rgb(0.86, 0.95, 0.89);
-const GREEN_FG = rgb(0.04, 0.45, 0.24);
+const AMBER = { bg: rgb(1, 0.96, 0.87), fg: rgb(0.57, 0.36, 0.04) };
+const GREEN = { bg: rgb(0.86, 0.95, 0.89), fg: rgb(0.04, 0.45, 0.24) };
 
-const eur = (cents: number) => `${(cents / 100).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
-const longDate = (iso: string | null) => {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
-};
+// Column edges of the tier table, in mm from the left of the page.
+const COL = { name: 14, nameW: 70, unitR: 112, qtyR: 130, discR: 160, netR: 196 };
+
+const spacedSiren = (s: string) => s.replace(/(\d{3})(?=\d)/g, "$1 ");
+const place = (line: string | null, postal: string | null, city: string | null, country: string | null) =>
+  [[line, [postal, city].filter(Boolean).join(" ")].filter(Boolean).join(", "), country && country !== "France" ? country : null]
+    .filter(Boolean)
+    .join(", ");
 
 export async function generateSalesStatementPdf(d: SalesStatementData): Promise<Uint8Array> {
-  const pdf = await PDFDocument.create();
-  const page = pdf.addPage([A4_W, A4_H]);
-  const reg = await pdf.embedFont(StandardFonts.Helvetica);
-  const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
-  const fromTop = (mm: number) => A4_H - mm * MM;
+  const sheet = await Sheet.create({
+    title: `Relevé de ventes ${d.documentNumber}`,
+    subject: `Relevé de ventes – ${d.event.title}`,
+    createdAt: new Date(d.issuedAt),
+  });
+  const t = d.ticketSafe;
+  const definitive = d.status === "definitif";
 
-  // Header band
-  page.drawRectangle({ x: 0, y: A4_H - 14 * MM, width: A4_W, height: 14 * MM, color: WHITE });
-  page.drawRectangle({ x: 14 * MM, y: A4_H - 14 * MM, width: A4_W - 28 * MM, height: 0.6, color: BRAND });
-  text(page, "TICKET SAFE", { x: 14 * MM, y: fromTop(9), font: bold, size: 11, color: BRAND, spacing: 1.4 });
+  // ── Title ──
+  sheet.text("Relevé de ventes", MARGIN_X, 32, { font: "bold", size: 22 });
+  sheet.text(`${d.documentNumber} · établi le ${formatDateFr(d.issuedAt)}`, MARGIN_X, 41, { size: 10, color: MUTED });
+  sheet.text(`Période couverte : du ${formatDateFr(d.periodStart)} au ${formatDateFr(d.periodEnd)}`, MARGIN_X, 47, SMALL);
 
-  const pillBg = d.status === "definitif" ? GREEN_BG : AMBER_BG;
-  const pillFg = d.status === "definitif" ? GREEN_FG : AMBER_FG;
-  const pillLabel = d.status === "definitif" ? "DÉFINITIF" : "PROVISOIRE";
-  pill(page, pillLabel, { x: A4_W - 14 * MM, y: fromTop(11), font: bold, size: 9, bg: pillBg, fg: pillFg, anchorRight: true });
+  const status = definitive ? GREEN : AMBER;
+  const word = definitive ? "DÉFINITIF" : "PROVISOIRE";
+  const wordW = sheet.fonts.bold.widthOfTextAtSize(word, 9) + 0.6 * word.length + x(8);
+  sheet.box(RIGHT - wordW, 21, wordW, 8, status.bg, null);
+  sheet.text(word, RIGHT - x(4), 26.4, { font: "bold", size: 9, color: status.fg, spacing: 0.6, align: "right" });
+  sheet.rule(58);
 
-  text(page, "Relevé de ventes", { x: 14 * MM, y: fromTop(34), font: bold, size: 22, color: INK });
-  text(page, `${d.documentNumber} · émis le ${longDate(d.issuedAt)}`, { x: 14 * MM, y: fromTop(43), font: reg, size: 10, color: MUTED });
-  text(page, `Période couverte : ${longDate(d.periodStart)} — ${longDate(d.periodEnd)}`, { x: 14 * MM, y: fromTop(49), font: reg, size: 9, color: MUTED });
+  // ── Parties ──
+  const colR = MARGIN_X + CONTENT_W / 2 + 6;
+  sheet.label("PLATEFORME DE BILLETTERIE", MARGIN_X, 65);
+  sheet.label("ORGANISATEUR", colR, 65);
 
-  hairline(page, 58);
+  let ly = sheet.block(t.legalName, MARGIN_X, 71, HALF, { font: "bold", size: 11.5 }, 5);
+  ly = sheet.block(`${t.legalForm} au capital de ${formatEurFr(t.shareCapitalCents)}`, MARGIN_X, ly + 0.5, HALF, SMALL);
+  ly = sheet.block(place(t.addressLine1, t.postalCode, t.city, t.country), MARGIN_X, ly, HALF, SMALL);
+  ly = sheet.block(`SIREN ${spacedSiren(t.siren)} · RCS ${t.rcsCity}`, MARGIN_X, ly, HALF, SMALL);
+  ly = sheet.block(t.supportEmail, MARGIN_X, ly, HALF, SMALL);
 
-  // Parties
-  const colL = 14 * MM;
-  const colR = 14 * MM + (A4_W - 28 * MM) * 0.5 + 6;
-  label(page, "TICKETSAFE — MANDATAIRE", colL, fromTop(67), bold);
-  text(page, d.ticketSafe.legalName, { x: colL, y: fromTop(73), font: bold, size: 12, color: INK });
-  text(page, `${d.ticketSafe.addressLine1}, ${d.ticketSafe.postalCode} ${d.ticketSafe.city}, ${d.ticketSafe.country}`, { x: colL, y: fromTop(78.5), font: reg, size: 9, color: MUTED });
-  text(page, d.ticketSafe.supportEmail, { x: colL, y: fromTop(83.5), font: reg, size: 9, color: MUTED });
+  const o = d.organizer;
+  let ry = sheet.block(o.name, colR, 71, HALF, { font: "bold", size: 11.5 }, 5);
+  if (o.siren) ry = sheet.block(`SIREN ${spacedSiren(o.siren)}`, colR, ry + 0.5, HALF, SMALL);
+  if (o.rnaNumber) ry = sheet.block(`RNA ${o.rnaNumber}`, colR, o.siren ? ry : ry + 0.5, HALF, SMALL);
+  ry = sheet.block(place(o.addressLine1, o.postalCode, o.city, o.country), colR, ry, HALF, SMALL);
 
-  label(page, "ORGANISATEUR — MANDANT", colR, fromTop(67), bold);
-  text(page, d.organizer.name, { x: colR, y: fromTop(73), font: bold, size: 12, color: INK, maxWidth: (A4_W - 28 * MM) * 0.5 - 6 });
-  let orgY = 78.5;
-  if (d.organizer.siren) {
-    text(page, `SIREN ${d.organizer.siren}`, { x: colR, y: fromTop(orgY), font: reg, size: 9, color: MUTED });
-    orgY += 5.5;
-  } else if (d.organizer.rnaNumber) {
-    text(page, `RNA ${d.organizer.rnaNumber}`, { x: colR, y: fromTop(orgY), font: reg, size: 9, color: MUTED });
-    orgY += 5.5;
-  }
-  if (d.organizer.addressLine1) {
-    text(page, `${d.organizer.addressLine1}, ${d.organizer.postalCode ?? ""} ${d.organizer.city ?? ""}`, { x: colR, y: fromTop(orgY), font: reg, size: 9, color: MUTED });
-  }
+  sheet.y = Math.max(ly, ry) + 4;
+  sheet.rule();
 
-  hairline(page, 93);
+  // ── Event ──
+  sheet.y += 7;
+  sheet.label("ÉVÉNEMENT", MARGIN_X, sheet.y);
+  sheet.y += 5.5;
+  sheet.flow(d.event.title, { font: "bold", size: 11.5 }, 5);
+  sheet.flow(`${formatDateFr(d.event.date)}${d.event.location ? ` · ${d.event.location}` : ""}`, SMALL);
+  sheet.y += 2;
+  sheet.rule();
 
-  // Event
-  label(page, "ÉVÉNEMENT", colL, fromTop(100), bold);
-  text(page, d.event.title, { x: colL, y: fromTop(106), font: bold, size: 12, color: INK });
-  text(page, `${longDate(d.event.date)}${d.event.location ? " · " + d.event.location : ""}`, { x: colL, y: fromTop(111.5), font: reg, size: 9, color: MUTED });
-
-  hairline(page, 118);
-
-  // Tier breakdown table
-  let y = 128;
-  label(page, "DÉTAIL PAR TARIF", colL, fromTop(y), bold);
-  y += 8;
-  const colName = colL, colQty = 100 * MM, colUnit = 125 * MM, colTotal = A4_W - 14 * MM;
-  text(page, "TARIF", { x: colName, y: fromTop(y), font: bold, size: 8, color: MUTED, spacing: 1.0 });
-  text(page, "QTÉ", { x: colQty, y: fromTop(y), font: bold, size: 8, color: MUTED, spacing: 1.0 });
-  text(page, "PU TTC", { x: colUnit, y: fromTop(y), font: bold, size: 8, color: MUTED, spacing: 1.0 });
-  text(page, "TOTAL", { x: colTotal, y: fromTop(y), font: bold, size: 8, color: MUTED, spacing: 1.0, anchorRight: true });
-  y += 4;
-  hairline(page, y);
-  y += 7;
-  for (const t of d.tierBreakdown) {
-    text(page, t.name, { x: colName, y: fromTop(y), font: reg, size: 10, color: INK, maxWidth: colQty - colName - 6 });
-    text(page, String(t.soldQty), { x: colQty, y: fromTop(y), font: reg, size: 10, color: INK });
-    text(page, eur(t.unitPriceCents), { x: colUnit, y: fromTop(y), font: reg, size: 10, color: INK });
-    text(page, eur(t.totalCents), { x: colTotal, y: fromTop(y), font: bold, size: 10, color: INK, anchorRight: true });
-    y += 7;
-  }
-  if (d.tierBreakdown.length === 0) {
-    text(page, "Aucune vente sur cet événement.", { x: colName, y: fromTop(y), font: reg, size: 10, color: MUTED });
-    y += 7;
-  }
-
-  y += 3;
-  hairline(page, y);
-  y += 10;
-
-  // Summary box
-  page.drawRectangle({ x: 14 * MM, y: A4_H - (y + 46) * MM, width: A4_W - 28 * MM, height: 46 * MM, color: SOFT, borderColor: HAIR, borderWidth: 0.4 });
-  const sx1 = 14 * MM + 6 * MM;
-  const sx2 = A4_W - 14 * MM - 6 * MM;
-  const row = (n: number, l: string, v: string, big = false) => {
-    const ly = y + 8 + n * 7;
-    text(page, l, { x: sx1, y: fromTop(ly), font: reg, size: big ? 11 : 10, color: big ? INK : MUTED });
-    text(page, v, { x: sx2, y: fromTop(ly), font: bold, size: big ? 13 : 10, color: big ? BRAND : INK, anchorRight: true });
+  // ── Tiers ──
+  sheet.y += 8;
+  sheet.ensure(40);
+  const header = () => {
+    const y = sheet.y;
+    const style: TextStyle = { font: "bold", size: 8, color: MUTED, spacing: 0.8 };
+    sheet.text("TARIF", x(COL.name), y, style);
+    sheet.text("PRIX", x(COL.unitR), y, { ...style, align: "right" });
+    sheet.text("BILLETS", x(COL.qtyR), y, { ...style, align: "right" });
+    sheet.text("RÉDUCTIONS", x(COL.discR), y, { ...style, align: "right" });
+    sheet.text("NET", x(COL.netR), y, { ...style, align: "right" });
+    sheet.rule(y + 2.5);
+    sheet.y = y + 8;
   };
-  row(0, "Montant brut encaissé pour le compte de l'organisateur", eur(d.grossCents));
-  row(1, "Frais de service TicketSafe (payés par les acheteurs)", `− ${eur(d.ticketSafeFeeCents)}`);
-  row(2, "Remboursements / annulations", `${d.refundCount} billet(s) · ${eur(d.refundCents)}`);
-  row(3, `Net reversé à l'organisateur`, eur(d.netCents), true);
+  sheet.label("DÉTAIL PAR TARIF", MARGIN_X, sheet.y);
+  sheet.y += 7;
+  header();
+  for (const tier of d.tiers) {
+    const lines = sheet.wrap(tier.name, x(COL.nameW), { size: 10 }).length;
+    if (sheet.ensure(lines * 4.8 + 3)) header();
+    const top = sheet.y;
+    const y = sheet.block(tier.name, x(COL.name), top, x(COL.nameW), { size: 10 }, 4.8);
+    sheet.text(formatEurFr(tier.unitPriceCents), x(COL.unitR), top, { align: "right" });
+    sheet.text(String(tier.quantity), x(COL.qtyR), top, { align: "right" });
+    sheet.text(tier.discountCents > 0 ? `-${formatEurFr(tier.discountCents)}` : "—", x(COL.discR), top, { align: "right", color: MUTED });
+    sheet.text(formatEurFr(tier.netCents), x(COL.netR), top, { font: "bold", align: "right" });
+    sheet.y = y + 1.5;
+  }
+  if (d.tiers.length === 0) {
+    sheet.text("Aucune vente payée sur cet événement.", x(COL.name), sheet.y, { color: MUTED });
+    sheet.y += 6;
+  }
+  sheet.y += 1;
+  sheet.rule();
 
-  y += 54;
+  // ── What is left for the organizer ──
+  sheet.y += 8;
+  sheet.ensure(46);
+  const top = sheet.y;
+  sheet.box(MARGIN_X, top, CONTENT_W, 31);
+  const row = (i: number, label: string, value: string, big = false) => {
+    const y = top + 9 + i * 8.5;
+    sheet.text(label, MARGIN_X + x(6), y, { size: big ? 11 : 10, color: big ? INK : MUTED });
+    sheet.text(value, RIGHT - x(6), y, { font: "bold", size: big ? 13 : 10, color: big ? BRAND : INK, align: "right" });
+  };
+  row(0, "Total payé par les acheteurs, frais de service compris", formatEurFr(d.paidByBuyersCents));
+  row(1, "Frais de service TicketSafe, payés par les acheteurs", `-${formatEurFr(d.serviceFeeCents)}`);
+  row(2, "Net revenant à l'organisateur", formatEurFr(d.netCents), true);
+  sheet.y = top + 31 + 6;
 
-  // Resales (informational — no money owed to the organizer from these)
+  sheet.flow(
+    "Ce relevé ne constitue pas une facture : les frais de service TicketSafe font l'objet d'une facture distincte, émise à l'issue de l'événement.",
+    SMALL,
+  );
+  if (d.discountCents > 0) {
+    sheet.flow(`Les réductions accordées par codes promo (${formatEurFr(d.discountCents)}) sont déjà déduites du net.`, SMALL);
+  }
+  if (d.refundedTickets > 0) {
+    sheet.flow(
+      `Commandes remboursées ou annulées, non comprises ci-dessus : ${d.refundedTickets} billet${d.refundedTickets > 1 ? "s" : ""}, ${formatEurFr(d.refundedCents)}.`,
+      SMALL,
+    );
+  }
+  sheet.flow(
+    definitive
+      ? "Statut définitif : les sommes revenant à l'organisateur au titre de cet événement lui ont été reversées."
+      : "Statut provisoire : ce relevé reflète les ventes à la date où il est établi. Il deviendra définitif lorsque les sommes revenant à l'organisateur lui auront été reversées.",
+    SMALL,
+  );
+
   if (d.resaleCount > 0) {
-    label(page, "REVENTES SUR TICKETSAFE (INFORMATIF)", colL, fromTop(y), bold);
-    y += 6;
-    text(page, `${d.resaleCount} billet(s) revendus · volume ${eur(d.resaleGrossCents)} · frais TicketSafe perçus sur la revente ${eur(d.resaleFeeCents)}`, { x: colL, y: fromTop(y), font: reg, size: 9, color: MUTED, maxWidth: A4_W - 28 * MM });
-    y += 10;
+    sheet.y += 4;
+    sheet.ensure(18);
+    sheet.label("REVENTES ENTRE PARTICULIERS (POUR INFORMATION)", MARGIN_X, sheet.y);
+    sheet.y += 6;
+    sheet.flow(
+      `${d.resaleCount} billet${d.resaleCount > 1 ? "s" : ""} de cet événement ${d.resaleCount > 1 ? "ont été revendus" : "a été revendu"} sur la place de marché TicketSafe ` +
+        `(volume : ${formatEurFr(d.resaleVolumeCents)}). Ces opérations ne sont pas comprises dans ce relevé.`,
+      SMALL,
+    );
   }
 
-  // Footer
-  const footY = 270;
-  hairline(page, footY);
-  text(page, "Ce relevé récapitule, pour le compte de l'organisateur, les ventes et remboursements de cet événement. Il ne constitue pas une facture.", { x: 14 * MM, y: fromTop(footY + 7), font: reg, size: 8.5, color: MUTED, maxWidth: A4_W - 28 * MM });
-  text(page, "TICKET SAFE", { x: 14 * MM, y: fromTop(footY + 18), font: bold, size: 8, color: BRAND, spacing: 1.2 });
-  text(page, "ticket-safe.eu", { x: A4_W - 14 * MM, y: fromTop(footY + 18), font: reg, size: 8, color: MUTED, anchorRight: true });
-
-  return await pdf.save();
-}
-
-// ── drawing helpers (self-contained, mirrors _shared/orderSummaryPdf.ts) ──
-function text(
-  page: PDFPage,
-  t: string,
-  o: { x: number; y: number; font: PDFFont; size: number; color: ReturnType<typeof rgb>; spacing?: number; anchorRight?: boolean; maxWidth?: number },
-) {
-  let s = t;
-  if (o.maxWidth) {
-    while (o.font.widthOfTextAtSize(s, o.size) > o.maxWidth && s.length > 4) s = s.slice(0, -2);
-    if (s !== t) s = s.slice(0, -1) + "…";
-  }
-  const x = o.anchorRight ? o.x - o.font.widthOfTextAtSize(s, o.size) : o.x;
-  page.drawText(s, { x, y: o.y, font: o.font, size: o.size, color: o.color, ...(o.spacing ? { characterSpacing: o.spacing } : {}) });
-}
-function label(page: PDFPage, t: string, x: number, y: number, font: PDFFont) {
-  page.drawText(t, { x, y, font, size: 8, color: MUTED, characterSpacing: 1.1 });
-}
-function hairline(page: PDFPage, atTopMM: number) {
-  page.drawRectangle({ x: 14 * MM, y: A4_H - atTopMM * MM, width: A4_W - 28 * MM, height: 0.3, color: HAIR });
-}
-function pill(page: PDFPage, label: string, o: { x: number; y: number; font: PDFFont; size: number; bg: ReturnType<typeof rgb>; fg: ReturnType<typeof rgb>; anchorRight?: boolean }) {
-  const padX = 8, padY = 5;
-  const w = o.font.widthOfTextAtSize(label, o.size) + padX * 2;
-  const h = o.size + padY * 2;
-  const x = o.anchorRight ? o.x - w : o.x;
-  page.drawRectangle({ x, y: o.y - h + padY, width: w, height: h, color: o.bg });
-  page.drawText(label, { x: x + padX, y: o.y - h + padY + (h - o.size) / 2, font: o.font, size: o.size, color: o.fg, characterSpacing: 0.6 });
+  return await sheet.finish({
+    label: "RELEVÉ DE VENTES",
+    number: d.documentNumber,
+    footer:
+      `${t.legalName}, ${t.legalForm} au capital de ${formatEurFr(t.shareCapitalCents)} · ${t.rcsLabel ?? `${spacedSiren(t.siren)} R.C.S. ${t.rcsCity}`} · ` +
+      `${place(t.addressLine1, t.postalCode, t.city, t.country)} · ${t.supportEmail}`,
+  });
 }
