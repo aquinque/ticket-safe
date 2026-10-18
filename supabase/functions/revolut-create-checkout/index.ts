@@ -6,9 +6,8 @@
  *
  * Fee model:
  *   Buyer pays the listed ticket price + a service fee PER TICKET, computed in
- *   the database by get_studio_commission_cents (a percentage of the ticket
- *   price, set in service_fee_settings, between a minimum and a maximum, or
- *   the event's negotiated override). That's the only fee
+ *   the database by get_studio_commission_cents (4 % + 0,80 €, min 0,70 €,
+ *   max 3,50 €, or the event's negotiated override). That's the only fee
  *   anywhere in this flow — Ticket Safe takes no fee from the organizer; they
  *   withdraw 100% of their gross balance.
  *
