@@ -37,7 +37,7 @@ const FAQS = [
   },
   {
     q: "How much does it cost?",
-    a: `Direct purchase: a service fee (${STUDIO_FEE_RULE_MAX}), always shown before you pay. Resale: a small commission taken at withdrawal, never at purchase.`,
+    a: `Direct purchase: a service fee (${STUDIO_FEE_RULE_MAX}), always shown before you pay. Resale: a service fee for the buyer, shown at checkout, and a 5% commission for the seller, taken at withdrawal.`,
   },
   {
     q: "What if the event is cancelled?",

@@ -60,7 +60,7 @@ const TermsConditions = () => {
                       By accessing or using TicketSafe, you agree to be bound by these Terms. If you do not agree to these Terms, you may not use our Service.
                     </p>
                     <p className="font-medium text-foreground">
-                      Ticket Safe is operated by Ticket Safe SAS, a société par actions simplifiée registered in France with a share capital of €1 000. Registered office: 2 rue Wilhem, 75016 Paris. RCS Paris 105 533 632. Intra-Community VAT number: FR86 105 533 632. President and Director of Publication: Adrien Menard. Managing Director: Achille Quinquenel.
+                      Ticket Safe is operated by Ticket Safe SAS, a société par actions simplifiée registered in France with a share capital of €1 000. Registered office: 2 rue Wilhem, 75016 Paris. RCS Paris 105 533 632. VAT: not applicable, article 293 B of the French General Tax Code (CGI). President and Director of Publication: Adrien Menard. Managing Director: Achille Quinquenel.
                     </p>
                   </div>
                 </section>
@@ -488,7 +488,7 @@ const TermsConditions = () => {
                       <p className="font-medium text-foreground">Ticket Safe SAS</p>
                       <p>Email: ticketsafe.friendly@gmail.com</p>
                       <p>Address: 2 rue Wilhem, 75016 Paris, France</p>
-                      <p>RCS Paris 105 533 632 · VAT FR86 105 533 632</p>
+                      <p>RCS Paris 105 533 632 · VAT not applicable (art. 293 B CGI)</p>
                       <p>Share capital: €1 000</p>
                     </div>
                   </div>
