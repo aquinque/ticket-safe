@@ -11,6 +11,7 @@ import { useOrganizer } from "@/hooks/useOrganizer";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { supabase } from "@/integrations/supabase/client";
 import { generatePayoutReceiptPDF } from "@/lib/payoutReceiptPdf";
+import { STUDIO_FEE_RULE } from "@/lib/studioFee";
 
 interface Earnings {
   net_earned_cents: number;
@@ -190,7 +191,7 @@ const StudioPayouts = () => {
               <section className="bg-card border border-border p-4 md:p-5 mb-4" aria-labelledby="request-heading">
                 <h2 id="request-heading" className="text-sm font-bold mb-1">Withdraw to your bank</h2>
                 <p className="text-xs text-muted-foreground mb-4">
-                  You receive the full ticket price; the buyer pays the service fee at checkout. The transfer usually arrives within 2 to 3 business days.
+                  You receive the full ticket price; the buyer pays the service fee ({STUDIO_FEE_RULE}) at checkout. The transfer usually arrives within 2 to 3 business days.
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>

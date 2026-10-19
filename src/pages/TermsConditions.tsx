@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { SEOHead } from "@/components/SEOHead";
 import { FileText, Scale, ShieldAlert, CreditCard, UserCheck, AlertTriangle } from "lucide-react";
+import { STUDIO_FEE_RULE_LONG } from "@/lib/studioFee";
 
 const TermsConditions = () => {
   const location = useLocation();
@@ -150,7 +151,7 @@ const TermsConditions = () => {
                       <li>You enter into a binding contract with the seller</li>
                       <li>Payment is processed securely through our payment partner (Stripe)</li>
                       <li>Funds are held in escrow until ticket transfer is confirmed</li>
-                      <li>You agree to pay the ticket price plus a 6% platform fee</li>
+                      <li>You agree to pay the ticket price plus the platform fee shown before you pay (see section 6.1)</li>
                     </ul>
 
                     <h3 className="font-semibold text-foreground text-lg mt-4">4.2 Ticket Authenticity</h3>
@@ -234,6 +235,7 @@ const TermsConditions = () => {
                   <div className="space-y-3 text-muted-foreground">
                     <h3 className="font-semibold text-foreground text-lg">6.1 Platform Fees</h3>
                     <ul className="list-disc pl-6 space-y-2">
+                      <li>Tickets sold directly by an organizer: buyers pay a service fee on top of the ticket price, equal to {STUDIO_FEE_RULE_LONG}; the organizer receives the full ticket price</li>
                       <li>Buyers pay a 6% platform fee on top of the ticket price (resale); a 5% fee applies to the seller at withdrawal</li>
                       <li>All fees are clearly displayed before purchase confirmation</li>
                       <li>Fees are non-refundable except in cases of platform error</li>

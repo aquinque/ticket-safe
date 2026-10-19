@@ -23,6 +23,7 @@ import { BackButton } from "@/components/BackButton";
 import { SEOHead } from "@/components/SEOHead";
 import { useOrganizer } from "@/hooks/useOrganizer";
 import { useThemeMode } from "@/hooks/useThemeMode";
+import { STUDIO_FEE_RULE } from "@/lib/studioFee";
 
 const features = [
   {
@@ -65,7 +66,7 @@ const steps = [
 ];
 
 const compareRows = [
-  { feature: "Fees", others: "Fixed per ticket + commission", us: "0% commission — you keep every euro" },
+  { feature: "Fees", others: "Fixed per ticket + commission", us: `0% commission — buyers pay ${STUDIO_FEE_RULE}, you keep every euro` },
   { feature: "Resale handling", others: "None — buyers go elsewhere", us: "Official resale built in" },
   { feature: "Event page", others: "Generic template", us: "Branded to your identity" },
   { feature: "Payout", others: "7–14 days after the event", us: "Within 24h, automatic" },

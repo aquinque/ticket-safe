@@ -24,6 +24,7 @@ import { partnerLogos } from "@/config/partnerLogos";
 import { useTicketsSoldCount } from "@/hooks/useTicketsSoldCount";
 import { fetchPublishedEvents, toEventData, type PublishedEvent } from "@/lib/publishedEvents";
 import type { EventData } from "@/data/eventsData";
+import { STUDIO_FEE_RULE, STUDIO_FEE_RULE_MAX } from "@/lib/studioFee";
 
 const FAQS = [
   {
@@ -36,7 +37,7 @@ const FAQS = [
   },
   {
     q: "How much does it cost?",
-    a: "Direct purchase: fees included in the displayed price. Resale: a small commission taken at withdrawal, never at purchase.",
+    a: `Direct purchase: a service fee (${STUDIO_FEE_RULE_MAX}), always shown before you pay. Resale: a small commission taken at withdrawal, never at purchase.`,
   },
   {
     q: "What if the event is cancelled?",
@@ -240,7 +241,7 @@ const Home = () => {
                   0% commission.
                 </p>
                 <p className="text-sm text-muted-foreground mb-6">
-                  You keep 100% of the ticket price — 0% fees for organizers, always.
+                  You keep 100% of the ticket price — 0% fees for organizers, always. Buyers pay a service fee on top: {STUDIO_FEE_RULE}.
                 </p>
                 <Button variant="buy" size="lg" asChild>
                   <Link to="/organizers">

@@ -8,6 +8,7 @@ import { useOrganizer } from "@/hooks/useOrganizer";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { STUDIO_FEE_RULE } from "@/lib/studioFee";
 
 /**
  * Studio "Payments" — Stripe Connect (Express) onboarding + where the money is.
@@ -480,7 +481,7 @@ const StudioPayments = () => {
           <MoneyTrack stages={stages} loading={moneyLoading} />
           {!account && !loadingAccount && (
             <p className="text-xs text-muted-foreground mt-6 pt-4 border-t border-border">
-              Your first sale will show up here. Buyers pay the ticket price plus a service fee; you receive the full ticket price.
+              Your first sale will show up here. Buyers pay the ticket price plus a service fee ({STUDIO_FEE_RULE}); you receive the full ticket price.
             </p>
           )}
         </section>
@@ -649,7 +650,7 @@ const StudioPayments = () => {
         )}
 
         <p className="text-xs text-muted-foreground mt-6">
-          Payments and payouts are handled by Stripe. Buyers pay by card, Apple Pay or Google Pay, plus a service fee. You receive the full ticket price.
+          Payments and payouts are handled by Stripe. Buyers pay by card, Apple Pay or Google Pay, plus a service fee ({STUDIO_FEE_RULE}). You receive the full ticket price.
         </p>
       </div>
     </StudioLayout>
