@@ -1,18 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Download, Loader2, Search, Receipt, FileText, ChevronDown } from "lucide-react";
+import { Download, Loader2, Search } from "lucide-react";
 import { StatFigure } from "@/components/studio/StatFigure";
 import { FilterChips } from "@/components/studio/FilterChips";
 import { eur, plural, fmtDate, fmtTime, startOfDay, relativeTime } from "@/lib/studioFormat";
-import { toast } from "sonner";
 import { StudioLayout } from "@/components/studio/StudioLayout";
+import { StudioDocuments } from "@/components/studio/StudioDocuments";
 import { SEOHead } from "@/components/SEOHead";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrganizer } from "@/hooks/useOrganizer";
 import { useThemeMode } from "@/hooks/useThemeMode";
@@ -119,49 +113,6 @@ const StudioSales = () => {
     () => Array.from(new Set(rows.map((r) => r.event_title))).sort(),
     [rows],
   );
-
-  // One row per event — this is where "Download receipt" lives, per event,
-  // rather than per order.
-  const eventSummaries = useMemo(() => {
-    const byEvent = new Map<string, { eventId: string; title: string; grossCents: number; orders: number }>();
-    for (const r of rows) {
-      const cur = byEvent.get(r.event_id) ?? { eventId: r.event_id, title: r.event_title, grossCents: 0, orders: 0 };
-      if (r.status === "paid") cur.grossCents += r.total_cents;
-      cur.orders += 1;
-      byEvent.set(r.event_id, cur);
-    }
-    return Array.from(byEvent.values()).sort((a, b) => a.title.localeCompare(b.title));
-  }, [rows]);
-
-  const [downloading, setDownloading] = useState<string | null>(null);
-
-  const downloadDocument = async (eventId: string, docType: "sales_statement" | "service_invoice") => {
-    const key = `${eventId}:${docType}`;
-    setDownloading(key);
-    try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
-      if (!token) {
-        toast.error("Please sign in again.");
-        return;
-      }
-      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-billing-document`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ event_id: eventId, doc_type: docType }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.url) {
-        toast.error(data.error ?? "Could not generate the document.");
-        return;
-      }
-      window.open(data.url, "_blank", "noopener,noreferrer");
-    } catch {
-      toast.error("Network error. Please try again.");
-    } finally {
-      setDownloading(null);
-    }
-  };
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -443,50 +394,7 @@ const StudioSales = () => {
         </section>
 
         {/* Statements and invoices, per event */}
-        {eventSummaries.length > 0 && (
-          <section className="bg-card border border-border" aria-labelledby="docs-heading">
-            <div className="flex items-center justify-between px-4 md:px-5 py-3 border-b border-border">
-              <h2 id="docs-heading" className="text-sm font-bold flex items-center gap-1.5">
-                <Receipt className="w-4 h-4 text-primary" />
-                Statements and invoices
-              </h2>
-              <span className="text-[11px] text-muted-foreground">PDF, one per event</span>
-            </div>
-            <ul className="divide-y divide-border">
-              {eventSummaries.map((e) => (
-                <li key={e.eventId} className="flex items-center justify-between gap-3 px-4 md:px-5 py-3">
-                  <div className="min-w-0">
-                    <Link to={`/studio/events/${e.eventId}`} className="font-semibold text-sm hover:text-primary truncate block">{e.title}</Link>
-                    <div className="text-xs text-muted-foreground mt-0.5 tabular-nums">{plural(e.orders, "order")} · {eur(e.grossCents)} gross</div>
-                  </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        type="button"
-                        disabled={downloading?.startsWith(e.eventId) ?? false}
-                        className="inline-flex items-center gap-1.5 px-3 min-h-[40px] text-xs font-bold bg-card border border-border hover:bg-muted disabled:opacity-60 shrink-0"
-                      >
-                        {downloading?.startsWith(e.eventId) ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-                        Download
-                        <ChevronDown className="w-3 h-3" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => downloadDocument(e.eventId, "sales_statement")}>
-                        <FileText className="w-3.5 h-3.5 mr-2" />
-                        Sales statement (relevé de ventes)
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => downloadDocument(e.eventId, "service_invoice")}>
-                        <Receipt className="w-3.5 h-3.5 mr-2" />
-                        Service fee invoice
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
+        {organizer && <StudioDocuments organizer={organizer} />}
       </div>
     </StudioLayout>
   );

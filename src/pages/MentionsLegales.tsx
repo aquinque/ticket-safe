@@ -108,9 +108,9 @@ const MentionsLegales = () => {
                     </p>
                     <p>Numéro de gestion : 2026B27032</p>
                     <p>
-                      N° de TVA intracommunautaire :{" "}
+                      TVA :{" "}
                       <strong className="text-foreground">
-                        FR86 105 533 632
+                        non applicable, article 293 B du Code général des impôts
                       </strong>
                     </p>
                     <p>Numéro d'identification européen (EUID) : FR7501.105533632</p>

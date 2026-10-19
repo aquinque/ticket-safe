@@ -24,7 +24,8 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { SEOHead } from "@/components/SEOHead";
-import { useTierServiceFee } from "@/hooks/useServiceFee";
+import { useServiceFeeForPrice, useTierServiceFee } from "@/hooks/useServiceFee";
+import { STUDIO_FEE_RULE_MAX } from "@/lib/studioFee";
 import { AnimatedNumber } from "@/components/AnimatedNumber";
 import HeaderNight from "@/components/HeaderNight";
 import { descriptionFontFamily } from "@/lib/descriptionFonts";
@@ -146,6 +147,9 @@ const EventPublic = () => {
   const [loading, setLoading] = useState(true);
   const [selectedTier, setSelectedTier] = useState<string | null>(null);
   const tierFeeCents = useTierServiceFee(selectedTier);
+  // The fee the standard rule gives for that price. The summary only names the rule
+  // ("4% + €0.80 per ticket") when this ticket's fee is that one, not a negotiated amount.
+  const standardFeeCents = useServiceFeeForPrice(tiers.find((t) => t.tier_id === selectedTier)?.price_cents ?? null);
   const [qty, setQty] = useState(1);
   const [buying, setBuying] = useState(false);
   const [maxPerBuyer, setMaxPerBuyer] = useState<number | null>(null);
@@ -507,6 +511,7 @@ const EventPublic = () => {
   // event's negotiated fee). The checkout charges the same amount. Free (€0)
   // tickets carry no fee. Ticket Safe takes no cut from the organizer.
   const feeUnitCents = selected && selected.price_cents > 0 ? (tierFeeCents ?? 0) : 0;
+  const feeIsStandard = feeUnitCents > 0 && feeUnitCents === standardFeeCents;
   const feeCents = feeUnitCents * qty;
   const grandCents = totalCents + feeCents;
   // Lowest available price, for the summary placeholder.
@@ -626,11 +631,14 @@ const EventPublic = () => {
             <span className="tabular-nums text-foreground">{fmtPrice(totalCents)}</span>
           </div>
           {feeCents > 0 && (
-            <div className="flex items-baseline justify-between text-sm">
-              <span className="text-muted-foreground">
-                Service fee <span className="text-muted-foreground/70">(€{(feeUnitCents / 100).toFixed(2)} × {qty})</span>
-              </span>
-              <span className="tabular-nums text-foreground">{fmtPrice(feeCents)}</span>
+            <div>
+              <div className="flex items-baseline justify-between text-sm">
+                <span className="text-muted-foreground">
+                  Service fee <span className="text-muted-foreground/70">(€{(feeUnitCents / 100).toFixed(2)} × {qty})</span>
+                </span>
+                <span className="tabular-nums text-foreground">{fmtPrice(feeCents)}</span>
+              </div>
+              {feeIsStandard && <p className="mt-0.5 text-xs text-muted-foreground/70">{STUDIO_FEE_RULE_MAX}</p>}
             </div>
           )}
         </div>
