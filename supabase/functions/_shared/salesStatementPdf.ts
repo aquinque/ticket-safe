@@ -74,7 +74,7 @@ const place = (line: string | null, postal: string | null, city: string | null, 
 export async function generateSalesStatementPdf(d: SalesStatementData): Promise<Uint8Array> {
   const sheet = await Sheet.create({
     title: `Relevé de ventes ${d.documentNumber}`,
-    subject: `Relevé de ventes – ${d.event.title}`,
+    subject: `Relevé de ventes \u2013 ${d.event.title}`,
     createdAt: new Date(d.issuedAt),
   });
   const t = d.ticketSafe;
@@ -82,7 +82,7 @@ export async function generateSalesStatementPdf(d: SalesStatementData): Promise<
 
   // ── Title ──
   sheet.text("Relevé de ventes", MARGIN_X, 32, { font: "bold", size: 22 });
-  sheet.text(`${d.documentNumber} · établi le ${formatDateFr(d.issuedAt)}`, MARGIN_X, 41, { size: 10, color: MUTED });
+  sheet.text(`${d.documentNumber} \u00b7 établi le ${formatDateFr(d.issuedAt)}`, MARGIN_X, 41, { size: 10, color: MUTED });
   sheet.text(`Période couverte : du ${formatDateFr(d.periodStart)} au ${formatDateFr(d.periodEnd)}`, MARGIN_X, 47, SMALL);
 
   const status = definitive ? GREEN : AMBER;
@@ -100,7 +100,7 @@ export async function generateSalesStatementPdf(d: SalesStatementData): Promise<
   let ly = sheet.block(t.legalName, MARGIN_X, 71, HALF, { font: "bold", size: 11.5 }, 5);
   ly = sheet.block(`${t.legalForm} au capital de ${formatEurFr(t.shareCapitalCents)}`, MARGIN_X, ly + 0.5, HALF, SMALL);
   ly = sheet.block(place(t.addressLine1, t.postalCode, t.city, t.country), MARGIN_X, ly, HALF, SMALL);
-  ly = sheet.block(`SIREN ${spacedSiren(t.siren)} · RCS ${t.rcsCity}`, MARGIN_X, ly, HALF, SMALL);
+  ly = sheet.block(`SIREN ${spacedSiren(t.siren)} \u00b7 RCS ${t.rcsCity}`, MARGIN_X, ly, HALF, SMALL);
   ly = sheet.block(t.supportEmail, MARGIN_X, ly, HALF, SMALL);
 
   const o = d.organizer;
@@ -117,7 +117,7 @@ export async function generateSalesStatementPdf(d: SalesStatementData): Promise<
   sheet.label("ÉVÉNEMENT", MARGIN_X, sheet.y);
   sheet.y += 5.5;
   sheet.flow(d.event.title, { font: "bold", size: 11.5 }, 5);
-  sheet.flow(`${formatDateFr(d.event.date)}${d.event.location ? ` · ${d.event.location}` : ""}`, SMALL);
+  sheet.flow(`${formatDateFr(d.event.date)}${d.event.location ? ` \u00b7 ${d.event.location}` : ""}`, SMALL);
   sheet.y += 2;
   sheet.rule();
 
@@ -145,7 +145,7 @@ export async function generateSalesStatementPdf(d: SalesStatementData): Promise<
     const y = sheet.block(tier.name, x(COL.name), top, x(COL.nameW), { size: 10 }, 4.8);
     sheet.text(formatEurFr(tier.unitPriceCents), x(COL.unitR), top, { align: "right" });
     sheet.text(String(tier.quantity), x(COL.qtyR), top, { align: "right" });
-    sheet.text(tier.discountCents > 0 ? `-${formatEurFr(tier.discountCents)}` : "—", x(COL.discR), top, { align: "right", color: MUTED });
+    sheet.text(tier.discountCents > 0 ? `-${formatEurFr(tier.discountCents)}` : "\u2014", x(COL.discR), top, { align: "right", color: MUTED });
     sheet.text(formatEurFr(tier.netCents), x(COL.netR), top, { font: "bold", align: "right" });
     sheet.y = y + 1.5;
   }
@@ -207,7 +207,7 @@ export async function generateSalesStatementPdf(d: SalesStatementData): Promise<
     label: "RELEVÉ DE VENTES",
     number: d.documentNumber,
     footer:
-      `${t.legalName}, ${t.legalForm} au capital de ${formatEurFr(t.shareCapitalCents)} · ${t.rcsLabel ?? `${spacedSiren(t.siren)} R.C.S. ${t.rcsCity}`} · ` +
-      `${place(t.addressLine1, t.postalCode, t.city, t.country)} · ${t.supportEmail}`,
+      `${t.legalName}, ${t.legalForm} au capital de ${formatEurFr(t.shareCapitalCents)} \u00b7 ${t.rcsLabel ?? `${spacedSiren(t.siren)} R.C.S. ${t.rcsCity}`} \u00b7 ` +
+      `${place(t.addressLine1, t.postalCode, t.city, t.country)} \u00b7 ${t.supportEmail}`,
   });
 }

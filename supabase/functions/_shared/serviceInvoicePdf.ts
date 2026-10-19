@@ -75,7 +75,7 @@ const place = (line: string | null, postal: string | null, city: string | null, 
 export async function generateServiceInvoicePdf(d: ServiceInvoiceData): Promise<Uint8Array> {
   const sheet = await Sheet.create({
     title: `Facture ${d.documentNumber}`,
-    subject: `Facture de frais de service de billetterie – ${d.eventTitle}`,
+    subject: `Facture de frais de service de billetterie \u2013 ${d.eventTitle}`,
     createdAt: new Date(d.issuedAt),
   });
   const s = d.seller;
@@ -102,9 +102,9 @@ export async function generateServiceInvoicePdf(d: ServiceInvoiceData): Promise<
   let ly = sheet.block(s.legalName, MARGIN_X, 71, HALF, { font: "bold", size: 11.5 }, 5);
   ly = sheet.block(`${s.legalForm} au capital de ${formatEurFr(s.shareCapitalCents)}`, MARGIN_X, ly + 0.5, HALF, SMALL);
   ly = sheet.block(place(s.addressLine1, s.postalCode, s.city, s.country), MARGIN_X, ly, HALF, SMALL);
-  ly = sheet.block(`SIREN ${spacedSiren(s.siren)} · RCS ${s.rcsCity}`, MARGIN_X, ly, HALF, SMALL);
+  ly = sheet.block(`SIREN ${spacedSiren(s.siren)} \u00b7 RCS ${s.rcsCity}`, MARGIN_X, ly, HALF, SMALL);
   ly = sheet.block(
-    s.vatExempt ? s.vatExemptMention : `N° TVA intracommunautaire : ${s.vatNumber}`,
+    s.vatExempt ? s.vatExemptMention : `N\u00b0 TVA intracommunautaire : ${s.vatNumber}`,
     MARGIN_X,
     ly,
     HALF,
@@ -127,8 +127,8 @@ export async function generateServiceInvoicePdf(d: ServiceInvoiceData): Promise<
   sheet.y += 7;
   sheet.label("OBJET", MARGIN_X, sheet.y);
   sheet.y += 5.5;
-  sheet.flow(`${d.lines[0]?.description ?? "Frais de service de billetterie"} – ${d.eventTitle}`, { font: "bold", size: 10.5 }, 5);
-  sheet.flow(`Événement du ${formatDateFr(d.eventDate)} · Nature de l'opération : prestation de services`, SMALL);
+  sheet.flow(`${d.lines[0]?.description ?? "Frais de service de billetterie"} \u2013 ${d.eventTitle}`, { font: "bold", size: 10.5 }, 5);
+  sheet.flow(`Événement du ${formatDateFr(d.eventDate)} \u00b7 Nature de l'opération : prestation de services`, SMALL);
   sheet.y += 3;
 
   // ── Lines ──
@@ -148,7 +148,7 @@ export async function generateServiceInvoicePdf(d: ServiceInvoiceData): Promise<
   const { bold, reg } = sheet.fonts;
   for (const l of d.lines) {
     // The ticket price sits next to the designation when it fits, under it otherwise.
-    const tag = l.detail ? ` · ${l.detail}` : "";
+    const tag = l.detail ? ` \u00b7 ${l.detail}` : "";
     const sameLine = bold.widthOfTextAtSize(l.description, 10) + reg.widthOfTextAtSize(tag, 9) <= x(COL.descW);
     if (sheet.ensure(sameLine ? 9 : 14)) header();
     const top = sheet.y;
@@ -161,7 +161,7 @@ export async function generateServiceInvoicePdf(d: ServiceInvoiceData): Promise<
     }
     sheet.text(String(l.quantity), x(COL.qtyR), top, { align: "right" });
     sheet.text(formatUnitPriceFr(l.unitPriceHtCents), x(COL.unitR), top, { align: "right" });
-    sheet.text(l.vatRateBps > 0 ? `${l.vatRateBps / 100} %`.replace(".", ",") : "—", x(COL.vatR), top, { align: "right" });
+    sheet.text(l.vatRateBps > 0 ? `${l.vatRateBps / 100} %`.replace(".", ",") : "\u2014", x(COL.vatR), top, { align: "right" });
     sheet.text(formatEurFr(l.totalHtCents), x(COL.totalR), top, { font: "bold", align: "right" });
     sheet.rule(bottom + 2.3);
     sheet.y = bottom + 7;
@@ -217,7 +217,7 @@ export async function generateServiceInvoicePdf(d: ServiceInvoiceData): Promise<
     label: "FACTURE",
     number: d.documentNumber,
     footer:
-      `${s.legalName}, ${s.legalForm} au capital de ${formatEurFr(s.shareCapitalCents)} · ${s.rcsLabel ?? `${spacedSiren(s.siren)} R.C.S. ${s.rcsCity}`} · ` +
-      `${place(s.addressLine1, s.postalCode, s.city, s.country)} · ${s.supportEmail}`,
+      `${s.legalName}, ${s.legalForm} au capital de ${formatEurFr(s.shareCapitalCents)} \u00b7 ${s.rcsLabel ?? `${spacedSiren(s.siren)} R.C.S. ${s.rcsCity}`} \u00b7 ` +
+      `${place(s.addressLine1, s.postalCode, s.city, s.country)} \u00b7 ${s.supportEmail}`,
   });
 }

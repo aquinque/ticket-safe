@@ -230,11 +230,11 @@ export function sellerSettingsProblems(s: SellerSettings): string[] {
 export const DEFAULT_LATE_PAYMENT_MENTION =
   "En cas de retard de paiement, des pénalités de retard sont exigibles dès le lendemain de la date d'échéance, sans qu'un rappel soit nécessaire, " +
   "au taux de trois fois le taux d'intérêt légal en vigueur (art. L441-10 du Code de commerce). " +
-  "Tout retard de paiement entraîne également, de plein droit, une indemnité forfaitaire de 40 € pour frais de recouvrement (art. L441-10 et D441-5 du Code de commerce), " +
+  "Tout retard de paiement entraîne également, de plein droit, une indemnité forfaitaire de 40 \u20ac pour frais de recouvrement (art. L441-10 et D441-5 du Code de commerce), " +
   "sans préjudice d'une indemnisation complémentaire si les frais réels de recouvrement sont supérieurs à ce montant.";
 
 /** The clause kept in billing_settings when it states a compliant rate; the standard one otherwise. */
 export function resolvePenaltyMention(fromSettings: string | null | undefined): string {
   const text = String(fromSettings ?? "").trim();
-  return /trois fois|\b3 ?fois/i.test(text) && /40\s*€/.test(text) ? text : DEFAULT_LATE_PAYMENT_MENTION;
+  return /trois fois|\b3 ?fois/i.test(text) && /40\s*\u20ac/.test(text) ? text : DEFAULT_LATE_PAYMENT_MENTION;
 }

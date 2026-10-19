@@ -131,7 +131,7 @@ serve(async (req) => {
       .eq("user_id", user.id)
       .eq("role", "admin")
       .maybeSingle();
-    if (!isAdmin) return json({ error: "Forbidden — not your event" }, 403);
+    if (!isAdmin) return json({ error: "Forbidden \u2014 not your event" }, 403);
   }
 
   const { data: settings } = await supabase.from("billing_settings").select("*").eq("id", true).single();
@@ -262,7 +262,7 @@ async function handleSalesStatement(supabase: any, event: any, organizer: any, s
   }
   const tierBreakdown = [...tierAgg.values()]
     .map((v) => ({
-      name: String(tierNameById.get(v.tierId) ?? "—"),
+      name: String(tierNameById.get(v.tierId) ?? "\u2014"),
       unitPriceCents: v.unitPriceCents,
       quantity: v.quantity,
       discountCents: v.discountCents,
@@ -563,7 +563,7 @@ async function handleServiceInvoice(supabase: any, event: any, organizer: any, s
       data.lines.map((l, i) => ({
         document_id: reserved.id,
         line_no: i + 1,
-        description: [l.description, event.title, l.detail].filter(Boolean).join(" – "),
+        description: [l.description, event.title, l.detail].filter(Boolean).join(" \u2013 "),
         quantity: l.quantity,
         unit_price_cents: l.unitPriceHtCents,
         vat_rate_bps: l.vatRateBps,

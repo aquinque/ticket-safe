@@ -12,7 +12,7 @@
  * which only ever emit characters the font can draw.
  */
 
-const NBSP = " ";
+const NBSP = "\u00a0";
 const PARIS = "Europe/Paris";
 
 // The 0x80–0x9F block of Windows-1252, whose characters sit outside Latin-1.
@@ -22,7 +22,8 @@ const WIN_ANSI_EXTRA = new Set([
 ]);
 
 // Letters that don't decompose into base + accent but have an obvious plain form.
-const PLAIN_LETTER: Record<string, string> = { "ł": "l", "Ł": "L", "đ": "d", "Đ": "D", "ı": "i" };
+// (l with stroke, L with stroke, d with stroke, D with stroke, dotless i)
+const PLAIN_LETTER: Record<string, string> = { "\u0142": "l", "\u0141": "L", "\u0111": "d", "\u0110": "D", "\u0131": "i" };
 
 export function isWinAnsi(codePoint: number): boolean {
   return (codePoint >= 0x20 && codePoint <= 0x7e) || (codePoint >= 0xa0 && codePoint <= 0xff) || WIN_ANSI_EXTRA.has(codePoint);
@@ -32,9 +33,9 @@ export function isWinAnsi(codePoint: number): boolean {
 export function pdfSafe(input: string | null | undefined): string {
   const s = String(input ?? "")
     .normalize("NFC")
-    .replace(/[−‐‑‒―]/g, "-") // minus sign and hyphen variants
-    .replace(/[ -   　]/g, " ") // exotic spaces, among them Intl's narrow no-break space
-    .replace(/[​-‍⁠﻿]/g, "") // zero-width characters
+    .replace(/[\u2212\u2010\u2011\u2012\u2015]/g, "-") // minus sign and hyphen variants
+    .replace(/[\u2000-\u200a\u202f\u205f\u3000]/g, " ") // exotic spaces, among them Intl's narrow no-break space
+    .replace(/[\u200b-\u200d\u2060\ufeff]/g, "") // zero-width characters
     .replace(/[\r\n\t]+/g, " ");
 
   let out = "";
@@ -44,7 +45,7 @@ export function pdfSafe(input: string | null | undefined): string {
       continue;
     }
     // Outside Windows-1252 (ő, č, ł…): keep the plain letter when there is one; emoji and the like are dropped.
-    const plain = PLAIN_LETTER[ch] ?? ch.normalize("NFD").replace(/[̀-ͯ]/g, "");
+    const plain = PLAIN_LETTER[ch] ?? ch.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     if (plain !== ch && [...plain].every((c) => isWinAnsi(c.codePointAt(0) as number))) out += plain;
   }
   return out.replace(/ {2,}/g, " ").trim();
@@ -55,14 +56,14 @@ export function formatEurFr(cents: number): string {
   const n = Math.round(Number.isFinite(cents) ? cents : 0);
   const abs = Math.abs(n);
   const euros = String(Math.floor(abs / 100)).replace(/\B(?=(\d{3})+(?!\d))/g, NBSP);
-  return `${n < 0 ? "-" : ""}${euros},${String(abs % 100).padStart(2, "0")}${NBSP}€`;
+  return `${n < 0 ? "-" : ""}${euros},${String(abs % 100).padStart(2, "0")}${NBSP}\u20ac`;
 }
 
 /** A unit price in cents: to the cent when it is a whole number of cents, to four decimals otherwise ("0,9333 €"). */
 export function formatUnitPriceFr(cents: number): string {
   if (Math.abs(cents - Math.round(cents)) < 1e-9) return formatEurFr(cents);
   const [euros, decimals] = (Math.abs(cents) / 100).toFixed(4).split(".");
-  return `${cents < 0 ? "-" : ""}${euros.replace(/\B(?=(\d{3})+(?!\d))/g, NBSP)},${decimals}${NBSP}€`;
+  return `${cents < 0 ? "-" : ""}${euros.replace(/\B(?=(\d{3})+(?!\d))/g, NBSP)},${decimals}${NBSP}\u20ac`;
 }
 
 const dateParts = (d: Date, options: Intl.DateTimeFormatOptions, locale: string) =>
@@ -77,7 +78,7 @@ function toDate(value: string | Date | null | undefined): Date | null {
 /** "1er novembre 2026", in Paris time, whatever the server's time zone. */
 export function formatDateFr(value: string | Date | null | undefined): string {
   const d = toDate(value);
-  if (!d) return "—";
+  if (!d) return "\u2014";
   const parts = dateParts(d, { day: "numeric", month: "long", year: "numeric" }, "fr-FR");
   const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
   const day = get("day");
