@@ -56,13 +56,13 @@ export async function sendTicketConfirmationEmail(
   const { resendApiKey, to, order, ticketPdfBytes } = input;
   const from = input.from ?? "Ticket Safe <noreply@ticket-safe.eu>";
 
-  // 1. Order summary PDF
-  let orderSummaryBytes: Uint8Array;
+  // 1. Receipt PDF. The ticket and the e-mail go out even if the receipt can't be drawn:
+  //    the e-mail body carries the same payment summary and legal notice.
+  let orderSummaryBytes: Uint8Array | null = null;
   try {
     orderSummaryBytes = await generateOrderSummaryPDF(order);
   } catch (err) {
-    console.error("[sendTicketConfirmationEmail] order-summary generation failed:", err);
-    return { ok: false, error: "order_summary_pdf_failed" };
+    console.error("[sendTicketConfirmationEmail] order-summary generation failed, sending without it:", err);
   }
 
   // 2. Email HTML
@@ -77,10 +77,15 @@ export async function sendTicketConfirmationEmail(
     ticketType:     order.ticketType,
     quantity:       order.quantity,
     pricePaid:      order.totalPaid,
+    ...(order.ticketPriceCents != null && order.serviceFeeCents != null
+      ? { ticketPrice: `${(order.ticketPriceCents / 100).toFixed(2)}€`, serviceFee: `${(order.serviceFeeCents / 100).toFixed(2)}€` }
+      : {}),
     orderNumber:    order.orderNumber,
     purchaseDate:   order.purchaseDate,
     paymentStatus:  order.paymentStatus,
     organizerName:  order.organizerName,
+    kind:           order.kind,
+    legal:          order.legal,
     supportEmail:   order.supportEmail,
     websiteUrl:     order.websiteUrl,
   };
@@ -101,10 +106,7 @@ export async function sendTicketConfirmationEmail(
         filename: "ticket.pdf",
         content: bytesToBase64(ticketPdfBytes),
       },
-      {
-        filename: "order-summary.pdf",
-        content: bytesToBase64(orderSummaryBytes),
-      },
+      ...(orderSummaryBytes ? [{ filename: "order-summary.pdf", content: bytesToBase64(orderSummaryBytes) }] : []),
     ],
     ...(input.tags ? { tags: input.tags } : {}),
   };

@@ -1,49 +1,47 @@
 /**
- * generateOrderSummaryPDF(orderData) — server-side PDF receipt generator.
+ * generateOrderSummaryPDF(orderData) — server-side payment receipt generator.
  *
  * Runs inside Deno edge functions (no DOM, no canvas), so we use pdf-lib
  * which is pure JavaScript and ships nicely from esm.sh.
  *
- * Layout (A4 portrait, 210 × 297 mm):
+ * It is the buyer's confirmation of the order and of the payment, in French with the
+ * English underneath. Page 1 is the receipt: who the buyer is, the event, who sells, who
+ * Ticket Safe is, the ticket price and the service fee shown separately, the payment.
+ * Page 2 is the legal information (see _shared/receiptLegal.ts for the wording).
  *
  *   ┌─ HEADER BAND ─────────────────────────────────┐
- *   │ TICKET SAFE                          [ PAID ] │
+ *   │ TICKET SAFE                     [ PAYÉ · PAID ] │
  *   ├─ TITLE ───────────────────────────────────────┤
- *   │ Order Summary                                  │
- *   │ Order #TS-ORDER-000184 · 12 September 2026    │
+ *   │ Reçu de paiement                               │
+ *   │ Payment receipt · Order #TS-… · 12 September  │
  *   ├─ BUYER + EVENT ───────────────────────────────┤
- *   │ BUYER                  EVENT                  │
- *   │ Achille Quinquenel     ESCP Opening Party     │
- *   │ achille@example.com    Fri 19 Sep 2026, 22:30 │
- *   │                        Le Duplex, Paris       │
- *   ├─ LINE ITEMS TABLE ────────────────────────────┤
- *   │ Item           Qty   Unit price    Total      │
- *   │ Early Bird     1     18.00 EUR     18.00 EUR  │
- *   │ ─────────────────────────────────────────────  │
- *   │                          TOTAL    18.00 EUR    │
+ *   ├─ SELLER + TICKET SAFE ────────────────────────┤
+ *   ├─ LINE ITEMS ──────────────────────────────────┤
+ *   │ Billet / ticket           1   18.00€   18.00€ │
+ *   │ Frais de service Ticket Safe          1.20€    │
+ *   │                          TOTAL TTC   19.20€    │
  *   ├─ PAYMENT ─────────────────────────────────────┤
- *   │ Payment status    Paid                        │
- *   │ Payment method    Card                        │
- *   │ Transaction ID    stripe_txn_123456789        │
- *   │ Purchase date     12 September 2026           │
- *   ├─ FOOTER ──────────────────────────────────────┤
- *   │ Thank you for using TicketSafe.                │
- *   │ This document is a payment receipt and order   │
- *   │ summary.                                       │
- *   │ support@ticket-safe.eu   ticket-safe.eu        │
- *   └────────────────────────────────────────────────┘
+ *   └─ page 2: informations légales / legal info ───┘
+ *
+ * Every string goes through pdfSafe(): the built-in Helvetica draws Windows-1252 only
+ * and throws on anything else (an emoji in an event title, a Polish letter in a name),
+ * which would otherwise cost the buyer the whole confirmation e-mail.
  *
  * Returns a Uint8Array (raw PDF bytes) ready to be base64-encoded for the
  * Resend `attachments` field, or written to disk in test code.
  */
 
+import { PDFDocument, StandardFonts, rgb, PDFFont, PDFPage } from "https://esm.sh/pdf-lib@1.17.1";
+import { pdfSafe } from "./pdfText.ts";
 import {
-  PDFDocument,
-  StandardFonts,
-  rgb,
-  PDFFont,
-  PDFPage,
-} from "https://esm.sh/pdf-lib@1.17.1";
+  RECEIPT_LEGAL_FALLBACK,
+  identityLine,
+  noticeHeading,
+  noticeItems,
+  type ReceiptKind,
+  type ReceiptLang,
+  type ReceiptLegal,
+} from "./receiptLegal.ts";
 
 export interface OrderSummaryData {
   orderNumber: string;
@@ -79,6 +77,11 @@ export interface OrderSummaryData {
   ticketPriceCents?: number;
   serviceFeeCents?: number;
 
+  /** "ticket" (default): the organizer sells the ticket. "resale": a private individual sells it on the marketplace. */
+  kind?: ReceiptKind;
+  /** Company details for the legal notice; the built-in ones (the same as billing_settings today) are used when absent. */
+  legal?: ReceiptLegal;
+
   /** Optional overrides. */
   supportEmail?: string;
   websiteUrl?: string;
@@ -91,21 +94,29 @@ const MM   = 2.834645669;
 
 // Brand palette
 const BRAND = rgb(0,   0.20, 0.60); // #003399
-const LIGHT = rgb(0,   0.40, 0.80); // #0066cc
 const INK   = rgb(0.06,0.09, 0.16); // slate-900
 const MUTED = rgb(0.39,0.45, 0.55); // slate-500
 const FAINT = rgb(0.58,0.64, 0.72); // slate-400
 const HAIR  = rgb(0.88,0.91, 0.94); // slate-200
 const SOFT  = rgb(0.97,0.98, 0.99); // slate-50
 const VBG   = rgb(0.86,0.92, 1.00); // valid badge bg
-const PILL  = rgb(0.0, 0.13, 0.36); // dark navy pill bg
-const WHITE = rgb(1,1,1);
+
+const STATUS_LABEL: Record<OrderSummaryData["paymentStatus"], string> = {
+  Paid: "PAYÉ · PAID",
+  Pending: "EN ATTENTE · PENDING",
+  Refunded: "REMBOURSÉ · REFUNDED",
+};
 
 export async function generateOrderSummaryPDF(d: OrderSummaryData): Promise<Uint8Array> {
   const supportEmail = d.supportEmail ?? "support@ticket-safe.eu";
   const websiteUrl   = d.websiteUrl ?? "ticket-safe.eu";
+  const kind: ReceiptKind = d.kind ?? "ticket";
+  const legal = d.legal ?? RECEIPT_LEGAL_FALLBACK;
+  const site = websiteUrl.startsWith("http") ? websiteUrl : `https://${websiteUrl}`;
 
   const pdf = await PDFDocument.create();
+  pdf.setTitle(pdfSafe(`Reçu de paiement ${d.orderNumber}`));
+  pdf.setSubject(pdfSafe(`Reçu de paiement – ${d.eventName}`));
   const page = pdf.addPage([A4_W, A4_H]);
 
   // Fonts — Helvetica family is built-in to pdf-lib so no font registration
@@ -116,187 +127,165 @@ export async function generateOrderSummaryPDF(d: OrderSummaryData): Promise<Uint
   // Coordinate helpers — pdf-lib has Y growing upward, so we work in
   // "distance from top" mm and convert per draw call.
   const fromTopMM = (topMM: number) => A4_H - topMM * MM;
-
-  // ─── 1. HEADER BAND (14 mm) ──────────────────────────────────────────
-  const headerH = 14 * MM;
-  page.drawRectangle({
-    x: 0, y: A4_H - headerH, width: A4_W, height: headerH,
-    color: WHITE,
-  });
-  // Brand underline (0.5 mm tall) at the bottom of the band
-  page.drawRectangle({
-    x: 14 * MM, y: A4_H - headerH, width: A4_W - 28 * MM, height: 0.6,
-    color: BRAND,
-  });
-
-  drawText(page, "TICKET SAFE", {
-    x: 14 * MM, y: fromTopMM(9),
-    font: fontBold, size: 11, color: BRAND, letterSpacing: 1.4,
-  });
-
-  // PAID/PENDING/REFUNDED status pill, top-right
-  const pillLabel = (d.paymentStatus ?? "Paid").toUpperCase();
-  const pillX = drawPill(page, {
-    x: A4_W - 14 * MM, y: fromTopMM(11),
-    label: pillLabel, font: fontBold, size: 9,
-    bg: d.paymentStatus === "Refunded" ? rgb(1, 0.89, 0.89) : VBG,
-    fg: d.paymentStatus === "Refunded" ? rgb(0.6, 0.10, 0.10) : BRAND,
-    anchor: "right",
-  });
-  void pillX;
-
-  // ─── 2. TITLE ─────────────────────────────────────────────────────────
-  drawText(page, "Order Summary", {
-    x: 14 * MM, y: fromTopMM(34),
-    font: fontBold, size: 24, color: INK,
-  });
-  drawText(page, `Order #${d.orderNumber} · ${d.purchaseDate}`, {
-    x: 14 * MM, y: fromTopMM(43),
-    font: fontReg, size: 11, color: MUTED,
-  });
-
-  // Hairline separator at 52 mm
-  hairline(page, 14, 52, A4_W - 14 * MM - 14 * MM);
-
-  // ─── 3. BUYER + EVENT (two columns) ──────────────────────────────────
+  const contentW = A4_W - 28 * MM;
+  const halfW = contentW * 0.5 - 6;
   const colLeftX  = 14 * MM;
-  const colRightX = 14 * MM + (A4_W - 28 * MM) * 0.5 + 6;
+  const colRightX = 14 * MM + contentW * 0.5 + 6;
 
-  drawLabel(page, "BUYER", colLeftX, fromTopMM(62), fontBold);
-  drawText(page, `${d.buyerFirstName} ${d.buyerLastName}`, {
-    x: colLeftX, y: fromTopMM(68), font: fontBold, size: 14, color: INK,
-  });
-  drawText(page, d.buyerEmail, {
-    x: colLeftX, y: fromTopMM(73.5), font: fontReg, size: 10, color: MUTED,
-  });
+  const header = (p: PDFPage, pill?: { label: string; refunded: boolean }) => {
+    p.drawRectangle({ x: 14 * MM, y: A4_H - 14 * MM, width: contentW, height: 0.6, color: BRAND });
+    drawText(p, "TICKET SAFE", { x: 14 * MM, y: fromTopMM(9), font: fontBold, size: 11, color: BRAND, letterSpacing: 1.4 });
+    if (pill) {
+      drawPill(p, {
+        x: A4_W - 14 * MM, y: fromTopMM(11), label: pill.label, font: fontBold, size: 9,
+        bg: pill.refunded ? rgb(1, 0.89, 0.89) : VBG,
+        fg: pill.refunded ? rgb(0.6, 0.10, 0.10) : BRAND,
+        anchor: "right",
+      });
+    }
+  };
 
-  drawLabel(page, "EVENT", colRightX, fromTopMM(62), fontBold);
-  drawText(page, d.eventName, {
-    x: colRightX, y: fromTopMM(68), font: fontBold, size: 13, color: INK,
-    maxWidth: (A4_W - 28 * MM) * 0.5 - 6,
-  });
-  drawText(page, `${d.eventDate} · ${d.eventTime}`, {
-    x: colRightX, y: fromTopMM(73.5), font: fontReg, size: 10, color: MUTED,
-  });
-  drawText(page, d.eventLocation, {
-    x: colRightX, y: fromTopMM(78), font: fontReg, size: 10, color: MUTED,
-  });
-  drawText(page, `Seller: ${d.organizerName}`, {
-    x: colRightX, y: fromTopMM(83), font: fontReg, size: 10, color: MUTED,
-  });
-  drawText(page, "TicketSafe: payment & ticketing intermediary", {
-    x: colRightX, y: fromTopMM(87.5), font: fontReg, size: 8, color: FAINT,
-  });
+  // ─── PAGE 1 ──────────────────────────────────────────────────────────
+  header(page, { label: STATUS_LABEL[d.paymentStatus] ?? STATUS_LABEL.Paid, refunded: d.paymentStatus === "Refunded" });
 
-  hairline(page, 14, 97, A4_W - 28 * MM);
+  drawText(page, "Reçu de paiement", { x: 14 * MM, y: fromTopMM(34), font: fontBold, size: 24, color: INK });
+  drawText(page, `Payment receipt · Order #${d.orderNumber} · ${d.purchaseDate}`, {
+    x: 14 * MM, y: fromTopMM(43), font: fontReg, size: 11, color: MUTED, maxWidth: contentW,
+  });
+  hairline(page, 14, 52, contentW);
 
-  // ─── 4. LINE ITEMS TABLE ─────────────────────────────────────────────
-  // Column header row
-  let tableY = 107;
+  // Buyer + event
+  drawLabel(page, "ACHETEUR · BUYER", colLeftX, fromTopMM(62), fontBold);
+  drawText(page, `${d.buyerFirstName} ${d.buyerLastName}`, { x: colLeftX, y: fromTopMM(68), font: fontBold, size: 14, color: INK, maxWidth: halfW });
+  drawText(page, d.buyerEmail, { x: colLeftX, y: fromTopMM(73.5), font: fontReg, size: 10, color: MUTED, maxWidth: halfW });
+
+  drawLabel(page, "ÉVÉNEMENT · EVENT", colRightX, fromTopMM(62), fontBold);
+  drawText(page, d.eventName, { x: colRightX, y: fromTopMM(68), font: fontBold, size: 13, color: INK, maxWidth: halfW });
+  drawText(page, `${d.eventDate} · ${d.eventTime}`, { x: colRightX, y: fromTopMM(73.5), font: fontReg, size: 10, color: MUTED, maxWidth: halfW });
+  drawText(page, d.eventLocation, { x: colRightX, y: fromTopMM(78), font: fontReg, size: 10, color: MUTED, maxWidth: halfW });
+  hairline(page, 14, 88, contentW);
+
+  // Who sells, and who Ticket Safe is
+  drawLabel(page, "VENDEUR DU BILLET · TICKET SELLER", colLeftX, fromTopMM(97), fontBold);
+  drawLabel(page, "INTERMÉDIAIRE · INTERMEDIARY", colRightX, fromTopMM(97), fontBold);
+
+  let leftY = 103;
+  if (kind === "resale") {
+    drawText(page, "Particulier · Private individual", { x: colLeftX, y: fromTopMM(leftY), font: fontBold, size: 10.5, color: INK, maxWidth: halfW });
+    leftY += 5;
+    leftY = paragraph(page, `Événement organisé par ${d.organizerName}`, { x: colLeftX, topMM: leftY, width: halfW, font: fontReg, size: 8.5, color: MUTED, lineMM: 4 });
+  } else {
+    drawText(page, d.organizerName, { x: colLeftX, y: fromTopMM(leftY), font: fontBold, size: 10.5, color: INK, maxWidth: halfW });
+    leftY += 5;
+    leftY = paragraph(page, "Organisateur de l’événement · Event organizer", { x: colLeftX, topMM: leftY, width: halfW, font: fontReg, size: 8.5, color: MUTED, lineMM: 4 });
+  }
+
+  let rightY = 103;
+  drawText(page, legal.legalName, { x: colRightX, y: fromTopMM(rightY), font: fontBold, size: 10.5, color: INK, maxWidth: halfW });
+  rightY += 5;
+  rightY = paragraph(page, identityLine("fr", legal), { x: colRightX, topMM: rightY, width: halfW, font: fontReg, size: 8.5, color: MUTED, lineMM: 4 });
+
+  const partiesEnd = Math.max(leftY, rightY) + 2;
+  hairline(page, 14, partiesEnd, contentW);
+
+  // ─── Line items ───
+  let tableY = partiesEnd + 10;
   const colItemX  = 14 * MM;
   const colQtyX   = 130 * MM;
   const colUnitX  = 155 * MM;
   const colTotalX = A4_W - 14 * MM;
 
-  drawText(page, "ITEM",         { x: colItemX,  y: fromTopMM(tableY), font: fontBold, size: 9, color: MUTED, letterSpacing: 1.0 });
-  drawText(page, "QTY",          { x: colQtyX,   y: fromTopMM(tableY), font: fontBold, size: 9, color: MUTED, letterSpacing: 1.0 });
-  drawText(page, "UNIT PRICE",   { x: colUnitX,  y: fromTopMM(tableY), font: fontBold, size: 9, color: MUTED, letterSpacing: 1.0 });
-  drawText(page, "TOTAL",        { x: colTotalX, y: fromTopMM(tableY), font: fontBold, size: 9, color: MUTED, letterSpacing: 1.0, anchor: "right" });
-
-  hairline(page, 14, tableY + 3, A4_W - 28 * MM);
+  drawText(page, "ARTICLE · ITEM",    { x: colItemX,  y: fromTopMM(tableY), font: fontBold, size: 9, color: MUTED, letterSpacing: 1.0 });
+  drawText(page, "QTÉ",               { x: colQtyX,   y: fromTopMM(tableY), font: fontBold, size: 9, color: MUTED, letterSpacing: 1.0 });
+  drawText(page, "PRIX UNIT.",        { x: colUnitX,  y: fromTopMM(tableY), font: fontBold, size: 9, color: MUTED, letterSpacing: 1.0 });
+  drawText(page, "TOTAL",             { x: colTotalX, y: fromTopMM(tableY), font: fontBold, size: 9, color: MUTED, letterSpacing: 1.0, anchor: "right" });
+  hairline(page, 14, tableY + 3, contentW);
 
   tableY += 11;
   // Two layouts: if the ticket-price/service-fee split is provided, show
   // "ticket price" and "service fee" as two distinct lines (required so
-  // the receipt states what went to the organizer vs. to TicketSafe);
+  // the receipt states what went to the seller vs. to TicketSafe);
   // otherwise fall back to the single lumped line older callers still use.
   const hasFeeSplit = d.ticketPriceCents != null && d.serviceFeeCents != null;
+  const itemName = `${d.eventName} — ${d.ticketType}`;
   if (hasFeeSplit) {
     const ticketPriceStr = `${(d.ticketPriceCents! / 100).toFixed(2)}€`;
     const feeStr = `${(d.serviceFeeCents! / 100).toFixed(2)}€`;
-    drawText(page, `${d.eventName} — ${d.ticketType}`, {
-      x: colItemX, y: fromTopMM(tableY), font: fontReg, size: 11, color: INK,
-      maxWidth: colQtyX - colItemX - 4,
-    });
+    drawText(page, itemName, { x: colItemX, y: fromTopMM(tableY), font: fontReg, size: 11, color: INK, maxWidth: colQtyX - colItemX - 14 });
     drawText(page, String(d.quantity), { x: colQtyX, y: fromTopMM(tableY), font: fontReg, size: 11, color: INK });
     drawText(page, ticketPriceStr, { x: colUnitX, y: fromTopMM(tableY), font: fontReg, size: 11, color: INK });
     drawText(page, ticketPriceStr, { x: colTotalX, y: fromTopMM(tableY), font: fontReg, size: 11, color: INK, anchor: "right" });
     tableY += 8;
-    drawText(page, "TicketSafe service fee", {
-      x: colItemX, y: fromTopMM(tableY), font: fontReg, size: 10, color: MUTED,
-    });
+    drawText(page, "Frais de service Ticket Safe · Service fee", { x: colItemX, y: fromTopMM(tableY), font: fontReg, size: 10, color: MUTED });
     drawText(page, feeStr, { x: colTotalX, y: fromTopMM(tableY), font: fontReg, size: 10, color: MUTED, anchor: "right" });
   } else {
-    drawText(page, `${d.eventName} — ${d.ticketType}`, {
-      x: colItemX, y: fromTopMM(tableY), font: fontReg, size: 11, color: INK,
-      maxWidth: colQtyX - colItemX - 4,
-    });
-    drawText(page, String(d.quantity), {
-      x: colQtyX, y: fromTopMM(tableY), font: fontReg, size: 11, color: INK,
-    });
-    drawText(page, d.unitPrice, {
-      x: colUnitX, y: fromTopMM(tableY), font: fontReg, size: 11, color: INK,
-    });
-    drawText(page, d.totalPaid, {
-      x: colTotalX, y: fromTopMM(tableY), font: fontBold, size: 11, color: INK, anchor: "right",
-    });
+    drawText(page, itemName, { x: colItemX, y: fromTopMM(tableY), font: fontReg, size: 11, color: INK, maxWidth: colQtyX - colItemX - 14 });
+    drawText(page, String(d.quantity), { x: colQtyX, y: fromTopMM(tableY), font: fontReg, size: 11, color: INK });
+    drawText(page, d.unitPrice, { x: colUnitX, y: fromTopMM(tableY), font: fontReg, size: 11, color: INK });
+    drawText(page, d.totalPaid, { x: colTotalX, y: fromTopMM(tableY), font: fontBold, size: 11, color: INK, anchor: "right" });
   }
-
-  hairline(page, 14, tableY + 6, A4_W - 28 * MM);
+  hairline(page, 14, tableY + 6, contentW);
 
   // Total row
   tableY += 16;
-  drawText(page, "TOTAL", {
-    x: colUnitX, y: fromTopMM(tableY), font: fontBold, size: 11, color: MUTED, letterSpacing: 1.2,
-  });
-  drawText(page, d.totalPaid, {
-    x: colTotalX, y: fromTopMM(tableY), font: fontBold, size: 18, color: BRAND, anchor: "right",
-  });
+  const totalW = fontBold.widthOfTextAtSize(pdfSafe(d.totalPaid), 18);
+  drawText(page, "TOTAL TTC", { x: colTotalX - totalW - 14, y: fromTopMM(tableY), font: fontBold, size: 11, color: MUTED, letterSpacing: 1.2, anchor: "right" });
+  drawText(page, d.totalPaid, { x: colTotalX, y: fromTopMM(tableY), font: fontBold, size: 18, color: BRAND, anchor: "right" });
 
-  // ─── 5. PAYMENT block ────────────────────────────────────────────────
-  const payY = 158;
+  // ─── Payment block ───
+  const payY = tableY + 14;
   page.drawRectangle({
-    x: 14 * MM, y: A4_H - (payY + 38) * MM,
-    width: A4_W - 28 * MM, height: 36 * MM,
+    x: 14 * MM, y: A4_H - (payY + 48) * MM,
+    width: contentW, height: 46 * MM,
     color: SOFT, borderColor: HAIR, borderWidth: 0.4,
   });
-
-  drawLabel(page, "PAYMENT", 14 * MM + 5 * MM, fromTopMM(payY + 6), fontBold);
+  drawLabel(page, "PAIEMENT · PAYMENT", 14 * MM + 5 * MM, fromTopMM(payY + 6), fontBold);
 
   const payRow = (n: number, label: string, value: string, mono = false) => {
     const baseY = payY + 14 + n * 7;
-    drawText(page, label, {
-      x: 14 * MM + 5 * MM, y: fromTopMM(baseY),
-      font: fontReg, size: 10, color: MUTED,
-    });
-    drawText(page, value, {
-      x: A4_W - 14 * MM - 5 * MM, y: fromTopMM(baseY),
-      font: mono ? fontMono : fontBold, size: 10, color: INK, anchor: "right",
-    });
+    drawText(page, label, { x: 14 * MM + 5 * MM, y: fromTopMM(baseY), font: fontReg, size: 10, color: MUTED });
+    drawText(page, value, { x: A4_W - 14 * MM - 5 * MM, y: fromTopMM(baseY), font: mono ? fontMono : fontBold, size: 10, color: INK, anchor: "right", maxWidth: 120 * MM });
   };
-  payRow(0, "Payment status",  d.paymentStatus);
-  payRow(1, "Payment method",  d.paymentMethod);
-  payRow(2, "Transaction ID",  d.transactionId, true);
-  payRow(3, "Ticket ID",       d.ticketId, true);
-  payRow(4, "Purchase date",   d.purchaseDate);
+  payRow(0, "Statut · Status",              STATUS_LABEL[d.paymentStatus] ?? d.paymentStatus);
+  payRow(1, "Moyen de paiement · Method",   d.paymentMethod);
+  payRow(2, "Transaction",                  d.transactionId, true);
+  payRow(3, "Billet · Ticket",              d.ticketId, true);
+  payRow(4, "Date d’achat · Purchase date", d.purchaseDate);
 
-  // ─── 6. FOOTER ───────────────────────────────────────────────────────
+  // ─── Footer of page 1 ───
   const footY = 270;
-  hairline(page, 14, footY, A4_W - 28 * MM);
+  hairline(page, 14, footY, contentW);
+  drawText(page, "Merci d’utiliser Ticket Safe · Thank you for using Ticket Safe.", { x: 14 * MM, y: fromTopMM(footY + 6), font: fontBold, size: 10.5, color: INK });
+  drawText(page, "Ce document est un reçu de paiement et une confirmation de commande. Informations légales page 2.", { x: 14 * MM, y: fromTopMM(footY + 11.5), font: fontReg, size: 8.5, color: MUTED, maxWidth: contentW });
+  drawText(page, "This document is a payment receipt and order confirmation. Legal information on page 2.", { x: 14 * MM, y: fromTopMM(footY + 16), font: fontReg, size: 8.5, color: FAINT, maxWidth: contentW });
+  drawText(page, `${supportEmail}   ·   ${websiteUrl}   ·   1/2`, { x: A4_W - 14 * MM, y: fromTopMM(footY + 22), font: fontReg, size: 9, color: MUTED, anchor: "right" });
 
-  drawText(page, "Thank you for using TicketSafe.", {
-    x: 14 * MM, y: fromTopMM(footY + 6), font: fontBold, size: 11, color: INK,
-  });
-  drawText(page, "This document is a payment receipt and order summary.", {
-    x: 14 * MM, y: fromTopMM(footY + 11.5), font: fontReg, size: 9, color: MUTED,
-  });
+  // ─── PAGE 2: legal information ───
+  const page2 = pdf.addPage([A4_W, A4_H]);
+  header(page2);
+  drawText(page2, "Informations légales", { x: 14 * MM, y: fromTopMM(30), font: fontBold, size: 20, color: INK });
+  drawText(page2, `Legal information · Order #${d.orderNumber}`, { x: 14 * MM, y: fromTopMM(38), font: fontReg, size: 10.5, color: MUTED, maxWidth: contentW });
+  hairline(page2, 14, 46, contentW);
 
-  drawText(page, "POWERED BY TICKET SAFE", {
-    x: 14 * MM, y: fromTopMM(footY + 22), font: fontBold, size: 8, color: BRAND, letterSpacing: 1.4,
-  });
-  drawText(page, `${supportEmail}   ·   ${websiteUrl}`, {
-    x: A4_W - 14 * MM, y: fromTopMM(footY + 22), font: fontReg, size: 9, color: MUTED, anchor: "right",
-  });
+  const columns: [ReceiptLang, number, ReturnType<typeof rgb>][] = [["fr", colLeftX, INK], ["en", colRightX, MUTED]];
+  let endY = 56;
+  for (const [lang, x, color] of columns) {
+    drawLabel(page2, noticeHeading(lang).toUpperCase(), x, fromTopMM(56), fontBold);
+    let y = 63;
+    for (const item of noticeItems(lang, legal, kind, { organizerName: d.organizerName, site })) {
+      drawText(page2, item.title, { x, y: fromTopMM(y), font: fontBold, size: 9, color });
+      y += 4.4;
+      y = paragraph(page2, item.text, { x, topMM: y, width: halfW, font: fontReg, size: 8.5, color, lineMM: 4.1 }) + 3;
+    }
+    endY = Math.max(endY, y);
+  }
+  hairline(page2, 14, endY + 2, contentW);
+  let idY = endY + 9;
+  idY = paragraph(page2, identityLine("fr", legal), { x: 14 * MM, topMM: idY, width: contentW, font: fontReg, size: 8.5, color: INK, lineMM: 4.1 });
+  paragraph(page2, identityLine("en", legal), { x: 14 * MM, topMM: idY + 1, width: contentW, font: fontReg, size: 8.5, color: MUTED, lineMM: 4.1 });
+
+  hairline(page2, 14, footY, contentW);
+  drawText(page2, `${supportEmail}   ·   ${websiteUrl}   ·   2/2`, { x: A4_W - 14 * MM, y: fromTopMM(footY + 22), font: fontReg, size: 9, color: MUTED, anchor: "right" });
 
   return await pdf.save();
 }
@@ -317,13 +306,14 @@ interface TextOpts {
 }
 
 function drawText(page: PDFPage, text: string, o: TextOpts) {
-  let t = text;
+  const original = pdfSafe(text);
+  let t = original;
   // Naive width clamp for the long event name
   if (o.maxWidth) {
     while (o.font.widthOfTextAtSize(t, o.size) > o.maxWidth && t.length > 4) {
       t = t.slice(0, -2);
     }
-    if (t !== text) t = t.slice(0, -1) + "…";
+    if (t !== original) t = t.slice(0, -1) + "…";
   }
   let x = o.x;
   if (o.anchor === "right") {
@@ -336,9 +326,43 @@ function drawText(page: PDFPage, text: string, o: TextOpts) {
   });
 }
 
+/** Greedy word wrap; the text is made WinAnsi-safe first. */
+function wrapLines(font: PDFFont, text: string, size: number, maxWidth: number): string[] {
+  const words = pdfSafe(text).split(" ").filter(Boolean);
+  const lines: string[] = [];
+  let line = "";
+  for (const w of words) {
+    const next = line ? `${line} ${w}` : w;
+    if (!line || font.widthOfTextAtSize(next, size) <= maxWidth) line = next;
+    else {
+      lines.push(line);
+      line = w;
+    }
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
+/** Draws wrapped text from `topMM` down and returns the mm just below the last line. */
+function paragraph(
+  page: PDFPage,
+  text: string,
+  o: { x: number; topMM: number; width: number; font: PDFFont; size: number; color: ReturnType<typeof rgb>; lineMM: number },
+): number {
+  let y = o.topMM;
+  for (const line of wrapLines(o.font, text, o.size, o.width)) {
+    page.drawText(line, { x: o.x, y: A4_H - y * MM, font: o.font, size: o.size, color: o.color });
+    y += o.lineMM;
+  }
+  return y;
+}
+
+// pdf-lib's typings don't list character spacing, so it travels through a spread, as in drawText.
+const spaced = (n: number): Record<string, number> => ({ characterSpacing: n });
+
 function drawLabel(page: PDFPage, text: string, x: number, y: number, font: PDFFont) {
-  page.drawText(text, {
-    x, y, font, size: 8, color: MUTED, characterSpacing: 1.2,
+  page.drawText(pdfSafe(text), {
+    x, y, font, size: 8, color: MUTED, ...spaced(1.2),
   });
 }
 
@@ -362,9 +386,10 @@ function drawPill(
     anchor?: "left" | "right";
   },
 ): number {
+  const label = pdfSafe(opts.label);
   const padX = 8;
   const padY = 5;
-  const textW = opts.font.widthOfTextAtSize(opts.label, opts.size);
+  const textW = opts.font.widthOfTextAtSize(label, opts.size);
   const w = textW + padX * 2;
   const h = opts.size + padY * 2;
   let x = opts.x;
@@ -376,13 +401,11 @@ function drawPill(
     borderColor: opts.bg,
     borderWidth: 0,
   });
-  // Approximate rounded — pdf-lib doesn't have native rounded rect for
-  // simple cases; the 999px feeling comes from the height vs width ratio.
-  page.drawText(opts.label, {
+  page.drawText(label, {
     x: x + padX,
     y: opts.y - h + padY + (h - opts.size) / 2,
     font: opts.font, size: opts.size, color: opts.fg,
-    characterSpacing: 0.8,
+    ...spaced(0.8),
   });
   return x;
 }

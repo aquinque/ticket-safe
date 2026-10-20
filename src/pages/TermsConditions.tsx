@@ -238,7 +238,7 @@ const TermsConditions = () => {
                       <li>Tickets sold directly by an organizer: buyers pay a service fee on top of the ticket price, equal to {STUDIO_FEE_RULE_LONG}; the organizer receives the full ticket price</li>
                       <li>Buyers pay a 6% platform fee on top of the ticket price (resale); a 5% fee applies to the seller at withdrawal</li>
                       <li>All fees are clearly displayed before purchase confirmation</li>
-                      <li>Fees are non-refundable except in cases of platform error</li>
+                      <li>Service fees are refunded together with the ticket price whenever you are entitled to a full refund, for example when an organizer cancels an event; otherwise they are non-refundable, except in cases of platform error</li>
                     </ul>
 
                     <h3 className="font-semibold text-foreground text-lg mt-4">6.2 Payment Processing</h3>

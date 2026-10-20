@@ -10,6 +10,7 @@
  */
 import { renderEmail, ctaButton, ticketSummary, textLine } from "./emailComponents.ts";
 import { emailTokens } from "./emailTokens.ts";
+import { RECEIPT_LEGAL_FALLBACK, renderNoticeHtml, type NoticeStyle, type ReceiptKind, type ReceiptLegal } from "./receiptLegal.ts";
 
 export interface OrderEmailData {
   buyerFirstName: string;
@@ -26,6 +27,9 @@ export interface OrderEmailData {
   ticketType: string;
   quantity: number;
   pricePaid: string;
+  /** Ticket price and service fee, formatted ("10.00€"); when both are set the recap shows them apart. */
+  ticketPrice?: string;
+  serviceFee?: string;
 
   orderNumber: string;
   purchaseDate: string;
@@ -33,10 +37,25 @@ export interface OrderEmailData {
 
   organizerName: string;
 
+  /** "ticket" (default) or "resale": picks the wording of the legal notice. */
+  kind?: ReceiptKind;
+  legal?: ReceiptLegal;
+
   supportEmail?: string;
   websiteUrl?: string;
   myTicketsUrl?: string;
 }
+
+// The legal notice in the e-mail's own palette and fonts.
+const NOTICE_STYLE: NoticeStyle = {
+  text: emailTokens.textPrimary,
+  muted: emailTokens.textMuted,
+  label: emailTokens.textMuted,
+  strong: emailTokens.textPrimary,
+  accent: emailTokens.accent,
+  border: emailTokens.border,
+  font: emailTokens.fontBody,
+};
 
 export function generateConfirmationEmail(d: OrderEmailData): { html: string; text: string } {
   const myTicketsUrl = d.myTicketsUrl ?? `${emailTokens.siteUrl}/my-tickets`;
@@ -52,11 +71,15 @@ export function generateConfirmationEmail(d: OrderEmailData): { html: string; te
       ...(d.eventAddress ? ([["Address", d.eventAddress]] as [string, string][]) : []),
       ["Ticket type", d.ticketType],
       ["Quantity", String(d.quantity)],
+      ...(d.ticketPrice && d.serviceFee
+        ? ([["Ticket price", d.ticketPrice], ["Service fee (Ticket Safe)", d.serviceFee]] as [string, string][])
+        : []),
       ["Total paid", d.pricePaid, emailTokens.accent],
       ["Order number", d.orderNumber],
     ])}
     ${ctaButton("View my tickets", myTicketsUrl)}
     <p style="margin:24px 0 0;font-size:13px;color:${emailTokens.textMuted}">The attached QR code is valid for one entry. This ticket is nominative — don't share it; it can only be resold through Ticket Safe.</p>
+    ${renderNoticeHtml(d.legal ?? RECEIPT_LEGAL_FALLBACK, d.kind ?? "ticket", { organizerName: d.organizerName, style: NOTICE_STYLE })}
   `;
 
   const text = [
@@ -68,6 +91,7 @@ export function generateConfirmationEmail(d: OrderEmailData): { html: string; te
     textLine("Location", d.eventLocation),
     textLine("Ticket type", d.ticketType),
     textLine("Quantity", String(d.quantity)),
+    ...(d.ticketPrice && d.serviceFee ? [textLine("Ticket price", d.ticketPrice), textLine("Service fee (Ticket Safe)", d.serviceFee)] : []),
     textLine("Total paid", d.pricePaid),
     textLine("Order number", d.orderNumber),
     "",

@@ -1,9 +1,33 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { renderBuyerEmail, renderTicketCard, buildTicketUrls, deriveFirstName } from "./_shared/buyerEmail.ts";
+import { RECEIPT_LEGAL_COLUMNS, receiptLegalFromSettings, renderNoticeHtml, renderPaymentSummaryHtml } from "./_shared/receiptLegal.ts";
+import { generateTicketsPDFServer, type ServerTicketData } from "../_shared/ticketPdfServer.ts";
 
 // Reconciled with the deployed function. The only addition is the "Open my ticket"
 // link per ticket (guest_access_tokens, scope 'ticket'). Tokens are hashed before storage.
+//
+// 2026-10-06: the inline-QR redesign above had dropped the ticket.pdf
+// attachment entirely — the only artifact a buyer could show at a door with
+// no signal (no inbox preview images, scanner trained on a printed QR) was
+// gone. Restored it as an attachment alongside the inline QR cards (kept
+// exactly as designed — this is additive, not a revert) and added the
+// explicit "your ticket is attached" line right under the event header, per
+// spec.
+//
+// Payment summary and legal notice: the e-mail is the buyer's confirmation of the
+// contract on a durable medium, so it splits the ticket price from the service fee and
+// carries who sells, VAT, withdrawal, refunds and the mediator (see _shared/receiptLegal.ts).
+
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunk)));
+  return btoa(binary);
+}
+function slugifyForFilename(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "event";
+}
 
 const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type" };
 function json(b: unknown, s = 200) { return new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } }); }
@@ -70,7 +94,7 @@ serve(async (req) => {
     }
   }
 
-  const { data: ord } = await supabase.from("event_orders").select("id, buyer_id, buyer_email, event_id, tier_id, quantity, total_cents, fee_cents, status").eq("id", orderId).maybeSingle();
+  const { data: ord } = await supabase.from("event_orders").select("id, buyer_id, buyer_email, event_id, tier_id, quantity, total_cents, fee_cents, status, paid_at").eq("id", orderId).maybeSingle();
   if (!ord) return json({ error: "order not found" }, 404);
 
   if (!viaSecret) {
@@ -90,12 +114,16 @@ serve(async (req) => {
 
   if (ord.status !== "paid") return json({ error: `This order isn't payable (status: ${ord.status}).` }, 409);
 
-  const [{ data: evRow }, { data: tierRow }, { data: tickets }, { data: prof }] = await Promise.all([
-    supabase.from("events").select("id, title, date, location, slug, organizer_id").eq("id", ord.event_id).maybeSingle(),
+  const [{ data: evRow }, { data: tierRow }, { data: tickets }, { data: prof }, { data: legalRow }] = await Promise.all([
+    supabase.from("events").select("id, title, date, location, slug, organizer_id, banner_url").eq("id", ord.event_id).maybeSingle(),
     supabase.from("event_tiers").select("name").eq("id", ord.tier_id).maybeSingle(),
-    supabase.from("event_tickets").select("id, qr_token, holder_first_name, holder_last_name, holder_email").eq("order_id", orderId),
+    supabase.from("event_tickets").select("id, qr_token, holder_first_name, holder_last_name, holder_email").eq("order_id", orderId).order("created_at", { ascending: true }),
     supabase.from("profiles").select("full_name").eq("id", ord.buyer_id).maybeSingle(),
+    supabase.from("billing_settings").select(RECEIPT_LEGAL_COLUMNS).eq("id", true).maybeSingle(),
   ]);
+  const { data: organizerRow } = evRow?.organizer_id
+    ? await supabase.from("organizer_profiles").select("name").eq("id", evRow.organizer_id).maybeSingle()
+    : { data: null as { name?: string } | null };
   const evTitle = evRow?.title ?? "Your event";
   const evDate = evRow?.date ? new Date(evRow.date).toLocaleString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—";
   const evLocation = evRow?.location ?? "";
@@ -103,7 +131,23 @@ serve(async (req) => {
   const qty = ord.quantity ?? (tickets?.length ?? 1);
   const total = (ord.total_cents ?? 0) / 100;
   const firstName = deriveFirstName(ord.buyer_email, (prof as { full_name?: string } | null)?.full_name ?? null);
+  const fullName = ((prof as { full_name?: string } | null)?.full_name ?? "").trim();
+  const nameParts = fullName.split(/\s+/).filter(Boolean);
+  const fallbackFirst = nameParts[0] ?? firstName;
+  const fallbackLast = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "";
+  const orderNumber = `TS-${orderId.slice(0, 8).toUpperCase()}`;
+
+  // What was paid, split between the ticket (organizer) and the service fee (Ticket Safe), and the legal notice.
+  const feeCents = Math.max(0, ord.fee_cents ?? 0);
+  const totalCents = Math.max(0, ord.total_cents ?? 0);
+  const paidOn = new Date(ord.paid_at ?? Date.now()).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "Europe/Paris" });
+  const organizerName = (organizerRow as { name?: string } | null)?.name ?? null;
+  const legal = receiptLegalFromSettings(legalRow as Record<string, unknown> | null);
+  const summaryHtml = renderPaymentSummaryHtml({ orderRef: orderNumber, paidOn, quantity: qty, tierName, ticketCents: Math.max(0, totalCents - feeCents), feeCents, totalCents });
+  const legalHtml = renderNoticeHtml(legal, "ticket", { organizerName, site: SITE_URL });
+
   const blocks: string[] = [];
+  const pdfTickets: ServerTicketData[] = [];
   for (let i = 0; i < (tickets ?? []).length; i++) {
     const t = tickets![i];
     const holder = [t.holder_first_name, t.holder_last_name].filter(Boolean).join(" ").trim();
@@ -112,7 +156,35 @@ serve(async (req) => {
     const { qr, apple, google } = buildTicketUrls(supabaseUrl, t.id);
     const ticketUrl = await createTicketLink(supabase, t.id);
     blocks.push(renderTicketCard({ idx: i + 1, total: tickets!.length, holder, holderEmail, tierName, evDate, evLocation, qrUrl: qr, refShort, appleWalletUrl: apple, googleWalletUrl: google, ticketUrl }));
+    pdfTickets.push({
+      eventName: evTitle,
+      eventDate: evRow?.date ?? evDate,
+      eventLocation: evLocation,
+      eventImageUrl: evRow?.banner_url ?? null,
+      organizerName: organizerName ?? "Ticket Safe",
+      buyerFirstName: t.holder_first_name || fallbackFirst,
+      buyerLastName: t.holder_last_name || fallbackLast,
+      buyerEmail: ord.buyer_email,
+      ticketType: tierName,
+      pricePaid: `${(total / qty).toFixed(2)}€`,
+      ticketId: t.id,
+      orderNumber,
+      qrToken: t.qr_token,
+      ticketIndex: i + 1,
+      ticketTotal: tickets!.length,
+    });
   }
+
+  let attachments: { filename: string; content: string }[] = [];
+  try {
+    const pdfBytes = await generateTicketsPDFServer(pdfTickets);
+    attachments = [{ filename: `TicketSafe-${slugifyForFilename(evTitle)}-${orderNumber}.pdf`, content: bytesToBase64(pdfBytes) }];
+  } catch (err) {
+    // The inline QR cards still work as a fallback — the buyer isn't left
+    // with nothing — but this should never happen silently, hence the loud log.
+    console.error("[replay-order-email] PDF generation failed, sending without attachment:", err);
+  }
+
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
@@ -120,7 +192,8 @@ serve(async (req) => {
       from: "Ticket Safe <noreply@ticket-safe.eu>",
       to: [ord.buyer_email],
       subject: `🎫 Your ticket${qty > 1 ? "s" : ""} for ${evTitle}`,
-      html: renderBuyerEmail({ firstName, evTitle, evDate, evLocation, tierName, totalEUR: total, ticketBlocksHtml: blocks.join(""), qty: tickets?.length ?? 1 }),
+      html: renderBuyerEmail({ firstName, evTitle, evDate, evLocation, tierName, totalEUR: total, ticketBlocksHtml: blocks.join(""), qty: tickets?.length ?? 1, summaryHtml, legalHtml }),
+      ...(attachments.length > 0 ? { attachments } : {}),
     }),
   });
   const result = await res.json().catch(() => ({}));
