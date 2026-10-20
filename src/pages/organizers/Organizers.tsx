@@ -13,7 +13,6 @@ import {
   ChevronRight,
   TrendingUp,
   Lock,
-  X as XIcon,
   LayoutDashboard,
   Clock,
 } from "lucide-react";
@@ -65,12 +64,11 @@ const steps = [
   { n: "04", title: "Sell & scan", desc: "Track sales live. On the day, scan tickets from the app at the door." },
 ];
 
-const compareRows = [
-  { feature: "Fees", others: "Fixed per ticket + commission", us: `0% commission — buyers pay ${STUDIO_FEE_RULE}, you keep every euro` },
-  { feature: "Resale handling", others: "None — buyers go elsewhere", us: "Official resale built in" },
-  { feature: "Event page", others: "Generic template", us: "Branded to your identity" },
-  { feature: "Payout", others: "7–14 days after the event", us: "Starts 2 days after your event, automatic" },
-  { feature: "Setup time", others: "Hours of config", us: "Under an hour" },
+const studioHighlights = [
+  { feature: "Fees", text: `0% commission — buyers pay ${STUDIO_FEE_RULE}, you keep every euro` },
+  { feature: "Resale", text: "Official resale built in" },
+  { feature: "Event page", text: "Branded to your identity" },
+  { feature: "Payout", text: "Starts 2 days after your event, automatic" },
 ];
 
 const Organizers = () => {
@@ -223,75 +221,31 @@ const Organizers = () => {
           </div>
         </section>
 
-        {/* ===================== COMPARE ===================== */}
+        {/* ===================== WHY STUDIO ===================== */}
         <section className="py-12 md:py-20">
           <div className="container mx-auto px-4">
             <div className="max-w-3xl mx-auto">
               <div className="text-center mb-8 md:mb-10">
                 <div className="text-[10px] md:text-xs uppercase tracking-[0.2em] font-bold text-[hsl(var(--brand-200))] mb-2 md:mb-3">
-                  The difference
+                  What you get
                 </div>
                 <h2 className="text-2xl md:text-4xl font-black text-foreground">
                   Why TicketSafe Studio.
                 </h2>
               </div>
 
-              {/* Mobile: stacked cards (per row) */}
-              <div className="md:hidden space-y-3">
-                {compareRows.map((row, i) => (
+              <div className="rounded-2xl border border-border overflow-hidden bg-card">
+                {studioHighlights.map((row, i) => (
                   <div
-                    key={i}
-                    className="rounded-2xl border border-border bg-card overflow-hidden shadow-soft"
+                    key={row.feature}
+                    className={`grid md:grid-cols-[1fr_2fr] ${i < studioHighlights.length - 1 ? "border-b border-border" : ""}`}
                   >
-                    <div className="px-4 py-2.5 bg-muted/40 border-b border-border">
-                      <div className="text-xs uppercase tracking-wider font-bold text-muted-foreground">
-                        {row.feature}
-                      </div>
+                    <div className="px-4 pt-3 pb-1 md:py-3.5 text-xs md:text-sm uppercase md:normal-case tracking-wider md:tracking-normal font-bold md:font-semibold text-muted-foreground md:text-foreground">
+                      {row.feature}
                     </div>
-                    <div className="flex items-start gap-2.5 px-4 py-3 bg-primary/[0.04] border-b border-border">
-                      <Check className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-[10px] uppercase tracking-wider font-bold text-[hsl(var(--brand-200))] mb-0.5">
-                          TicketSafe Studio
-                        </div>
-                        <div className="text-sm text-foreground leading-snug font-medium">{row.us}</div>
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-2.5 px-4 py-3">
-                      <XIcon className="w-4 h-4 text-muted-foreground/60 flex-shrink-0 mt-0.5" />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-0.5">
-                          Other platforms
-                        </div>
-                        <div className="text-sm text-muted-foreground leading-snug">{row.others}</div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Desktop: 3-column table */}
-              <div className="hidden md:block rounded-2xl border border-border overflow-hidden bg-card">
-                <div className="grid grid-cols-[1fr_1fr_1fr] text-xs uppercase tracking-wider font-bold border-b border-border bg-muted/40">
-                  <div className="px-4 py-3 text-muted-foreground">Feature</div>
-                  <div className="px-4 py-3 text-muted-foreground">Other platforms</div>
-                  <div className="px-4 py-3 text-[hsl(var(--brand-200))]">TicketSafe Studio</div>
-                </div>
-                {compareRows.map((row, i) => (
-                  <div
-                    key={i}
-                    className={`grid grid-cols-[1fr_1fr_1fr] text-sm ${
-                      i < compareRows.length - 1 ? "border-b border-border" : ""
-                    }`}
-                  >
-                    <div className="px-4 py-3.5 font-semibold text-foreground">{row.feature}</div>
-                    <div className="px-4 py-3.5 text-muted-foreground flex items-start gap-2">
-                      <XIcon className="w-4 h-4 text-muted-foreground/60 mt-0.5 shrink-0" />
-                      <span>{row.others}</span>
-                    </div>
-                    <div className="px-4 py-3.5 text-foreground flex items-start gap-2 bg-primary/[0.03]">
+                    <div className="px-4 pt-1 pb-3 md:py-3.5 text-sm text-foreground flex items-start gap-2.5 md:gap-2">
                       <Check className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-                      <span className="font-medium">{row.us}</span>
+                      <span className="font-medium leading-snug">{row.text}</span>
                     </div>
                   </div>
                 ))}
