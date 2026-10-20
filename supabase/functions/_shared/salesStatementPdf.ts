@@ -172,7 +172,7 @@ export async function generateSalesStatementPdf(d: SalesStatementData): Promise<
   sheet.y = top + 31 + 6;
 
   sheet.flow(
-    "Ce relevé ne constitue pas une facture : les frais de service TicketSafe font l'objet d'une facture distincte, émise à l'issue de l'événement.",
+    "Les frais de service rémunèrent le service rendu par TicketSafe aux acheteurs (émission et envoi des billets, conservation des justificatifs de paiement) : ils sont payés par les acheteurs en plus du prix des billets et ne sont pas à la charge de l'organisateur. Ce relevé ne constitue pas une facture.",
     SMALL,
   );
   if (d.discountCents > 0) {
