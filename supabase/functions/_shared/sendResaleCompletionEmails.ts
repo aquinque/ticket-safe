@@ -250,6 +250,7 @@ export async function sendResaleCompletionEmails(
           transactionId: `${provider}:${tx.id}`,
           organizerName: organizerNameRich,
           ticketId: xfer.newTicketId,
+          kind: "resale",
         };
 
         const sendRes = await sendTicketConfirmationEmail({
