@@ -1,25 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { ChevronDown, Download, FileText, Loader2, Receipt } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Download, Loader2, Receipt } from "lucide-react";
 import { toast } from "sonner";
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import type { OrganizerProfile } from "@/hooks/useOrganizer";
-import { eur, fmtDate, plural } from "@/lib/studioFormat";
-// The same rules the server applies before it issues an invoice, here only to say why one isn't available yet.
-import { invoiceBlocker } from "../../../supabase/functions/_shared/billingRules.ts";
+import { eur, plural } from "@/lib/studioFormat";
 
+// Only the sales statement is offered. TicketSafe does not invoice organizers: the service fee pays for what it
+// does for the buyer and is owed by the buyer, so the organizer receives a statement of what it is owed.
 type DocType = "sales_statement" | "service_invoice";
 
 interface DocumentEvent {
@@ -126,21 +114,17 @@ function useStudioDocuments(organizerId: string) {
   return { events, docs, loading, failed, reload: load };
 }
 
-const billedTo = (o: OrganizerProfile) =>
-  [o.billing_address_line1, [o.billing_postal_code, o.billing_city].filter(Boolean).join(" ")].filter(Boolean).join(", ");
-
 export function StudioDocuments({ organizer }: { organizer: OrganizerProfile }) {
-  const navigate = useNavigate();
   const { events, docs, loading, failed, reload } = useStudioDocuments(organizer.id);
   const [busy, setBusy] = useState<string | null>(null);
-  const [issuing, setIssuing] = useState<DocumentEvent | null>(null);
 
-  const docFor = useMemo(() => {
-    const byKey = new Map(docs.map((d) => [`${d.event_id}:${d.doc_type}`, d]));
-    return (eventId: string, type: DocType) => byKey.get(`${eventId}:${type}`);
+  const statementFor = useMemo(() => {
+    const byEvent = new Map(docs.filter((d) => d.doc_type === "sales_statement").map((d) => [d.event_id, d]));
+    return (eventId: string) => byEvent.get(eventId);
   }, [docs]);
 
-  const generate = async (eventId: string, docType: DocType) => {
+  const generate = async (eventId: string) => {
+    const docType: DocType = "sales_statement";
     setBusy(eventId);
     // Opened now, inside the click, so the browser doesn't take it for a pop-up; pointed at the PDF once it exists.
     const tab = window.open("about:blank", "_blank");
@@ -161,12 +145,7 @@ export function StudioDocuments({ organizer }: { organizer: OrganizerProfile }) 
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.url) {
         tab?.close();
-        const message = data.error ?? "Could not generate the document.";
-        if (data.code === "client_details_missing") {
-          toast.error(message, { action: { label: "Open Settings", onClick: () => navigate("/studio/profile") } });
-        } else {
-          toast.error(message);
-        }
+        toast.error(data.error ?? "Could not generate the document.");
         return;
       }
       if (tab) tab.location.href = data.url;
@@ -185,7 +164,7 @@ export function StudioDocuments({ organizer }: { organizer: OrganizerProfile }) 
       <div className="flex items-center justify-between px-4 md:px-5 py-3 border-b border-border">
         <h2 id="docs-heading" className="text-sm font-bold flex items-center gap-1.5">
           <Receipt className="w-4 h-4 text-primary" />
-          Statements and invoices
+          Sales statements
         </h2>
         <span className="text-[11px] text-muted-foreground">PDF, one per event</span>
       </div>
@@ -196,23 +175,12 @@ export function StudioDocuments({ organizer }: { organizer: OrganizerProfile }) 
         <p className="px-4 md:px-5 py-4 text-sm text-muted-foreground">Your statements couldn't be loaded. Reload the page to try again.</p>
       ) : events.length === 0 ? (
         <p className="px-4 md:px-5 py-4 text-sm text-muted-foreground">
-          A sales statement and a service fee invoice for each event will appear here once you have sold tickets.
+          A sales statement for each event will appear here once you have sold tickets.
         </p>
       ) : (
         <ul className="divide-y divide-border">
           {events.map((e) => {
-            const statement = docFor(e.eventId, "sales_statement");
-            const invoice = docFor(e.eventId, "service_invoice");
-            const issued = invoice?.status === "definitif";
-            const blocker = issued
-              ? null
-              : invoiceBlocker({
-                  event: { status: e.status, ends_at: e.endsAt, date: e.date },
-                  paidTickets: e.paidTickets,
-                  feeCents: e.feeCents,
-                  client: organizer,
-                });
-            const needsDetails = blocker?.code === "client_details_missing";
+            const statement = statementFor(e.eventId);
             const working = busy === e.eventId;
 
             return (
@@ -221,57 +189,24 @@ export function StudioDocuments({ organizer }: { organizer: OrganizerProfile }) 
                   <Link to={`/studio/events/${e.eventId}`} className="font-semibold text-sm hover:text-primary truncate block">{e.title}</Link>
                   <div className="text-xs text-muted-foreground mt-0.5 tabular-nums">
                     {plural(e.paidOrders, "paid order")} · {eur(e.grossCents)} gross
+                    {e.grossCents > 0 && (
+                      <> · {statement?.status === "definitif" ? `Final, ${statement.document_number}` : "Provisional, updates until you are paid out"}</>
+                    )}
                   </div>
                 </div>
 
                 {e.grossCents <= 0 ? (
                   <span className="text-xs text-muted-foreground shrink-0">Free tickets, nothing to report</span>
                 ) : (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        type="button"
-                        disabled={working}
-                        className="inline-flex items-center gap-1.5 px-3 min-h-[40px] text-xs font-bold bg-card border border-border hover:bg-muted disabled:opacity-60 shrink-0"
-                      >
-                        {working ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-                        Download
-                        <ChevronDown className="w-3 h-3" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="min-w-[270px]">
-                      <DropdownMenuItem onClick={() => generate(e.eventId, "sales_statement")}>
-                        <FileText className="w-3.5 h-3.5 mr-2 shrink-0" />
-                        <span className="flex flex-col">
-                          <span>Sales statement (relevé de ventes)</span>
-                          <span className="text-[11px] text-muted-foreground">
-                            {statement?.status === "definitif" ? `Final · ${statement.document_number}` : "Provisional, updates until you are paid out"}
-                          </span>
-                        </span>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        disabled={!!blocker && !needsDetails}
-                        title={blocker?.message}
-                        onClick={() => {
-                          if (needsDetails) navigate("/studio/profile");
-                          else if (issued) generate(e.eventId, "service_invoice");
-                          else setIssuing(e);
-                        }}
-                      >
-                        <Receipt className="w-3.5 h-3.5 mr-2 shrink-0" />
-                        <span className="flex flex-col">
-                          <span>{issued || blocker ? "Service fee invoice" : "Issue service fee invoice"}</span>
-                          <span className="text-[11px] text-muted-foreground">
-                            {issued && invoice
-                              ? `${invoice.document_number} · ${fmtDate(invoice.issued_at)}`
-                              : blocker
-                                ? blocker.hint
-                                : "A legal document, numbered once"}
-                          </span>
-                        </span>
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <button
+                    type="button"
+                    disabled={working}
+                    onClick={() => generate(e.eventId)}
+                    className="inline-flex items-center gap-1.5 px-3 min-h-[40px] text-xs font-bold bg-card border border-border hover:bg-muted disabled:opacity-60 shrink-0"
+                  >
+                    {working ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+                    Download statement
+                  </button>
                 )}
               </li>
             );
@@ -279,59 +214,10 @@ export function StudioDocuments({ organizer }: { organizer: OrganizerProfile }) 
         </ul>
       )}
 
-      {/* An invoice gets its own number and can't be changed afterwards, so it is never issued by a stray click. */}
-      <AlertDialog open={!!issuing} onOpenChange={(open) => !open && setIssuing(null)}>
-        <AlertDialogContent className="max-w-lg">
-          {issuing && (
-            <>
-              <AlertDialogTitle>Issue the service fee invoice?</AlertDialogTitle>
-              <AlertDialogDescription asChild>
-                <div className="space-y-3 text-sm text-foreground/85">
-                  <p>
-                    Invoice for <strong>{issuing.title}</strong>: {plural(issuing.paidTickets, "ticket")} sold, service fees of{" "}
-                    <strong>{eur(issuing.feeCents, 2)}</strong> in total.
-                  </p>
-                  <div>
-                    <div className="text-xs font-bold text-muted-foreground mb-1">Billed to</div>
-                    <div className="border border-border bg-muted/40 px-3 py-2">
-                      <div className="font-semibold">{organizer.name}</div>
-                      <div className="text-muted-foreground">{billedTo(organizer)}</div>
-                      <div className="text-muted-foreground">
-                        {[organizer.siren && `SIREN ${organizer.siren}`, organizer.rna_number && `RNA ${organizer.rna_number}`].filter(Boolean).join(" · ")}
-                      </div>
-                    </div>
-                  </div>
-                  <p>
-                    An invoice is a legal document with its own number. Once issued it cannot be changed or deleted, so check these details first.{" "}
-                    <Link to="/studio/profile" className="underline underline-offset-2">Edit them in Settings</Link>.
-                  </p>
-                </div>
-              </AlertDialogDescription>
-              <div className="flex items-center justify-end gap-2 mt-5 pt-4 border-t border-border">
-                <button
-                  type="button"
-                  onClick={() => setIssuing(null)}
-                  className="inline-flex items-center gap-1.5 px-4 min-h-[40px] text-sm font-bold bg-muted text-foreground hover:bg-muted/70"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const target = issuing;
-                    setIssuing(null);
-                    generate(target.eventId, "service_invoice");
-                  }}
-                  className="inline-flex items-center gap-1.5 px-4 min-h-[40px] text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90"
-                >
-                  <Receipt className="w-3.5 h-3.5" />
-                  Issue invoice
-                </button>
-              </div>
-            </>
-          )}
-        </AlertDialogContent>
-      </AlertDialog>
+      <p className="px-4 md:px-5 py-3 border-t border-border text-[11px] leading-relaxed text-muted-foreground">
+        Buyers pay the service fee on top of your ticket price, for the service TicketSafe provides to them (issuing and sending the ticket,
+        keeping the payment records). You receive the full ticket price and are not invoiced.
+      </p>
     </section>
   );
 }

@@ -393,7 +393,7 @@ const StudioSales = () => {
           )}
         </section>
 
-        {/* Statements and invoices, per event */}
+        {/* Sales statements, per event */}
         {organizer && <StudioDocuments organizer={organizer} />}
       </div>
     </StudioLayout>

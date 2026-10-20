@@ -348,7 +348,7 @@ const StudioProfile = () => {
             </Link>
           </Row>
 
-          <Row icon={Building2} number={4} title="Legal identity" text="Printed on your sales statements and service-fee invoices, and pre-filled on the Stripe form. Leave empty if you sell as an individual.">
+          <Row icon={Building2} number={4} title="Legal identity" text="Printed on your sales statements, and pre-filled on the Stripe form. Leave empty if you sell as an individual.">
             <div className="space-y-3">
               <div className="grid gap-3 sm:grid-cols-2">
                 <Labeled label="SIREN" hint="9 digits">

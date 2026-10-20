@@ -14,8 +14,11 @@
  *    kept as its service fee, and owes them. Not an invoice. May be regenerated
  *    while the money hasn't all been paid out (status stays "provisoire"),
  *    frozen once "definitif".
- *  - service_invoice: a real tax invoice for TicketSafe's ticket service fee.
- *    Numbered exactly once via a gapless counter (migration 20261002120000),
+ *  - service_invoice: DISABLED (ORGANIZER_INVOICES_ENABLED below). The service fee pays for
+ *    what TicketSafe does for the buyer (issuing and sending the ticket, keeping the payment
+ *    records) and is owed by the buyer, so there is no invoice to the organizer; the buyer gets a
+ *    receipt. The code stays for the day an accountant says otherwise: a real tax invoice,
+ *    numbered exactly once via a gapless counter (migration 20261002120000),
  *    immutable from creation — a correction is a credit note (the schema and the
  *    PDF support it; nothing issues one yet).
  *
@@ -41,6 +44,9 @@ import {
   type InvoiceAmounts,
 } from "../_shared/billingRules.ts";
 import { parisDateKey } from "../_shared/pdfText.ts";
+
+// TicketSafe does not invoice organizers (see the header). Flip this only on an accountant's say-so.
+const ORGANIZER_INVOICES_ENABLED = false;
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -108,6 +114,15 @@ serve(async (req) => {
   if (!eventId || !/^[0-9a-f-]{36}$/i.test(eventId)) return json({ error: "Invalid event_id" }, 400);
   if (docType !== "sales_statement" && docType !== "service_invoice") {
     return json({ error: "doc_type must be 'sales_statement' or 'service_invoice'" }, 400);
+  }
+  if (docType === "service_invoice" && !ORGANIZER_INVOICES_ENABLED) {
+    return json(
+      {
+        error: "TicketSafe does not invoice organizers: the service fee is paid by the buyers, who get a receipt. Your sales statement shows what you receive.",
+        code: "no_organizer_invoice",
+      },
+      410,
+    );
   }
 
   const { data: event } = await supabase

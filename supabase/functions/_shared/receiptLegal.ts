@@ -160,8 +160,8 @@ export function noticeItems(
       : {
           title: fr ? "Vendeur" : "Seller",
           text: fr
-            ? `Le billet est vendu par l’organisateur${organizer ? ` (${organizer})` : ""}. ${name} agit comme intermédiaire de billetterie et d’encaissement ; elle facture ses propres frais de service.`
-            : `The ticket is sold by the organizer${organizer ? ` (${organizer})` : ""}. ${name} acts as ticketing and payment intermediary and charges its own service fee.`,
+            ? `Le billet est vendu par l’organisateur${organizer ? ` (${organizer})` : ""}. ${name} agit comme intermédiaire de billetterie et d’encaissement. Ses frais de service sont dus par l’acheteur et rémunèrent l’émission et l’envoi du billet ainsi que la conservation des justificatifs de paiement.`
+            : `The ticket is sold by the organizer${organizer ? ` (${organizer})` : ""}. ${name} acts as ticketing and payment intermediary. Its service fee is owed by the buyer and pays for issuing and sending the ticket and keeping the payment records.`,
         };
 
   const prices: NoticeItem = {

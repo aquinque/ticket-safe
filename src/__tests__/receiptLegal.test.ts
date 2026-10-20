@@ -91,6 +91,7 @@ describe("noticeItems", () => {
   it("for a ticket: the organizer sells, the fee is VAT-exempt, no withdrawal, refund on cancellation, mediator", () => {
     const fr = noticeItems("fr", legal, "ticket", { organizerName: "BDE Horizon" }).map((i) => i.text).join("\n");
     expect(fr).toContain("vendu par l’organisateur (BDE Horizon)");
+    expect(fr).toContain("dus par l’acheteur et rémunèrent l’émission et l’envoi du billet");
     expect(fr).toContain("TVA non applicable, article 293 B du Code général des impôts.");
     expect(fr).toContain("article L221-28, 12°");
     expect(fr).toContain("remboursé automatiquement du billet et des frais de service");
