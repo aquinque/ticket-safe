@@ -133,7 +133,7 @@ export const ScanStaffPanel = ({ eventId }: { eventId: string }) => {
           onChange={(e) => setLabel(e.target.value)}
           placeholder="e.g. Main entrance, Léa — bénévole"
           maxLength={80}
-          className="flex-1 px-3 py-2 rounded-lg border border-border bg-background text-sm"
+          className="flex-1 min-w-0 px-3 py-2 rounded-lg border border-border bg-background text-sm"
           onKeyDown={(e) => e.key === "Enter" && createLink()}
         />
         <button

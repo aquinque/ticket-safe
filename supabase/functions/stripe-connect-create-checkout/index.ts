@@ -20,6 +20,12 @@
  * 0,80 € per ticket, min 0,70 €, max 3,50 €, or the event's override); it is
  * not defined here. Tickets are issued by stripe-connect-webhook on
  * checkout.session.completed.
+ *
+ * Promoter links (optional `promoter_code` in the body):
+ *   The code from the public page's ?ref=<code>. Looked up against this
+ *   event's event_promoter_links; when it matches an active link, the order
+ *   stores promoter_link_id so the organizer sees what each link brought. An
+ *   unknown or archived code is ignored: it never blocks a sale.
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -134,6 +140,27 @@ async function issueFreeTickets(
   return true;
 }
 
+// The promoter link this checkout came from (event_promoter_links, ?ref=<code> on the public page), or
+// null. Looked up on this event only. A missing, malformed or archived code is ignored and the lookup never
+// throws: attribution must not be able to block a sale.
+async function findPromoterLinkId(supabase: ReturnType<typeof createClient>, eventId: string, rawCode: unknown): Promise<string | null> {
+  const code = typeof rawCode === "string" ? rawCode.trim().toLowerCase() : "";
+  if (!/^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$/.test(code)) return null;
+  try {
+    const { data } = await supabase
+      .from("event_promoter_links")
+      .select("id")
+      .eq("event_id", eventId)
+      .eq("code", code)
+      .is("archived_at", null)
+      .maybeSingle();
+    return (data as { id?: string } | null)?.id ?? null;
+  } catch (e) {
+    console.warn("[stripe-connect-create-checkout] promoter link lookup skipped:", e);
+    return null;
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
@@ -177,7 +204,7 @@ serve(async (req) => {
 
     interface AttendeeIn { first_name?: string; last_name?: string; email?: string; gender?: string; }
     interface GuestIn { name?: string; email?: string; }
-    let body: { tier_id?: string; quantity?: number; attendees?: AttendeeIn[]; guest?: GuestIn; promo_code?: string };
+    let body: { tier_id?: string; quantity?: number; attendees?: AttendeeIn[]; guest?: GuestIn; promo_code?: string; promoter_code?: string };
     try { body = await req.json(); } catch { return json({ error: "Invalid JSON" }, 400); }
 
     let buyerId: string;
@@ -325,6 +352,7 @@ serve(async (req) => {
     const buyerFeeCents = feeResult * quantity;
     const totalCents = subtotal - discountCents + buyerFeeCents;
     const orderFeeCents = buyerFeeCents;
+    const promoterLinkId = await findPromoterLinkId(supabase, ev.id, body.promoter_code);
 
     const { data: order, error: orderErr } = await supabase
       .from("event_orders")
@@ -334,6 +362,7 @@ serve(async (req) => {
         currency: tier.currency ?? "EUR", status: "pending", buyer_email: buyerEmail,
         attendees: attendees.length > 0 ? attendees : null,
         promo_code_id: promoCodeId, discount_cents: discountCents,
+        ...(promoterLinkId ? { promoter_link_id: promoterLinkId } : {}),
       })
       .select("id").single();
     if (orderErr || !order) { await releaseReservation(); await releasePromoUse(); return json({ error: "Could not create order." }, 500); }

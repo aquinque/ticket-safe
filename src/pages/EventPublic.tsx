@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useParams, useNavigate, useLocation, Link } from "react-router-dom";
 import {
   Calendar,
@@ -32,6 +32,7 @@ import { descriptionFontFamily } from "@/lib/descriptionFonts";
 import { ProtectionBadge } from "@/components/common/ProtectionBadge";
 import { useAuth } from "@/hooks/useAuth";
 import { useThemeMode } from "@/hooks/useThemeMode";
+import { readPromoterRef, trackPromoterVisit } from "@/lib/promoterLinks";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -140,6 +141,10 @@ const EventPublic = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, loading: authLoading } = useAuth();
+  // The promoter link this page was opened from (?ref=<code>), read from the address only: nothing is stored in
+  // the browser, so a visitor who leaves and comes back by the main link is no longer attributed to it.
+  const promoterRef = useMemo(() => readPromoterRef(location.search), [location.search]);
+  const countedVisit = useRef<string | null>(null);
 
   const [event, setEvent] = useState<PublicEvent | null>(null);
   const [tiers, setTiers] = useState<TierAvailability[]>([]);
@@ -270,6 +275,16 @@ const EventPublic = () => {
   useEffect(() => {
     load();
   }, [load]);
+
+  // One visit for the promoter link per page load, once the event is known to be published. The server ignores
+  // an unknown or archived code, and the organizer's own visits.
+  useEffect(() => {
+    if (!event?.slug || !promoterRef) return;
+    const key = `${event.slug}:${promoterRef}`;
+    if (countedVisit.current === key) return;
+    countedVisit.current = key;
+    trackPromoterVisit(event.slug, promoterRef);
+  }, [event?.slug, promoterRef]);
 
   // Realtime tier availability
   useEffect(() => {
@@ -409,6 +424,7 @@ const EventPublic = () => {
           quantity: qty,
           attendees: attendeesPayload,
           ...(promoCode.trim() ? { promo_code: promoCode.trim() } : {}),
+          ...(promoterRef ? { promoter_code: promoterRef } : {}),
           ...(user ? {} : { guest: { name: `${first.first_name} ${first.last_name}`.trim(), email: first.email } }),
         },
       });
