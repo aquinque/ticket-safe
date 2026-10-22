@@ -48,6 +48,7 @@ import EventStatusBadge from "@/components/studio/EventStatusBadge";
 import EventPreviewCard from "@/components/studio/EventPreviewCard";
 import { ExternalTicketsSection } from "@/components/studio/ExternalTickets";
 import { ScanStaffPanel } from "@/components/studio/ScanStaffPanel";
+import { PromoterLinksPanel } from "@/components/studio/PromoterLinksPanel";
 import { PromoCodesPanel } from "@/components/studio/PromoCodesPanel";
 import { GuestlistsPanel } from "@/components/studio/GuestlistsPanel";
 
@@ -625,6 +626,12 @@ const StudioEventEdit = () => {
               </section>
             );
           })()}
+
+          {/* Promoter links — their own card, right under the main link: one link per promoter
+              to the same page, with the visits and sales each one brought. */}
+          {event.status === "published" && event.slug && (
+            <PromoterLinksPanel eventId={event.id} slug={event.slug} userId={user?.id ?? null} />
+          )}
 
           <GroupLabel>Performance</GroupLabel>
 

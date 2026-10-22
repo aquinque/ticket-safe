@@ -278,6 +278,11 @@ export default function Privacy() {
                       <li><strong>Device Data:</strong> Browser type, operating system, IP address</li>
                       <li><strong>Location Data:</strong> Approximate location based on IP address</li>
                       <li><strong>Cookies:</strong> See our Cookie Policy for details</li>
+                      <li>
+                        <strong>Promoter links:</strong> When an event page is opened through a promoter link (an address ending in <code>?ref=</code> and a code),
+                        we add one to a daily counter for that link, with no visitor identifier, IP address or cookie stored in our database. If you start a
+                        checkout from that page, your order records which link it came through, so the organizer can see what each promoter brought.
+                      </li>
                     </ul>
                   </div>
 
