@@ -8,6 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import { SEOHead } from "@/components/SEOHead";
 import { Cookie, Shield, Settings, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { LEGAL_UPDATED, formatLegalDate } from "@/lib/legalDates";
 
 const CookiePolicy = () => {
   const location = useLocation();
@@ -47,7 +48,7 @@ const CookiePolicy = () => {
               <h1 className="text-4xl font-bold">Cookie Policy</h1>
             </div>
             <p className="text-muted-foreground">
-              Last updated: {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+              Last updated: {formatLegalDate(LEGAL_UPDATED.cookies)}
             </p>
           </div>
 

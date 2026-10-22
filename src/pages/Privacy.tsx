@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,6 +12,8 @@ import { toast } from "sonner";
 import { Shield, Download, Trash2, FileText, CheckCircle, Clock, XCircle } from "lucide-react";
 import { BackButton } from "@/components/BackButton";
 import Footer from "@/components/Footer";
+import { SEOHead } from "@/components/SEOHead";
+import { LEGAL_UPDATED, formatLegalDate } from "@/lib/legalDates";
 
 type ConsentType = 'data_monetization' | 'aggregated_analytics' | 'research_participation';
 type ConsentStatus = 'granted' | 'withdrawn' | 'expired';
@@ -55,24 +57,21 @@ const CONSENT_DESCRIPTIONS = {
 
 export default function Privacy() {
   const { user, loading: authLoading } = useAuth();
-  const navigate = useNavigate();
   const [consents, setConsents] = useState<Consent[]>([]);
   const [dataRequests, setDataRequests] = useState<DataRequest[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // The policy itself is public. Only the consent switches and data requests need an account.
   useEffect(() => {
-    if (!authLoading && !user) {
-      navigate("/auth");
-    }
-  }, [user, authLoading, navigate]);
-
-  useEffect(() => {
+    if (authLoading) return;
     if (user) {
       fetchConsents();
       fetchDataRequests();
+    } else {
+      setLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  }, [user, authLoading]);
 
   const fetchConsents = async () => {
     const { data, error } = await supabase
@@ -211,10 +210,12 @@ export default function Privacy() {
     );
   }
 
-  if (!user) return null;
-
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      <SEOHead
+        titleKey="Privacy Policy - TicketSafe"
+        descriptionKey="How TicketSafe collects, uses and protects your personal data, and how to exercise your GDPR rights."
+      />
       <div className="container max-w-4xl mx-auto px-4 py-8 flex-1">
         <BackButton fallbackPath="/" />
         
@@ -224,13 +225,13 @@ export default function Privacy() {
         </div>
 
         <p className="text-muted-foreground mb-6">
-          Last updated: {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+          Last updated: {formatLegalDate(LEGAL_UPDATED.privacy)}
         </p>
 
         <Alert className="mb-6">
           <Shield className="h-4 w-4" />
           <AlertDescription>
-            Your privacy matters. This page explains how we collect, use, and protect your personal data. Manage your data sharing preferences and exercise your GDPR rights below.
+            Your privacy matters. This page explains how we collect, use, and protect your personal data. When you are signed in, you can also manage your data sharing preferences and exercise your GDPR rights below.
           </AlertDescription>
         </Alert>
 
@@ -497,119 +498,131 @@ export default function Privacy() {
           </CardContent>
         </Card>
 
-        <Tabs defaultValue="consents" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="consents">Consent Management</TabsTrigger>
-            <TabsTrigger value="requests">Data Requests</TabsTrigger>
-          </TabsList>
+        {!user && (
+          <Alert className="mb-6">
+            <Shield className="h-4 w-4" />
+            <AlertDescription>
+              Sign in to manage your consents and to ask for an export, a correction or the deletion of your data.{" "}
+              <Link to="/auth?next=/privacy" className="font-semibold text-primary hover:underline">Sign in</Link>
+            </AlertDescription>
+          </Alert>
+        )}
 
-          <TabsContent value="consents" className="space-y-4">
-            {Object.entries(CONSENT_DESCRIPTIONS).map(([type, info]) => {
-              const consentType = type as ConsentType;
-              const isGranted = getConsentStatus(consentType);
+        {user && (
+          <Tabs defaultValue="consents" className="space-y-6">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="consents">Consent Management</TabsTrigger>
+              <TabsTrigger value="requests">Data Requests</TabsTrigger>
+            </TabsList>
 
-              return (
-                <Card key={type} className="p-6">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <h3 className="text-lg font-semibold">{info.title}</h3>
-                        {isGranted && (
-                          <Badge variant="default" className="bg-green-600">
-                            Active
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-sm text-muted-foreground mb-3">
-                        {info.description}
-                      </p>
-                      <details className="text-xs text-muted-foreground">
-                        <summary className="cursor-pointer hover:text-foreground">
-                          View details
-                        </summary>
-                        <p className="mt-2 pl-4 border-l-2 border-border">
-                          {info.details}
-                        </p>
-                      </details>
-                    </div>
-                    <Switch
-                      checked={isGranted}
-                      onCheckedChange={() => handleConsentToggle(consentType, isGranted)}
-                    />
-                  </div>
-                </Card>
-              );
-            })}
-          </TabsContent>
+            <TabsContent value="consents" className="space-y-4">
+              {Object.entries(CONSENT_DESCRIPTIONS).map(([type, info]) => {
+                const consentType = type as ConsentType;
+                const isGranted = getConsentStatus(consentType);
 
-          <TabsContent value="requests" className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-3">
-              <Button
-                onClick={() => handleDataRequest('export')}
-                variant="outline"
-                className="flex items-center gap-2 h-auto py-4 flex-col"
-              >
-                <Download className="h-5 w-5" />
-                <span className="font-semibold">Export My Data</span>
-                <span className="text-xs text-muted-foreground">
-                  Download all your data
-                </span>
-              </Button>
-
-              <Button
-                onClick={() => handleDataRequest('rectification')}
-                variant="outline"
-                className="flex items-center gap-2 h-auto py-4 flex-col"
-              >
-                <FileText className="h-5 w-5" />
-                <span className="font-semibold">Rectify Data</span>
-                <span className="text-xs text-muted-foreground">
-                  Request data correction
-                </span>
-              </Button>
-
-              <Button
-                onClick={() => handleDataRequest('deletion')}
-                variant="outline"
-                className="flex items-center gap-2 h-auto py-4 flex-col text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
-              >
-                <Trash2 className="h-5 w-5" />
-                <span className="font-semibold">Delete My Data</span>
-                <span className="text-xs">
-                  Permanent deletion
-                </span>
-              </Button>
-            </div>
-
-            {dataRequests.length > 0 && (
-              <div className="mt-8">
-                <h3 className="text-lg font-semibold mb-4">Request History</h3>
-                <div className="space-y-3">
-                  {dataRequests.map((request) => (
-                    <Card key={request.id} className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium capitalize">
-                            {request.request_type.replace('_', ' ')} Request
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            Requested: {new Date(request.requested_at).toLocaleDateString()}
-                          </p>
-                          {request.notes && (
-                            <p className="text-xs text-muted-foreground mt-1">
-                              {request.notes}
-                            </p>
+                return (
+                  <Card key={type} className="p-6">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <h3 className="text-lg font-semibold">{info.title}</h3>
+                          {isGranted && (
+                            <Badge variant="default" className="bg-green-600">
+                              Active
+                            </Badge>
                           )}
                         </div>
-                        {getStatusBadge(request.status)}
+                        <p className="text-sm text-muted-foreground mb-3">
+                          {info.description}
+                        </p>
+                        <details className="text-xs text-muted-foreground">
+                          <summary className="cursor-pointer hover:text-foreground">
+                            View details
+                          </summary>
+                          <p className="mt-2 pl-4 border-l-2 border-border">
+                            {info.details}
+                          </p>
+                        </details>
                       </div>
-                    </Card>
-                  ))}
-                </div>
+                      <Switch
+                        checked={isGranted}
+                        onCheckedChange={() => handleConsentToggle(consentType, isGranted)}
+                      />
+                    </div>
+                  </Card>
+                );
+              })}
+            </TabsContent>
+
+            <TabsContent value="requests" className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-3">
+                <Button
+                  onClick={() => handleDataRequest('export')}
+                  variant="outline"
+                  className="flex items-center gap-2 h-auto py-4 flex-col"
+                >
+                  <Download className="h-5 w-5" />
+                  <span className="font-semibold">Export My Data</span>
+                  <span className="text-xs text-muted-foreground">
+                    Download all your data
+                  </span>
+                </Button>
+
+                <Button
+                  onClick={() => handleDataRequest('rectification')}
+                  variant="outline"
+                  className="flex items-center gap-2 h-auto py-4 flex-col"
+                >
+                  <FileText className="h-5 w-5" />
+                  <span className="font-semibold">Rectify Data</span>
+                  <span className="text-xs text-muted-foreground">
+                    Request data correction
+                  </span>
+                </Button>
+
+                <Button
+                  onClick={() => handleDataRequest('deletion')}
+                  variant="outline"
+                  className="flex items-center gap-2 h-auto py-4 flex-col text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
+                >
+                  <Trash2 className="h-5 w-5" />
+                  <span className="font-semibold">Delete My Data</span>
+                  <span className="text-xs">
+                    Permanent deletion
+                  </span>
+                </Button>
               </div>
-            )}
-          </TabsContent>
-        </Tabs>
+
+              {dataRequests.length > 0 && (
+                <div className="mt-8">
+                  <h3 className="text-lg font-semibold mb-4">Request History</h3>
+                  <div className="space-y-3">
+                    {dataRequests.map((request) => (
+                      <Card key={request.id} className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium capitalize">
+                              {request.request_type.replace('_', ' ')} Request
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              Requested: {new Date(request.requested_at).toLocaleDateString()}
+                            </p>
+                            {request.notes && (
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {request.notes}
+                              </p>
+                            )}
+                          </div>
+                          {getStatusBadge(request.status)}
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
+        )}
 
         <Card className="mt-6 p-6 bg-muted/50">
           <h3 className="text-sm font-semibold mb-2">Your Rights Under GDPR</h3>

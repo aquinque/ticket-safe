@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { SEOHead } from "@/components/SEOHead";
 import { Scale } from "lucide-react";
+import { LEGAL_UPDATED, formatLegalDate } from "@/lib/legalDates";
 
 /**
  * /mentions-legales — French statutory legal notice page (LCEN Art. 19 +
@@ -57,12 +58,7 @@ const MentionsLegales = () => {
               <h1 className="text-4xl font-bold">Mentions légales</h1>
             </div>
             <p className="text-muted-foreground">
-              Dernière mise à jour :{" "}
-              {new Date().toLocaleDateString("fr-FR", {
-                day: "numeric",
-                month: "long",
-                year: "numeric",
-              })}
+              Dernière mise à jour : {formatLegalDate(LEGAL_UPDATED.legalNotice, "fr-FR")}
             </p>
             <p className="text-sm text-muted-foreground italic mt-3 pt-3 border-t border-border/60">
               <span className="font-semibold not-italic">English summary —</span>{" "}
