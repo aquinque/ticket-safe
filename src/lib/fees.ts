@@ -2,7 +2,8 @@
  * Centralized fee logic for TicketSafe — RESALE marketplace.
  *
  * Model (resale):
- *  - Buyer pays 6% on top of the listing price  (BUYER_FEE_RATE)
+ *  - Buyer pays 6% on top of the listing price  (BUYER_FEE_RATE), 7% when the unit
+ *    price is €50 or more                        (BUYER_FEE_RATE_HIGH)
  *  - Seller pays 5% deducted at withdrawal       (SELLER_COMMISSION_RATE)
  *
  * (Studio primary sales use their own model instead: a per-ticket service fee
@@ -22,6 +23,18 @@ export const SELLER_COMMISSION_RATE = 0.05;
 /** Buyer fee rate for a given unit (per-ticket) price in euros. */
 export const buyerFeeRateFor = (unitPriceEuros: number): number =>
   unitPriceEuros >= HIGH_VALUE_THRESHOLD_EUR ? BUYER_FEE_RATE_HIGH : BUYER_FEE_RATE;
+
+const percent = (rate: number) => Math.round(rate * 100);
+
+/**
+ * How the site words the resale buyer fee: "6% (7% for tickets of €50 or more)". Display only: what is charged
+ * comes from buyerFeeRateFor() on the checkout page and from the same tiers in revolut-resale-checkout.
+ * Studio sales have their own wording in studioFee.ts.
+ */
+export const RESALE_BUYER_FEE_COPY = `${percent(BUYER_FEE_RATE)}% (${percent(BUYER_FEE_RATE_HIGH)}% for tickets of €${HIGH_VALUE_THRESHOLD_EUR} or more)`;
+
+/** The same words for a sentence that already has brackets: "6%, or 7% for tickets of €50 or more". */
+export const RESALE_BUYER_FEE_PHRASE = `${percent(BUYER_FEE_RATE)}%, or ${percent(BUYER_FEE_RATE_HIGH)}% for tickets of €${HIGH_VALUE_THRESHOLD_EUR} or more`;
 
 /** Convert euros (possibly fractional) to integer cents, rounding half-up. */
 export const toCents = (euros: number): number => Math.round(euros * 100);
