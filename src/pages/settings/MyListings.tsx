@@ -44,6 +44,7 @@ import {
 } from "lucide-react";
 import { toast as sonnerToast } from "sonner";
 import { generatePayoutReceiptPDF } from "@/lib/payoutReceiptPdf";
+import { RESALE_BUYER_FEE_COPY } from "@/lib/fees";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -411,7 +412,7 @@ const MyListings = () => {
 
           {/* ===== Wallet — your resale earnings (Vinted-style). Always shown so
               you see your balance even before your first sale. The balance is
-              the price of every completed resale (the 6% buyer fee was already
+              the price of every completed resale (the buyer fee was already
               taken at checkout); Ticket Safe takes 5% when you withdraw. ===== */}
           <section className="mb-6">
             <div className="rounded-2xl border border-success/30 bg-success/10 p-5 md:p-6">
@@ -994,7 +995,7 @@ const SellerPayoutModal = ({
 
           <div className="rounded-xl border border-border bg-muted/40 p-4 text-xs leading-relaxed text-muted-foreground">
             <div className="font-bold text-foreground mb-1.5 text-[11px] uppercase tracking-wider">Fee breakdown</div>
-            Buyers pay a <strong className="text-foreground">6% service fee</strong> on top at checkout (already deducted upstream).
+            Buyers pay a <strong className="text-foreground">service fee of {RESALE_BUYER_FEE_COPY}</strong> on top at checkout (already deducted upstream).
             Ticket Safe takes another <strong className="text-foreground">5%</strong> when you withdraw — net wired to your IBAN.
           </div>
 

@@ -6,6 +6,8 @@ import { BackButton } from "@/components/BackButton";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { SEOHead } from "@/components/SEOHead";
+import { RESALE_BUYER_FEE_PHRASE } from "@/lib/fees";
+import { LEGAL_UPDATED, formatLegalDate } from "@/lib/legalDates";
 import { RefreshCcw, ShieldCheck, XCircle, Clock, CheckCircle2, AlertCircle } from "lucide-react";
 
 const RefundPolicy = () => {
@@ -40,7 +42,7 @@ const RefundPolicy = () => {
               <h1 className="text-4xl font-bold">Refund & Cancellation Policy</h1>
             </div>
             <p className="text-muted-foreground">
-              Last updated: {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+              Last updated: {formatLegalDate(LEGAL_UPDATED.refunds)}
             </p>
           </div>
 
@@ -414,7 +416,7 @@ const RefundPolicy = () => {
                     </p>
                     <ul className="list-disc pl-6 space-y-2">
                       <li>You receive 100% of the ticket price</li>
-                      <li>You receive 100% of the platform fee (6%)</li>
+                      <li>You receive 100% of the platform fee ({RESALE_BUYER_FEE_PHRASE})</li>
                       <li>No refund processing fees are charged</li>
                     </ul>
 

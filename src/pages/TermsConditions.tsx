@@ -8,6 +8,8 @@ import { Separator } from "@/components/ui/separator";
 import { SEOHead } from "@/components/SEOHead";
 import { FileText, Scale, ShieldAlert, CreditCard, UserCheck, AlertTriangle } from "lucide-react";
 import { STUDIO_FEE_RULE_LONG } from "@/lib/studioFee";
+import { RESALE_BUYER_FEE_COPY } from "@/lib/fees";
+import { LEGAL_UPDATED, formatLegalDate } from "@/lib/legalDates";
 
 const TermsConditions = () => {
   const location = useLocation();
@@ -42,7 +44,7 @@ const TermsConditions = () => {
               <h1 className="text-4xl font-bold">Terms & Conditions</h1>
             </div>
             <p className="text-muted-foreground">
-              Last updated: {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+              Last updated: {formatLegalDate(LEGAL_UPDATED.terms)}
             </p>
           </div>
 
@@ -216,7 +218,7 @@ const TermsConditions = () => {
 
                     <h3 className="font-semibold text-foreground text-lg mt-4">5.4 Payment & Fees</h3>
                     <ul className="list-disc pl-6 space-y-2">
-                      <li>Buyers pay a 6% service fee on top of your price; a 5% Ticket Safe fee is deducted from your balance when you withdraw</li>
+                      <li>Buyers pay a service fee of {RESALE_BUYER_FEE_COPY} on top of your price; a 5% Ticket Safe fee is deducted from your balance when you withdraw</li>
                       <li>Payments are processed within 24-48 hours after successful transfer</li>
                       <li>You are responsible for any applicable taxes on your sales</li>
                       <li>Chargebacks or fraudulent activity may result in withheld payments</li>
@@ -236,7 +238,7 @@ const TermsConditions = () => {
                     <h3 className="font-semibold text-foreground text-lg">6.1 Platform Fees</h3>
                     <ul className="list-disc pl-6 space-y-2">
                       <li>Tickets sold directly by an organizer: buyers pay a service fee on top of the ticket price, equal to {STUDIO_FEE_RULE_LONG}; the organizer receives the full ticket price</li>
-                      <li>Buyers pay a 6% platform fee on top of the ticket price (resale); a 5% fee applies to the seller at withdrawal</li>
+                      <li>Buyers pay a platform fee of {RESALE_BUYER_FEE_COPY} on top of the ticket price (resale); a 5% fee applies to the seller at withdrawal</li>
                       <li>All fees are clearly displayed before purchase confirmation</li>
                       <li>Service fees are refunded together with the ticket price whenever you are entitled to a full refund, for example when an organizer cancels an event; otherwise they are non-refundable, except in cases of platform error</li>
                     </ul>

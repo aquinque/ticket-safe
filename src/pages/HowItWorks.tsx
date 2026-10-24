@@ -3,6 +3,7 @@ import Footer from "@/components/Footer";
 import { BackButton } from "@/components/BackButton";
 import { SEOHead } from "@/components/SEOHead";
 import { Link } from "react-router-dom";
+import { HIGH_VALUE_THRESHOLD_EUR, RESALE_BUYER_FEE_COPY, buyerFeeRateFor, calcBreakdown } from "@/lib/fees";
 import {
   ArrowRight,
   Search,
@@ -92,13 +93,19 @@ const faqs = [
   },
   {
     q: "What are the fees?",
-    a: "Buyers pay 6% on top of the ticket price; sellers have 5% deducted when they withdraw. The fee covers payment processing, ticket authentication and buyer protection.",
+    a: `Buyers pay ${RESALE_BUYER_FEE_COPY} on top of the ticket price; sellers have 5% deducted when they withdraw. The fee covers payment processing, ticket authentication and buyer protection.`,
   },
   {
     q: "What if the event is cancelled?",
     a: "If the organizer cancels, every buyer gets a full automatic refund — ticket price and platform fee.",
   },
 ];
+
+// The fee example is computed with the checkout's own calculation, so it cannot drift from what is charged.
+const EXAMPLE_PRICE_EUR = 40;
+const example = calcBreakdown(EXAMPLE_PRICE_EUR, 1);
+const exampleBuyerFeePercent = Math.round(buyerFeeRateFor(EXAMPLE_PRICE_EUR) * 100);
+const euros = (n: number) => `€${n.toFixed(2)}`;
 
 const HowItWorks = () => {
   return (
@@ -263,45 +270,45 @@ const HowItWorks = () => {
                 Simple, fair pricing
               </h2>
               <p className="text-sm md:text-base text-muted-foreground">
-                Buyers pay 6%, sellers 5%. Nothing else, no hidden costs.
+                Buyers pay {RESALE_BUYER_FEE_COPY}, sellers 5%. Nothing else, no hidden costs.
               </p>
             </div>
 
             <div className="rounded-2xl border border-border bg-card overflow-hidden">
               <div className="px-5 md:px-7 py-5 bg-muted/40 border-b border-border">
                 <div className="text-[10px] md:text-xs uppercase tracking-[0.18em] font-bold text-muted-foreground mb-3">
-                  Example · €50 ticket
+                  Example · €{EXAMPLE_PRICE_EUR} ticket
                 </div>
                 <div className="space-y-2.5 text-sm">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Ticket price (set by seller)</span>
-                    <span className="font-semibold">€50.00</span>
+                    <span className="font-semibold">{euros(example.listPriceEuros)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Buyer fee (+6%)</span>
-                    <span className="font-semibold text-primary">+€3.00</span>
+                    <span className="text-muted-foreground">Buyer fee (+{exampleBuyerFeePercent}%)</span>
+                    <span className="font-semibold text-primary">+{euros(example.buyerFeeEuros)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Seller commission (−5%)</span>
-                    <span className="font-semibold text-destructive">−€2.50</span>
+                    <span className="font-semibold text-destructive">−{euros(example.sellerCommissionEuros)}</span>
                   </div>
                 </div>
                 <div className="mt-4 pt-4 border-t border-border space-y-2 text-sm">
                   <div className="flex justify-between font-bold">
                     <span>Buyer pays</span>
-                    <span className="text-base">€53.00</span>
+                    <span className="text-base">{euros(example.buyerTotalEuros)}</span>
                   </div>
                   <div className="flex justify-between font-bold text-primary">
                     <span>Seller receives</span>
-                    <span className="text-base">€47.50</span>
+                    <span className="text-base">{euros(example.sellerPayoutEuros)}</span>
                   </div>
                 </div>
               </div>
               <div className="grid grid-cols-3 divide-x divide-border">
                 <div className="p-4 md:p-5 text-center">
-                  <div className="text-xl md:text-2xl font-black text-primary mb-0.5">6%</div>
+                  <div className="text-xl md:text-2xl font-black text-primary mb-0.5">{exampleBuyerFeePercent}%</div>
                   <div className="text-[10px] md:text-xs text-muted-foreground leading-tight">
-                    Buyer fee
+                    Buyer fee, {Math.round(buyerFeeRateFor(HIGH_VALUE_THRESHOLD_EUR) * 100)}% from €{HIGH_VALUE_THRESHOLD_EUR}
                   </div>
                 </div>
                 <div className="p-4 md:p-5 text-center">
