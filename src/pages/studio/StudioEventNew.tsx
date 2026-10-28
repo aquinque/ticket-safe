@@ -167,8 +167,8 @@ const StudioEventNew = () => {
       toast.error("Please choose a video file.");
       return;
     }
-    if (f.size > 50 * 1024 * 1024) {
-      toast.error("Video must be under 50 MB.");
+    if (f.size > 500 * 1024 * 1024) {
+      toast.error("Video must be under 500 MB.");
       return;
     }
     setVideoFile(f);
@@ -785,7 +785,7 @@ const StudioEventNew = () => {
                       </label>
                     )}
                   </Field>
-                  <Field label="Promo video (optional)" icon={Video} hint="Autoplays muted on your event page. MP4 / WebM / MOV · max 50 MB.">
+                  <Field label="Promo video (optional)" icon={Video} hint="Autoplays muted on your event page. MP4 / WebM / MOV · max 500 MB.">
                     {videoPreview ? (
                       <div className="relative rounded-xl overflow-hidden">
                         <PromoVideo src={videoPreview} poster={bannerPreview} className="w-full aspect-[16/9] object-cover" />
@@ -812,7 +812,7 @@ const StudioEventNew = () => {
                       <label className="flex flex-col items-center justify-center aspect-[16/9] rounded-xl border-2 border-dashed border-border bg-muted/30 cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors">
                         <Video className="w-8 h-8 text-muted-foreground mb-1.5" />
                         <span className="text-sm font-semibold text-foreground">Click to upload a promo video</span>
-                        <span className="text-xs text-muted-foreground mt-0.5">MP4 / WebM / MOV · max 50 MB</span>
+                        <span className="text-xs text-muted-foreground mt-0.5">MP4 / WebM / MOV · max 500 MB</span>
                         <input type="file" accept="video/mp4,video/webm,video/quicktime" onChange={onVideoChange} className="hidden" />
                       </label>
                     )}
