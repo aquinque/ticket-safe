@@ -24,6 +24,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { SEOHead } from "@/components/SEOHead";
+import { PromoVideo } from "@/components/PromoVideo";
 import { useServiceFeeForPrice, useTierServiceFee } from "@/hooks/useServiceFee";
 import { STUDIO_FEE_RULE_MAX } from "@/lib/studioFee";
 import { AnimatedNumber } from "@/components/AnimatedNumber";
@@ -960,7 +961,7 @@ const EventPublic = () => {
         <div className={`relative w-full overflow-hidden ${event.video_url || event.banner_url ? "h-[56vh] min-h-[380px] max-h-[560px] sm:h-auto sm:min-h-0 sm:max-h-none sm:aspect-[16/9] lg:aspect-[21/9]" : "h-[38vh] min-h-[300px] max-h-[420px] sm:h-auto sm:min-h-0 sm:max-h-none sm:aspect-[21/9] lg:aspect-[3/1]"}`} style={{ background: accent }}>
           <div className="absolute inset-0 will-change-transform" style={{ transform: `translate3d(0, ${parallax}px, 0) scale(${1 + parallax / 1400})` }}>
             {event.video_url ? (
-              <video src={event.video_url} className="absolute inset-0 w-full h-full object-cover" autoPlay muted loop playsInline />
+              <PromoVideo src={event.video_url} poster={event.banner_url} className="absolute inset-0 w-full h-full object-cover" />
             ) : event.banner_url ? (
               <img src={event.banner_url} alt="" className="absolute inset-0 w-full h-full object-cover" fetchPriority="high" decoding="async" />
             ) : (

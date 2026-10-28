@@ -31,6 +31,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { detectCampus } from "@/lib/campus";
 import { ImageCropDialog } from "@/components/ImageCropDialog";
+import { PromoVideo } from "@/components/PromoVideo";
 import EventPreviewCard from "@/components/studio/EventPreviewCard";
 import { BuyerPaysHint } from "@/components/studio/BuyerPaysHint";
 
@@ -787,7 +788,7 @@ const StudioEventNew = () => {
                   <Field label="Promo video (optional)" icon={Video} hint="Autoplays muted on your event page. MP4 / WebM / MOV · max 50 MB.">
                     {videoPreview ? (
                       <div className="relative rounded-xl overflow-hidden">
-                        <video src={videoPreview} className="w-full aspect-[16/9] object-cover" muted loop autoPlay playsInline />
+                        <PromoVideo src={videoPreview} poster={bannerPreview} className="w-full aspect-[16/9] object-cover" />
                         <div className="absolute top-2 right-2 flex gap-2">
                           <label className="px-3 py-1.5 rounded-lg bg-black/60 text-white text-xs font-bold hover:bg-black/75 cursor-pointer">
                             Replace
