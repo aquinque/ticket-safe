@@ -31,6 +31,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { detectCampus } from "@/lib/campus";
 import { ImageCropDialog } from "@/components/ImageCropDialog";
+import { PromoVideo } from "@/components/PromoVideo";
 import EventPreviewCard from "@/components/studio/EventPreviewCard";
 import { BuyerPaysHint } from "@/components/studio/BuyerPaysHint";
 
@@ -166,8 +167,8 @@ const StudioEventNew = () => {
       toast.error("Please choose a video file.");
       return;
     }
-    if (f.size > 50 * 1024 * 1024) {
-      toast.error("Video must be under 50 MB.");
+    if (f.size > 500 * 1024 * 1024) {
+      toast.error("Video must be under 500 MB.");
       return;
     }
     setVideoFile(f);
@@ -784,10 +785,10 @@ const StudioEventNew = () => {
                       </label>
                     )}
                   </Field>
-                  <Field label="Promo video (optional)" icon={Video} hint="Autoplays muted on your event page. MP4 / WebM / MOV · max 50 MB.">
+                  <Field label="Promo video (optional)" icon={Video} hint="Autoplays muted on your event page. MP4 / WebM / MOV · max 500 MB.">
                     {videoPreview ? (
                       <div className="relative rounded-xl overflow-hidden">
-                        <video src={videoPreview} className="w-full aspect-[16/9] object-cover" muted loop autoPlay playsInline />
+                        <PromoVideo src={videoPreview} poster={bannerPreview} className="w-full aspect-[16/9] object-cover" />
                         <div className="absolute top-2 right-2 flex gap-2">
                           <label className="px-3 py-1.5 rounded-lg bg-black/60 text-white text-xs font-bold hover:bg-black/75 cursor-pointer">
                             Replace
@@ -811,7 +812,7 @@ const StudioEventNew = () => {
                       <label className="flex flex-col items-center justify-center aspect-[16/9] rounded-xl border-2 border-dashed border-border bg-muted/30 cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-colors">
                         <Video className="w-8 h-8 text-muted-foreground mb-1.5" />
                         <span className="text-sm font-semibold text-foreground">Click to upload a promo video</span>
-                        <span className="text-xs text-muted-foreground mt-0.5">MP4 / WebM / MOV · max 50 MB</span>
+                        <span className="text-xs text-muted-foreground mt-0.5">MP4 / WebM / MOV · max 500 MB</span>
                         <input type="file" accept="video/mp4,video/webm,video/quicktime" onChange={onVideoChange} className="hidden" />
                       </label>
                     )}

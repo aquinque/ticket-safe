@@ -32,6 +32,7 @@ import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "rec
 import { StudioLayout } from "@/components/studio/StudioLayout";
 import { DESCRIPTION_FONTS, descriptionFontFamily } from "@/lib/descriptionFonts";
 import { ImageCropDialog } from "@/components/ImageCropDialog";
+import { PromoVideo } from "@/components/PromoVideo";
 import { SEOHead } from "@/components/SEOHead";
 import {
   AlertDialog,
@@ -1540,8 +1541,8 @@ const EventDetailsEditor = ({
       toast.error("Please choose a video file.");
       return;
     }
-    if (f.size > 50 * 1024 * 1024) {
-      toast.error("Video must be under 50 MB.");
+    if (f.size > 500 * 1024 * 1024) {
+      toast.error("Video must be under 500 MB.");
       return;
     }
     setVideoFile(f);
@@ -1582,7 +1583,8 @@ const EventDetailsEditor = ({
       }
 
       // Upload a new promo video if the user picked one
-      let videoUrl = event.video_url;
+      // "Remove" clears the preview without a new file → drop the stored video
+      let videoUrl = videoPreview ? event.video_url : null;
       if (videoFile && userId) {
         setUploadingVideo(true);
         const ext = videoFile.name.split(".").pop()?.toLowerCase() ?? "mp4";
@@ -1633,6 +1635,7 @@ const EventDetailsEditor = ({
 
       onSaved(patch);
       setBannerFile(null);
+      setVideoFile(null);
       toast.success("Event details saved");
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Could not save.";
@@ -1799,10 +1802,10 @@ const EventDetailsEditor = ({
 
           <ImageCropDialog src={cropSrc} open={cropOpen} onOpenChange={setCropOpen} onCropped={onCropped} />
 
-          <Field label="Promo video (optional)" icon={Video} hint="Autoplays muted on your event page. Max 50 MB.">
+          <Field label="Promo video (optional)" icon={Video} hint="Autoplays muted on your event page. Max 500 MB.">
             {videoPreview ? (
               <div className="relative rounded-xl overflow-hidden">
-                <video src={videoPreview} className="w-full aspect-[16/9] object-cover" muted loop autoPlay playsInline />
+                <PromoVideo src={videoPreview} poster={bannerPreview} className="w-full aspect-[16/9] object-cover" />
                 <div className="absolute top-2 right-2 flex gap-2">
                   <label className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-black/60 text-white text-xs font-bold cursor-pointer hover:bg-black/75">
                     <Pencil className="w-3 h-3" />
@@ -1951,8 +1954,8 @@ const LiveEventDetailsEditor = ({
       toast.error("Please choose a video file.");
       return;
     }
-    if (f.size > 50 * 1024 * 1024) {
-      toast.error("Video must be under 50 MB.");
+    if (f.size > 500 * 1024 * 1024) {
+      toast.error("Video must be under 500 MB.");
       return;
     }
     setVideoFile(f);
@@ -1976,7 +1979,8 @@ const LiveEventDetailsEditor = ({
         bannerUrl = pub.publicUrl;
       }
 
-      let videoUrl = event.video_url;
+      // "Remove" clears the preview without a new file → drop the stored video
+      let videoUrl = videoPreview ? event.video_url : null;
       if (videoFile && userId) {
         setUploadingVideo(true);
         const ext = videoFile.name.split(".").pop()?.toLowerCase() ?? "mp4";
@@ -2004,6 +2008,7 @@ const LiveEventDetailsEditor = ({
 
       onSaved(patch);
       setBannerFile(null);
+      setVideoFile(null);
       toast.success("Event updated");
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Could not save.";
@@ -2100,10 +2105,10 @@ const LiveEventDetailsEditor = ({
 
         <ImageCropDialog src={cropSrc} open={cropOpen} onOpenChange={setCropOpen} onCropped={onCropped} />
 
-        <Field label="Promo video (optional)" icon={Video} hint="Autoplays muted on your event page. Max 50 MB.">
+        <Field label="Promo video (optional)" icon={Video} hint="Autoplays muted on your event page. Max 500 MB.">
           {videoPreview ? (
             <div className="relative rounded-xl overflow-hidden">
-              <video src={videoPreview} className="w-full aspect-[16/9] object-cover" muted loop autoPlay playsInline />
+              <PromoVideo src={videoPreview} poster={bannerPreview} className="w-full aspect-[16/9] object-cover" />
               <div className="absolute top-2 right-2 flex gap-2">
                 <label className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-black/60 text-white text-xs font-bold cursor-pointer hover:bg-black/75">
                   <Pencil className="w-3 h-3" />
