@@ -7,6 +7,7 @@ import HeaderNight from "@/components/HeaderNight";
 import { SEOHead } from "@/components/SEOHead";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
+import { markPromoter } from "@/hooks/useIsPromoter";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import {
   claimPromoterLink,
@@ -71,6 +72,7 @@ const PromoterInvite = () => {
       const result = await claimPromoterLink(token);
       if (result === "claimed" || result === "already") {
         forgetPromoterInvite();
+        if (user) markPromoter(user.id);
         setDone(true);
       } else if (result === "taken") {
         toast.error("This invitation was already accepted with another account.");
