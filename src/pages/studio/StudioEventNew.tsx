@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import {
   Calendar,
   MapPin,
@@ -21,6 +21,8 @@ import {
   Ticket,
   CheckCircle2,
   Video,
+  History,
+  X,
 } from "lucide-react";
 import { StudioLayout } from "@/components/studio/StudioLayout";
 import { SEOHead } from "@/components/SEOHead";
@@ -34,6 +36,22 @@ import { ImageCropDialog } from "@/components/ImageCropDialog";
 import { PromoVideo } from "@/components/PromoVideo";
 import EventPreviewCard from "@/components/studio/EventPreviewCard";
 import { BuyerPaysHint } from "@/components/studio/BuyerPaysHint";
+import { relativeTime } from "@/lib/studioFormat";
+import {
+  type EventDraft,
+  type TierDraft,
+  DRAFT_VERSION,
+  DRAFT_VIDEO_MAX_BYTES,
+  clearDraftFile,
+  clearDraftFiles,
+  clearEventDraft,
+  isEventDraftEmpty,
+  loadDraftFile,
+  loadEventDraft,
+  makeTier,
+  saveDraftFile,
+  saveEventDraft,
+} from "@/lib/eventDraft";
 
 const slugify = (input: string): string =>
   input
@@ -44,35 +62,6 @@ const slugify = (input: string): string =>
     .replace(/^-+|-+$/g, "")
     .slice(0, 60);
 
-interface TierDraft {
-  name: string;
-  description: string;
-  priceEuros: string;
-  totalQty: string;
-  /** YYYY-MM-DDTHH:mm — empty string when no scheduled drop. */
-  salesStartAt: string;
-  salesEndAt: string;
-  /** Per-order cap; empty string falls back to the event-wide limit. */
-  maxPerOrder: string;
-  /** 'table' tiers are still just a tier — quantity is still person-count,
-   * capacityPerUnit is purely a buyer-facing hint ("Table for 6"). */
-  kind: "ticket" | "table";
-  capacityPerUnit: string;
-}
-
-const makeTier = (over: Partial<TierDraft> = {}): TierDraft => ({
-  name: "Regular",
-  description: "",
-  priceEuros: "20",
-  totalQty: "100",
-  salesStartAt: "",
-  salesEndAt: "",
-  maxPerOrder: "",
-  kind: "ticket",
-  capacityPerUnit: "1",
-  ...over,
-});
-
 const STEPS = [
   { id: "details", label: "Details", icon: Sparkles },
   { id: "schedule", label: "Date & place", icon: Calendar },
@@ -81,13 +70,26 @@ const STEPS = [
   { id: "review", label: "Review", icon: Eye },
 ] as const;
 
+/** ?step=N from the URL, clamped to a real step; anything odd means the first step. */
+const clampStep = (raw: string | null): number => {
+  const n = Number.parseInt(raw ?? "", 10);
+  return Number.isFinite(n) ? Math.min(STEPS.length - 1, Math.max(0, n)) : 0;
+};
+
 const StudioEventNew = () => {
   useThemeMode("studio");
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const { organizer, loading: orgLoading } = useOrganizer();
 
-  const [step, setStep] = useState(0);
+  // The current step lives in the URL (?step=N) so the phone/browser back button
+  // walks back through the wizard instead of leaving the page and losing the draft.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const step = clampStep(searchParams.get("step"));
+  const setStep = useCallback(
+    (i: number, replace = false) => setSearchParams(i > 0 ? { step: String(i) } : {}, { replace }),
+    [setSearchParams],
+  );
   const [stepMsg, setStepMsg] = useState<string | null>(null);
 
   const [title, setTitle] = useState("");
@@ -102,11 +104,14 @@ const StudioEventNew = () => {
   const [primaryColor, setPrimaryColor] = useState<string>(
     organizer?.primary_color ?? "#003399",
   );
+  // Set once the organizer picks a colour themselves (or a restored draft had one),
+  // so the brand-colour pre-fill below never overwrites their choice.
+  const [primaryColorTouched, setPrimaryColorTouched] = useState(false);
 
   useEffect(() => {
     // Pre-fill with the organizer's brand color once it loads.
-    if (organizer?.primary_color) setPrimaryColor(organizer.primary_color);
-  }, [organizer?.primary_color]);
+    if (organizer?.primary_color && !primaryColorTouched) setPrimaryColor(organizer.primary_color);
+  }, [organizer?.primary_color, primaryColorTouched]);
   const [limitEnabled, setLimitEnabled] = useState(true);
   const [maxPerBuyer, setMaxPerBuyer] = useState("1");
   const [bannerFile, setBannerFile] = useState<File | null>(null);
@@ -121,6 +126,148 @@ const StudioEventNew = () => {
   const [tiers, setTiers] = useState<TierDraft[]>([makeTier()]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // ── Draft autosave ─────────────────────────────────────────────────────────
+  // Everything entered here is kept in this browser (src/lib/eventDraft.ts) and
+  // put back on the next visit, so a back button, a reload or a tab switch never
+  // costs the organizer their work. Cleared once the event exists in the database.
+  const userId = user?.id ?? null;
+  const [hydrated, setHydrated] = useState(false);
+  const [restoredAt, setRestoredAt] = useState<string | null>(null);
+  /** Name of the promo video the draft had; shown when it could not be brought back. */
+  const [draftVideoName, setDraftVideoName] = useState<string | null>(null);
+  const [videoRestoreFailed, setVideoRestoreFailed] = useState(false);
+  const hydratedFor = useRef<string | null>(null);
+  const draftClosed = useRef(false);
+  const urlStep = searchParams.get("step");
+
+  useEffect(() => {
+    if (!userId || hydratedFor.current === userId) return;
+    hydratedFor.current = userId;
+    const d = loadEventDraft(userId, STEPS.length);
+    if (!d) {
+      // Nothing to restore: a stale ?step= (e.g. back from the published event) starts over.
+      if (urlStep) setStep(0, true);
+      setHydrated(true);
+      return;
+    }
+    setTitle(d.title);
+    setDescription(d.description);
+    setDate(d.date);
+    setEndsAt(d.endsAt);
+    setLocation(d.location);
+    setCategory(d.category);
+    if (d.primaryColor) {
+      setPrimaryColor(d.primaryColor);
+      setPrimaryColorTouched(true);
+    }
+    setLimitEnabled(d.limitEnabled);
+    setMaxPerBuyer(d.maxPerBuyer);
+    setSlug(d.slug);
+    setSlugTouched(d.slugTouched);
+    setTiers(d.tiers);
+    setRestoredAt(d.savedAt || new Date().toISOString());
+    if (!urlStep && d.step > 0) setStep(d.step, true);
+    void loadDraftFile(userId, "banner").then((f) => {
+      if (!f) return;
+      setBannerFile(f);
+      setBannerPreview(URL.createObjectURL(f));
+    });
+    if (d.videoName) {
+      setDraftVideoName(d.videoName);
+      void loadDraftFile(userId, "video").then((f) => {
+        if (!f) {
+          setVideoRestoreFailed(true);
+          return;
+        }
+        setVideoFile(f);
+        setVideoPreview(URL.createObjectURL(f));
+      });
+    }
+    setHydrated(true);
+  }, [userId, urlStep, setStep]);
+
+  const draft = useMemo<EventDraft>(
+    () => ({
+      v: DRAFT_VERSION,
+      savedAt: "",
+      step,
+      title,
+      description,
+      date,
+      endsAt,
+      location,
+      category,
+      primaryColor: primaryColorTouched ? primaryColor : null,
+      limitEnabled,
+      maxPerBuyer,
+      slug,
+      slugTouched,
+      tiers,
+      videoName: videoFile?.name ?? draftVideoName,
+    }),
+    [
+      step,
+      title,
+      description,
+      date,
+      endsAt,
+      location,
+      category,
+      primaryColorTouched,
+      primaryColor,
+      limitEnabled,
+      maxPerBuyer,
+      slug,
+      slugTouched,
+      tiers,
+      videoFile,
+      draftVideoName,
+    ],
+  );
+  const draftIsEmpty = isEventDraftEmpty(draft);
+
+  useEffect(() => {
+    if (!hydrated || !userId || draftClosed.current) return;
+    if (draftIsEmpty) clearEventDraft(userId);
+    else saveEventDraft(userId, { ...draft, savedAt: new Date().toISOString() });
+  }, [hydrated, userId, draft, draftIsEmpty]);
+
+  // The step changed under us (browser back/forward): drop a message meant for the old one.
+  useEffect(() => {
+    setStepMsg(null);
+  }, [step]);
+
+  const startOver = () => {
+    if (!draftIsEmpty && !window.confirm("Throw away this draft and start from an empty form?")) return;
+    if (userId) {
+      clearEventDraft(userId);
+      void clearDraftFiles(userId);
+    }
+    setTitle("");
+    setDescription("");
+    setDate("");
+    setEndsAt("");
+    setLocation("");
+    setCategory("party");
+    setPrimaryColor(organizer?.primary_color ?? "#003399");
+    setPrimaryColorTouched(false);
+    setLimitEnabled(true);
+    setMaxPerBuyer("1");
+    setSlug("");
+    setSlugTouched(false);
+    setTiers([makeTier()]);
+    setBannerFile(null);
+    setBannerPreview(null);
+    setVideoFile(null);
+    setVideoPreview(null);
+    setDraftVideoName(null);
+    setVideoRestoreFailed(false);
+    setRestoredAt(null);
+    setError(null);
+    setStepMsg(null);
+    setStep(0, true);
+  };
 
   useEffect(() => {
     if (!authLoading && !user) navigate("/auth?next=/studio/events/new");
@@ -158,6 +305,7 @@ const StudioEventNew = () => {
   const onCropped = (file: File) => {
     setBannerFile(file);
     setBannerPreview(URL.createObjectURL(file));
+    if (userId) void saveDraftFile(userId, "banner", file);
   };
 
   const onVideoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -173,6 +321,12 @@ const StudioEventNew = () => {
     }
     setVideoFile(f);
     setVideoPreview(URL.createObjectURL(f));
+    setVideoRestoreFailed(false);
+    if (userId) {
+      // Kept with the draft when it is small enough; otherwise we ask for it again on restore.
+      if (f.size <= DRAFT_VIDEO_MAX_BYTES) void saveDraftFile(userId, "video", f);
+      else void clearDraftFile(userId, "video");
+    }
     e.target.value = "";
   };
 
@@ -240,12 +394,12 @@ const StudioEventNew = () => {
       return;
     }
     setStepMsg(null);
-    setStep((s) => Math.min(STEPS.length - 1, s + 1));
+    setStep(Math.min(STEPS.length - 1, step + 1));
     if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
   };
   const goBack = () => {
     setStepMsg(null);
-    setStep((s) => Math.max(0, s - 1));
+    setStep(Math.max(0, step - 1));
   };
   const goToStep = (i: number) => {
     setStepMsg(null);
@@ -384,6 +538,11 @@ const StudioEventNew = () => {
         throw new Error("Event saved but tiers failed: " + tErr.message);
       }
 
+      // The event now exists in the database; the browser draft has done its job.
+      draftClosed.current = true;
+      clearEventDraft(user.id);
+      void clearDraftFiles(user.id);
+
       // Publish now that the tiers exist. We deliberately insert the event as a
       // draft first and only flip it to published once its tiers are in place,
       // so a tier failure can never leave a live event with nothing to buy.
@@ -464,10 +623,40 @@ const StudioEventNew = () => {
               <h1 className="text-2xl md:text-4xl font-black tracking-tight">Create a new event</h1>
               <p className="text-sm md:text-base text-muted-foreground mt-1 max-w-2xl">
                 Set the details, add your ticket types, and preview your listing — then publish it
-                straight to the marketplace.
+                straight to the marketplace. Your progress is saved on this device as you go.
               </p>
             </div>
           </div>
+
+          {/* ===== Restored draft ===== */}
+          {restoredAt && (
+            <div className="mb-4 flex flex-col sm:flex-row sm:items-center gap-3 px-4 py-3 rounded-xl bg-primary/5 border border-primary/20 text-sm">
+              <History className="w-4 h-4 text-primary shrink-0" />
+              <p className="flex-1 min-w-0">
+                <strong>Draft restored</strong> — last edited {relativeTime(restoredAt)}. Pick up where you left off.
+                {videoRestoreFailed && !videoFile && draftVideoName && (
+                  <> Add your promo video ({draftVideoName}) again on the Cover step, it couldn't be kept.</>
+                )}
+              </p>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={startOver}
+                  className="min-h-[40px] px-3 rounded-lg text-xs font-bold border border-border hover:bg-muted transition-colors"
+                >
+                  Start over
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRestoredAt(null)}
+                  aria-label="Dismiss"
+                  className="inline-flex items-center justify-center w-10 h-10 rounded-lg text-muted-foreground hover:bg-muted transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* ===== Stepper ===== */}
           <Stepper current={step} stepError={stepError} onStep={goToStep} />
@@ -769,7 +958,7 @@ const StudioEventNew = () => {
                           </label>
                           <button
                             type="button"
-                            onClick={() => { setBannerFile(null); setBannerPreview(null); }}
+                            onClick={() => { setBannerFile(null); setBannerPreview(null); if (userId) void clearDraftFile(userId, "banner"); }}
                             className="px-3 py-1.5 rounded-lg bg-black/60 text-white text-xs font-bold hover:bg-black/75"
                           >
                             Remove
@@ -796,7 +985,7 @@ const StudioEventNew = () => {
                           </label>
                           <button
                             type="button"
-                            onClick={() => { setVideoFile(null); setVideoPreview(null); }}
+                            onClick={() => { setVideoFile(null); setVideoPreview(null); setDraftVideoName(null); setVideoRestoreFailed(false); if (userId) void clearDraftFile(userId, "video"); }}
                             className="px-3 py-1.5 rounded-lg bg-black/60 text-white text-xs font-bold hover:bg-black/75"
                           >
                             Remove
@@ -834,7 +1023,7 @@ const StudioEventNew = () => {
                       <input
                         type="color"
                         value={/^#[0-9A-Fa-f]{6}$/.test(primaryColor) ? primaryColor : "#003399"}
-                        onChange={(e) => setPrimaryColor(e.target.value)}
+                        onChange={(e) => { setPrimaryColorTouched(true); setPrimaryColor(e.target.value); }}
                         className="w-14 h-11 rounded-lg border border-border bg-background cursor-pointer"
                         aria-label="Pick brand color"
                       />
@@ -842,7 +1031,7 @@ const StudioEventNew = () => {
                         value={primaryColor}
                         onChange={(e) => {
                           const v = e.target.value.trim();
-                          if (/^#[0-9a-fA-F]{0,6}$/.test(v) || v === "") setPrimaryColor(v);
+                          if (/^#[0-9a-fA-F]{0,6}$/.test(v) || v === "") { setPrimaryColorTouched(true); setPrimaryColor(v); }
                         }}
                         className="ts-input font-mono w-32"
                         placeholder="#003399"
@@ -929,7 +1118,10 @@ const StudioEventNew = () => {
                 ) : (
                   <button
                     type="button"
-                    onClick={() => navigate("/studio")}
+                    onClick={() => {
+                      if (!draftIsEmpty) toast.info("Your draft is kept on this device. Open New event to pick it up.");
+                      navigate("/studio");
+                    }}
                     className="inline-flex items-center justify-center min-h-[48px] px-5 rounded-xl font-bold border border-border text-foreground hover:bg-muted transition-colors"
                   >
                     Cancel
