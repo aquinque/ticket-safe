@@ -33,24 +33,31 @@ export function useOrganizer() {
   const [organizer, setOrganizer] = useState<OrganizerProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Key on the id, not the object: Supabase hands out a fresh `user` object on
+  // every tab refocus / token refresh, which used to refetch and flip `loading`
+  // back on. StudioAccessGate then swapped the page for a spinner and wiped
+  // whatever the organizer had typed.
+  const userId = user?.id;
+
   const fetch = useCallback(async () => {
-    if (!user) {
+    if (!userId) {
       setOrganizer(null);
       setLoading(false);
       return;
     }
-    setLoading(true);
     const { data, error } = await supabase
       .from("organizer_profiles")
       .select("*")
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .maybeSingle();
     if (error) {
+      // Keep the organizer we already have rather than wiping it on a network blip.
       console.error("[useOrganizer] fetch error:", error);
+    } else {
+      setOrganizer((data as unknown as OrganizerProfile) ?? null);
     }
-    setOrganizer((data as unknown as OrganizerProfile) ?? null);
     setLoading(false);
-  }, [user]);
+  }, [userId]);
 
   useEffect(() => {
     if (authLoading) return;
