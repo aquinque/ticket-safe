@@ -159,7 +159,7 @@ const EventPublic = () => {
   const [qty, setQty] = useState(1);
   const [buying, setBuying] = useState(false);
   const [maxPerBuyer, setMaxPerBuyer] = useState<number | null>(null);
-  const [paymentProvider, setPaymentProvider] = useState<"stripe" | "revolut">("revolut");
+  const [paymentProvider, setPaymentProvider] = useState<"stripe" | "revolut">("stripe");
   const [attendees, setAttendees] = useState<AttendeeForm[]>([]);
   const [following, setFollowing] = useState(false);
   const [followBusy, setFollowBusy] = useState(false);
@@ -238,7 +238,8 @@ const EventPublic = () => {
 
     const evCast = ev as { max_tickets_per_buyer?: number | null };
     setMaxPerBuyer(evCast.max_tickets_per_buyer ?? null);
-    setPaymentProvider((ev as { payment_provider?: string }).payment_provider === "stripe" ? "stripe" : "revolut");
+    // Stripe is the checkout; only legacy events explicitly marked revolut still use it.
+    setPaymentProvider((ev as { payment_provider?: string }).payment_provider === "revolut" ? "revolut" : "stripe");
 
     // Payments always go through the platform account now — no need to check
     // the organizer's readiness up-front. Payouts are settled separately after

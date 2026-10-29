@@ -127,6 +127,20 @@ const StudioEventNew = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Whether the organizer's Stripe account can take payments. Sales go through
+  // Stripe, so until this is true buyers are told the organizer isn't ready.
+  const [stripeReady, setStripeReady] = useState<boolean | null>(null);
+  const organizerId = organizer?.id;
+  useEffect(() => {
+    if (!organizerId) return;
+    supabase
+      .from("stripe_connect_accounts")
+      .select("charges_enabled")
+      .eq("organizer_id", organizerId)
+      .maybeSingle()
+      .then(({ data }) => setStripeReady(!!data?.charges_enabled));
+  }, [organizerId]);
+
   // ── Draft autosave ─────────────────────────────────────────────────────────
   // Everything entered here is kept in this browser (src/lib/eventDraft.ts) and
   // put back on the next visit, so a back button, a reload or a tab switch never
@@ -502,6 +516,9 @@ const StudioEventNew = () => {
           logo_url: organizer.logo_url,
           status: "draft",
           sold_via_studio: true,
+          // Stripe is the checkout. The column default says so too, but be explicit:
+          // Revolut only remains on legacy events that already sold through it.
+          payment_provider: "stripe",
           is_active: true,
           max_tickets_per_buyer: limitValue,
         })
@@ -1078,6 +1095,20 @@ const StudioEventNew = () => {
                     }`}
                   />
                   <SummaryRow label="Public link" value={`ticket-safe.eu/e/${slug || "—"}`} mono />
+
+                  {stripeReady === false && (
+                    <div className="flex items-start gap-2 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-sm">
+                      <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                      <span>
+                        <strong>Buyers can't pay yet.</strong> Sales go through Stripe, and your Stripe account
+                        isn't ready to take payments. You can publish now, but checkout stays closed until you{" "}
+                        <Link to="/studio/payments" className="font-bold underline underline-offset-2">
+                          set up payments
+                        </Link>
+                        .
+                      </span>
+                    </div>
+                  )}
 
                   <div className="flex items-start gap-2 px-4 py-3 rounded-xl bg-primary/5 border border-primary/15 text-sm text-foreground/80">
                     <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0 text-primary" />
