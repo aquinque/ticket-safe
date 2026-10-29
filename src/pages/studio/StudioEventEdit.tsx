@@ -1541,8 +1541,8 @@ const EventDetailsEditor = ({
       toast.error("Please choose a video file.");
       return;
     }
-    if (f.size > 500 * 1024 * 1024) {
-      toast.error("Video must be under 500 MB.");
+    if (f.size > 2048 * 1024 * 1024) {
+      toast.error("Video must be under 2 GB.");
       return;
     }
     setVideoFile(f);
@@ -1802,7 +1802,7 @@ const EventDetailsEditor = ({
 
           <ImageCropDialog src={cropSrc} open={cropOpen} onOpenChange={setCropOpen} onCropped={onCropped} />
 
-          <Field label="Promo video (optional)" icon={Video} hint="Autoplays muted on your event page. Max 500 MB.">
+          <Field label="Promo video (optional)" icon={Video} hint="Autoplays muted on your event page. Max 2 GB.">
             {videoPreview ? (
               <div className="relative rounded-xl overflow-hidden">
                 <PromoVideo src={videoPreview} poster={bannerPreview} className="w-full aspect-[16/9] object-cover" />
@@ -1954,8 +1954,8 @@ const LiveEventDetailsEditor = ({
       toast.error("Please choose a video file.");
       return;
     }
-    if (f.size > 500 * 1024 * 1024) {
-      toast.error("Video must be under 500 MB.");
+    if (f.size > 2048 * 1024 * 1024) {
+      toast.error("Video must be under 2 GB.");
       return;
     }
     setVideoFile(f);
@@ -2105,7 +2105,7 @@ const LiveEventDetailsEditor = ({
 
         <ImageCropDialog src={cropSrc} open={cropOpen} onOpenChange={setCropOpen} onCropped={onCropped} />
 
-        <Field label="Promo video (optional)" icon={Video} hint="Autoplays muted on your event page. Max 500 MB.">
+        <Field label="Promo video (optional)" icon={Video} hint="Autoplays muted on your event page. Max 2 GB.">
           {videoPreview ? (
             <div className="relative rounded-xl overflow-hidden">
               <PromoVideo src={videoPreview} poster={bannerPreview} className="w-full aspect-[16/9] object-cover" />
