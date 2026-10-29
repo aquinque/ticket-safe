@@ -50,7 +50,8 @@ const Messages = lazy(() => import("./pages/Messages"));
 const ChatRoom = lazy(() => import("./pages/ChatRoom"));
 const Organizers = lazy(() => import("./pages/organizers/Organizers"));
 const OrganizerApply = lazy(() => import("./pages/organizers/OrganizerApply"));
-const PromoterReport = lazy(() => import("./pages/PromoterReport"));
+const PromoterInvite = lazy(() => import("./pages/PromoterInvite"));
+const PromoterDashboard = lazy(() => import("./pages/PromoterDashboard"));
 const StudioDashboard = lazy(() => import("./pages/studio/StudioDashboard"));
 const StudioEventNew = lazy(() => import("./pages/studio/StudioEventNew"));
 const StudioEventEdit = lazy(() => import("./pages/studio/StudioEventEdit"));
@@ -148,7 +149,8 @@ const App = () => (
         <Route path="/studio/events/:id" element={<StudioAccessGate><StudioEventEdit /></StudioAccessGate>} />
         <Route path="/studio/events/:id/attendees" element={<StudioAccessGate><StudioEventAttendees /></StudioAccessGate>} />
         <Route path="/e/:slug" element={<EventPublic />} />
-        <Route path="/p/:token" element={<PromoterReport />} />
+        <Route path="/p/:token" element={<PromoterInvite />} />
+        <Route path="/promoter" element={<PromoterDashboard />} />
         <Route path="/my-tickets" element={<MyTicketsHub />} />
         <Route path="/my-tickets/:orderId" element={<MyTickets />} />
         <Route path="/admin/organizers" element={<ProtectedAdminRoute><AdminOrganizers /></ProtectedAdminRoute>} />

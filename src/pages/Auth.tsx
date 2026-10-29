@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { toast } from "sonner";
 import { Loader2, Mail, Lock, User, CheckCircle2, XCircle, Eye, EyeOff, AlertCircle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { pendingPromoterInvite } from "@/lib/promoterLinks";
 import { authRedirect } from "@/lib/siteUrl";
 import {
   GENDER_CHOICES,
@@ -89,7 +90,8 @@ const Auth = () => {
   useEffect(() => {
     if (!authLoading && user) {
       const raw = searchParams.get("next");
-      const next = raw && raw.startsWith("/") && !raw.startsWith("//") ? raw : "/profile";
+      const pendingInvite = pendingPromoterInvite();
+      const next = raw && raw.startsWith("/") && !raw.startsWith("//") ? raw : pendingInvite ? `/p/${pendingInvite}` : "/profile";
       navigate(next, { replace: true });
     }
   }, [user, authLoading, navigate, searchParams]);
@@ -261,11 +263,17 @@ const Auth = () => {
     }
   };
 
+  // A promoter invitation (/p/<token>) must survive e-mail confirmation; anything else lands on the profile.
+  const signupLanding = () => {
+    const raw = searchParams.get("next");
+    return raw && /^\/p\/[A-Za-z0-9]{32,128}$/.test(raw) ? raw : "/profile";
+  };
+
   const handleSignup = async () => {
     const outcome = await signUpWithEmail(
       supabase.auth,
       { email, password, firstName, lastName, gender },
-      { afterConfirm: authRedirect("/profile"), setPassword: authRedirect("/reset-password") },
+      { afterConfirm: authRedirect(signupLanding()), setPassword: authRedirect("/reset-password") },
     );
 
     switch (outcome.kind) {
