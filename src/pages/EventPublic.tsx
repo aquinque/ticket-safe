@@ -30,6 +30,7 @@ import { STUDIO_FEE_RULE_MAX } from "@/lib/studioFee";
 import { AnimatedNumber } from "@/components/AnimatedNumber";
 import HeaderNight from "@/components/HeaderNight";
 import { descriptionFontFamily } from "@/lib/descriptionFonts";
+import { eventThemeVars, isHex } from "@/lib/eventTheme";
 import { ProtectionBadge } from "@/components/common/ProtectionBadge";
 import { useAuth } from "@/hooks/useAuth";
 import { useThemeMode } from "@/hooks/useThemeMode";
@@ -50,6 +51,8 @@ interface PublicEvent {
   status: string;
   primary_color: string;
   banner_url: string | null;
+  /** How the Studio asked the poster to sit in its 16:9 frame: "cover" (default) or "contain". */
+  banner_fit: string | null;
   video_url: string | null;
   logo_url: string | null;
   og_image_url: string | null;
@@ -167,18 +170,6 @@ const EventPublic = () => {
   const [showPromoInput, setShowPromoInput] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
   const nowTs = useNow(30_000);
-  const [scrollY, setScrollY] = useState(0);
-  useEffect(() => {
-    let raf = 0;
-    const onScroll = () => {
-      cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => setScrollY(window.scrollY));
-    };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => { window.removeEventListener("scroll", onScroll); cancelAnimationFrame(raf); };
-  }, []);
-
-
   // Keep the attendees array sized to the current quantity. When quantity grows,
   // we add empty slots; when it shrinks, we trim. The first slot auto-fills from
   // the signed-in user once on first render.
@@ -213,7 +204,7 @@ const EventPublic = () => {
     const { data: ev } = await supabase
       .from("events")
       .select(
-        `id, title, description, description_font, date, ends_at, location, category, slug, status, primary_color, banner_url, video_url, logo_url, og_image_url, seo_description, organizer_id, max_tickets_per_buyer, payment_provider,
+        `id, title, description, description_font, date, ends_at, location, category, slug, status, primary_color, banner_url, banner_fit, video_url, logo_url, og_image_url, seo_description, organizer_id, max_tickets_per_buyer, payment_provider,
          organizer:organizer_profiles!events_organizer_id_fkey(id, user_id, name, slug, logo_url, primary_color, website)`,
       )
       .eq("slug", slug)
@@ -575,8 +566,11 @@ const EventPublic = () => {
   const goingLabel = soldTotal >= 10 ? `${Math.floor(soldTotal / 10) * 10}+ going` : null;
   const startDate = new Date(event.date);
   const reduceMotion = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-  const parallax = reduceMotion ? 0 : Math.min(scrollY * 0.3, 140);
-  const accent = /^#[0-9a-fA-F]{6}$/.test(event.primary_color ?? "") ? event.primary_color : "#3A5FE6";
+  // The organizer's design as CSS variables (see src/lib/eventTheme.ts): the page's `bg-primary`,
+  // `text-foreground`, `border-border`… follow it from here on.
+  const themeVars = eventThemeVars({ primary: event.primary_color });
+  const accent = themeVars["--event-primary"];
+  const organizerAccent = isHex(event.organizer?.primary_color) ? event.organizer.primary_color : accent;
   const shareEvent = async () => {
     const url = `https://ticket-safe.eu/e/${event.slug}`;
     try {
@@ -930,7 +924,7 @@ const EventPublic = () => {
 
 
   return (
-    <div className="theme-night min-h-screen flex flex-col bg-background">
+    <div className="theme-night min-h-screen flex flex-col bg-background" style={themeVars as React.CSSProperties}>
       <HeaderNight />
       <SEOHead
         title={`${event.title} — ${event.organizer?.name ?? "Ticket Safe"}`}
@@ -956,30 +950,37 @@ const EventPublic = () => {
         }}
       />
 
-      {/* ===== Poster: the image runs under the transparent header and
-          fades into the page; the title sits on it. ===== */}
-      <section className="relative">
-        <div className={`relative w-full overflow-hidden ${event.video_url || event.banner_url ? "h-[56vh] min-h-[380px] max-h-[560px] sm:h-auto sm:min-h-0 sm:max-h-none sm:aspect-[16/9] lg:aspect-[21/9]" : "h-[38vh] min-h-[300px] max-h-[420px] sm:h-auto sm:min-h-0 sm:max-h-none sm:aspect-[21/9] lg:aspect-[3/1]"}`} style={{ background: accent }}>
-          <div className="absolute inset-0 will-change-transform" style={{ transform: `translate3d(0, ${parallax}px, 0) scale(${1 + parallax / 1400})` }}>
+      {/* ===== Poster: the organizer's photo, sharp and whole, in the 16:9 frame the Studio cropped it to.
+          Nothing is written on it; the title comes right after. Full-bleed on a phone, a rounded card on
+          larger screens. ===== */}
+      <section className="pt-16 md:pt-20">
+        <div className="sm:container sm:mx-auto sm:max-w-5xl sm:px-4 sm:pt-4">
+          <div className="relative w-full aspect-[16/9] overflow-hidden sm:rounded-2xl" style={{ background: accent }}>
             {event.video_url ? (
               <PromoVideo src={event.video_url} poster={event.banner_url} className="absolute inset-0 w-full h-full object-cover" />
             ) : event.banner_url ? (
-              <img src={event.banner_url} alt="" className="absolute inset-0 w-full h-full object-cover" fetchPriority="high" decoding="async" />
+              <img
+                src={event.banner_url}
+                alt={`${event.title} poster`}
+                className={`absolute inset-0 w-full h-full ${event.banner_fit === "contain" ? "object-contain" : "object-cover"}`}
+                fetchPriority="high"
+                decoding="async"
+              />
             ) : (
-              <div className="absolute inset-0" style={{ background: `radial-gradient(120% 80% at 30% 20%, ${accent} 0%, hsl(var(--background)) 75%)` }} />
+              <div className="absolute inset-0 flex items-center justify-center" style={{ background: `radial-gradient(120% 80% at 30% 20%, ${accent} 0%, var(--event-bg) 85%)` }}>
+                {(event.logo_url ?? event.organizer?.logo_url) && (
+                  <img src={event.logo_url ?? event.organizer?.logo_url ?? ""} alt="" className="w-24 h-24 md:w-32 md:h-32 rounded-2xl object-cover shadow-lg" />
+                )}
+              </div>
             )}
-          </div>
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/55 to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-b from-background/50 via-transparent to-transparent" />
 
-          {/* Floating controls, under the header's own row */}
-          <div className="absolute top-[4.5rem] md:top-24 inset-x-0 px-4">
-            <div className="container mx-auto max-w-5xl flex items-center justify-between">
+            {/* Back / Share: two small round controls in the corners, the only thing over the photo */}
+            <div className="absolute top-3 inset-x-3 flex items-center justify-between">
               <button
                 type="button"
                 onClick={() => { if (location.key && location.key !== "default") navigate(-1); else navigate("/tickets"); }}
                 aria-label="Back"
-                className="w-10 h-10 rounded-full bg-background/60 backdrop-blur border border-border/60 flex items-center justify-center text-foreground hover:bg-background/80"
+                className="w-10 h-10 rounded-full bg-black/45 text-white backdrop-blur-sm flex items-center justify-center hover:bg-black/60 transition-colors"
               >
                 <ArrowLeft className="w-5 h-5" strokeWidth={1.75} />
               </button>
@@ -987,44 +988,40 @@ const EventPublic = () => {
                 type="button"
                 onClick={shareEvent}
                 aria-label="Share"
-                className="w-10 h-10 rounded-full bg-background/60 backdrop-blur border border-border/60 flex items-center justify-center text-foreground hover:bg-background/80"
+                className="w-10 h-10 rounded-full bg-black/45 text-white backdrop-blur-sm flex items-center justify-center hover:bg-black/60 transition-colors"
               >
                 <Share2 className="w-5 h-5" strokeWidth={1.75} />
               </button>
             </div>
           </div>
-
-          {/* Caption on the image */}
-          <div className="absolute inset-x-0 bottom-0 px-4 pb-5 md:pb-8">
-            <div className="container mx-auto max-w-5xl">
-              <div className="flex items-center gap-2.5 flex-wrap text-[11px] font-bold uppercase tracking-[0.12em] mb-3 motion-safe:animate-fade-in">
-                <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 bg-background/60 backdrop-blur border border-border/60 ${statusText.colorClass}`}>
-                  {statusText.pulse && <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />}
-                  {statusText.label}
-                </span>
-                {categoryLabel && <span className="text-foreground/80">{categoryLabel}</span>}
-              </div>
-              <h1 className="text-[2.6rem] leading-[0.98] sm:text-5xl md:text-6xl lg:text-7xl font-semibold tracking-tight text-foreground text-balance drop-shadow-[0_2px_12px_rgba(0,0,0,0.45)] motion-safe:animate-slide-up">
-                {event.title}
-              </h1>
-              {event.organizer && (
-                <div className="mt-3.5 inline-flex items-center gap-2 text-sm text-foreground/90 motion-safe:animate-fade-in" style={{ animationDelay: "120ms", animationFillMode: "both" }}>
-                  {event.organizer.logo_url ? (
-                    <img src={event.organizer.logo_url} alt="" className="w-7 h-7 rounded-full object-cover border border-border/60" />
-                  ) : (
-                    <span className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-primary-foreground bg-primary">{event.organizer.name[0]?.toUpperCase()}</span>
-                  )}
-                  <span className="font-medium">{event.organizer.name}</span>
-                  <BadgeCheck className="w-4 h-4 text-primary" strokeWidth={1.75} aria-label="Verified organiser" />
-                </div>
-              )}
-            </div>
-          </div>
         </div>
 
-        {/* Chips: the facts, swipeable on a phone */}
-        <div className="container mx-auto max-w-5xl px-4">
-          <div className="ts-chips flex gap-2 overflow-x-auto snap-x py-3 -mx-4 px-4 sm:mx-0 sm:px-0 motion-safe:animate-fade-in" style={{ animationDelay: "200ms", animationFillMode: "both" }}>
+        {/* ===== Title, right under the poster, then the facts ===== */}
+        <div className="container mx-auto max-w-5xl px-4 pt-5 md:pt-7">
+          <div className="flex items-center gap-2.5 flex-wrap text-[11px] font-bold uppercase tracking-[0.12em] motion-safe:animate-fade-in">
+            <span className={`inline-flex items-center gap-1.5 ${statusText.colorClass}`}>
+              {statusText.pulse && <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />}
+              {statusText.label}
+            </span>
+            {categoryLabel && <span className="text-muted-foreground">· {categoryLabel}</span>}
+          </div>
+          <h1 className="mt-2 text-[2.2rem] leading-[1.02] sm:text-5xl md:text-6xl font-semibold tracking-tight text-foreground text-balance motion-safe:animate-slide-up">
+            {event.title}
+          </h1>
+          {event.organizer && (
+            <div className="mt-3.5 inline-flex items-center gap-2 text-sm text-foreground/90 motion-safe:animate-fade-in" style={{ animationDelay: "120ms", animationFillMode: "both" }}>
+              {event.organizer.logo_url ? (
+                <img src={event.organizer.logo_url} alt="" className="w-7 h-7 rounded-full object-cover border border-border" />
+              ) : (
+                <span className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-primary-foreground bg-primary">{event.organizer.name[0]?.toUpperCase()}</span>
+              )}
+              <span className="font-medium">{event.organizer.name}</span>
+              <BadgeCheck className="w-4 h-4 text-primary" strokeWidth={1.75} aria-label="Verified organiser" />
+            </div>
+          )}
+
+          {/* Chips: the facts, swipeable on a phone */}
+          <div className="ts-chips flex gap-2 overflow-x-auto snap-x pt-4 pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 motion-safe:animate-fade-in" style={{ animationDelay: "200ms", animationFillMode: "both" }}>
             <InfoChip icon={Calendar}>{startDate.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })} · {startDate.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</InfoChip>
             {event.location && (
               <InfoChip icon={MapPin} href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`}>
@@ -1042,7 +1039,7 @@ const EventPublic = () => {
 
       <main className="flex-1 pb-32 lg:pb-16">
         <div className="container mx-auto px-4 max-w-5xl">
-          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,440px)_1fr] gap-8 lg:gap-12 lg:items-start mt-2 md:mt-4">
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,440px)_1fr] gap-8 lg:gap-12 lg:items-start mt-5 md:mt-8">
             {/* ===== LEFT (desktop): tickets, then who's coming, then the checkout ===== */}
             <aside className="hidden lg:block space-y-4">
               <section className="rounded-2xl border border-border bg-card/50 p-5">
@@ -1139,7 +1136,7 @@ const EventPublic = () => {
 
               {/* Organiser */}
               {event.organizer && (
-                <section className="rounded-2xl border border-border bg-card/50 p-5" style={{ borderLeft: `3px solid ${/^#[0-9a-fA-F]{6}$/.test(event.organizer.primary_color ?? "") ? event.organizer.primary_color : accent}` }}>
+                <section className="rounded-2xl border border-border bg-card/50 p-5" style={{ borderLeft: `3px solid ${organizerAccent}` }}>
                   <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground mb-4">Organised by</h2>
                   <div className="flex items-center gap-4">
                     {event.organizer.logo_url ? (
