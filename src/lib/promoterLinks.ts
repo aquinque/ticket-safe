@@ -185,6 +185,7 @@ interface DbResult {
 interface LooseClient {
   rpc: (fn: string, args: Record<string, unknown>) => PromiseLike<DbResult>;
   from: (table: string) => {
+    select: (columns: string) => { eq: (column: string, value: string) => PromiseLike<DbResult> };
     insert: (row: Record<string, unknown>) => PromiseLike<DbResult>;
     update: (patch: Record<string, unknown>) => { eq: (column: string, value: string) => PromiseLike<DbResult> };
   };
@@ -235,4 +236,71 @@ export async function setPromoterLinkArchived(linkId: string, archived: boolean)
     .update({ archived_at: archived ? new Date().toISOString() : null })
     .eq("id", linkId);
   if (error) throw new Error(friendly(error));
+}
+
+// ── The promoter's own page ───────────────────────────────────────────────
+// /p/<report token>: read-only numbers for one link, opened by the promoter without an account.
+
+/** The private address the organizer sends to the promoter. */
+export const promoterReportUrl = (token: string): string => `${SITE}/p/${token}`;
+
+/** Report tokens of an event's links, by link id. Only the event's organizer can read them (RLS). */
+export async function fetchReportTokens(eventId: string): Promise<Record<string, string>> {
+  const { data, error } = await db.from("event_promoter_links").select("id, report_token").eq("event_id", eventId);
+  if (error) throw new Error(error.message);
+  const out: Record<string, string> = {};
+  for (const row of Array.isArray(data) ? data : []) {
+    if (isRecord(row) && typeof row.id === "string" && typeof row.report_token === "string") out[row.id] = row.report_token;
+  }
+  return out;
+}
+
+export interface PromoterReport {
+  name: string;
+  archived: boolean;
+  eventTitle: string;
+  eventSlug: string | null;
+  eventDate: string | null;
+  eventLocation: string | null;
+  bannerUrl: string | null;
+  organizerName: string | null;
+  visits: number;
+  checkouts: number;
+  paidOrders: number;
+  tickets: number;
+  lastSaleAt: string | null;
+  series: PromoterDay[];
+}
+
+/** Reads what promoter_report() returns; null when the address is not a known report. */
+export function parsePromoterReport(raw: unknown): PromoterReport | null {
+  if (!isRecord(raw)) return null;
+  const series: PromoterDay[] = [];
+  for (const d of Array.isArray(raw.series) ? raw.series : []) {
+    if (!isRecord(d)) continue;
+    const day = text(d.day);
+    if (day) series.push({ day, visits: num(d.visits), tickets: num(d.tickets) });
+  }
+  return {
+    name: text(raw.name) ?? "Promoter",
+    archived: raw.archived === true,
+    eventTitle: text(raw.event_title) ?? "Event",
+    eventSlug: text(raw.event_slug),
+    eventDate: text(raw.event_date),
+    eventLocation: text(raw.event_location),
+    bannerUrl: text(raw.banner_url),
+    organizerName: text(raw.organizer_name),
+    visits: num(raw.visits),
+    checkouts: num(raw.checkouts),
+    paidOrders: num(raw.paid_orders),
+    tickets: num(raw.tickets),
+    lastSaleAt: text(raw.last_sale_at),
+    series,
+  };
+}
+
+export async function fetchPromoterReport(token: string): Promise<PromoterReport | null> {
+  const { data, error } = await db.rpc("promoter_report", { p_token: token });
+  if (error) throw new Error(error.message);
+  return parsePromoterReport(data);
 }

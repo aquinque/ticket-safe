@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Archive, ArchiveRestore, Check, ChevronDown, Copy, Loader2, Megaphone, Plus, RefreshCw } from "lucide-react";
+import { Archive, ArchiveRestore, BarChart3, Check, ChevronDown, Copy, Loader2, Megaphone, Plus, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { eur, plural, relativeTime } from "@/lib/studioFormat";
 import {
@@ -8,9 +8,11 @@ import {
   conversionRate,
   createPromoterLink,
   fetchPromoterStats,
+  fetchReportTokens,
   formatRate,
   orderPromoterLinks,
   promoterLinkUrl,
+  promoterReportUrl,
   promoterShare,
   setPromoterLinkArchived,
   type PromoterDay,
@@ -24,7 +26,7 @@ const dayLabel = (day: string) =>
   new Date(`${day}T12:00:00`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
 
 /** Visits per day over the last 14 days. A darker bar is a day with at least one sale. */
-const DaysChart = ({ series }: { series: PromoterDay[] }) => {
+export const DaysChart = ({ series }: { series: PromoterDay[] }) => {
   const max = Math.max(1, ...series.map((d) => d.visits));
   const visits = series.reduce((sum, d) => sum + d.visits, 0);
   return (
@@ -63,10 +65,12 @@ interface LinkCardProps {
   copied: boolean;
   busy: boolean;
   onCopy: () => void;
+  onCopyReport: (() => void) | null;
+  reportCopied: boolean;
   onArchive: () => void;
 }
 
-const LinkCard = ({ link, url, isNew, copied, busy, onCopy, onArchive }: LinkCardProps) => {
+const LinkCard = ({ link, url, isNew, copied, busy, onCopy, onCopyReport, reportCopied, onArchive }: LinkCardProps) => {
   const rate = conversionRate(link.visits, link.paidOrders);
   const base = url.replace(/^https?:\/\//, "").replace(/\?ref=.*$/, "");
   return (
@@ -87,6 +91,18 @@ const LinkCard = ({ link, url, isNew, copied, busy, onCopy, onArchive }: LinkCar
           {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
           {copied ? "Copied" : "Copy link"}
         </button>
+        {onCopyReport && (
+          <button
+            type="button"
+            onClick={onCopyReport}
+            aria-label={`Copy the sales page for ${link.name}`}
+            title="A private page where the promoter follows their own visits and sales. Send it along with their link."
+            className="shrink-0 inline-flex items-center justify-center gap-1.5 px-3 min-h-[40px] text-xs font-bold bg-card border border-border hover:bg-muted transition-colors"
+          >
+            {reportCopied ? <Check className="w-3.5 h-3.5" /> : <BarChart3 className="w-3.5 h-3.5" />}
+            {reportCopied ? "Copied" : "Sales page"}
+          </button>
+        )}
         <button
           type="button"
           onClick={onArchive}
@@ -134,13 +150,19 @@ export const PromoterLinksPanel = ({ eventId, slug, userId }: { eventId: string;
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
+  const [tokens, setTokens] = useState<Record<string, string>>({});
+  const [copiedReportId, setCopiedReportId] = useState<string | null>(null);
 
   // Returns what it loaded so a caller that needs the fresh list (a link was just created) does not read it twice.
   const load = useCallback(async (): Promise<PromoterStats | null> => {
     setRefreshing(true);
     try {
-      const fresh = await fetchPromoterStats(eventId);
+      const [fresh, reportTokens] = await Promise.all([
+        fetchPromoterStats(eventId),
+        fetchReportTokens(eventId).catch(() => ({} as Record<string, string>)),
+      ]);
       setStats(fresh);
+      setTokens(reportTokens);
       setFailed(false);
       return fresh;
     } catch (err) {
@@ -203,6 +225,19 @@ export const PromoterLinksPanel = ({ eventId, slug, userId }: { eventId: string;
     }
   };
 
+  const copyReport = async (link: PromoterLinkStats) => {
+    const token = tokens[link.id];
+    if (!token) return;
+    try {
+      await navigator.clipboard.writeText(promoterReportUrl(token));
+      setCopiedReportId(link.id);
+      toast.success("Sales page copied. Send it to the promoter so they can follow their own sales.");
+      setTimeout(() => setCopiedReportId((id) => (id === link.id ? null : id)), 2000);
+    } catch {
+      toast.error("Could not copy the link.");
+    }
+  };
+
   const setArchived = async (link: PromoterLinkStats, archive: boolean) => {
     setBusyId(link.id);
     try {
@@ -225,7 +260,7 @@ export const PromoterLinksPanel = ({ eventId, slug, userId }: { eventId: string;
             Promoter links
           </h2>
           <p className="text-[13px] text-muted-foreground mt-0.5">
-            One link per promoter. They all open your ticket page; you see what each one brings.
+            One link per promoter. They all open your ticket page; you see what each one brings, and each promoter gets a private sales page to follow their own.
           </p>
         </div>
         <button
@@ -303,6 +338,8 @@ export const PromoterLinksPanel = ({ eventId, slug, userId }: { eventId: string;
                   copied={copiedId === link.id}
                   busy={busyId === link.id}
                   onCopy={() => copy(link)}
+                  onCopyReport={tokens[link.id] ? () => copyReport(link) : null}
+                  reportCopied={copiedReportId === link.id}
                   onArchive={() => setArchived(link, true)}
                 />
               ))}
