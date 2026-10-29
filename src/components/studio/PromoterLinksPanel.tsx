@@ -8,14 +8,15 @@ import {
   conversionRate,
   createPromoterLink,
   fetchPromoterStats,
-  fetchReportTokens,
+  fetchInviteStates,
   formatRate,
   orderPromoterLinks,
   promoterLinkUrl,
-  promoterReportUrl,
+  promoterInviteUrl,
   promoterShare,
   setPromoterLinkArchived,
   type PromoterDay,
+  type PromoterInviteState,
   type PromoterLinkStats,
   type PromoterStats,
 } from "@/lib/promoterLinks";
@@ -67,17 +68,21 @@ interface LinkCardProps {
   onCopy: () => void;
   onCopyReport: (() => void) | null;
   reportCopied: boolean;
+  joined: boolean;
   onArchive: () => void;
 }
 
-const LinkCard = ({ link, url, isNew, copied, busy, onCopy, onCopyReport, reportCopied, onArchive }: LinkCardProps) => {
+const LinkCard = ({ link, url, isNew, copied, busy, onCopy, onCopyReport, reportCopied, joined, onArchive }: LinkCardProps) => {
   const rate = conversionRate(link.visits, link.paidOrders);
   const base = url.replace(/^https?:\/\//, "").replace(/\?ref=.*$/, "");
   return (
     <li className={`px-4 md:px-5 py-4 ${isNew ? "bg-primary/[0.04]" : ""}`}>
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
-          <div className="font-semibold text-sm truncate">{link.name}</div>
+          <div className="font-semibold text-sm truncate">
+            {link.name}
+            {joined && <span className="ml-2 align-middle text-[10px] uppercase tracking-wider font-bold text-primary">Joined</span>}
+          </div>
           <div className="text-xs text-muted-foreground truncate mt-0.5" title={url}>
             <span className="hidden sm:inline">{base}</span>?ref={link.code}
           </div>
@@ -95,12 +100,12 @@ const LinkCard = ({ link, url, isNew, copied, busy, onCopy, onCopyReport, report
           <button
             type="button"
             onClick={onCopyReport}
-            aria-label={`Copy the sales page for ${link.name}`}
-            title="A private page where the promoter follows their own visits and sales. Send it along with their link."
+            aria-label={`Copy the invitation for ${link.name}`}
+            title={joined ? "This promoter already has their account. Copy the invitation again if you need to." : "Invite the promoter: they create their Ticket Safe account and follow their own sales in a personal space."}
             className="shrink-0 inline-flex items-center justify-center gap-1.5 px-3 min-h-[40px] text-xs font-bold bg-card border border-border hover:bg-muted transition-colors"
           >
             {reportCopied ? <Check className="w-3.5 h-3.5" /> : <BarChart3 className="w-3.5 h-3.5" />}
-            {reportCopied ? "Copied" : "Sales page"}
+            {reportCopied ? "Copied" : joined ? "Invitation" : "Invite"}
           </button>
         )}
         <button
@@ -150,7 +155,7 @@ export const PromoterLinksPanel = ({ eventId, slug, userId }: { eventId: string;
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
-  const [tokens, setTokens] = useState<Record<string, string>>({});
+  const [tokens, setTokens] = useState<Record<string, PromoterInviteState>>({});
   const [copiedReportId, setCopiedReportId] = useState<string | null>(null);
 
   // Returns what it loaded so a caller that needs the fresh list (a link was just created) does not read it twice.
@@ -159,7 +164,7 @@ export const PromoterLinksPanel = ({ eventId, slug, userId }: { eventId: string;
     try {
       const [fresh, reportTokens] = await Promise.all([
         fetchPromoterStats(eventId),
-        fetchReportTokens(eventId).catch(() => ({} as Record<string, string>)),
+        fetchInviteStates(eventId).catch(() => ({} as Record<string, PromoterInviteState>)),
       ]);
       setStats(fresh);
       setTokens(reportTokens);
@@ -226,12 +231,12 @@ export const PromoterLinksPanel = ({ eventId, slug, userId }: { eventId: string;
   };
 
   const copyReport = async (link: PromoterLinkStats) => {
-    const token = tokens[link.id];
-    if (!token) return;
+    const invite = tokens[link.id];
+    if (!invite) return;
     try {
-      await navigator.clipboard.writeText(promoterReportUrl(token));
+      await navigator.clipboard.writeText(promoterInviteUrl(invite.token));
       setCopiedReportId(link.id);
-      toast.success("Sales page copied. Send it to the promoter so they can follow their own sales.");
+      toast.success("Invitation copied. Send it to the promoter: they create their account and follow their own sales.");
       setTimeout(() => setCopiedReportId((id) => (id === link.id ? null : id)), 2000);
     } catch {
       toast.error("Could not copy the link.");
@@ -260,7 +265,7 @@ export const PromoterLinksPanel = ({ eventId, slug, userId }: { eventId: string;
             Promoter links
           </h2>
           <p className="text-[13px] text-muted-foreground mt-0.5">
-            One link per promoter. They all open your ticket page; you see what each one brings, and each promoter gets a private sales page to follow their own.
+            One link per promoter. They all open your ticket page; you see what each one brings, and invite each promoter so they can follow their own sales.
           </p>
         </div>
         <button
@@ -339,6 +344,7 @@ export const PromoterLinksPanel = ({ eventId, slug, userId }: { eventId: string;
                   busy={busyId === link.id}
                   onCopy={() => copy(link)}
                   onCopyReport={tokens[link.id] ? () => copyReport(link) : null}
+                  joined={tokens[link.id]?.claimed ?? false}
                   reportCopied={copiedReportId === link.id}
                   onArchive={() => setArchived(link, true)}
                 />
