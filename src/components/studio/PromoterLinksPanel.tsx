@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Archive, ArchiveRestore, BarChart3, Check, ChevronDown, Copy, Loader2, Megaphone, Plus, RefreshCw } from "lucide-react";
+import { Archive, ArchiveRestore, Check, ChevronDown, Copy, Loader2, Megaphone, Plus, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { eur, plural, relativeTime } from "@/lib/studioFormat";
 import {
@@ -61,20 +61,16 @@ const Figure = ({ label, value, hint }: { label: string; value: string; hint: st
 
 interface LinkCardProps {
   link: PromoterLinkStats;
-  url: string;
   isNew: boolean;
-  copied: boolean;
   busy: boolean;
-  onCopy: () => void;
   onCopyReport: (() => void) | null;
   reportCopied: boolean;
   joined: boolean;
   onArchive: () => void;
 }
 
-const LinkCard = ({ link, url, isNew, copied, busy, onCopy, onCopyReport, reportCopied, joined, onArchive }: LinkCardProps) => {
+const LinkCard = ({ link, isNew, busy, onCopyReport, reportCopied, joined, onArchive }: LinkCardProps) => {
   const rate = conversionRate(link.visits, link.paidOrders);
-  const base = url.replace(/^https?:\/\//, "").replace(/\?ref=.*$/, "");
   return (
     <li className={`px-4 md:px-5 py-4 ${isNew ? "bg-primary/[0.04]" : ""}`}>
       <div className="flex items-start gap-3">
@@ -83,29 +79,17 @@ const LinkCard = ({ link, url, isNew, copied, busy, onCopy, onCopyReport, report
             {link.name}
             {joined && <span className="ml-2 align-middle text-[10px] uppercase tracking-wider font-bold text-primary">Joined</span>}
           </div>
-          <div className="text-xs text-muted-foreground truncate mt-0.5" title={url}>
-            <span className="hidden sm:inline">{base}</span>?ref={link.code}
-          </div>
         </div>
-        <button
-          type="button"
-          onClick={onCopy}
-          aria-label={`Copy the link for ${link.name}`}
-          className="shrink-0 inline-flex items-center justify-center gap-1.5 px-3 min-h-[40px] text-xs font-bold bg-primary text-primary-foreground hover:bg-primary-hover transition-colors"
-        >
-          {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-          {copied ? "Copied" : "Copy link"}
-        </button>
         {onCopyReport && (
           <button
             type="button"
             onClick={onCopyReport}
-            aria-label={`Copy the invitation for ${link.name}`}
+            aria-label={`Copy the invite link for ${link.name}`}
             title={joined ? "This promoter already has their account. Copy the invitation again if you need to." : "Invite the promoter: they create their Ticket Safe account and follow their own sales in a personal space."}
-            className="shrink-0 inline-flex items-center justify-center gap-1.5 px-3 min-h-[40px] text-xs font-bold bg-card border border-border hover:bg-muted transition-colors"
+            className="shrink-0 inline-flex items-center justify-center gap-1.5 px-3 min-h-[40px] text-xs font-bold bg-primary text-primary-foreground hover:bg-primary-hover transition-colors"
           >
-            {reportCopied ? <Check className="w-3.5 h-3.5" /> : <BarChart3 className="w-3.5 h-3.5" />}
-            {reportCopied ? "Copied" : joined ? "Invitation" : "Invite"}
+            {reportCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+            {reportCopied ? "Copied" : "Copy invite link"}
           </button>
         )}
         <button
@@ -152,7 +136,6 @@ export const PromoterLinksPanel = ({ eventId, slug, userId }: { eventId: string;
   const [name, setName] = useState("");
   const [creating, setCreating] = useState(false);
   const [newId, setNewId] = useState<string | null>(null);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
   const [tokens, setTokens] = useState<Record<string, PromoterInviteState>>({});
@@ -216,17 +199,6 @@ export const PromoterLinksPanel = ({ eventId, slug, userId }: { eventId: string;
       toast.error(err instanceof Error ? err.message : "Could not create the link.");
     } finally {
       setCreating(false);
-    }
-  };
-
-  const copy = async (link: PromoterLinkStats) => {
-    try {
-      await navigator.clipboard.writeText(promoterLinkUrl(slug, link.code));
-      setCopiedId(link.id);
-      toast.success("Link copied");
-      setTimeout(() => setCopiedId((id) => (id === link.id ? null : id)), 2000);
-    } catch {
-      toast.error("Could not copy the link.");
     }
   };
 
@@ -338,11 +310,8 @@ export const PromoterLinksPanel = ({ eventId, slug, userId }: { eventId: string;
                 <LinkCard
                   key={link.id}
                   link={link}
-                  url={promoterLinkUrl(slug, link.code)}
                   isNew={link.id === newId}
-                  copied={copiedId === link.id}
                   busy={busyId === link.id}
-                  onCopy={() => copy(link)}
                   onCopyReport={tokens[link.id] ? () => copyReport(link) : null}
                   joined={tokens[link.id]?.claimed ?? false}
                   reportCopied={copiedReportId === link.id}
