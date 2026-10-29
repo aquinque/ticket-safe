@@ -197,6 +197,32 @@ const EventPublic = () => {
     setAttendees((prev) => prev.map((a, idx) => (idx === i ? { ...a, ...patch } : a)));
   };
 
+  // Tier availability only: the part a sale changes. Used by the first load
+  // and by every realtime update, without touching the rest of the page.
+  const refreshTiers = useCallback(async (eventId: string) => {
+    // tier_inventory is a VIEW (no FK), so we can't ask PostgREST to embed
+    // event_tiers.description here — the embed returns zero rows and the page
+    // falls into the empty "Tickets will be on sale soon" state even when the
+    // event has active tiers. Read the view flat, then enrich descriptions
+    // with a second tiny query against event_tiers.
+    const [{ data: tr, error: trErr }, { data: tdesc }] = await Promise.all([
+      supabase.from("tier_inventory").select("*").eq("event_id", eventId),
+      supabase.from("event_tiers").select("id, description").eq("event_id", eventId),
+    ]);
+    if (trErr) console.warn("[event-public] tier_inventory query:", trErr);
+
+    const descMap = new Map(
+      (tdesc ?? []).map((d: { id: string; description: string | null }) => [d.id, d.description]),
+    );
+
+    setTiers(
+      ((tr as TierAvailability[]) ?? [])
+        .filter((t) => t.is_active)
+        .map((t) => ({ ...t, description: descMap.get(t.tier_id) ?? null }))
+        .sort((a, b) => a.sort_order - b.sort_order),
+    );
+  }, []);
+
   const load = useCallback(async () => {
     if (!slug) return;
     setLoading(true);
@@ -236,34 +262,9 @@ const EventPublic = () => {
     // the organizer's readiness up-front. Payouts are settled separately after
     // the event ends.
 
-    // tier_inventory is a VIEW (no FK), so we can't ask PostgREST to embed
-    // event_tiers.description here — the embed returns zero rows and the page
-    // falls into the empty "Tickets will be on sale soon" state even when the
-    // event has active tiers. Read the view flat, then enrich descriptions
-    // with a second tiny query against event_tiers.
-    const { data: tr, error: trErr } = await supabase
-      .from("tier_inventory")
-      .select("*")
-      .eq("event_id", (ev as { id: string }).id);
-    if (trErr) console.warn("[event-public] tier_inventory query:", trErr);
-
-    const { data: tdesc } = await supabase
-      .from("event_tiers")
-      .select("id, description")
-      .eq("event_id", (ev as { id: string }).id);
-
-    const descMap = new Map(
-      (tdesc ?? []).map((d: { id: string; description: string | null }) => [d.id, d.description]),
-    );
-
-    setTiers(
-      ((tr as TierAvailability[]) ?? [])
-        .filter((t) => t.is_active)
-        .map((t) => ({ ...t, description: descMap.get(t.tier_id) ?? null }))
-        .sort((a, b) => a.sort_order - b.sort_order),
-    );
+    await refreshTiers((ev as { id: string }).id);
     setLoading(false);
-  }, [slug]);
+  }, [slug, refreshTiers]);
 
   useEffect(() => {
     load();
@@ -279,21 +280,34 @@ const EventPublic = () => {
     trackPromoterVisit(event.slug, promoterRef);
   }, [event?.slug, promoterRef]);
 
-  // Realtime tier availability
+  // Realtime tier availability. A crowd watching the same event means every
+  // sale pings every viewer at the same moment. Before, each ping reloaded the
+  // whole page (loading state and all); now the pings are coalesced and the
+  // tier refetch is spread over a few seconds, so the database sees one light
+  // query per viewer instead of a full reload per sale.
   useEffect(() => {
     if (!event?.id) return;
+    const eventId = event.id;
+    let timer: number | undefined;
     const ch = supabase
-      .channel(`event-public-${event.id}`)
+      .channel(`event-public-${eventId}`)
       .on(
         "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "event_tiers", filter: `event_id=eq.${event.id}` },
-        () => load(),
+        { event: "UPDATE", schema: "public", table: "event_tiers", filter: `event_id=eq.${eventId}` },
+        () => {
+          if (timer !== undefined) return;
+          timer = window.setTimeout(() => {
+            timer = undefined;
+            void refreshTiers(eventId);
+          }, 800 + Math.random() * 2500);
+        },
       )
       .subscribe();
     return () => {
+      if (timer !== undefined) window.clearTimeout(timer);
       supabase.removeChannel(ch);
     };
-  }, [event?.id, load]);
+  }, [event?.id, refreshTiers]);
 
   // Resale availability — "Resale available (X tickets)" banner. Reads the
   // same `tickets` table the resale marketplace itself lists from; no new
