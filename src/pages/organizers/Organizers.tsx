@@ -68,7 +68,7 @@ const studioHighlights = [
   { feature: "Fees", text: `0% commission — buyers pay ${STUDIO_FEE_RULE}, you keep every euro` },
   { feature: "Resale", text: "Official resale built in" },
   { feature: "Event page", text: "Branded to your identity" },
-  { feature: "Payout", text: "Starts 2 days after your event, automatic" },
+  { feature: "Payout", text: "Automatic as soon as your event ends, or cash out any time" },
 ];
 
 const Organizers = () => {
