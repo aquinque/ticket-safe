@@ -89,7 +89,7 @@ const LinkCard = ({ link, isNew, busy, onCopyReport, reportCopied, joined, onArc
             className="shrink-0 inline-flex items-center justify-center gap-1.5 px-3 min-h-[40px] text-xs font-bold bg-primary text-primary-foreground hover:bg-primary-hover transition-colors"
           >
             {reportCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-            {reportCopied ? "Copied" : "Copy invite link"}
+            {reportCopied ? "Copied" : "Invite link"}
           </button>
         )}
         <button
