@@ -959,6 +959,11 @@ const StudioEventEdit = () => {
 
           <GroupLabel>Sales</GroupLabel>
 
+          {/* Which rail buyers pay through. Stripe for every event; events created
+              before the switch may still sit on the legacy Revolut checkout and can
+              be moved here. */}
+          <PaymentRailControl event={event} onSaved={(patch) => setEvent({ ...event, ...patch })} />
+
           {/* Buyers — every order, with the named attendees that order issued */}
           <section className="bg-card border border-border rounded-2xl p-5 md:p-6">
             <div className="flex items-center justify-between mb-4 gap-3">
@@ -1196,6 +1201,111 @@ const StudioEventEdit = () => {
         </AlertDialogContent>
       </AlertDialog>
     </StudioLayout>
+  );
+};
+
+
+// ── Payment rail ────────────────────────────────────────────────────────────
+// Sales go through Stripe. Events created before 2026-10-29 were left on the
+// legacy Revolut checkout by the old column default; this card says which rail
+// the event is on and moves it to Stripe once the organizer's Stripe account can
+// take payments (stripe-connect-create-checkout refuses otherwise). Refunds stay
+// right either way: cancel-event and admin-refund-order pick the rail per order.
+const PaymentRailControl = ({
+  event,
+  onSaved,
+}: {
+  event: EventRow;
+  onSaved: (patch: Partial<EventRow>) => void;
+}) => {
+  const [stripeReady, setStripeReady] = useState<boolean | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    supabase
+      .from("stripe_connect_accounts")
+      .select("charges_enabled")
+      .eq("organizer_id", event.organizer_id)
+      .maybeSingle()
+      .then(({ data }) => setStripeReady(!!data?.charges_enabled));
+  }, [event.organizer_id]);
+
+  const onStripe = event.payment_provider !== "revolut";
+
+  const switchToStripe = async () => {
+    if (
+      !window.confirm(
+        "Move this event to Stripe? New purchases are paid through Stripe from now on. Tickets already bought are not affected.",
+      )
+    )
+      return;
+    setSaving(true);
+    const { error } = await supabase.from("events").update({ payment_provider: "stripe" }).eq("id", event.id);
+    setSaving(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    onSaved({ payment_provider: "stripe" });
+    toast.success("This event now sells through Stripe.");
+  };
+
+  const notReady = (
+    <p className="mt-3 flex items-start gap-2 text-sm text-amber-900 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+      <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+      <span>
+        Your Stripe account can't take payments yet, so buyers can't check out on Stripe.{" "}
+        <Link to="/studio/payments" className="font-bold underline underline-offset-2">
+          Finish setting up payments
+        </Link>
+        .
+      </span>
+    </p>
+  );
+
+  return (
+    <section
+      className={`bg-card border rounded-2xl p-5 md:p-6 mb-6 ${onStripe ? "border-border" : "border-amber-300"}`}
+    >
+      <div className="flex items-start gap-3">
+        <div
+          className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+            onStripe ? "bg-primary/10 text-primary" : "bg-amber-100 text-amber-700"
+          }`}
+        >
+          <Banknote className="w-5 h-5" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h2 className="text-lg font-bold">Payments</h2>
+          {onStripe ? (
+            <>
+              <p className="text-sm text-muted-foreground mt-1">
+                Buyers pay through <strong className="text-foreground">Stripe</strong>. The ticket price lands in your
+                Stripe account; the service fee is paid by the buyer.
+              </p>
+              {stripeReady === false && notReady}
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-foreground/85 mt-1">
+                <strong>This event still sells through Revolut</strong>, the old checkout. New purchases should go
+                through Stripe.
+              </p>
+              {stripeReady === false && notReady}
+              <button
+                type="button"
+                onClick={switchToStripe}
+                disabled={saving || stripeReady !== true}
+                className="mt-3 inline-flex items-center gap-2 min-h-[44px] px-5 rounded-xl font-bold bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-60 transition-colors"
+              >
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                Switch to Stripe
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </section>
   );
 };
 
