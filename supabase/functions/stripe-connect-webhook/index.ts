@@ -42,6 +42,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
 import { signStudioTicketJWT } from "../_shared/ticketJwt.ts";
 import { sendResaleCompletionEmails } from "../_shared/sendResaleCompletionEmails.ts";
+import { postDiscordSaleAlert } from "../_shared/discordSaleAlert.ts";
 import { renderEmail, ctaButton, ticketSummary } from "../_shared/emailComponents.ts";
 import { emailTokens } from "../_shared/emailTokens.ts";
 
@@ -149,6 +150,9 @@ serve(async (req) => {
               body: JSON.stringify({ order_id: ord.id, admin_secret: replaySecret }),
             });
           } catch (e) { console.warn("[stripe-connect-webhook] studio email failed:", e); }
+
+          // Team alert in Discord (no-op without DISCORD_SALES_WEBHOOK_URL).
+          await postDiscordSaleAlert(supabase, ord.id, "Stripe");
 
           console.log(`[stripe-connect-webhook] studio sale finalized order=${ord.id} tickets=${ticketRows.length}`);
           break;
