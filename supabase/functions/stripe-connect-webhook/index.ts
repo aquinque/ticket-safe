@@ -120,14 +120,38 @@ serve(async (req) => {
 
           const paymentIntentId = typeof session.payment_intent === "string" ? session.payment_intent : (session.payment_intent as Stripe.PaymentIntent)?.id ?? null;
 
+          // The buyer paid, so the order is honoured whatever state we had put
+          // it in. A first declined card attempt used to cancel the order while
+          // Stripe's page let the buyer try again; the second attempt then paid
+          // and was ignored here (money taken, no ticket). Only an order already
+          // marked paid is skipped.
+          const { data: before } = await supabase.from("event_orders").select("status").eq("id", orderId).maybeSingle();
+          const prevStatus = (before as { status?: string } | null)?.status;
+          if (!prevStatus || !["pending", "cancelled", "expired"].includes(prevStatus)) break;
+
           const { data: updRows } = await supabase
             .from("event_orders")
-            .update({ status: "paid", paid_at: new Date().toISOString(), stripe_payment_intent_id: paymentIntentId })
-            .eq("id", orderId).eq("status", "pending").select("id, event_id, buyer_id, attendees");
-          if (!updRows || updRows.length === 0) break; // already processed or not pending
+            .update({ status: "paid", paid_at: new Date().toISOString(), stripe_payment_intent_id: paymentIntentId, cancelled_at: null })
+            .eq("id", orderId).eq("status", prevStatus).select("id, event_id, buyer_id, attendees");
+          if (!updRows || updRows.length === 0) break; // raced with another delivery
 
           const ord = updRows[0] as { id: string; event_id: string; buyer_id: string; attendees: unknown };
-          await supabase.rpc("finalize_tier_sale", { p_tier_id: tierId, p_qty: qty });
+          if (prevStatus === "pending") {
+            await supabase.rpc("finalize_tier_sale", { p_tier_id: tierId, p_qty: qty });
+          } else {
+            // Revived order: its seats were released when it was cancelled or
+            // expired. Take them back, or count the sale anyway if the tier
+            // has filled up meanwhile: the buyer has paid.
+            console.warn(`[stripe-connect-webhook] reviving order ${orderId} from status ${prevStatus}`);
+            const { data: reserved } = await supabase.rpc("reserve_tier", { p_tier_id: tierId, p_qty: qty });
+            if (reserved) {
+              await supabase.rpc("finalize_tier_sale", { p_tier_id: tierId, p_qty: qty });
+            } else {
+              const { data: tierRow } = await supabase.from("event_tiers").select("sold_qty").eq("id", tierId).maybeSingle();
+              const soldNow = (tierRow as { sold_qty?: number } | null)?.sold_qty ?? 0;
+              await supabase.from("event_tiers").update({ sold_qty: soldNow + qty }).eq("id", tierId);
+            }
+          }
 
           const { data: evForExp } = await supabase.from("events").select("date").eq("id", ord.event_id).maybeSingle();
           const expSeconds = evForExp?.date ? Math.floor(new Date(evForExp.date).getTime() / 1000) + 86_400 : Math.floor(Date.now() / 1000) + 30 * 86_400;
@@ -232,11 +256,12 @@ serve(async (req) => {
       case "payment_intent.payment_failed": {
         const pi = event.data.object as Stripe.PaymentIntent;
         if (pi.metadata?.source === "stripe_connect_studio_sale") {
-          const orderId = pi.metadata.order_id;
-          const tierId = pi.metadata.tier_id;
-          const qty = parseInt(pi.metadata.quantity ?? "1", 10) || 1;
-          if (orderId) await supabase.from("event_orders").update({ status: "cancelled", cancelled_at: new Date().toISOString() }).eq("id", orderId).eq("status", "pending");
-          if (tierId) await supabase.rpc("release_tier_reservation", { p_tier_id: tierId, p_qty: qty });
+          // A declined attempt is not the end of the checkout: Stripe's page
+          // keeps the same session and payment intent and lets the buyer try
+          // another card. Keep the order pending and its seats reserved; the
+          // session's own expiry (checkout.session.expired, 30 min) and the
+          // stuck-orders cleanup release them if the buyer gives up.
+          console.log(`[stripe-connect-webhook] payment attempt failed for order ${pi.metadata.order_id ?? "?"}: ${pi.last_payment_error?.message ?? "no detail"}`);
         } else if (pi.metadata?.source === "stripe_connect_resale") {
           const listingId = pi.metadata.listing_id;
           const transactionId = pi.metadata.transaction_id;
