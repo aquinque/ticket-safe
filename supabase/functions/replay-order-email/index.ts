@@ -154,9 +154,9 @@ serve(async (req) => {
     const holder = [t.holder_first_name, t.holder_last_name].filter(Boolean).join(" ").trim();
     const holderEmail = t.holder_email && t.holder_email !== ord.buyer_email ? t.holder_email : "";
     const refShort = `TS-${t.id.slice(0, 4).toUpperCase()}-${t.id.slice(-4).toUpperCase()}`;
-    const { qr, apple } = buildTicketUrls(supabaseUrl, t.id);
+    const { apple } = buildTicketUrls(supabaseUrl, t.id);
     const ticketUrl = await createTicketLink(supabase, t.id);
-    blocks.push(renderTicketCard({ idx: i + 1, total: tickets!.length, holder, holderEmail, tierName, evDate, evLocation, qrUrl: qr, refShort, appleWalletUrl: walletReady ? apple : null, ticketUrl }));
+    blocks.push(renderTicketCard({ idx: i + 1, total: tickets!.length, holder, holderEmail, tierName, evDate, evLocation, refShort, appleWalletUrl: walletReady ? apple : null, ticketUrl }));
     pdfTickets.push({
       eventName: evTitle,
       eventDate: evRow?.date ?? evDate,
@@ -181,8 +181,8 @@ serve(async (req) => {
     const pdfBytes = await generateTicketsPDFServer(pdfTickets);
     attachments = [{ filename: `TicketSafe-${slugifyForFilename(evTitle)}-${orderNumber}.pdf`, content: bytesToBase64(pdfBytes) }];
   } catch (err) {
-    // The inline QR cards still work as a fallback — the buyer isn't left
-    // with nothing — but this should never happen silently, hence the loud log.
+    // The "Open my ticket" link still works as a fallback — the buyer isn't
+    // left with nothing — but this should never happen silently, hence the loud log.
     console.error("[replay-order-email] PDF generation failed, sending without attachment:", err);
   }
 
