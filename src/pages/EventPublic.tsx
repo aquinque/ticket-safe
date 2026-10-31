@@ -22,6 +22,7 @@ import {
   Users,
   Navigation,
   ChevronDown,
+  X,
 } from "lucide-react";
 import { SEOHead } from "@/components/SEOHead";
 import { PromoVideo } from "@/components/PromoVideo";
@@ -781,7 +782,7 @@ const EventPublic = () => {
             style={{ animationDelay: `${i * 60}ms`, animationFillMode: "both" }}
             className={`relative motion-safe:animate-fade-in border rounded-2xl transition-all duration-200 ${
               soldOut
-                ? "opacity-40 cursor-not-allowed border-border bg-card/40"
+                ? "cursor-not-allowed border-dashed border-border bg-card/30"
                 : isSelected
                 ? "cursor-pointer border-primary bg-primary/10 shadow-[inset_0_0_0_1px_hsl(var(--primary))]"
                 : "cursor-pointer border-border bg-card/60 hover:border-foreground/40 hover:bg-card motion-safe:active:scale-[0.99]"
@@ -791,23 +792,38 @@ const EventPublic = () => {
               <span
                 aria-hidden
                 className={`mt-0.5 w-5 h-5 rounded-full border shrink-0 flex items-center justify-center transition-colors ${
-                  isSelected && !soldOut ? "bg-primary border-primary text-primary-foreground" : "border-muted-foreground/50"
+                  soldOut
+                    ? "border-border bg-muted/40"
+                    : isSelected
+                    ? "bg-primary border-primary text-primary-foreground"
+                    : "border-muted-foreground/50"
                 }`}
               >
-                {isSelected && !soldOut && <Check className="w-3 h-3 motion-safe:animate-scale-in" strokeWidth={3} />}
+                {soldOut ? (
+                  <X className="w-3 h-3 text-muted-foreground" strokeWidth={2.5} />
+                ) : (
+                  isSelected && <Check className="w-3 h-3 motion-safe:animate-scale-in" strokeWidth={3} />
+                )}
               </span>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-medium text-foreground">{t.name}</span>
+                  <span className={`font-medium ${soldOut ? "text-muted-foreground line-through decoration-muted-foreground/60" : "text-foreground"}`}>{t.name}</span>
+                  {soldOut && (
+                    <span className="inline-flex items-center text-[10px] font-bold uppercase tracking-[0.12em] text-rose-400 bg-rose-500/15 border border-rose-500/30 rounded-full px-2 py-0.5">
+                      Sold out
+                    </span>
+                  )}
                   {popular && (
                     <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.12em] text-primary bg-primary/15 rounded-full px-2 py-0.5">
                       <Flame className="w-3 h-3" strokeWidth={2} /> Most popular
                     </span>
                   )}
                 </div>
-                {t.description && <span className="block text-sm text-muted-foreground mt-0.5 line-clamp-2">{t.description}</span>}
+                {t.description && <span className={`block text-sm mt-0.5 line-clamp-2 ${soldOut ? "text-muted-foreground/60" : "text-muted-foreground"}`}>{t.description}</span>}
                 {soldOut ? (
-                  <span className="block text-xs text-muted-foreground mt-2">Sold out</span>
+                  <span className="block text-xs text-muted-foreground mt-2">
+                    No more tickets in this category{resaleCount > 0 ? " — check the resale listings below" : ""}.
+                  </span>
                 ) : fewLeft ? (
                   <div className="mt-2.5">
                     <span className="inline-flex items-center gap-1.5 text-xs font-medium text-primary">
@@ -839,7 +855,7 @@ const EventPublic = () => {
                 )}
               </div>
               <div className="text-right shrink-0">
-                <div className={`font-semibold tabular-nums transition-all ${isSelected ? "text-xl" : "text-base"} ${t.price_cents === 0 ? "text-emerald-400" : "text-foreground"}`}>{t.price_cents === 0 ? "Free" : fmtPrice(t.price_cents)}</div>
+                <div className={`font-semibold tabular-nums transition-all ${isSelected ? "text-xl" : "text-base"} ${soldOut ? "text-muted-foreground/60 line-through" : t.price_cents === 0 ? "text-emerald-400" : "text-foreground"}`}>{t.price_cents === 0 ? "Free" : fmtPrice(t.price_cents)}</div>
                 {isSelected && !soldOut && qty > 1 && (
                   <div className="text-xs text-muted-foreground tabular-nums mt-0.5 motion-safe:animate-fade-in">× {qty} = {fmtPrice(t.price_cents * qty)}</div>
                 )}

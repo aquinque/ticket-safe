@@ -93,3 +93,9 @@ verify_jwt = false
 # credential, checked inside the function against a hash in guest_access_tokens.
 [functions.ticket-access]
 verify_jwt = false
+
+# Wallet links are opened straight from the buyer's e-mail, with no Supabase
+# session. The ticket id in the query string is the only credential (matches
+# the deployed setting).
+[functions.wallet-pass]
+verify_jwt = false

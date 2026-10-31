@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { renderBuyerEmail, renderTicketCard, buildTicketUrls, deriveFirstName } from "./_shared/buyerEmail.ts";
+import { renderBuyerEmail, renderTicketCard, buildTicketUrls, deriveFirstName, appleWalletConfigured } from "./_shared/buyerEmail.ts";
 import { RECEIPT_LEGAL_COLUMNS, receiptLegalFromSettings, renderNoticeHtml, renderPaymentSummaryHtml } from "./_shared/receiptLegal.ts";
 import { generateTicketsPDFServer, type ServerTicketData } from "../_shared/ticketPdfServer.ts";
 
@@ -148,14 +148,15 @@ serve(async (req) => {
 
   const blocks: string[] = [];
   const pdfTickets: ServerTicketData[] = [];
+  const walletReady = appleWalletConfigured();
   for (let i = 0; i < (tickets ?? []).length; i++) {
     const t = tickets![i];
     const holder = [t.holder_first_name, t.holder_last_name].filter(Boolean).join(" ").trim();
     const holderEmail = t.holder_email && t.holder_email !== ord.buyer_email ? t.holder_email : "";
     const refShort = `TS-${t.id.slice(0, 4).toUpperCase()}-${t.id.slice(-4).toUpperCase()}`;
-    const { qr, apple, google } = buildTicketUrls(supabaseUrl, t.id);
+    const { qr, apple } = buildTicketUrls(supabaseUrl, t.id);
     const ticketUrl = await createTicketLink(supabase, t.id);
-    blocks.push(renderTicketCard({ idx: i + 1, total: tickets!.length, holder, holderEmail, tierName, evDate, evLocation, qrUrl: qr, refShort, appleWalletUrl: apple, googleWalletUrl: google, ticketUrl }));
+    blocks.push(renderTicketCard({ idx: i + 1, total: tickets!.length, holder, holderEmail, tierName, evDate, evLocation, qrUrl: qr, refShort, appleWalletUrl: walletReady ? apple : null, ticketUrl }));
     pdfTickets.push({
       eventName: evTitle,
       eventDate: evRow?.date ?? evDate,

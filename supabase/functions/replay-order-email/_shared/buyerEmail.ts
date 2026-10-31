@@ -1,6 +1,10 @@
 import { escapeHtmlText as esc } from "./receiptLegal.ts";
-export function renderTicketCard(o: { idx: number; total: number; holder: string; holderEmail: string; tierName: string; evDate: string; evLocation: string; qrUrl: string; refShort: string; appleWalletUrl: string; googleWalletUrl: string; ticketUrl?: string; }): string {
-  const { idx, total, holder, holderEmail, tierName, evDate, evLocation, qrUrl, refShort, appleWalletUrl, googleWalletUrl, ticketUrl } = o;
+// `appleWalletUrl` is only passed when the wallet-pass function can actually
+// sign a .pkpass (Apple secrets set). Without it the button is omitted entirely
+// — a button that lands on a "setup pending" page reads as an error to buyers.
+// Google Wallet isn't wired yet, so there is no Google button at all.
+export function renderTicketCard(o: { idx: number; total: number; holder: string; holderEmail: string; tierName: string; evDate: string; evLocation: string; qrUrl: string; refShort: string; appleWalletUrl?: string | null; ticketUrl?: string; }): string {
+  const { idx, total, holder, holderEmail, tierName, evDate, evLocation, qrUrl, refShort, appleWalletUrl, ticketUrl } = o;
   return `
 <div style="margin:0 0 18px;border:1px solid #e2e8f0;border-radius:18px;overflow:hidden;background:#fff;box-shadow:0 4px 14px rgba(15,23,42,.04)">
   <div style="background:#0F172A;color:#fff;padding:14px 20px">
@@ -21,14 +25,7 @@ export function renderTicketCard(o: { idx: number; total: number; holder: string
       ${esc(evDate)}${evLocation ? `<br>${esc(evLocation)}` : ""}
     </div>
     ${ticketUrl ? `<div style="margin-top:16px"><a href="${ticketUrl}" style="display:block;background:linear-gradient(135deg,#3a5fe6,#2440b6);color:#fff;text-decoration:none;border-radius:10px;padding:12px 0;text-align:center;font-weight:800;font-size:14px">Open my ticket</a></div>` : ""}
-    <table style="width:100%;border-collapse:collapse;margin-top:16px"><tr>
-      <td style="padding:0 4px 0 0;width:50%">
-        <a href="${appleWalletUrl}" style="display:block;background:#000;color:#fff;text-decoration:none;border-radius:10px;padding:11px 0;text-align:center;font-weight:700;font-size:13px">  Add to Apple Wallet</a>
-      </td>
-      <td style="padding:0 0 0 4px;width:50%">
-        <a href="${googleWalletUrl}" style="display:block;background:#fff;border:1.5px solid #0f172a;color:#0f172a;text-decoration:none;border-radius:10px;padding:10px 0;text-align:center;font-weight:700;font-size:13px">Add to Google Wallet</a>
-      </td>
-    </tr></table>
+    ${appleWalletUrl ? `<div style="margin-top:10px"><a href="${appleWalletUrl}" style="display:block;background:#000;color:#fff;text-decoration:none;border-radius:10px;padding:11px 0;text-align:center;font-weight:700;font-size:13px">  Add to Apple Wallet</a></div>` : ""}
     <div style="font-size:11px;color:#64748b;margin-top:14px;font-weight:600">Single-use · checked at the door</div>
   </div>
 </div>`;
@@ -69,9 +66,15 @@ export function renderBuyerEmail(o: { firstName: string; evTitle: string; evDate
   ${legalHtml ? `<div style="padding:4px 16px 0">${legalHtml}</div>` : ""}
 </div></body></html>`;
 }
-export function buildTicketUrls(supabaseUrl: string, ticketId: string): { qr: string; apple: string; google: string } {
+export function buildTicketUrls(supabaseUrl: string, ticketId: string): { qr: string; apple: string } {
   const base = supabaseUrl.replace(/\/+$/, "");
-  return { qr: `${base}/functions/v1/ticket-qr-public?ticket=${ticketId}&size=600`, apple: `${base}/functions/v1/wallet-pass?ticket=${ticketId}&type=apple`, google: `${base}/functions/v1/wallet-pass?ticket=${ticketId}&type=google` };
+  return { qr: `${base}/functions/v1/ticket-qr-public?ticket=${ticketId}&size=600`, apple: `${base}/functions/v1/wallet-pass?ticket=${ticketId}&type=apple` };
+}
+// Mirrors the check in wallet-pass/index.ts: the Apple button is only worth
+// showing when the pass can really be signed. Secrets are project-wide, so
+// this function sees the same env as wallet-pass.
+export function appleWalletConfigured(): boolean {
+  return ["APPLE_PASS_TYPE_ID", "APPLE_TEAM_ID", "APPLE_PASS_CERT_PEM", "APPLE_PASS_KEY_PEM"].every((k) => !!Deno.env.get(k));
 }
 export function deriveFirstName(buyerEmail: string, profileFullName: string | null): string {
   if (profileFullName && profileFullName.trim()) return profileFullName.trim().split(/\s+/)[0];
