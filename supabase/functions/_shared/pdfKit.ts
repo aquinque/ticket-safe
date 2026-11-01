@@ -189,7 +189,15 @@ export class Sheet {
   /** Adds the header and footer to every page, now that the page count is known, and returns the file. */
   async finish(chrome: Chrome): Promise<Uint8Array> {
     const pages = this.pdf.getPages();
-    const logo = chrome.logoPng ? await this.pdf.embedPng(chrome.logoPng) : null;
+    let logo: Awaited<ReturnType<PDFDocument["embedPng"]>> | null = null;
+    if (chrome.logoPng) {
+      try {
+        logo = await this.pdf.embedPng(chrome.logoPng);
+      } catch (err) {
+        // A logo that cannot be read never stops a document: the brand name alone is printed.
+        console.warn("[pdfKit] logo skipped:", err instanceof Error ? err.message : err);
+      }
+    }
     const logoH = 6.5 * MM;
     const logoW = logo ? (logo.width / logo.height) * logoH : 0;
     pages.forEach((page, i) => {

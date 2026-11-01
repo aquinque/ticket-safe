@@ -10,12 +10,13 @@
  *   dashboard_link → a single-use login link to the organizer's Stripe Express dashboard, made now, never stored
  *
  * Who: the organizer who owns the event, or an admin (user_roles.role = 'admin'). Stripe is only ever called
- * from here, with the platform key: nothing of it reaches the browser.
+ * server-side (here for the login link, in the event-statements function for the figures): nothing of it reaches
+ * the browser.
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { createDashboardLink, getStripeClient } from "../_shared/stripeConnect.ts";
-import { STATEMENTS_BUCKET, generateEventStatement, latestStatement, type StatementRow } from "../_shared/eventStatement.ts";
+import { STATEMENTS_BUCKET, callStatementGenerator, latestStatement, type StatementRow } from "../_shared/eventStatementRow.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -139,11 +140,9 @@ serve(async (req) => {
             return json({ error: `Please wait ${Math.ceil(retryAfter / 60)} min before regenerating again.`, retry_after_seconds: retryAfter }, 429);
           }
         }
-        const stripe = getStripeClient();
-        const result = await generateEventStatement(
-          { supabase, stripe, resendKey: Deno.env.get("RESEND_API_KEY"), siteUrl: Deno.env.get("SITE_URL") ?? undefined },
-          { eventId, trigger: "manual", force: true, allowEmpty: true },
-        );
+        const r = await callStatementGenerator({ event_id: eventId, trigger: "manual", force: true, allow_empty: true });
+        if (!r.ok) return json({ error: (r.body.error as string | undefined) ?? "Could not generate the statement." }, 502);
+        const result = r.body.result as { outcome: "generated" | "unchanged"; statement: StatementRow } | { outcome: "skipped"; reason: string };
         if (result.outcome === "skipped") {
           const reasons: Record<string, string> = {
             no_connect_account: "Set up Stripe payments in Ticket Studio first.",

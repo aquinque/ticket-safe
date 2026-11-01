@@ -13,47 +13,14 @@
 import type Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { collectEventStatementData } from "./eventStatementData.ts";
-import { aggregate, reconcile, statementFingerprint, formatMoney, type CurrencyTotals } from "./eventStatementMath.ts";
+import { aggregate, reconcile, statementFingerprint, formatMoney } from "./eventStatementMath.ts";
 import { generateEventStatementPdf } from "./eventStatementPdf.ts";
 import { renderEmail, ctaButton, escapeHtml } from "./emailComponents.ts";
 import { emailTokens, legalFooter } from "./emailTokens.ts";
 
-export type StatementTrigger = "cron" | "webhook" | "manual";
-
-export interface StatementRow {
-  id: string;
-  event_id: string;
-  organizer_id: string;
-  stripe_account_id: string;
-  version: number;
-  storage_path: string;
-  generated_at: string;
-  trigger: StatementTrigger;
-  totals: StatementTotals;
-  discrepancy: boolean;
-  data_hash: string;
-  transactions_count: number;
-}
-
-/** What the row stores for the Studio page: the primary currency's figures, every currency, payouts and balance. */
-export interface StatementTotals {
-  currency: string;
-  tickets_sold: number;
-  gross_cents: number;
-  refunds_count: number;
-  refunded_cents: number;
-  ticketsafe_fee_cents: number;
-  stripe_fee_cents: number;
-  net_cents: number;
-  net_source: CurrencyTotals["netSource"];
-  payouts_paid_cents: number;
-  payouts: { id: string; amount_cents: number; currency: string; status: string; date: string | null; bank_last4: string | null }[];
-  balance: { available: { currency: string; amount_cents: number }[]; pending: { currency: string; amount_cents: number }[] };
-  period_start: string | null;
-  period_end: string | null;
-  by_currency: CurrencyTotals[];
-  reconciliation: { stripe_gross_cents: number; db_gross_cents: number; orders_without_charge: number; charges_without_order: number };
-}
+export type { StatementRow, StatementTotals, StatementTrigger } from "./eventStatementRow.ts";
+export { STATEMENTS_BUCKET, latestStatement } from "./eventStatementRow.ts";
+import { STATEMENTS_BUCKET, type StatementRow, type StatementTotals, type StatementTrigger } from "./eventStatementRow.ts";
 
 export type GenerateOutcome =
   | { outcome: "generated"; statement: StatementRow; first: boolean }
@@ -69,7 +36,6 @@ export interface GenerateArgs {
   allowEmpty?: boolean;
 }
 
-export const STATEMENTS_BUCKET = "statements";
 const iso = (unix: number | null) => (unix === null ? null : new Date(unix * 1000).toISOString());
 
 export async function generateEventStatement(
@@ -233,10 +199,4 @@ async function sendStatementReadyEmail(resendKey: string, to: string, eventTitle
     body: JSON.stringify({ from: "Ticket Safe <noreply@ticket-safe.eu>", to: [to], subject: `${title} — ${eventTitle}`, html, text }),
   });
   if (!res.ok) throw new Error(`Resend ${res.status}`);
-}
-
-/** The latest statement of an event, or null. */
-export async function latestStatement(supabase: SupabaseClient, eventId: string): Promise<StatementRow | null> {
-  const { data } = await supabase.from("event_statements").select("*").eq("event_id", eventId).order("version", { ascending: false }).limit(1).maybeSingle();
-  return (data ?? null) as StatementRow | null;
 }
