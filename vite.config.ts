@@ -18,7 +18,10 @@ export default defineConfig(({ mode }) => ({
         // Split heavy deps out of the main entry so the home page payload
         // drops. The vendor chunks are cached cross-route and rarely change.
         manualChunks: {
-          "vendor-react":     ["react", "react-dom", "react-router-dom"],
+          // clsx is listed here on purpose: recharts depends on it, so left unassigned it lands in vendor-charts, and
+          // the entry chunk (which only needs clsx, through cn()) then pulls the whole 105 kB charts chunk on
+          // every page.
+          "vendor-react":     ["react", "react-dom", "react-router-dom", "clsx"],
           "vendor-supabase":  ["@supabase/supabase-js"],
           "vendor-charts":    ["recharts"],
           "vendor-pdf":       ["pdfjs-dist"],
