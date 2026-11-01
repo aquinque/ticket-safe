@@ -29,6 +29,7 @@ import { PromoVideo } from "@/components/PromoVideo";
 import { useServiceFeeForPrice, useTierServiceFee } from "@/hooks/useServiceFee";
 import { studioFeeRule } from "@/lib/studioFee";
 import { currencySymbol, formatMoney, toCurrency } from "@/lib/money";
+import { allowNextHistoryBack } from "@/lib/backToHome";
 import { AnimatedNumber } from "@/components/AnimatedNumber";
 import HeaderNight from "@/components/HeaderNight";
 import { descriptionFontFamily } from "@/lib/descriptionFonts";
@@ -1011,7 +1012,7 @@ const EventPublic = () => {
             <div className="absolute top-3 inset-x-3 flex items-center justify-between">
               <button
                 type="button"
-                onClick={() => { if (location.key && location.key !== "default") navigate(-1); else navigate("/tickets"); }}
+                onClick={() => { if (location.key && location.key !== "default") { allowNextHistoryBack(); navigate(-1); } else navigate("/tickets"); }}
                 aria-label="Back"
                 className="w-10 h-10 rounded-full bg-black/45 text-white backdrop-blur-sm flex items-center justify-center hover:bg-black/60 transition-colors"
               >
