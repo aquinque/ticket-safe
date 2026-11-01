@@ -141,7 +141,7 @@ export function FinancialStatementCard({ eventId, eventDate, eventEndsAt, paymen
           Financial statement
         </h2>
         {statement && (
-          <span className="text-[11px] text-muted-foreground text-right">
+          <span className="text-[11px] leading-snug text-muted-foreground text-right">
             Generated {when(statement.generated_at)} · v{statement.version}
           </span>
         )}
@@ -219,7 +219,7 @@ export function FinancialStatementCard({ eventId, eventDate, eventEndsAt, paymen
               {waitMs > 0 ? `Regenerate in ${Math.ceil(waitMs / 60_000)} min` : "Regenerate"}
             </Button>
           </div>
-          <p className="mt-3 text-[11px] text-muted-foreground">
+          <p className="mt-3 text-[11px] leading-snug text-muted-foreground">
             Figures from Stripe's records of your connected account; Stripe's processing fees ({money(t!.stripe_fee_cents, t!.currency)}) are paid by TicketSafe. Updated when a payout is paid. Not an invoice.
           </p>
         </>
