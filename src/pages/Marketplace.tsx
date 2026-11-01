@@ -61,7 +61,7 @@ const CATEGORY_FILTERS = [
 
 export default function Marketplace() {
   const { t, language } = useI18n();
-  const dateLocale = language === "fr" ? "fr-FR" : "en-US";
+  const dateLocale = language === "fr" ? "fr-FR" : "en-GB";
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 

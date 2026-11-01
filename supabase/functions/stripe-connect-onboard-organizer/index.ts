@@ -50,6 +50,22 @@ function json(body: unknown, status = 200) {
 
 const RETURN_PATH = "/studio/payments";
 
+type MoneyRow = { currency: string; amount: number };
+const sumIn = (rows: MoneyRow[], currency: string) => rows.filter((b) => b.currency === currency).reduce((s, b) => s + b.amount, 0);
+const fmt = (minor: number, currency: string) => `${currency === "gbp" ? "£" : "€"}${(minor / 100).toFixed(2)}`;
+const isUk = (country: string | null | undefined) => ["GB", "UK"].includes((country ?? "").trim().toUpperCase());
+
+/**
+ * The currency an organizer's money sits in: the account's own (gbp for a UK
+ * account, eur for a French one), or whatever the balance holds most of when
+ * Stripe gives none.
+ */
+function accountCurrency(account: { default_currency?: string | null }, available: MoneyRow[]): string {
+  if (account.default_currency) return account.default_currency.toLowerCase();
+  const top = [...available].sort((a, b) => b.amount - a.amount)[0];
+  return top?.currency ?? "eur";
+}
+
 /**
  * True when the connected account no longer exists at Stripe (deleted from
  * the dashboard or the CLI). Our row is then stale and must go.
@@ -110,6 +126,8 @@ serve(async (req) => {
     businessType,
     person,
     company: { tax_id: org.siren },
+    // A UK organizer gets a UK Stripe account, paid out in pounds to a UK bank.
+    ...(isUk(org.billing_country) ? { country: "GB" } : {}),
     address: { line1: org.billing_address_line1, postal_code: org.billing_postal_code, city: org.billing_city, country: org.billing_country },
     website: org.website,
     metadata: { organizer_id: organizerId, organizer_name: org.name },
@@ -162,18 +180,18 @@ serve(async (req) => {
       const account = await stripe.accounts.retrieve(existing.stripe_account_id);
       if (!account.payouts_enabled) return json({ error: "Stripe can't send money to your bank yet. Finish your setup first." }, 409);
       const balance = await stripe.balance.retrieve(undefined, opts);
-      const available = (balance.available as { currency: string; amount: number }[])
-        .filter((b) => b.currency === "eur")
-        .reduce((s, b) => s + b.amount, 0);
+      // The account's own currency: pounds for a UK organizer, euros otherwise.
+      const currency = accountCurrency(account, balance.available as MoneyRow[]);
+      const available = sumIn(balance.available as MoneyRow[], currency);
       if (available <= 0) return json({ error: "Nothing is available to cash out yet." }, 409);
       const requested = typeof body.amount_cents === "number" && Number.isInteger(body.amount_cents) ? body.amount_cents : available;
       if (requested < 100 || requested > available) {
-        return json({ error: `Choose an amount between €1.00 and €${(available / 100).toFixed(2)}.` }, 400);
+        return json({ error: `Choose an amount between ${fmt(100, currency)} and ${fmt(available, currency)}.` }, 400);
       }
       // The page sends one id per click; a retried request can't pay twice.
       const requestId = typeof body.request_id === "string" && /^[0-9a-f-]{36}$/i.test(body.request_id) ? body.request_id : crypto.randomUUID();
       const payout = await stripe.payouts.create(
-        { amount: requested, currency: "eur", description: "Ticket Safe cash out", metadata: { source: "studio_manual_cashout", organizer_id: organizerId } },
+        { amount: requested, currency, description: "Ticket Safe cash out", metadata: { source: "studio_manual_cashout", organizer_id: organizerId } },
         { ...opts, idempotencyKey: `cashout-${organizerId}-${requestId}` },
       );
       const nowIso = new Date().toISOString();
@@ -190,6 +208,7 @@ serve(async (req) => {
       return json({
         ok: true,
         amount_cents: requested,
+        currency: currency.toUpperCase(),
         arrival_date: payout.arrival_date ? new Date(payout.arrival_date * 1000).toISOString() : null,
       });
     }
@@ -201,24 +220,26 @@ serve(async (req) => {
       // amount frees up. The payments page draws its money track from this.
       if (!existing) return json({ error: "No payment account yet." }, 404);
       const opts = { stripeAccount: existing.stripe_account_id };
-      const [balance, recentTx, payouts] = await Promise.all([
+      const [account, balance, recentTx, payouts] = await Promise.all([
+        stripe.accounts.retrieve(existing.stripe_account_id),
         stripe.balance.retrieve(undefined, opts),
         stripe.balanceTransactions.list({ limit: 50 }, opts),
         stripe.payouts.list({ limit: 50 }, opts),
       ]);
       const { data: settings } = await supabase.from("billing_settings").select("stripe_payout_delay_days").eq("id", true).maybeSingle();
-      const eur = (rows: { amount: number; currency: string }[]) => rows.filter((b) => b.currency === "eur").reduce((s, b) => s + b.amount, 0);
+      const currency = accountCurrency(account, balance.available as MoneyRow[]);
       const nowSec = Math.floor(Date.now() / 1000);
       const nextAvailable = (recentTx.data as Stripe.BalanceTransaction[])
-        .filter((t) => t.currency === "eur" && t.amount > 0 && t.available_on > nowSec)
+        .filter((t) => t.currency === currency && t.amount > 0 && t.available_on > nowSec)
         .map((t) => t.available_on)
         .sort((a, b) => a - b)[0];
       const paidOutCents = (payouts.data as Stripe.Payout[])
-        .filter((p) => p.currency === "eur" && (p.status === "paid" || p.status === "pending" || p.status === "in_transit"))
+        .filter((p) => p.currency === currency && (p.status === "paid" || p.status === "pending" || p.status === "in_transit"))
         .reduce((s, p) => s + p.amount, 0);
       return json({
-        available_cents: eur(balance.available),
-        pending_cents: eur(balance.pending),
+        currency: currency.toUpperCase(),
+        available_cents: sumIn(balance.available as MoneyRow[], currency),
+        pending_cents: sumIn(balance.pending as MoneyRow[], currency),
         paid_out_cents: paidOutCents,
         next_available_on: nextAvailable ? new Date(nextAvailable * 1000).toISOString() : null,
         payout_delay_days: settings?.stripe_payout_delay_days ?? 2,

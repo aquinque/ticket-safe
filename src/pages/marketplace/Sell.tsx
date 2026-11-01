@@ -104,7 +104,7 @@ const Sell = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const { language } = useI18n();
-  const dateLocale = language === "fr" ? "fr-FR" : "en-US";
+  const dateLocale = language === "fr" ? "fr-FR" : "en-GB";
   const { refetchListings } = useTicketListings();
   const [searchParams] = useSearchParams();
   const studioTicketParam = searchParams.get("studio_ticket");

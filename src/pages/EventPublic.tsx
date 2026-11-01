@@ -27,7 +27,8 @@ import {
 import { SEOHead } from "@/components/SEOHead";
 import { PromoVideo } from "@/components/PromoVideo";
 import { useServiceFeeForPrice, useTierServiceFee } from "@/hooks/useServiceFee";
-import { STUDIO_FEE_RULE_MAX } from "@/lib/studioFee";
+import { studioFeeRule } from "@/lib/studioFee";
+import { currencySymbol, formatMoney, toCurrency } from "@/lib/money";
 import { AnimatedNumber } from "@/components/AnimatedNumber";
 import HeaderNight from "@/components/HeaderNight";
 import { descriptionFontFamily } from "@/lib/descriptionFonts";
@@ -159,7 +160,9 @@ const EventPublic = () => {
   const tierFeeCents = useTierServiceFee(selectedTier);
   // The fee the standard rule gives for that price. The summary only names the rule
   // ("4% + €0.80 per ticket") when this ticket's fee is that one, not a negotiated amount.
-  const standardFeeCents = useServiceFeeForPrice(tiers.find((t) => t.tier_id === selectedTier)?.price_cents ?? null);
+  // Every tier of an event shares its currency (the database keeps them equal): pounds in London.
+  const currency = toCurrency(tiers[0]?.currency);
+  const standardFeeCents = useServiceFeeForPrice(tiers.find((t) => t.tier_id === selectedTier)?.price_cents ?? null, currency);
   const [qty, setQty] = useState(1);
   const [buying, setBuying] = useState(false);
   const [maxPerBuyer, setMaxPerBuyer] = useState<number | null>(null);
@@ -562,7 +565,7 @@ const EventPublic = () => {
     ? { label: "Selling fast", colorClass: "text-primary", pulse: true }
     : { label: "On sale", colorClass: "text-emerald-400" };
 
-  const fmtPrice = (cents: number) => `€${(cents / 100).toFixed(cents % 100 === 0 ? 0 : 2)}`;
+  const fmtPrice = (cents: number) => `${currencySymbol(currency)}${(cents / 100).toFixed(cents % 100 === 0 ? 0 : 2)}`;
 
   // The tier people choose most, when there is a real choice to make.
   const mostPopularId = (() => {
@@ -661,11 +664,11 @@ const EventPublic = () => {
             <div>
               <div className="flex items-baseline justify-between text-sm">
                 <span className="text-muted-foreground">
-                  Service fee <span className="text-muted-foreground/70">(€{(feeUnitCents / 100).toFixed(2)} × {qty})</span>
+                  Service fee <span className="text-muted-foreground/70">({formatMoney(feeUnitCents, currency)} × {qty})</span>
                 </span>
                 <span className="tabular-nums text-foreground">{fmtPrice(feeCents)}</span>
               </div>
-              {feeIsStandard && <p className="mt-0.5 text-xs text-muted-foreground/70">{STUDIO_FEE_RULE_MAX}</p>}
+              {feeIsStandard && <p className="mt-0.5 text-xs text-muted-foreground/70">{studioFeeRule(currency)}</p>}
             </div>
           )}
         </div>
@@ -708,7 +711,7 @@ const EventPublic = () => {
         <div className="flex items-baseline justify-between mb-5">
           <span className="text-sm font-medium text-foreground">Total</span>
           <span className="text-3xl font-semibold tabular-nums leading-none text-foreground">
-            <AnimatedNumber value={grandCents / 100} prefix="€" durationMs={150} />
+            <AnimatedNumber value={grandCents / 100} prefix={currencySymbol(currency)} durationMs={150} />
           </span>
         </div>
 
@@ -976,7 +979,7 @@ const EventPublic = () => {
           organizer: event.organizer?.name ? { "@type": "Organization", name: event.organizer.name, url: event.organizer.website ?? undefined } : undefined,
           offers: tiers
             .filter((t) => t.is_active && (t.total_qty ?? 0) - (t.sold_qty ?? 0) > 0)
-            .map((t) => ({ "@type": "Offer", name: t.name, price: (t.price_cents / 100).toFixed(2), priceCurrency: "EUR", availability: "https://schema.org/InStock", url: `https://ticket-safe.eu/e/${event.slug}` })),
+            .map((t) => ({ "@type": "Offer", name: t.name, price: (t.price_cents / 100).toFixed(2), priceCurrency: currency, availability: "https://schema.org/InStock", url: `https://ticket-safe.eu/e/${event.slug}` })),
         }}
       />
 
@@ -1236,7 +1239,7 @@ const EventPublic = () => {
           <div className="flex items-center gap-3">
             <div className="flex-1 min-w-0">
               <div className="text-[11px] text-muted-foreground truncate">{qty} × {selected.name}{readyCount < qty ? ` · ${qty - readyCount} to fill in` : ""}</div>
-              <div className="text-lg font-semibold tabular-nums leading-tight text-foreground"><AnimatedNumber value={grandCents / 100} prefix="€" durationMs={150} /></div>
+              <div className="text-lg font-semibold tabular-nums leading-tight text-foreground"><AnimatedNumber value={grandCents / 100} prefix={currencySymbol(currency)} durationMs={150} /></div>
             </div>
             <button
               type="button"

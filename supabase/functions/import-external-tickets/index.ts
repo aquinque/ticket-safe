@@ -25,6 +25,7 @@
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { formatMinor, normalizeCurrency } from "../_shared/money.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -96,6 +97,11 @@ serve(async (req) => {
       .eq("id", eventId)
       .maybeSingle();
     if (!ev) return json({ error: "Event not found" }, 404);
+    // The event's currency, read from one of its tiers (the database keeps them
+    // equal): pounds for a London event. Not read from events.currency so this
+    // keeps working before the UK migration adds that column.
+    const { data: anyTier } = await admin.from("event_tiers").select("currency").eq("event_id", eventId).limit(1).maybeSingle();
+    const eventCurrency = normalizeCurrency(anyTier?.currency);
     const orgRaw = (ev as { organizer?: unknown }).organizer;
     const org = Array.isArray(orgRaw) ? orgRaw[0] : orgRaw;
     if (!org || org.user_id !== user.id || org.status !== "approved") {
@@ -190,7 +196,9 @@ serve(async (req) => {
       if (tierName.length < 1 || tierName.length > 100) return json({ error: "A ticket category name is required." }, 400);
       const price = Math.floor(body.price_cents ?? 0);
       if (!Number.isInteger(price) || price < MIN_PRICE_CENTS || price > MAX_PRICE_CENTS) {
-        return json({ error: `Price must be between €${(MIN_PRICE_CENTS / 100).toFixed(2)} and €${MAX_PRICE_CENTS / 100}.` }, 400);
+        // In the event's currency (pounds for a London event); the bounds are the same number of cents/pence.
+        const cur = eventCurrency;
+        return json({ error: `Price must be between ${formatMinor(MIN_PRICE_CENTS, cur, "prefix")} and ${formatMinor(MAX_PRICE_CENTS, cur, "prefix").replace(/\.00$/, "")}.` }, 400);
       }
       const { count } = await admin
         .from("event_tiers")
@@ -202,7 +210,7 @@ serve(async (req) => {
           event_id: eventId,
           name: tierName,
           price_cents: price,
-          currency: "EUR",
+          currency: eventCurrency, // the DB trigger enforces the event's currency anyway
           total_qty: 0,              // kept in sync by the capacity trigger
           is_active: publish,        // draft tier (is_active=false) can never be reserved
           sort_order: count ?? 0,

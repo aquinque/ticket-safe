@@ -37,6 +37,7 @@ import { signStudioTicketJWT } from "../_shared/ticketJwt.ts";
 import { generateTicketsPDFServer, type ServerTicketData } from "../_shared/ticketPdfServer.ts";
 import { sendTicketConfirmationEmail } from "../_shared/sendTicketConfirmationEmail.ts";
 import { type OrderSummaryData } from "../_shared/orderSummaryPdf.ts";
+import { formatMinor } from "../_shared/money.ts";
 
 serve(async (req) => {
   // ---- env ----------------------------------------------------------------
@@ -354,8 +355,9 @@ serve(async (req) => {
                 const purchaseDate = new Date().toLocaleDateString("en-GB", {
                   day: "numeric", month: "long", year: "numeric",
                 });
-                const unitPriceStr = `${(unitPriceCents / 100).toFixed(2)}€`;
-                const totalPaidStr = `${total.toFixed(2)}€`;
+                // In the currency Stripe charged: pounds for a London event.
+                const unitPriceStr = formatMinor(unitPriceCents, session.currency);
+                const totalPaidStr = formatMinor(Math.round(total * 100), session.currency);
 
                 // Build per-ticket payloads — one card per holder, used by the
                 // multi-page PDF generator below.

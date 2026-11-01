@@ -15,9 +15,9 @@ const PAGES: Record<keyof typeof LEGAL_UPDATED, string> = {
 
 describe("legal pages' last-updated dates", () => {
   it("writes the date the same way for every visitor", () => {
-    expect(formatLegalDate("2026-10-22")).toBe("October 22, 2026");
+    expect(formatLegalDate("2026-10-22")).toBe("22 October 2026");
     expect(formatLegalDate("2026-10-22", "fr-FR")).toBe("22 octobre 2026");
-    expect(formatLegalDate("2026-01-01")).toBe("January 1, 2026");
+    expect(formatLegalDate("2026-01-01")).toBe("1 January 2026");
   });
 
   it("holds real dates, none in the future", () => {

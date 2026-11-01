@@ -85,6 +85,9 @@ const CookiePolicy = () => {
                     <p>
                       TicketSafe uses cookies and similar technologies (such as local storage, session storage, and pixels) to enhance your experience, improve our services, and understand how our platform is used.
                     </p>
+                    <p>
+                      <strong className="text-foreground">Legal framework:</strong> In the European Union, cookies are governed by the ePrivacy Directive (2002/58/EC), implemented in France by article 82 of the French Data Protection Act (loi Informatique et Libertés). In the United Kingdom, they are governed by the Privacy and Electronic Communications (EC Directive) Regulations 2003 ("PECR"). Under both, strictly necessary cookies can be used without consent, but every other cookie or similar technology (functional, analytics, marketing) is only set once you have given your consent, and you can withdraw that consent at any time. Where cookies involve personal data, the EU GDPR or the UK GDPR also applies (see our Privacy Policy).
+                    </p>
                   </div>
                 </section>
 
@@ -105,7 +108,7 @@ const CookiePolicy = () => {
                       <li><strong>User preferences:</strong> To remember your settings, language preferences, and theme choices</li>
                       <li><strong>Analytics:</strong> To understand how users interact with our platform and improve our services</li>
                       <li><strong>Security:</strong> To detect and prevent fraudulent activity and protect user accounts</li>
-                      <li><strong>Performance:</strong> To optimize page load times and user experience</li>
+                      <li><strong>Performance:</strong> To optimise page load times and user experience</li>
                     </ul>
                   </div>
                 </section>
@@ -166,7 +169,7 @@ const CookiePolicy = () => {
                         3.2 Functional Cookies
                       </h3>
                       <p className="text-muted-foreground mb-3">
-                        These cookies enable enhanced functionality and personalization, such as remembering your preferences and settings.
+                        These cookies enable enhanced functionality and personalisation, such as remembering your preferences and settings.
                       </p>
                       <div className="bg-muted/50 rounded-lg p-4">
                         <table className="w-full text-sm">
@@ -204,7 +207,7 @@ const CookiePolicy = () => {
                         3.3 Analytics & Performance Cookies
                       </h3>
                       <p className="text-muted-foreground mb-3">
-                        These cookies help us understand how visitors use our platform, which pages are most popular, and how we can improve user experience. All data collected is anonymized.
+                        These cookies help us understand how visitors use our platform, which pages are most popular, and how we can improve user experience. All data collected is anonymised.
                       </p>
                       <div className="bg-muted/50 rounded-lg p-4">
                         <table className="w-full text-sm">
@@ -234,7 +237,7 @@ const CookiePolicy = () => {
                           </tbody>
                         </table>
                         <p className="text-xs text-muted-foreground mt-3">
-                          Note: You can opt out of analytics cookies via our cookie settings.
+                          Note: Analytics cookies are only set if you accept them, in the EU and in the UK alike. You can withdraw your consent via our cookie settings.
                         </p>
                       </div>
                     </div>
@@ -285,7 +288,7 @@ const CookiePolicy = () => {
 
                       <div className="bg-muted/50 p-4 rounded-lg">
                         <h4 className="font-semibold text-foreground mb-2">Google Analytics (Optional)</h4>
-                        <p className="text-sm mb-2">Purpose: Website analytics and user behavior insights (anonymized)</p>
+                        <p className="text-sm mb-2">Purpose: Website analytics and user behaviour insights (anonymised)</p>
                         <p className="text-xs">Privacy Policy: <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">policies.google.com/privacy</a></p>
                         <p className="text-xs mt-2 text-foreground">You can opt out of Google Analytics via our cookie settings.</p>
                       </div>
@@ -385,7 +388,7 @@ const CookiePolicy = () => {
           </Card>
 
           <div className="text-center text-sm text-muted-foreground mb-8">
-            <p>By continuing to use TicketSafe, you consent to our use of cookies as described in this policy.</p>
+            <p>Strictly necessary cookies are used as described in this policy. Other cookies are only used with the consent you give through our cookie banner or Cookie Settings, which you can change at any time.</p>
           </div>
         </div>
       </main>

@@ -9,6 +9,7 @@ import { useThemeMode } from "@/hooks/useThemeMode";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { STUDIO_FEE_RULE } from "@/lib/studioFee";
+import { CURRENCIES, formatMoney, toCurrency, type Currency } from "@/lib/money";
 
 /**
  * Studio "Payments" — Stripe Connect (Express) onboarding + where the money is.
@@ -50,9 +51,12 @@ interface Balance {
   paid_out_cents: number;
   next_available_on: string | null;
   payout_delay_days: number;
+  /** The Stripe account's currency ('EUR' | 'GBP'); every amount above is in it. Older function versions omit it: euros. */
+  currency?: string;
 }
 
-interface Sales { tickets: number; revenue_cents: number }
+/** Ticket revenue per currency: pounds and euros are never added together. */
+interface Sales { tickets: number; revenue: Partial<Record<Currency, number>> }
 
 interface PayoutJob {
   id: string;
@@ -96,8 +100,6 @@ const BUSINESS_TYPES: { value: BusinessType; label: string; hint: string; needs:
 
 const TYPE_LABEL: Record<BusinessType, string> = { individual: "Individual", non_profit: "Association", company: "Company" };
 
-const eurFormat = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" });
-const fmtEur = (cents: number) => eurFormat.format(cents / 100);
 const fmtDay = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
 const addDays = (iso: string, days: number) => new Date(new Date(iso).getTime() + days * 86_400_000).toISOString();
 
@@ -151,11 +153,12 @@ function useCountUp(target: number, duration = 700): number {
   return value;
 }
 
-interface Stage { label: string; cents: number | null; note: string; lit: boolean }
+/** `amounts` null = unknown ("—"); more than one entry = one per currency. */
+interface Stage { label: string; amounts: { cents: number; currency: Currency }[] | null; note: string; lit: boolean }
 
-const StageAmount = ({ cents }: { cents: number }) => {
+const StageAmount = ({ cents, currency }: { cents: number; currency: Currency }) => {
   const shown = useCountUp(cents);
-  return <>{fmtEur(shown)}</>;
+  return <>{formatMoney(shown, currency)}</>;
 };
 
 /**
@@ -199,7 +202,9 @@ const MoneyTrack = ({ stages, loading }: { stages: Stage[]; loading: boolean }) 
           )}
           <div className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">{s.label}</div>
           <div className={`font-display text-2xl md:text-[28px] leading-tight font-bold tabular-nums mt-1 ${s.lit ? "text-foreground" : "text-muted-foreground/60"}`}>
-            {loading ? <span className="inline-block h-7 w-24 bg-muted animate-pulse align-middle" /> : s.cents === null ? "—" : <StageAmount cents={s.cents} />}
+            {loading ? <span className="inline-block h-7 w-24 bg-muted animate-pulse align-middle" /> : s.amounts === null ? "—" : s.amounts.map((a, j) => (
+              <span key={a.currency}>{j > 0 && " · "}<StageAmount cents={a.cents} currency={a.currency} /></span>
+            ))}
           </div>
           <div className="text-xs text-muted-foreground mt-1 min-h-[1rem]">{loading ? "" : s.note}</div>
         </li>
@@ -268,7 +273,7 @@ const StudioPayments = () => {
     const [ordersRes, nextRes] = await Promise.all([
       supabase
         .from("event_orders")
-        .select("quantity, unit_price_cents, discount_cents")
+        .select("quantity, unit_price_cents, discount_cents, currency")
         .eq("organizer_id", organizer.id)
         .eq("status", "paid")
         .like("stripe_checkout_session_id", "cs_%"),
@@ -283,11 +288,13 @@ const StudioPayments = () => {
         .limit(1)
         .maybeSingle(),
     ]);
-    const orders = (ordersRes.data ?? []) as { quantity: number; unit_price_cents: number; discount_cents: number | null }[];
-    setSales({
-      tickets: orders.reduce((n, o) => n + o.quantity, 0),
-      revenue_cents: orders.reduce((n, o) => n + o.quantity * o.unit_price_cents - (o.discount_cents ?? 0), 0),
-    });
+    const orders = (ordersRes.data ?? []) as { quantity: number; unit_price_cents: number; discount_cents: number | null; currency: string | null }[];
+    const revenue: Sales["revenue"] = {};
+    for (const o of orders) {
+      const c = toCurrency(o.currency);
+      revenue[c] = (revenue[c] ?? 0) + o.quantity * o.unit_price_cents - (o.discount_cents ?? 0);
+    }
+    setSales({ tickets: orders.reduce((n, o) => n + o.quantity, 0), revenue });
     const ev = nextRes.data as { title: string; date: string; ends_at: string | null } | null;
     setNextEvent(ev ? { title: ev.title, ends: ev.ends_at ?? ev.date } : null);
 
@@ -398,21 +405,31 @@ const StudioPayments = () => {
   }, [organizer, orgLoading, authLoading]);
 
   const active = !!account?.charges_enabled && !!account?.payouts_enabled;
+  // Balance and payouts are in the Stripe account's currency, which the
+  // balance call returns. Until it has, the currency the organizer sells in
+  // (when it is only one), else euros.
+  const soldCurrencies = CURRENCIES.filter((c) => sales?.revenue[c] != null);
+  const accountCurrency: Currency = balance?.currency
+    ? toCurrency(balance.currency)
+    : soldCurrencies.length === 1 ? soldCurrencies[0] : "EUR";
+  const fmtBalance = (cents: number) => formatMoney(cents, accountCurrency);
 
   // Manual cash-out: what Stripe holds as available goes to the bank now. Money
   // still settling can't be sent by anyone; the automatic payout picks it up.
   const cashOut = useCallback(async () => {
     if (!balance || balance.available_cents <= 0) return;
-    const amount = fmtEur(balance.available_cents);
+    const amount = fmtBalance(balance.available_cents);
     if (!window.confirm(`Send ${amount} to your bank now? It arrives in 1 to 3 business days.`)) return;
     setError(null);
     setBusy("payout");
     try {
-      const result = await callFn<{ amount_cents: number; arrival_date: string | null }>("payout", { request_id: crypto.randomUUID() });
+      const result = await callFn<{ amount_cents: number; arrival_date: string | null; currency?: string }>("payout", { request_id: crypto.randomUUID() });
+      // What Stripe actually sent, in the currency it reports.
+      const sent = result?.amount_cents != null ? formatMoney(result.amount_cents, result.currency ?? accountCurrency) : amount;
       toast.success(
         result?.arrival_date
-          ? `${amount} is on its way. Expected in your bank by ${fmtDay(result.arrival_date)}.`
-          : `${amount} is on its way to your bank.`,
+          ? `${sent} is on its way. Expected in your bank by ${fmtDay(result.arrival_date)}.`
+          : `${sent} is on its way to your bank.`,
       );
       await refreshAll();
     } catch (e) {
@@ -422,7 +439,8 @@ const StudioPayments = () => {
     } finally {
       setBusy(null);
     }
-  }, [balance, callFn, refreshAll]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [balance, callFn, refreshAll, accountCurrency]);
   const dueCodes = useMemo(() => account?.requirements_currently_due ?? [], [account]);
   const hasDue = dueCodes.length > 0;
   const dueList = useMemo(() => describeRequirements(dueCodes), [dueCodes]);
@@ -437,13 +455,15 @@ const StudioPayments = () => {
   const stages: Stage[] = useMemo(() => {
     const inBalance = balance ? balance.pending_cents + balance.available_cents : null;
     const paidOut = balance ? balance.paid_out_cents : null;
-    const sold = sales?.revenue_cents ?? 0;
+    const soldAmounts = soldCurrencies.map((c) => ({ cents: sales!.revenue[c]!, currency: c }));
+    const sold = soldAmounts.length ? soldAmounts : [{ cents: 0, currency: accountCurrency }];
+    const one = (cents: number | null) => (cents === null ? null : [{ cents, currency: accountCurrency }]);
     const balanceNote = !account
       ? "Arrives here the moment a ticket sells"
       : balanceState === "unavailable"
         ? "Couldn't reach Stripe. Try refresh."
         : balance && balance.pending_cents > 0 && balance.next_available_on
-          ? `${fmtEur(balance.pending_cents)} available on ${fmtDay(balance.next_available_on)}`
+          ? `${fmtBalance(balance.pending_cents)} available on ${fmtDay(balance.next_available_on)}`
           : balance && balance.available_cents > 0
             ? "Available now. Cash out, or it is sent after your event"
             : "Nothing waiting";
@@ -455,11 +475,12 @@ const StudioPayments = () => {
           ? "Sent after each event"
           : "After your first event";
     return [
-      { label: "Paid by buyers", cents: sold, note: sales && sales.tickets > 0 ? `${sales.tickets} ticket${sales.tickets > 1 ? "s" : ""} sold` : "No sales yet", lit: sold > 0 },
-      { label: "In your Stripe balance", cents: account ? inBalance : 0, note: balanceNote, lit: (inBalance ?? 0) > 0 || (paidOut ?? 0) > 0 },
-      { label: "In your bank", cents: account ? paidOut : 0, note: bankNote, lit: (paidOut ?? 0) > 0 },
+      { label: "Paid by buyers", amounts: sold, note: sales && sales.tickets > 0 ? `${sales.tickets} ticket${sales.tickets > 1 ? "s" : ""} sold` : "No sales yet", lit: sold.some((a) => a.cents > 0) },
+      { label: "In your Stripe balance", amounts: one(account ? inBalance : 0), note: balanceNote, lit: (inBalance ?? 0) > 0 || (paidOut ?? 0) > 0 },
+      { label: "In your bank", amounts: one(account ? paidOut : 0), note: bankNote, lit: (paidOut ?? 0) > 0 },
     ];
-  }, [account, balance, balanceState, sales, delayDays, nextPayoutDay, nextEvent]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [account, balance, balanceState, sales, delayDays, nextPayoutDay, nextEvent, accountCurrency]);
 
   if (authLoading || orgLoading) {
     return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>;
@@ -669,13 +690,13 @@ const StudioPayments = () => {
                     className="inline-flex items-center justify-center gap-1.5 px-4 min-h-[44px] font-bold bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-60 transition-colors"
                   >
                     {busy === "payout" ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
-                    Cash out {fmtEur(balance.available_cents)}
+                    Cash out {fmtBalance(balance.available_cents)}
                   </button>
                 )}
               </div>
               {active && balance && balance.pending_cents > 0 && (
                 <p className="text-xs text-muted-foreground mb-3">
-                  {fmtEur(balance.pending_cents)} more is still settling at Stripe
+                  {fmtBalance(balance.pending_cents)} more is still settling at Stripe
                   {balance.next_available_on ? `, available ${fmtDay(balance.next_available_on)}` : ""}. It is paid out automatically as it lands.
                 </p>
               )}
@@ -695,7 +716,7 @@ const StudioPayments = () => {
                         <p className="font-medium truncate">{p.event_title}</p>
                         <p className="text-xs text-muted-foreground">{fmtDay(p.scheduled_for)} · {PAYOUT_STATUS[p.status] ?? p.status}</p>
                       </div>
-                      <span className="font-display font-bold tabular-nums shrink-0">{p.amount_cents != null ? fmtEur(p.amount_cents) : "—"}</span>
+                      <span className="font-display font-bold tabular-nums shrink-0">{p.amount_cents != null ? fmtBalance(p.amount_cents) : "—"}</span>
                     </li>
                   ))}
                 </ul>

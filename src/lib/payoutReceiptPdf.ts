@@ -29,6 +29,8 @@
  *   └──────────────────────────────────────────────────────┘
  */
 
+import { currencySymbol, toCurrency } from "@/lib/money";
+
 // ──────────────────────────────────────────────────────────────────────────
 //  PUBLIC INTERFACE
 // ──────────────────────────────────────────────────────────────────────────
@@ -47,6 +49,8 @@ export interface PayoutReceiptData {
   feeCents: number;
   feePercent: number;
   netCents: number;
+  /** 'EUR' | 'GBP', the payout's currency. Missing = euros (resale is always euros). */
+  currency?: string | null;
   /** ISO date the transfer was sent. Falls back to "pending" wording when absent. */
   sentAt?: string | null;
   requestedAt: string;
@@ -74,8 +78,8 @@ const CONTENT_W = A4_W - 2 * MARGIN_X;
 //  FORMATTERS
 // ──────────────────────────────────────────────────────────────────────────
 
-const eur = (cents: number): string =>
-  `€${(cents / 100).toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const money = (cents: number, currency: string | null | undefined): string =>
+  `${currencySymbol(currency)}${(cents / 100).toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 function longDate(iso: string): string {
   const d = new Date(iso);
@@ -184,7 +188,7 @@ export async function generatePayoutReceiptPDF(data: PayoutReceiptData): Promise
   pdf.setFontSize(9);
   pdf.text("NET AMOUNT PAID", MARGIN_X, heroY + 14, { charSpace: 1.4 });
   pdf.setFontSize(30);
-  pdf.text(eur(data.netCents), MARGIN_X, heroY + 30);
+  pdf.text(money(data.netCents, data.currency), MARGIN_X, heroY + 30);
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(10);
   pdf.text(`Reference ${ref}`, A4_W - MARGIN_X, heroY + 14, { align: "right" });
@@ -252,13 +256,13 @@ export async function generatePayoutReceiptPDF(data: PayoutReceiptData): Promise
     y += opts?.bold ? 9 : 7.5;
   };
 
-  rowVal("Gross amount requested", eur(data.grossCents), { muted: true });
-  rowVal(`Ticket Safe service fee (${data.feePercent}%)`, `- ${eur(data.feeCents)}`, { muted: true });
+  rowVal("Gross amount requested", money(data.grossCents, data.currency), { muted: true });
+  rowVal(`Ticket Safe service fee (${data.feePercent}%)`, `- ${money(data.feeCents, data.currency)}`, { muted: true });
   pdf.setDrawColor(C_INK.r, C_INK.g, C_INK.b);
   pdf.setLineWidth(0.4);
   pdf.line(MARGIN_X, y - 4.5, A4_W - MARGIN_X, y - 4.5);
   pdf.setTextColor(C_BRAND.r, C_BRAND.g, C_BRAND.b);
-  rowVal("Net amount paid", eur(data.netCents), { bold: true });
+  rowVal("Net amount paid", money(data.netCents, data.currency), { bold: true });
 
   y += 4;
   pdf.setDrawColor(C_FAINT.r, C_FAINT.g, C_FAINT.b);
@@ -272,7 +276,9 @@ export async function generatePayoutReceiptPDF(data: PayoutReceiptData): Promise
   const detY = y + 9;
   const detColRightX = MARGIN_X + CONTENT_W / 2 + 4;
   drawLabel(pdf, "METHOD", MARGIN_X + 6, detY);
-  drawValue(pdf, "SEPA transfer", MARGIN_X + 6, detY + 6, 10.5, "bold");
+  // Euro payouts go out by SEPA; a pound payout is a UK bank transfer.
+  const isGbp = toCurrency(data.currency) === "GBP";
+  drawValue(pdf, isGbp ? "Bank transfer" : "SEPA transfer", MARGIN_X + 6, detY + 6, 10.5, "bold");
   drawLabel(pdf, "REQUEST DATE", detColRightX, detY);
   drawValue(pdf, longDate(data.requestedAt), detColRightX, detY + 6, 10.5, "bold");
   drawLabel(pdf, "PAYMENT DATE", MARGIN_X + 6, detY + 16);
@@ -293,7 +299,7 @@ export async function generatePayoutReceiptPDF(data: PayoutReceiptData): Promise
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(7.5);
   const disclaimer = pdf.splitTextToSize(
-    `This document certifies the payment made by Ticket Safe SAS to the beneficiary above, by SEPA bank transfer. It is a proof of funds movement between Ticket Safe SAS and the beneficiary; it is not a tax invoice and does not replace an official bank statement. For any question, contact ticketsafe.friendly@gmail.com and quote reference ${ref}.`,
+    `This document certifies the payment made by Ticket Safe SAS to the beneficiary above, by ${isGbp ? "bank" : "SEPA bank"} transfer. It is a proof of funds movement between Ticket Safe SAS and the beneficiary; it is not a tax invoice and does not replace an official bank statement. For any question, contact ticketsafe.friendly@gmail.com and quote reference ${ref}.`,
     CONTENT_W,
   );
   pdf.text(disclaimer, MARGIN_X, footerY + 6);

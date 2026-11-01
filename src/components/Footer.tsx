@@ -244,7 +244,7 @@ const Footer = () => {
                 to="/mentions-legales"
                 className="text-muted-foreground hover:text-primary transition-all duration-300 hover:underline underline-offset-4"
               >
-                Mentions légales
+                Legal Notice (Mentions légales)
               </Link>
             </div>
           </div>

@@ -27,6 +27,7 @@ import { refundPlatformPayment } from "../_shared/stripeRefund.ts";
 import { planResaleAwareRefund, refundResaleBuyers } from "../_shared/resaleAwareRefund.ts";
 import { renderEmail, ticketSummary, escapeHtml as esc } from "../_shared/emailComponents.ts";
 import { emailTokens } from "../_shared/emailTokens.ts";
+import { formatMinor } from "../_shared/money.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -36,23 +37,25 @@ function json(b: unknown, s = 200) {
   return new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
 }
 
-function buyerRefundEmail(args: { evTitle: string; refundAmount: number; reason: string | null }): { html: string; text: string } {
+// `currency` is the order's ('EUR' or 'GBP' for a London event); resale refunds are always in euros, so they omit it.
+function buyerRefundEmail(args: { evTitle: string; refundCents: number; currency?: string | null; reason: string | null }): { html: string; text: string } {
+  const amount = formatMinor(args.refundCents, args.currency, "prefix");
   const bodyHtml = `
     <p style="margin:0 0 4px">We've issued a refund for your purchase. Your tickets are no longer valid for entry.</p>
     ${args.reason ? `<p style="margin:12px 0;padding:14px 18px;background:${emailTokens.bodyBg};border-left:3px solid ${emailTokens.danger};color:${emailTokens.textPrimary};font-size:13px;line-height:1.55">Reason: ${esc(args.reason)}</p>` : ""}
     ${ticketSummary([
-      ["Refund amount", `€${args.refundAmount.toFixed(2)}`, emailTokens.accent],
+      ["Refund amount", amount, emailTokens.accent],
       ["Where", "Back to the card used at checkout"],
       ["When", "3–10 business days, depending on your bank"],
     ])}
     <p style="margin:24px 0 0;font-size:13px;color:${emailTokens.textMuted}">Didn't expect this refund, or have questions? Just reply to this email.</p>
   `;
-  const text = `Your order for ${args.evTitle} has been refunded.\n\n${args.reason ? `Reason: ${args.reason}\n\n` : ""}Refund amount: €${args.refundAmount.toFixed(2)}\nBack to the card used at checkout, 3–10 business days.`;
+  const text = `Your order for ${args.evTitle} has been refunded.\n\n${args.reason ? `Reason: ${args.reason}\n\n` : ""}Refund amount: ${amount}\nBack to the card used at checkout, 3–10 business days.`;
   return renderEmail({
     eyebrow: "Refund issued",
     title: `Your order for ${args.evTitle} has been refunded`,
     bodyHtml,
-    preheader: `€${args.refundAmount.toFixed(2)} refunded for ${args.evTitle}.`,
+    preheader: `${amount} refunded for ${args.evTitle}.`,
     text,
   });
 }
@@ -280,7 +283,8 @@ serve(async (req) => {
     if (resendKey && order.buyer_email && originalBuyerRefundCents > 0) {
       const { html, text } = buyerRefundEmail({
         evTitle: eventTitle,
-        refundAmount: originalBuyerRefundCents / 100,
+        refundCents: originalBuyerRefundCents,
+        currency: order.currency,
         reason,
       });
       fetch("https://api.resend.com/emails", {
@@ -303,7 +307,7 @@ serve(async (req) => {
         const { data: buyerAuth } = await supabase.auth.admin.getUserById(r.buyerId);
         const resaleBuyerEmail = buyerAuth?.user?.email;
         if (!resaleBuyerEmail) continue;
-        const { html, text } = buyerRefundEmail({ evTitle: eventTitle, refundAmount: r.amountCents / 100, reason });
+        const { html, text } = buyerRefundEmail({ evTitle: eventTitle, refundCents: r.amountCents, reason });
         fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },

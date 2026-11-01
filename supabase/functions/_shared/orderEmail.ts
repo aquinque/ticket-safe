@@ -27,7 +27,7 @@ export interface OrderEmailData {
   ticketType: string;
   quantity: number;
   pricePaid: string;
-  /** Ticket price and service fee, formatted ("10.00€"); when both are set the recap shows them apart. */
+  /** Ticket price and service fee, formatted ("10.00€", "£10.00"); when both are set the recap shows them apart. */
   ticketPrice?: string;
   serviceFee?: string;
 
@@ -40,6 +40,8 @@ export interface OrderEmailData {
   /** "ticket" (default) or "resale": picks the wording of the legal notice. */
   kind?: ReceiptKind;
   legal?: ReceiptLegal;
+  /** The order's currency ('EUR' or 'GBP'), for the legal notice's "prices in …"; euros when absent. */
+  currency?: string | null;
 
   supportEmail?: string;
   websiteUrl?: string;
@@ -79,7 +81,7 @@ export function generateConfirmationEmail(d: OrderEmailData): { html: string; te
     ])}
     ${ctaButton("View my tickets", myTicketsUrl)}
     <p style="margin:24px 0 0;font-size:13px;color:${emailTokens.textMuted}">The attached QR code is valid for one entry. This ticket is nominative — don't share it; it can only be resold through Ticket Safe.</p>
-    ${renderNoticeHtml(d.legal ?? RECEIPT_LEGAL_FALLBACK, d.kind ?? "ticket", { organizerName: d.organizerName, style: NOTICE_STYLE })}
+    ${renderNoticeHtml(d.legal ?? RECEIPT_LEGAL_FALLBACK, d.kind ?? "ticket", { organizerName: d.organizerName, currency: d.currency, style: NOTICE_STYLE })}
   `;
 
   const text = [

@@ -43,7 +43,7 @@ const EventTicketsMarketplace = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { language } = useI18n();
-  const dateLocale = language === "fr" ? "fr-FR" : "en-US";
+  const dateLocale = language === "fr" ? "fr-FR" : "en-GB";
 
   const [event, setEvent] = useState<EventInfo | null>(null);
   const [listings, setListings] = useState<Listing[]>([]);

@@ -44,9 +44,9 @@ const BuyTicket = () => {
     };
 
     if (endDate) {
-      return `${startDate.toLocaleDateString('en-US', options)} - ${endDate.toLocaleDateString('en-US', options)}`;
+      return `${startDate.toLocaleDateString('en-GB', options)} - ${endDate.toLocaleDateString('en-GB', options)}`;
     }
-    return startDate.toLocaleDateString('en-US', options);
+    return startDate.toLocaleDateString('en-GB', options);
   };
 
   const handleProceedToCheckout = () => {

@@ -62,6 +62,10 @@ export interface EventDraft {
   maxPerBuyer: string;
   slug: string;
   slugTouched: boolean;
+  /** null = follow the city (pounds for London, euros elsewhere); set once the organizer picks one. */
+  currency: "EUR" | "GBP" | null;
+  /** City picked on the location step ("paris", "london", …, "other"); null = read it from the location text. */
+  city: string | null;
   tiers: TierDraft[];
   /** Name of the promo video that was chosen, so we can ask for it again when it could not be kept. */
   videoName: string | null;
@@ -85,6 +89,8 @@ export const emptyEventDraft = (): EventDraft => ({
   maxPerBuyer: "1",
   slug: "",
   slugTouched: false,
+  currency: null,
+  city: null,
   tiers: [makeTier()],
   videoName: null,
 });
@@ -147,6 +153,8 @@ export function parseEventDraft(raw: string | null, stepCount: number): EventDra
     maxPerBuyer: str(d.maxPerBuyer, empty.maxPerBuyer),
     slug: str(d.slug),
     slugTouched: bool(d.slugTouched, false),
+    currency: d.currency === "GBP" || d.currency === "EUR" ? d.currency : null,
+    city: str(d.city) || null,
     tiers,
     videoName: str(d.videoName) || null,
   };

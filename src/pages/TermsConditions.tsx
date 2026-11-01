@@ -92,7 +92,7 @@ const TermsConditions = () => {
                       You are responsible for all activities that occur under your account. You agree to:
                     </p>
                     <ul className="list-disc pl-6 space-y-2">
-                      <li>Notify us immediately of any unauthorized use of your account</li>
+                      <li>Notify us immediately of any unauthorised use of your account</li>
                       <li>Not share your account credentials with others</li>
                       <li>Not create multiple accounts</li>
                       <li>Keep your contact information current and accurate</li>
@@ -119,6 +119,9 @@ const TermsConditions = () => {
                       <li>Browse available events and ticket listings</li>
                       <li>Communicate with other verified users through the platform</li>
                     </ul>
+                    <p>
+                      <strong className="text-foreground">Resale of tickets for UK events.</strong> When a ticket for an event in the United Kingdom is resold through TicketSafe, the resale is subject to Part 3, Chapter 5 of the Consumer Rights Act 2015 (secondary ticketing). The seller must give the buyer the information the Act requires where it applies (such as the seat or standing area, any restriction on who may use the ticket, and the ticket's face value), and must disclose when they are connected with TicketSafe or with the event organiser.
+                    </p>
 
                     <h3 className="font-semibold text-foreground text-lg mt-4">3.2 Prohibited Activities</h3>
                     <p className="font-medium text-foreground">
@@ -163,7 +166,7 @@ const TermsConditions = () => {
                     <ul className="list-disc pl-6 space-y-2">
                       <li>TicketSafe does not guarantee event occurrence or quality</li>
                       <li>You should independently verify ticket details before purchase</li>
-                      <li>Event organizers may have their own terms and conditions</li>
+                      <li>Event organisers may have their own terms and conditions</li>
                       <li>Some tickets may have transfer restrictions from the original issuer</li>
                     </ul>
 
@@ -173,7 +176,7 @@ const TermsConditions = () => {
                     </p>
                     <ul className="list-disc pl-6 space-y-2">
                       <li>Full refund if tickets are counterfeit or invalid</li>
-                      <li>Full refund if event is officially cancelled by organizer</li>
+                      <li>Full refund if event is officially cancelled by organiser</li>
                       <li>Dispute resolution assistance for delivery issues</li>
                     </ul>
                   </div>
@@ -190,7 +193,7 @@ const TermsConditions = () => {
                       When listing tickets for sale, you represent and warrant that:
                     </p>
                     <ul className="list-disc pl-6 space-y-2">
-                      <li>You legally own the tickets or have authorization to sell them</li>
+                      <li>You legally own the tickets or have authorisation to sell them</li>
                       <li>The tickets are authentic and valid for event entry</li>
                       <li>All ticket information (date, venue, seat details) is accurate</li>
                       <li>Tickets are not stolen, counterfeit, or obtained fraudulently</li>
@@ -202,6 +205,7 @@ const TermsConditions = () => {
                       <li>Tickets must be priced fairly (maximum 150% of face value)</li>
                       <li>Clearly state the original purchase price if available</li>
                       <li>Do not engage in price manipulation or artificial inflation</li>
+                      <li>For events in the United Kingdom, include the information required by the Consumer Rights Act 2015, section 90 (see section 3.1)</li>
                     </ul>
 
                     <h3 className="font-semibold text-foreground text-lg mt-4">5.3 Seller Obligations</h3>
@@ -237,10 +241,11 @@ const TermsConditions = () => {
                   <div className="space-y-3 text-muted-foreground">
                     <h3 className="font-semibold text-foreground text-lg">6.1 Platform Fees</h3>
                     <ul className="list-disc pl-6 space-y-2">
-                      <li>Tickets sold directly by an organizer: buyers pay a service fee on top of the ticket price, equal to {STUDIO_FEE_RULE_LONG}; the organizer receives the full ticket price</li>
+                      <li>Tickets sold directly by an organiser: buyers pay a service fee on top of the ticket price, equal to {STUDIO_FEE_RULE_LONG}; there is no maximum fee; the organiser receives the full ticket price</li>
                       <li>Buyers pay a platform fee of {RESALE_BUYER_FEE_COPY} on top of the ticket price (resale); a 5% fee applies to the seller at withdrawal</li>
                       <li>All fees are clearly displayed before purchase confirmation</li>
-                      <li>Service fees are refunded together with the ticket price whenever you are entitled to a full refund, for example when an organizer cancels an event; otherwise they are non-refundable, except in cases of platform error</li>
+                      <li>Currency: events in London are priced in pounds sterling (GBP) and your card is charged in GBP; all other events are priced and charged in euros (EUR). Any conversion into your card's currency is made by your bank or card issuer, which may apply its own exchange rate and fees</li>
+                      <li>Service fees are refunded together with the ticket price whenever you are entitled to a full refund, for example when an organiser cancels an event; otherwise they are non-refundable, except in cases of platform error</li>
                     </ul>
 
                     <h3 className="font-semibold text-foreground text-lg mt-4">6.2 Payment Processing</h3>
@@ -281,12 +286,21 @@ const TermsConditions = () => {
                         delivery report; do not treat as final legal text. */}
                     <p className="pt-2">
                       <strong className="text-foreground">No right of withdrawal.</strong> Tickets sold on TicketSafe
-                      (whether sold directly by an organizer or resold between users) are leisure services supplied on
+                      (whether sold directly by an organiser or resold between users) are leisure services supplied on
                       a specific date. In accordance with article L221-28, 12° of the French Consumer Code
                       (<em>Code de la consommation</em>), the right of withdrawal does not apply to the supply of
                       accommodation, transport, catering, or leisure services which must be provided on a specific
                       date or at a specific frequency. Purchases are therefore final once confirmed, subject only to
                       the refund cases listed above.
+                    </p>
+                    <p>
+                      <strong className="text-foreground">United Kingdom.</strong> For consumers in the UK, the 14-day
+                      cancellation period under the Consumer Contracts (Information, Cancellation and Additional Charges)
+                      Regulations 2013 does not apply to services related to leisure activities where the contract
+                      provides for a specific date or period of performance (regulation 28(1)(b)), which covers tickets
+                      for an event on a specific date. This does not affect your other statutory rights under the
+                      Consumer Rights Act 2015, including your rights if a service is not provided with reasonable care
+                      and skill or as described.
                     </p>
                   </div>
                 </section>
@@ -308,7 +322,7 @@ const TermsConditions = () => {
                     </p>
                     <ul className="list-disc pl-6 space-y-2">
                       <li>Retain ownership of your User Content</li>
-                      <li>Grant TicketSafe a worldwide, non-exclusive license to use, display, and distribute your content on the platform</li>
+                      <li>Grant TicketSafe a worldwide, non-exclusive licence to use, display, and distribute your content on the platform</li>
                       <li>Represent that you have all necessary rights to the content</li>
                       <li>Agree not to post copyrighted material without permission</li>
                     </ul>
@@ -335,9 +349,9 @@ const TermsConditions = () => {
                     </p>
                     <ul className="list-disc pl-6 space-y-2">
                       <li>A party to transactions between buyers and sellers</li>
-                      <li>Responsible for event organization or quality</li>
+                      <li>Responsible for event organisation or quality</li>
                       <li>Liable for disputes between users</li>
-                      <li>A ticket seller or event organizer</li>
+                      <li>A ticket seller or event organiser</li>
                     </ul>
 
                     <h3 className="font-semibold text-foreground text-lg mt-4">9.2 Service Disclaimer</h3>
@@ -353,7 +367,7 @@ const TermsConditions = () => {
                       <li>Indirect, incidental, special, or consequential damages</li>
                       <li>Loss of profits, revenue, data, or business opportunities</li>
                       <li>Damages exceeding the amount paid by you to TicketSafe in the past 12 months</li>
-                      <li>Issues arising from third-party services (payment processors, event organizers)</li>
+                      <li>Issues arising from third-party services (payment processors, event organisers)</li>
                     </ul>
 
                     <h3 className="font-semibold text-foreground text-lg mt-4">9.4 Indemnification</h3>
@@ -366,6 +380,11 @@ const TermsConditions = () => {
                       <li>Your use of the Service</li>
                       <li>Fraudulent or illegal activity on your account</li>
                     </ul>
+
+                    <h3 className="font-semibold text-foreground text-lg mt-4">9.5 Your Statutory Rights</h3>
+                    <p>
+                      Nothing in these Terms excludes or limits any liability that cannot be excluded or limited by law, or affects your statutory rights as a consumer. This includes, for EU consumers, the mandatory provisions of the French Consumer Code and of the law of your country of residence and, for UK consumers, the Consumer Rights Act 2015 (under which, for example, liability for death or personal injury caused by negligence cannot be excluded).
+                    </p>
                   </div>
                 </section>
 
@@ -382,7 +401,10 @@ const TermsConditions = () => {
 
                     <h3 className="font-semibold text-foreground text-lg mt-4">10.2 Governing Law</h3>
                     <p>
-                      These Terms are governed by the laws of France. Any legal action must be brought in the courts of Paris, France.
+                      These Terms are governed by the laws of France. Any legal action must be brought in the courts of Paris, France, subject to the mandatory rules that protect consumers set out below.
+                    </p>
+                    <p>
+                      If you are a consumer, the choice of French law does not deprive you of the protection of the mandatory consumer laws of the country where you live. If you live in the European Union, you may also bring proceedings in the courts of your country of residence. If you live in the United Kingdom, you keep the protection of mandatory UK consumer law (including the Consumer Rights Act 2015 and the Consumer Contracts Regulations 2013), and you may bring a claim in the courts of the part of the UK where you live (England and Wales, Scotland or Northern Ireland).
                     </p>
 
                     <h3 className="font-semibold text-foreground text-lg mt-4">10.3 EU Online Dispute Resolution</h3>

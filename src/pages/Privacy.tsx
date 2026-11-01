@@ -39,18 +39,18 @@ interface DataRequest {
 
 const CONSENT_DESCRIPTIONS = {
   data_monetization: {
-    title: "Data Monetization",
-    description: "Allow your anonymized transaction data to be included in aggregated datasets for research and commercial purposes. Your personal information will never be shared.",
+    title: "Data Monetisation",
+    description: "Allow your anonymised transaction data to be included in aggregated datasets for research and commercial purposes. Your personal information will never be shared.",
     details: "We collect aggregated statistics about ticket sales, pricing trends, and campus activity. All data is anonymized and only shared when there are at least 5 similar users (k-anonymity). You can withdraw consent at any time."
   },
   aggregated_analytics: {
     title: "Analytics & Insights",
-    description: "Help us improve the platform by allowing anonymized usage analytics to be collected and analyzed.",
+    description: "Help us improve the platform by allowing anonymised usage analytics to be collected and analysed.",
     details: "This includes page views, feature usage, and performance metrics. All data is aggregated and cannot be traced back to individual users."
   },
   research_participation: {
     title: "Academic Research",
-    description: "Participate in university research studies using anonymized platform data.",
+    description: "Participate in university research studies using anonymised platform data.",
     details: "Your anonymized data may be used for academic research on student marketplace behavior, pricing trends, and campus economics."
   }
 };
@@ -214,7 +214,7 @@ export default function Privacy() {
     <div className="min-h-screen bg-background flex flex-col">
       <SEOHead
         titleKey="Privacy Policy - TicketSafe"
-        descriptionKey="How TicketSafe collects, uses and protects your personal data, and how to exercise your GDPR rights."
+        descriptionKey="How TicketSafe collects, uses and protects your personal data, and how to exercise your rights under the EU GDPR and the UK GDPR."
       />
       <div className="container max-w-4xl mx-auto px-4 py-8 flex-1">
         <BackButton fallbackPath="/" />
@@ -231,7 +231,7 @@ export default function Privacy() {
         <Alert className="mb-6">
           <Shield className="h-4 w-4" />
           <AlertDescription>
-            Your privacy matters. This page explains how we collect, use, and protect your personal data. When you are signed in, you can also manage your data sharing preferences and exercise your GDPR rights below.
+            Your privacy matters. This page explains how we collect, use, and protect your personal data. When you are signed in, you can also manage your data sharing preferences and exercise your data protection rights (EU GDPR and UK GDPR) below.
           </AlertDescription>
         </Alert>
 
@@ -251,6 +251,12 @@ export default function Privacy() {
                     <strong className="text-foreground">Contact:</strong> ticketsafe.friendly@gmail.com<br/>
                     <strong className="text-foreground">Registered Address:</strong> 2 rue Wilhem, 75016 Paris, France<br/>
                     <strong className="text-foreground">VAT:</strong> not applicable, article 293 B of the French General Tax Code (CGI)
+                  </p>
+                  <p>
+                    <strong className="text-foreground">Applicable law:</strong> For users in the European Union, we process personal data under the EU General Data Protection Regulation (Regulation (EU) 2016/679, "EU GDPR") and the French Data Protection Act (loi n° 78-17 du 6 janvier 1978). For users in the United Kingdom, including buyers of tickets for London events, we also comply with the UK General Data Protection Regulation ("UK GDPR") and the Data Protection Act 2018. In this policy, "GDPR" means whichever of the two applies to you.
+                  </p>
+                  <p>
+                    <strong className="text-foreground">UK representative (UK GDPR Article 27):</strong> Ticket Safe SAS is established in France and has no establishment in the United Kingdom. UK users and the Information Commissioner's Office may contact our UK representative at: [UK representative: to be appointed — name and address]. Until then, please write to us at the contact address above.
                   </p>
                 </div>
               </section>
@@ -282,7 +288,7 @@ export default function Privacy() {
                       <li>
                         <strong>Promoter links:</strong> When an event page is opened through a promoter link (an address ending in <code>?ref=</code> and a code),
                         we add one to a daily counter for that link, with no visitor identifier, IP address or cookie stored in our database. If you start a
-                        checkout from that page, your order records which link it came through, so the organizer can see what each promoter brought.
+                        checkout from that page, your order records which link it came through, so the organiser can see what each promoter brought.
                       </li>
                     </ul>
                   </div>
@@ -292,7 +298,7 @@ export default function Privacy() {
                     <ul className="list-disc pl-6 space-y-1">
                       <li><strong>Payment Processors:</strong> Transaction confirmation from Stripe (and from Revolut for orders placed before October 2026)</li>
                       <li><strong>Authentication:</strong> Login verification from Supabase</li>
-                      <li><strong>Event Data:</strong> Event information from organizers</li>
+                      <li><strong>Event Data:</strong> Event information from organisers</li>
                     </ul>
                   </div>
                 </div>
@@ -319,7 +325,7 @@ export default function Privacy() {
                     <div className="bg-muted/50 p-3 rounded-lg">
                       <h4 className="font-semibold text-foreground mb-1">Security & Fraud Prevention (Legal Basis: Legitimate Interest)</h4>
                       <ul className="list-disc pl-6 space-y-1 text-xs">
-                        <li>Verify student status and prevent unauthorized access</li>
+                        <li>Verify student status and prevent unauthorised access</li>
                         <li>Detect and prevent fraudulent activities</li>
                         <li>Ensure ticket authenticity</li>
                         <li>Protect against platform abuse</li>
@@ -338,7 +344,7 @@ export default function Privacy() {
                     <div className="bg-muted/50 p-3 rounded-lg">
                       <h4 className="font-semibold text-foreground mb-1">Platform Improvement (Legal Basis: Consent)</h4>
                       <ul className="list-disc pl-6 space-y-1 text-xs">
-                        <li>Analyze usage patterns (anonymized)</li>
+                        <li>Analyse usage patterns (anonymised)</li>
                         <li>Improve user experience</li>
                         <li>Develop new features</li>
                         <li>Academic research (with consent)</li>
@@ -358,11 +364,11 @@ export default function Privacy() {
                   <ul className="list-disc pl-6 space-y-2">
                     <li><strong>Other Users:</strong> Profile info and listings are visible to verified students</li>
                     <li><strong>Payment Processors:</strong> Stripe receives the data needed to process your payment</li>
-                    <li><strong>Sub-processors:</strong> see the full list in §4.2 below — each one is bound by a written Data Processing Agreement (DPA) under GDPR Article 28</li>
+                    <li><strong>Sub-processors:</strong> see the full list in §4.2 below — each one is bound by a written Data Processing Agreement (DPA) under Article 28 of the EU GDPR and the UK GDPR</li>
                     <li><strong>Legal Authorities:</strong> When required by law or to protect rights</li>
                   </ul>
 
-                  <h3 className="font-semibold text-foreground text-lg mt-4">4.2 Sub-processors (GDPR Art. 28 disclosure)</h3>
+                  <h3 className="font-semibold text-foreground text-lg mt-4">4.2 Sub-processors (EU GDPR and UK GDPR Art. 28 disclosure)</h3>
                   <p className="text-sm">
                     We use the following third-party processors to operate the platform. We have signed a Data Processing Agreement (DPA) with each of them and only transfer the minimum data needed for the listed purpose. Updates to this list will be reflected here before any new processor goes live.
                   </p>
@@ -477,6 +483,12 @@ export default function Privacy() {
                     <li>Data is only transferred to countries with adequate protection</li>
                     <li>You have the right to obtain details of these safeguards</li>
                   </ul>
+                  <h3 className="font-semibold text-foreground text-lg mt-4">7.1 Transfers between the EU and the United Kingdom</h3>
+                  <ul className="list-disc pl-6 space-y-2">
+                    <li><strong>From the EU to the UK:</strong> the European Commission has adopted an adequacy decision for the United Kingdom, so personal data can flow from the EEA to the UK without additional safeguards.</li>
+                    <li><strong>From the UK to the EEA:</strong> the UK recognises the EEA as providing adequate protection, so data of UK users can be sent to us in France and to our EU-hosted providers.</li>
+                    <li><strong>From the UK to other countries</strong> (for example, providers in the USA listed in §4.2): we rely on the UK International Data Transfer Agreement (IDTA) or the UK Addendum to the EU Standard Contractual Clauses, or on UK adequacy regulations where they apply.</li>
+                  </ul>
                 </div>
               </section>
 
@@ -492,6 +504,22 @@ export default function Privacy() {
                   <p>
                     If we discover that a user is under 18, we will delete their account and data promptly.
                   </p>
+                </div>
+              </section>
+
+              <div className="border-t" />
+
+              {/* Complaints */}
+              <section>
+                <h2 className="text-2xl font-semibold mb-4">9. Your Right to Complain</h2>
+                <div className="space-y-3 text-muted-foreground">
+                  <p>
+                    If you are unhappy with how we handle your personal data, please contact us first at ticketsafe.friendly@gmail.com so we can try to resolve it. You also have the right to lodge a complaint with a data protection supervisory authority:
+                  </p>
+                  <ul className="list-disc pl-6 space-y-2">
+                    <li><strong>In France and the EU:</strong> the CNIL (Commission Nationale de l'Informatique et des Libertés), <a href="https://www.cnil.fr" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">cnil.fr</a>, or the supervisory authority of the EU country where you live or work</li>
+                    <li><strong>In the United Kingdom:</strong> the Information Commissioner's Office (ICO), <a href="https://ico.org.uk" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">ico.org.uk</a></li>
+                  </ul>
                 </div>
               </section>
             </div>
@@ -605,7 +633,7 @@ export default function Privacy() {
                               {request.request_type.replace('_', ' ')} Request
                             </p>
                             <p className="text-sm text-muted-foreground">
-                              Requested: {new Date(request.requested_at).toLocaleDateString()}
+                              Requested: {new Date(request.requested_at).toLocaleDateString("en-GB")}
                             </p>
                             {request.notes && (
                               <p className="text-xs text-muted-foreground mt-1">
@@ -625,7 +653,7 @@ export default function Privacy() {
         )}
 
         <Card className="mt-6 p-6 bg-muted/50">
-          <h3 className="text-sm font-semibold mb-2">Your Rights Under GDPR</h3>
+          <h3 className="text-sm font-semibold mb-2">Your Rights Under the EU GDPR and UK GDPR</h3>
           <ul className="text-xs text-muted-foreground space-y-1">
             <li>• Right to access your personal data</li>
             <li>• Right to rectification of inaccurate data</li>
@@ -634,6 +662,7 @@ export default function Privacy() {
             <li>• Right to data portability</li>
             <li>• Right to object to processing</li>
             <li>• Right to withdraw consent at any time</li>
+            <li>• Right to complain to the CNIL (France/EU) or the ICO (UK) — see section 9</li>
           </ul>
         </Card>
       </div>

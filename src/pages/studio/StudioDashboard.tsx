@@ -27,7 +27,8 @@ import { useThemeMode } from "@/hooks/useThemeMode";
 import { useCountUp } from "@/hooks/useCountUp";
 import { supabase } from "@/integrations/supabase/client";
 import EventStatusBadge from "@/components/studio/EventStatusBadge";
-import { DAY_MS, startOfDay, eur, plural, phaseOf, whenLabel, relativeTime, fmtDay, type Phase } from "@/lib/studioFormat";
+import { DAY_MS, startOfDay, eur, fmtMoney, plural, phaseOf, whenLabel, relativeTime, fmtDay, type Phase } from "@/lib/studioFormat";
+import { CURRENCIES, toCurrency, type Currency } from "@/lib/money";
 
 /**
  * Studio dashboard — the first screen after login.
@@ -50,6 +51,8 @@ interface StudioEvent {
   slug: string | null;
   banner_url: string | null;
   primary_color: string | null;
+  /** 'EUR' | 'GBP': revenue and prices below are in this currency. */
+  currency: string;
   sold_count: number;
   total_capacity: number;
   revenue_cents: number;
@@ -67,7 +70,10 @@ interface Earnings {
   releasable_cents: number;
 }
 
-interface DaySales { day: string; cents: number; tickets: number }
+/** Amounts per currency: an organizer with London and Paris events sells in
+ *  both, and pounds are never added to euros. */
+type CentsByCurrency = Partial<Record<Currency, number>>;
+interface DaySales { day: string; cents: CentsByCurrency; tickets: number }
 interface Pace { sold7: number; lastSale: string | null }
 
 // event_scan_staff is newer than the generated database types.
@@ -131,16 +137,18 @@ const StudioDashboard = () => {
         .order("date", { ascending: false });
 
       const ids = (evRows ?? []).map((e: { id: string }) => e.id);
-      type Agg = { sold: number; total: number; revenue: number; minPrice: number | null };
+      // The event's currency comes from its tiers (event_tiers.currency always
+      // equals the event's); an event with no tier yet counts as euros.
+      type Agg = { sold: number; total: number; revenue: number; minPrice: number | null; currency: string };
       let tierAgg: Record<string, Agg> = {};
       if (ids.length) {
         const { data: tiers } = await supabase
           .from("event_tiers")
-          .select("event_id, sold_qty, total_qty, price_cents")
+          .select("event_id, sold_qty, total_qty, price_cents, currency")
           .in("event_id", ids);
         tierAgg = (tiers ?? []).reduce(
-          (acc, t: { event_id: string; sold_qty: number; total_qty: number; price_cents: number }) => {
-            const cur = acc[t.event_id] ?? { sold: 0, total: 0, revenue: 0, minPrice: null };
+          (acc, t: { event_id: string; sold_qty: number; total_qty: number; price_cents: number; currency: string | null }) => {
+            const cur = acc[t.event_id] ?? { sold: 0, total: 0, revenue: 0, minPrice: null, currency: toCurrency(t.currency) };
             cur.sold += t.sold_qty;
             cur.total += t.total_qty;
             cur.revenue += t.sold_qty * t.price_cents;
@@ -154,7 +162,8 @@ const StudioDashboard = () => {
 
       setEvents(
         (evRows ?? []).map((e) => ({
-          ...(e as Omit<StudioEvent, "sold_count" | "total_capacity" | "revenue_cents" | "price_from_cents">),
+          ...(e as Omit<StudioEvent, "currency" | "sold_count" | "total_capacity" | "revenue_cents" | "price_from_cents">),
+          currency: tierAgg[e.id]?.currency ?? "EUR",
           sold_count: tierAgg[e.id]?.sold ?? 0,
           total_capacity: tierAgg[e.id]?.total ?? 0,
           revenue_cents: tierAgg[e.id]?.revenue ?? 0,
@@ -178,21 +187,25 @@ const StudioDashboard = () => {
     since.setDate(since.getDate() - 13);
     const { data } = await supabase
       .from("event_orders")
-      .select("total_cents, quantity, created_at")
+      .select("total_cents, currency, quantity, created_at")
       .eq("organizer_id", organizer.id)
       .eq("status", "paid")
       .gte("created_at", since.toISOString());
 
-    const buckets = new Map<string, { cents: number; tickets: number }>();
+    const buckets = new Map<string, { cents: CentsByCurrency; tickets: number }>();
     for (let i = 0; i < 14; i++) {
       const d = new Date(since);
       d.setDate(d.getDate() + i);
-      buckets.set(d.toISOString().slice(0, 10), { cents: 0, tickets: 0 });
+      buckets.set(d.toISOString().slice(0, 10), { cents: {}, tickets: 0 });
     }
-    for (const row of (data ?? []) as { total_cents: number; quantity: number; created_at: string }[]) {
+    for (const row of (data ?? []) as { total_cents: number; currency: string | null; quantity: number; created_at: string }[]) {
       const key = row.created_at.slice(0, 10);
       const b = buckets.get(key);
-      if (b) { b.cents += row.total_cents; b.tickets += row.quantity; }
+      if (b) {
+        const c = toCurrency(row.currency);
+        b.cents[c] = (b.cents[c] ?? 0) + row.total_cents;
+        b.tickets += row.quantity;
+      }
     }
     setDailySales(Array.from(buckets.entries()).map(([day, v]) => ({ day, ...v })));
   }, [organizer]);
@@ -361,16 +374,22 @@ const StudioDashboard = () => {
   }
 
   // ── Approved organizer dashboard ────────────────────────────────────────
+  // Pounds only when every event is a London (GBP) event; euros otherwise.
+  const homeCurrency: Currency = events.length > 0 && events.every((e) => toCurrency(e.currency) === "GBP") ? "GBP" : "EUR";
   const week = (() => {
     if (!dailySales) return null;
     const last7 = dailySales.slice(7);
     const prev7 = dailySales.slice(0, 7);
-    const sum = (rows: DaySales[], k: "cents" | "tickets") => rows.reduce((n, d) => n + d[k], 0);
+    const tickets = (rows: DaySales[]) => rows.reduce((n, d) => n + d.tickets, 0);
+    const cents = (rows: DaySales[], c: Currency) => rows.reduce((n, d) => n + (d.cents[c] ?? 0), 0);
+    // One revenue figure per currency sold in over the 14 days; with no sales,
+    // the currency the organizer's events are priced in.
+    const sold = CURRENCIES.filter((c) => dailySales.some((d) => (d.cents[c] ?? 0) > 0));
+    const currencies = sold.length ? sold : [homeCurrency];
     return {
-      tickets: sum(last7, "tickets"),
-      prevTickets: sum(prev7, "tickets"),
-      cents: sum(last7, "cents"),
-      prevCents: sum(prev7, "cents"),
+      tickets: tickets(last7),
+      prevTickets: tickets(prev7),
+      revenue: currencies.map((c) => ({ currency: c, cents: cents(last7, c), prevCents: cents(prev7, c) })),
     };
   })();
 
@@ -388,6 +407,7 @@ const StudioDashboard = () => {
   if (payments && !payments.active) {
     todos.push({ key: "payments", icon: CreditCard, text: payments.exists ? "Finish setting up payments to get paid" : "Set up payments so your sales reach your bank", to: "/studio/payments", tone: "warn" });
   }
+  // organizer_earnings is the legacy bank-transfer balance, which is in euros.
   if (earnings && earnings.available_cents > 0) {
     todos.push({ key: "payout", icon: Banknote, text: `${eur(earnings.available_cents, 2)} from earlier events is ready to withdraw`, to: "/studio/payouts", tone: "money" });
   }
@@ -441,9 +461,17 @@ const StudioDashboard = () => {
                 <span className="text-[11px] text-muted-foreground">vs the 7 days before</span>
               </div>
               {week ? (
-                <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className={`grid gap-4 mb-4 ${week.revenue.length > 1 ? "grid-cols-3" : "grid-cols-2"}`}>
                   <Figure label="Tickets sold" value={week.tickets} prev={week.prevTickets} />
-                  <Figure label="Revenue" value={week.cents} prev={week.prevCents} money />
+                  {week.revenue.map((r) => (
+                    <Figure
+                      key={r.currency}
+                      label={week.revenue.length > 1 ? `Revenue (${r.currency})` : "Revenue"}
+                      value={r.cents}
+                      prev={r.prevCents}
+                      currency={r.currency}
+                    />
+                  ))}
                 </div>
               ) : (
                 <div className="h-14 bg-muted animate-pulse mb-4" />
@@ -601,7 +629,7 @@ const NextUp = ({ event, phase, pace, checkedIn }: { event: StudioEvent; phase: 
             )}
             <p className="mt-2 text-xs text-white/80 tabular-nums">
               {event.total_capacity > 0 ? `${pct}% full · ` : ""}
-              {eur(event.revenue_cents)} in ticket sales
+              {fmtMoney(event.revenue_cents, event.currency)} in ticket sales
               {pace?.lastSale ? ` · last sale ${relativeTime(pace.lastSale)}` : ""}
               {checkedIn != null && phase !== "upcoming" ? ` · ${checkedIn.toLocaleString("en-GB")} checked in` : ""}
             </p>
@@ -639,14 +667,16 @@ const NextUp = ({ event, phase, pace, checkedIn }: { event: StudioEvent; phase: 
 
 /* ───────────────────────── This week ───────────────────────── */
 
-const Figure = ({ label, value, prev, money = false }: { label: string; value: number; prev: number; money?: boolean }) => {
+/** A count, or with `currency` an amount in that currency. */
+const Figure = ({ label, value, prev, currency }: { label: string; value: number; prev: number; currency?: Currency }) => {
   const shown = useCountUp(value);
   const delta = value - prev;
-  const deltaText = delta === 0 ? "same as last week" : `${delta > 0 ? "+" : "−"}${money ? eur(Math.abs(delta)) : Math.abs(delta).toLocaleString("en-GB")} vs last week`;
+  const money = currency != null;
+  const deltaText = delta === 0 ? "same as last week" : `${delta > 0 ? "+" : "−"}${money ? fmtMoney(Math.abs(delta), currency) : Math.abs(delta).toLocaleString("en-GB")} vs last week`;
   return (
     <div>
       <div className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">{label}</div>
-      <div className="font-display text-2xl md:text-3xl font-bold tabular-nums leading-tight mt-0.5">{money ? eur(shown) : shown.toLocaleString("en-GB")}</div>
+      <div className="font-display text-2xl md:text-3xl font-bold tabular-nums leading-tight mt-0.5">{money ? fmtMoney(shown, currency) : shown.toLocaleString("en-GB")}</div>
       <div className={`text-xs mt-0.5 ${delta > 0 ? "text-emerald-700" : delta < 0 ? "text-muted-foreground" : "text-muted-foreground"}`}>{deltaText}</div>
     </div>
   );
@@ -662,7 +692,7 @@ const Bars = ({ days }: { days: DaySales[] | null }) => {
         {days.map((d, i) => (
           <div
             key={d.day}
-            title={`${label(d.day)}: ${plural(d.tickets, "ticket")}, ${eur(d.cents)}`}
+            title={`${label(d.day)}: ${plural(d.tickets, "ticket")}${CURRENCIES.filter((c) => d.cents[c]).map((c) => `, ${fmtMoney(d.cents[c]!, c)}`).join("")}`}
             className={`flex-1 origin-bottom motion-safe:transition-transform motion-safe:duration-500 ${i >= 7 ? "bg-primary" : "bg-primary/35"}`}
             style={{ height: `${Math.max(4, (d.tickets / max) * 100)}%`, transitionDelay: `${i * 25}ms` }}
           />
@@ -715,7 +745,7 @@ const EventLine = ({ event, current }: { event: StudioEvent; current: boolean })
             {event.total_capacity > 0 ? `${event.sold_count}/${event.total_capacity}` : "no tiers"}
           </span>
         </div>
-        <div className="hidden md:block text-sm font-bold tabular-nums text-right w-20">{eur(event.revenue_cents)}</div>
+        <div className="hidden md:block text-sm font-bold tabular-nums text-right w-20">{fmtMoney(event.revenue_cents, event.currency)}</div>
       </Link>
     </li>
   );

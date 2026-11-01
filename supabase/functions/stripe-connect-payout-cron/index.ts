@@ -39,8 +39,16 @@ function json(body: unknown, status = 200) {
 
 type StripeClient = ReturnType<typeof getStripeClient>;
 /** Stripe money rows (balance entries, balance transactions) as far as this file reads them. */
-type EurRow = { currency: string; amount: number };
-type SettlingRow = EurRow & { available_on: number };
+type MoneyRow = { currency: string; amount: number };
+type SettlingRow = MoneyRow & { available_on: number };
+
+/**
+ * Balance rows that hold money, in any currency: an organizer's Stripe account
+ * in the UK holds pounds from London sales, a French one holds euros. Resale
+ * stays in euros (reseller_payout below).
+ */
+const withMoney = (rows: MoneyRow[]) => rows.filter((b) => b.amount > 0);
+const sum = (rows: MoneyRow[]) => rows.reduce((s, b) => s + b.amount, 0);
 
 /** Safety cap on follow-up jobs per event, so a chain can never run forever. */
 const MAX_SWEEPS_PER_EVENT = 30;
@@ -74,7 +82,7 @@ async function eventStillOwed(supabase: SupabaseClient, eventId: string): Promis
 }
 
 /**
- * When the next pending euro on the account becomes available, so the sweep
+ * When the next pending sale on the account becomes available, so the sweep
  * fires right after it lands instead of polling; six hours out when Stripe
  * gives no date.
  */
@@ -84,7 +92,7 @@ async function nextSettlementIso(stripe: StripeClient, stripeAccountId: string):
   try {
     const txs = await stripe.balanceTransactions.list({ limit: 100 }, { stripeAccount: stripeAccountId });
     const upcoming = (txs.data as SettlingRow[])
-      .filter((t) => t.currency === "eur" && t.amount > 0 && t.available_on > nowSec)
+      .filter((t) => t.amount > 0 && t.available_on > nowSec)
       .map((t) => t.available_on);
     if (upcoming.length > 0) nextSec = Math.min(...upcoming) + 5 * 60;
   } catch (e) {
@@ -184,7 +192,8 @@ serve(async (req) => {
 
       try {
         const balance = await stripe.balance.retrieve(undefined, { stripeAccount: account.stripe_account_id });
-        const available = (balance.available as EurRow[]).find((b) => b.currency === "eur")?.amount ?? 0;
+        const availableRows = withMoney(balance.available as MoneyRow[]);
+        const available = sum(availableRows);
 
         if (job.kind === "reseller_payout") {
           // Separate-charges pattern: transfer from platform balance to the
@@ -222,12 +231,19 @@ serve(async (req) => {
           // leave them in the balance until some later event. The chain stops
           // once nothing is pending, once this event's sales have all been
           // paid out, or at the safety cap.
-          const pending = (balance.pending as EurRow[]).find((b) => b.currency === "eur")?.amount ?? 0;
+          const pending = sum(withMoney(balance.pending as MoneyRow[]));
           const nowIso = new Date().toISOString();
 
           if (available > 0) {
-            const payout = await stripe.payouts.create({ amount: available, currency: "eur" }, { stripeAccount: account.stripe_account_id });
-            await supabase.from("stripe_connect_payout_jobs").update({ status: "sent", stripe_payout_id: payout.id, amount_cents: available, attempted_at: nowIso }).eq("id", job.id);
+            // One payout per currency held (normally just one: pounds on a UK
+            // account, euros on a French one), each on its own row so the
+            // webhook can match it by id.
+            for (const [i, b] of availableRows.entries()) {
+              const payout = await stripe.payouts.create({ amount: b.amount, currency: b.currency }, { stripeAccount: account.stripe_account_id });
+              const sentRow = { status: "sent", stripe_payout_id: payout.id, amount_cents: b.amount, attempted_at: nowIso };
+              if (i === 0) await supabase.from("stripe_connect_payout_jobs").update(sentRow).eq("id", job.id);
+              else await supabase.from("stripe_connect_payout_jobs").insert({ ...sentRow, event_id: job.event_id, stripe_connect_account_id: account.id, kind: "organizer_event_payout", scheduled_for: nowIso });
+            }
             sent++;
           }
 

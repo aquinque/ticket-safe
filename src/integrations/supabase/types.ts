@@ -783,6 +783,7 @@ export type Database = {
           cancelled_at: string | null
           category: string | null
           created_at: string | null
+          currency: string
           date: string | null
           description: string | null
           ends_at: string | null
@@ -825,6 +826,7 @@ export type Database = {
           cancelled_at?: string | null
           category?: string | null
           created_at?: string | null
+          currency?: string
           date?: string | null
           description?: string | null
           ends_at?: string | null
@@ -867,6 +869,7 @@ export type Database = {
           cancelled_at?: string | null
           category?: string | null
           created_at?: string | null
+          currency?: string
           date?: string | null
           description?: string | null
           ends_at?: string | null
@@ -2094,7 +2097,7 @@ export type Database = {
         Returns: undefined
       }
       get_studio_commission_cents: {
-        Args: { p_price_cents: number; p_override_cents?: number | null }
+        Args: { p_price_cents: number; p_override_cents?: number | null; p_currency?: string }
         Returns: number
       }
       get_studio_commission_for_tier: {

@@ -6,8 +6,9 @@
  *
  * Fee model:
  *   Buyer pays the listed ticket price + a service fee PER TICKET, computed in
- *   the database by get_studio_commission_cents (4 % + 0,80 €, min 0,70 €,
- *   max 3,50 €, or the event's negotiated override). That's the only fee
+ *   the database by get_studio_commission_cents (4 % + 0,80 €, min 0,70 €;
+ *   4 % + £0.70, min £0.60 for a London event in pounds; no maximum; or the
+ *   event's negotiated override). That's the only fee
  *   anywhere in this flow — Ticket Safe takes no fee from the organizer; they
  *   withdraw 100% of their gross balance.
  *
@@ -331,6 +332,8 @@ serve(async (req) => {
     const { data: feeResult, error: feeErr } = await supabase.rpc("get_studio_commission_cents", {
       p_price_cents: unitPrice,
       p_override_cents: (ev as { commission_override_cents?: number | null }).commission_override_cents ?? null,
+      // Only sent for pounds, so a euro checkout makes the same call as before the UK migration.
+      ...((tier.currency ?? "EUR").toUpperCase() === "GBP" ? { p_currency: "GBP" } : {}),
     });
     if (feeErr || typeof feeResult !== "number") {
       console.error("[revolut-create-checkout] service fee lookup failed:", feeErr);

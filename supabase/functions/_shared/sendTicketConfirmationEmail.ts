@@ -19,6 +19,7 @@
 
 import { generateConfirmationEmail, type OrderEmailData } from "./orderEmail.ts";
 import { generateOrderSummaryPDF, type OrderSummaryData } from "./orderSummaryPdf.ts";
+import { formatMinor } from "./money.ts";
 
 export interface SendTicketConfirmationInput {
   resendApiKey: string;
@@ -78,13 +79,14 @@ export async function sendTicketConfirmationEmail(
     quantity:       order.quantity,
     pricePaid:      order.totalPaid,
     ...(order.ticketPriceCents != null && order.serviceFeeCents != null
-      ? { ticketPrice: `${(order.ticketPriceCents / 100).toFixed(2)}€`, serviceFee: `${(order.serviceFeeCents / 100).toFixed(2)}€` }
+      ? { ticketPrice: formatMinor(order.ticketPriceCents, order.currency), serviceFee: formatMinor(order.serviceFeeCents, order.currency) }
       : {}),
     orderNumber:    order.orderNumber,
     purchaseDate:   order.purchaseDate,
     paymentStatus:  order.paymentStatus,
     organizerName:  order.organizerName,
     kind:           order.kind,
+    currency:       order.currency,
     legal:          order.legal,
     supportEmail:   order.supportEmail,
     websiteUrl:     order.websiteUrl,

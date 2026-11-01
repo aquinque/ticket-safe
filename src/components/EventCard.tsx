@@ -2,6 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { MapPin } from "lucide-react";
 import { useI18n } from "@/contexts/I18nContext";
 import { EventData } from "@/data/eventsData";
+import { currencySymbol } from "@/lib/money";
 
 function daysUntil(dateString: string): number | null {
   if (!dateString) return null;
@@ -48,7 +49,7 @@ interface EventCardProps {
  *  poster image. */
 const EventCard = ({ event, onClick }: EventCardProps) => {
   const { t, language } = useI18n();
-  const locale = language === "fr" ? "fr-FR" : language === "es" ? "es-ES" : "en-US";
+  const locale = language === "fr" ? "fr-FR" : language === "es" ? "es-ES" : "en-GB";
   const soldOutLabel = language === "fr" ? "Complet" : language === "es" ? "Agotado" : "Sold out";
 
   const urgency = getUrgencyLabel(event, language);
@@ -134,10 +135,10 @@ const EventCard = ({ event, onClick }: EventCardProps) => {
             event.fromPriceCents != null && (
               <span className="shrink-0 text-sm font-black tabular-nums">
                 {language === "fr"
-                  ? `dès ${(event.fromPriceCents / 100).toFixed(0)} €`
+                  ? `dès ${(event.fromPriceCents / 100).toFixed(0)} ${currencySymbol(event.currency)}`
                   : language === "es"
-                  ? `desde ${(event.fromPriceCents / 100).toFixed(0)} €`
-                  : `from €${(event.fromPriceCents / 100).toFixed(0)}`}
+                  ? `desde ${(event.fromPriceCents / 100).toFixed(0)} ${currencySymbol(event.currency)}`
+                  : `from ${currencySymbol(event.currency)}${(event.fromPriceCents / 100).toFixed(0)}`}
               </span>
             )
           )}

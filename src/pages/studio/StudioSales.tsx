@@ -3,7 +3,8 @@ import { Link } from "react-router-dom";
 import { Download, Loader2, Search } from "lucide-react";
 import { StatFigure } from "@/components/studio/StatFigure";
 import { FilterChips } from "@/components/studio/FilterChips";
-import { eur, plural, fmtDate, fmtTime, startOfDay, relativeTime } from "@/lib/studioFormat";
+import { fmtMoney, plural, fmtDate, fmtTime, startOfDay, relativeTime } from "@/lib/studioFormat";
+import { CURRENCIES, toCurrency, type Currency } from "@/lib/money";
 import { StudioLayout } from "@/components/studio/StudioLayout";
 import { StudioDocuments } from "@/components/studio/StudioDocuments";
 import { SEOHead } from "@/components/SEOHead";
@@ -20,6 +21,8 @@ interface SaleRow {
   total_cents: number;
   fee_cents: number | null;
   discount_cents: number | null;
+  /** The currency the order was charged in (event_orders.currency). */
+  currency: Currency;
   status: string;
   event_id: string;
   event_title: string;
@@ -28,9 +31,20 @@ interface SaleRow {
 
 type StatusFilter = "all" | "paid" | "pending" | "refunded" | "cancelled";
 
+/** Amounts per currency: an organizer with London and Paris events sells in
+ *  pounds and euros, and the two are never added together. */
+type ByCurrency = Partial<Record<Currency, number>>;
+const addTo = (m: ByCurrency, c: Currency, cents: number) => { m[c] = (m[c] ?? 0) + cents; };
+const currenciesOf = (m: ByCurrency) => CURRENCIES.filter((c) => m[c] != null);
+/** "€120 · £40", or "€0" when empty. */
+const fmtAll = (m: ByCurrency, decimals = 0) => {
+  const cs = currenciesOf(m);
+  return cs.length ? cs.map((c) => fmtMoney(m[c]!, c, decimals)).join(" · ") : fmtMoney(0, "EUR", decimals);
+};
+
 function exportCsv(rows: SaleRow[]) {
   const esc = (s: string) => `"${String(s ?? "").replace(/"/g, '""')}"`;
-  const lines = [["Date", "Event", "Tier", "Buyer email", "Quantity", "Total (€)", "Discount (€)", "Status"].join(",")];
+  const lines = [["Date", "Event", "Tier", "Buyer email", "Quantity", "Currency", "Total", "Discount", "Status"].join(",")];
   for (const r of rows) {
     lines.push([
       esc(new Date(r.created_at).toLocaleString("en-GB")),
@@ -38,6 +52,7 @@ function exportCsv(rows: SaleRow[]) {
       esc(r.tier_name),
       esc(r.buyer_email),
       r.quantity,
+      r.currency,
       (r.total_cents / 100).toFixed(2),
       ((r.discount_cents ?? 0) / 100).toFixed(2),
       esc(r.status),
@@ -69,7 +84,7 @@ const StudioSales = () => {
       const { data, error } = await supabase
         .from("event_orders")
         .select(
-          `id, created_at, buyer_email, quantity, total_cents, fee_cents, discount_cents, status, event_id,
+          `id, created_at, buyer_email, quantity, total_cents, fee_cents, discount_cents, currency, status, event_id,
            event:events(title), tier:event_tiers(name)`,
         )
         .eq("organizer_id", organizer.id)
@@ -82,7 +97,7 @@ const StudioSales = () => {
       }
       type Raw = {
         id: string; created_at: string; buyer_email: string; quantity: number;
-        total_cents: number; fee_cents: number | null; discount_cents: number | null; status: string;
+        total_cents: number; fee_cents: number | null; discount_cents: number | null; currency: string | null; status: string;
         event_id: string;
         event: { title: string } | { title: string }[] | null;
         tier: { name: string } | { name: string }[] | null;
@@ -98,6 +113,7 @@ const StudioSales = () => {
           total_cents: r.total_cents,
           fee_cents: r.fee_cents,
           discount_cents: r.discount_cents,
+          currency: toCurrency(r.currency),
           status: r.status,
           event_id: r.event_id,
           event_title: ev?.title ?? "Unknown event",
@@ -125,9 +141,19 @@ const StudioSales = () => {
   }, [rows, search, statusFilter, eventFilter]);
 
   const paidFiltered = filtered.filter((r) => r.status === "paid");
-  const totalRevenueCents = paidFiltered.reduce((a, r) => a + r.total_cents - (r.fee_cents ?? 0), 0);
+  // Revenue and average order, per currency.
+  const revenueBy: ByCurrency = {};
+  const ordersBy: ByCurrency = {};
+  for (const r of paidFiltered) {
+    addTo(revenueBy, r.currency, r.total_cents - (r.fee_cents ?? 0));
+    addTo(ordersBy, r.currency, 1);
+  }
   const totalTickets = paidFiltered.reduce((a, r) => a + r.quantity, 0);
-  const avgOrderCents = paidFiltered.length > 0 ? Math.round(totalRevenueCents / paidFiltered.length) : 0;
+  // Figures are shown per currency sold in; with no paid order, the currency
+  // of the orders in view (or euros).
+  const soldIn = currenciesOf(revenueBy);
+  const figureCurrencies: Currency[] = soldIn.length ? soldIn : [filtered[0]?.currency ?? rows[0]?.currency ?? "EUR"];
+  const multiCurrency = figureCurrencies.length > 1;
 
   const statusCounts = useMemo(() => {
     const base = rows.filter((r) => eventFilter === "all" || r.event_title === eventFilter);
@@ -137,10 +163,9 @@ const StudioSales = () => {
 
   const allTime = useMemo(() => {
     const paid = rows.filter((r) => r.status === "paid");
-    return {
-      cents: paid.reduce((a, r) => a + r.total_cents - (r.fee_cents ?? 0), 0),
-      tickets: paid.reduce((a, r) => a + r.quantity, 0),
-    };
+    const cents: ByCurrency = {};
+    for (const r of paid) addTo(cents, r.currency, r.total_cents - (r.fee_cents ?? 0));
+    return { cents, tickets: paid.reduce((a, r) => a + r.quantity, 0) };
   }, [rows]);
 
   // Ticket revenue per day over the last 30 days, from the orders already
@@ -148,11 +173,11 @@ const StudioSales = () => {
   const strip = useMemo(() => {
     const since = startOfDay(new Date());
     since.setDate(since.getDate() - 29);
-    const days: { day: string; cents: number; tickets: number }[] = [];
+    const days: { day: string; cents: ByCurrency; tickets: number }[] = [];
     for (let i = 0; i < 30; i++) {
       const d = new Date(since);
       d.setDate(d.getDate() + i);
-      days.push({ day: d.toISOString().slice(0, 10), cents: 0, tickets: 0 });
+      days.push({ day: d.toISOString().slice(0, 10), cents: {}, tickets: 0 });
     }
     const idx = new Map(days.map((d, i) => [d.day, i]));
     for (const r of rows) {
@@ -160,12 +185,18 @@ const StudioSales = () => {
       if (eventFilter !== "all" && r.event_title !== eventFilter) continue;
       const i = idx.get(r.created_at.slice(0, 10));
       if (i == null) continue;
-      days[i].cents += r.total_cents - (r.fee_cents ?? 0);
+      addTo(days[i].cents, r.currency, r.total_cents - (r.fee_cents ?? 0));
       days[i].tickets += r.quantity;
     }
-    const total = days.reduce((a, d) => a + d.cents, 0);
-    const max = Math.max(1, ...days.map((d) => d.cents));
-    return { days, total, max, tickets: days.reduce((a, d) => a + d.tickets, 0) };
+    const total: ByCurrency = {};
+    for (const d of days) for (const c of currenciesOf(d.cents)) addTo(total, c, d.cents[c]!);
+    // Bar height: revenue when everything is in one currency, else tickets
+    // (pounds and euros cannot share a scale).
+    const single = currenciesOf(total).length <= 1;
+    const height = (d: (typeof days)[number]) => (single ? CURRENCIES.reduce((a, c) => a + (d.cents[c] ?? 0), 0) : d.tickets);
+    const max = Math.max(1, ...days.map(height));
+    const tickets = days.reduce((a, d) => a + d.tickets, 0);
+    return { days, total, height, max, tickets, empty: currenciesOf(total).every((c) => total[c] === 0) };
   }, [rows, eventFilter]);
 
   // Four facts an organizer actually acts on, for the chosen event(s):
@@ -188,7 +219,8 @@ const StudioSales = () => {
     const peak = [...byDay.entries()].sort((a, b) => b[1] - a[1])[0];
     const refunds = base.filter((r) => r.status === "refunded").length;
     const promo = paid.filter((r) => (r.discount_cents ?? 0) > 0);
-    const promoCents = promo.reduce((a, r) => a + (r.discount_cents ?? 0), 0);
+    const promoCents: ByCurrency = {};
+    for (const r of promo) addTo(promoCents, r.currency, r.discount_cents ?? 0);
     const lastOrder = paid.reduce<string | null>((m, r) => (!m || r.created_at > m ? r.created_at : m), null);
     return {
       best: best ? { name: best[0], share: Math.round((best[1] / qty) * 100) } : null,
@@ -217,7 +249,7 @@ const StudioSales = () => {
           <div className="min-w-0">
             <h1 className="text-xl md:text-2xl font-bold text-foreground">Sales</h1>
             <p className="text-xs text-muted-foreground mt-0.5">
-              {rows.length === 0 ? "No orders yet" : `${eur(allTime.cents)} from ${plural(allTime.tickets, "ticket")}, all time`}
+              {rows.length === 0 ? "No orders yet" : `${fmtAll(allTime.cents)} from ${plural(allTime.tickets, "ticket")}, all time`}
               {highlights?.lastOrder ? ` · last order ${relativeTime(highlights.lastOrder)}` : ""}
             </p>
           </div>
@@ -262,18 +294,30 @@ const StudioSales = () => {
         {/* Figures for the current selection, and the last 30 days */}
         <section className="bg-card border border-border p-4 md:p-5 mb-4" aria-label="Sales summary">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5">
-            <StatFigure label="Ticket revenue" value={totalRevenueCents} money hint="paid orders, after the buyer fee" />
+            {figureCurrencies.map((c) => (
+              <StatFigure key={`rev-${c}`} label={multiCurrency ? `Ticket revenue (${c})` : "Ticket revenue"} value={revenueBy[c] ?? 0} money currency={c} hint="paid orders, after the buyer fee" />
+            ))}
             <StatFigure label="Tickets" value={totalTickets} />
             <StatFigure label="Orders" value={filtered.length} hint={statusFilter === "all" ? `${paidFiltered.length} paid` : statusFilter} />
-            <StatFigure label="Per order" value={avgOrderCents} money decimals={2} hint="average, paid" />
+            {figureCurrencies.map((c) => (
+              <StatFigure
+                key={`avg-${c}`}
+                label={multiCurrency ? `Per order (${c})` : "Per order"}
+                value={ordersBy[c] ? Math.round((revenueBy[c] ?? 0) / ordersBy[c]!) : 0}
+                money
+                currency={c}
+                decimals={2}
+                hint="average, paid"
+              />
+            ))}
           </div>
           <div className="flex items-baseline justify-between mb-2">
             <h2 className="text-xs font-bold">Last 30 days</h2>
-            <span className="text-[11px] text-muted-foreground tabular-nums">{eur(strip.total)} · {plural(strip.tickets, "ticket")}</span>
+            <span className="text-[11px] text-muted-foreground tabular-nums">{fmtAll(strip.total)} · {plural(strip.tickets, "ticket")}</span>
           </div>
           {loading ? (
             <div className="h-14 bg-muted animate-pulse" />
-          ) : strip.total === 0 ? (
+          ) : strip.empty ? (
             <p className="text-xs text-muted-foreground py-4">No paid orders in the last 30 days.</p>
           ) : (
             <>
@@ -281,9 +325,9 @@ const StudioSales = () => {
                 {strip.days.map((d, i) => (
                   <div
                     key={d.day}
-                    title={`${fmtDate(d.day)}: ${eur(d.cents)}, ${plural(d.tickets, "ticket")}`}
-                    className={`flex-1 ${i === strip.days.length - 1 ? "bg-primary" : d.cents > 0 ? "bg-primary/60" : "bg-muted"}`}
-                    style={{ height: `${Math.max(4, (d.cents / strip.max) * 100)}%` }}
+                    title={`${fmtDate(d.day)}: ${fmtAll(d.cents)}, ${plural(d.tickets, "ticket")}`}
+                    className={`flex-1 ${i === strip.days.length - 1 ? "bg-primary" : strip.height(d) > 0 ? "bg-primary/60" : "bg-muted"}`}
+                    style={{ height: `${Math.max(4, (strip.height(d) / strip.max) * 100)}%` }}
                   />
                 ))}
               </div>
@@ -313,7 +357,7 @@ const StudioSales = () => {
               <div>
                 <dt className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Promo codes</dt>
                 <dd className="text-sm font-semibold">{highlights.promoOrders > 0 ? plural(highlights.promoOrders, "order") : "Not used"}</dd>
-                <dd className="text-[11px] text-muted-foreground">{highlights.promoOrders > 0 ? `${eur(highlights.promoCents)} given away` : ""}</dd>
+                <dd className="text-[11px] text-muted-foreground">{highlights.promoOrders > 0 ? `${fmtAll(highlights.promoCents)} given away` : ""}</dd>
               </div>
             </dl>
           )}
@@ -365,7 +409,7 @@ const StudioSales = () => {
                         <td className="px-4 py-2.5 text-muted-foreground">{r.tier_name}</td>
                         <td className="px-4 py-2.5 text-muted-foreground max-w-[200px] truncate">{r.buyer_email}</td>
                         <td className="px-4 py-2.5 text-right tabular-nums">{r.quantity}</td>
-                        <td className="px-4 py-2.5 text-right font-bold tabular-nums">{eur(r.total_cents, 2)}</td>
+                        <td className="px-4 py-2.5 text-right font-bold tabular-nums">{fmtMoney(r.total_cents, r.currency, 2)}</td>
                         <td className="px-4 py-2.5"><StatusPill status={r.status} /></td>
                       </tr>
                     ))}
@@ -380,7 +424,7 @@ const StudioSales = () => {
                         <Link to={`/studio/events/${r.event_id}`} className="text-sm font-semibold truncate block">{r.event_title}</Link>
                         <div className="text-[11px] text-muted-foreground truncate">{r.tier_name} · {r.buyer_email}</div>
                       </div>
-                      <div className="text-sm font-bold tabular-nums shrink-0">{eur(r.total_cents, 2)}</div>
+                      <div className="text-sm font-bold tabular-nums shrink-0">{fmtMoney(r.total_cents, r.currency, 2)}</div>
                     </div>
                     <div className="flex items-center justify-between mt-1.5 text-[11px] text-muted-foreground">
                       <span className="tabular-nums">{fmtDate(r.created_at)} {fmtTime(r.created_at)} · ×{r.quantity}</span>
