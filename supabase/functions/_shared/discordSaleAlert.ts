@@ -7,8 +7,7 @@
  * must never fail the Stripe webhook, so every error is logged and swallowed.
  */
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-const eur = (cents: number) => `${(cents / 100).toFixed(2).replace(".", ",")} €`;
+import { formatMinor, normalizeCurrency } from "./money.ts";
 
 const parisStamp = (d: Date) =>
   new Intl.DateTimeFormat("fr-FR", {
@@ -26,12 +25,12 @@ export async function postDiscordSaleAlert(supabase: SupabaseClient, orderId: st
   try {
     const { data: order } = await supabase
       .from("event_orders")
-      .select("id, quantity, unit_price_cents, discount_cents, fee_cents, total_cents, buyer_email, attendees, paid_at, event_id, tier_id")
+      .select("id, quantity, unit_price_cents, discount_cents, fee_cents, total_cents, currency, buyer_email, attendees, paid_at, event_id, tier_id")
       .eq("id", orderId)
       .maybeSingle();
     if (!order) return;
     const o = order as {
-      quantity: number; unit_price_cents: number; discount_cents: number | null; fee_cents: number | null; total_cents: number;
+      quantity: number; unit_price_cents: number; discount_cents: number | null; fee_cents: number | null; total_cents: number; currency: string | null;
       buyer_email: string | null; attendees: unknown; paid_at: string | null; event_id: string; tier_id: string | null;
     };
 
@@ -43,23 +42,26 @@ export async function postDiscordSaleAlert(supabase: SupabaseClient, orderId: st
     const orgRaw = (ev as { organizer?: unknown } | null)?.organizer;
     const organizer = (Array.isArray(orgRaw) ? orgRaw[0] : orgRaw) as { name?: string } | null;
     const tierName = (tier as { name?: string } | null)?.name ?? "Billet";
+    // "12,50 €" as before for euro orders, "£12.50" for London ones.
+    const money = (cents: number) =>
+      normalizeCurrency(o.currency) === "GBP" ? formatMinor(cents, "GBP") : `${(cents / 100).toFixed(2).replace(".", ",")} €`;
 
     const attendees = Array.isArray(o.attendees) ? (o.attendees as { first_name?: string; last_name?: string; email?: string }[]) : [];
     const first = attendees[0];
     const buyerName = [first?.first_name, first?.last_name].filter(Boolean).join(" ").trim() || "Acheteur";
     const buyerEmail = o.buyer_email ?? first?.email ?? "";
 
-    const lines = Array.from({ length: Math.max(1, o.quantity) }, () => `• ${tierName} — ${eur(o.unit_price_cents)}`).join("\n");
+    const lines = Array.from({ length: Math.max(1, o.quantity) }, () => `• ${tierName} — ${money(o.unit_price_cents)}`).join("\n");
     const fee = o.fee_cents ?? 0;
     const discount = o.discount_cents ?? 0;
-    const totalNote = [fee > 0 ? `dont ${eur(fee)} de frais` : null, discount > 0 ? `-${eur(discount)} promo` : null].filter(Boolean).join(", ");
+    const totalNote = [fee > 0 ? `dont ${money(fee)} de frais` : null, discount > 0 ? `-${money(discount)} promo` : null].filter(Boolean).join(", ");
 
     const embed = {
       title: `🎟️ Nouvelle vente — ${title}`,
       color: 0xe53935,
       fields: [
         { name: "🧑 Acheteur", value: `${buyerName}\n${buyerEmail}`.trim(), inline: true },
-        { name: "💶 Total", value: totalNote ? `${eur(o.total_cents)}\n(${totalNote})` : eur(o.total_cents), inline: true },
+        { name: normalizeCurrency(o.currency) === "GBP" ? "💷 Total" : "💶 Total", value: totalNote ? `${money(o.total_cents)}\n(${totalNote})` : money(o.total_cents), inline: true },
         { name: "🎫 Billets", value: lines, inline: false },
       ],
       footer: { text: `${organizer?.name ?? "Ticket Safe"} · ${provider} · ${parisStamp(o.paid_at ? new Date(o.paid_at) : new Date())}` },

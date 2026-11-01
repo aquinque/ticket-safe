@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ArrowRight, Loader2, Download, CheckCircle2, CreditCard } from "lucide-react";
 import { Link } from "react-router-dom";
 import { StatFigure } from "@/components/studio/StatFigure";
-import { eur, fmtDate, plural } from "@/lib/studioFormat";
+import { eur, fmtMoney, fmtDate, plural } from "@/lib/studioFormat";
 import { toast } from "sonner";
 import { StudioLayout } from "@/components/studio/StudioLayout";
 import { SEOHead } from "@/components/SEOHead";
@@ -13,6 +13,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { generatePayoutReceiptPDF } from "@/lib/payoutReceiptPdf";
 import { STUDIO_FEE_RULE } from "@/lib/studioFee";
 
+/** organizer_earnings is the legacy bank-transfer (SEPA) balance from events
+ *  sold before Stripe. It holds no currency and those events were all priced
+ *  in euros, so the balance and the withdraw form stay in euros. Each payout
+ *  row carries its own currency. */
 interface Earnings {
   net_earned_cents: number;
   gross_cents: number;
@@ -26,6 +30,7 @@ interface Earnings {
 interface PayoutRow {
   id: string;
   amount_cents: number;
+  currency: string;
   gross_cents: number | null;
   fee_cents: number | null;
   status: "requested" | "processing" | "sent" | "failed" | "cancelled";
@@ -71,7 +76,7 @@ const StudioPayouts = () => {
       supabase.from("organizer_profiles").select("payout_iban, payout_iban_holder").eq("id", organizer.id).maybeSingle(),
       supabase
         .from("organizer_payouts")
-        .select("id, amount_cents, gross_cents, fee_cents, status, iban_used, iban_holder_used, requested_at, sent_at")
+        .select("id, amount_cents, currency, gross_cents, fee_cents, status, iban_used, iban_holder_used, requested_at, sent_at")
         .eq("organizer_id", organizer.id)
         .order("requested_at", { ascending: false })
         .limit(50),
@@ -132,6 +137,7 @@ const StudioPayouts = () => {
         feeCents,
         feePercent,
         netCents: p.amount_cents,
+        currency: p.currency,
         sentAt: p.sent_at,
         requestedAt: p.requested_at,
         status: p.status,
@@ -225,7 +231,7 @@ const StudioPayouts = () => {
                       </button>
                     </div>
                     {!amountValid && (
-                      <p className="text-xs text-amber-700 mt-1">Between €1.00 and {eur(available, 2)}.</p>
+                      <p className="text-xs text-amber-700 mt-1">Between {eur(100, 2)} and {eur(available, 2)}.</p>
                     )}
                   </div>
                   <div className="md:col-span-2">
@@ -276,7 +282,7 @@ const StudioPayouts = () => {
                   {history.map((p) => (
                     <li key={p.id} className="flex items-center gap-3 px-4 md:px-5 py-3">
                       <div className="flex-1 min-w-0">
-                        <div className="text-sm font-semibold tabular-nums">{eur(p.amount_cents, 2)} <span className="font-normal text-muted-foreground">to {p.iban_used.slice(0, 4)} ··· {p.iban_used.slice(-4)}</span></div>
+                        <div className="text-sm font-semibold tabular-nums">{fmtMoney(p.amount_cents, p.currency, 2)} <span className="font-normal text-muted-foreground">to {p.iban_used.slice(0, 4)} ··· {p.iban_used.slice(-4)}</span></div>
                         <div className="text-[11px] text-muted-foreground">
                           Requested {fmtDate(p.requested_at)}{p.sent_at ? ` · sent ${fmtDate(p.sent_at)}` : ""}
                         </div>

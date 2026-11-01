@@ -3,9 +3,10 @@ import { supabase } from "@/integrations/supabase/client";
 
 /**
  * Service fee per ticket, read from the database function that every checkout
- * uses (get_studio_commission_cents: 4 % + 0,80 €, min 0,70 €, max 3,50 €, or
- * the event's negotiated fee). The site never computes a fee itself; these
- * hooks only show what the server will charge. null while loading.
+ * uses (get_studio_commission_cents: 4 % + 0,80 €, min 0,70 €; 4 % + £0.70,
+ * min £0.60 for an event in pounds; no maximum; or the event's negotiated
+ * fee). The site never computes a fee itself; these hooks only show what the
+ * server will charge. null while loading.
  */
 
 /** Fee for one ticket of an existing tier (negotiated fee included). */
@@ -23,14 +24,14 @@ export function useTierServiceFee(tierId: string | null): number | null {
   return data ?? null;
 }
 
-/** Fee for one ticket at a price being typed (Studio), before the tier exists. */
-export function useServiceFeeForPrice(priceCents: number | null): number | null {
+/** Fee for one ticket at a price being typed (Studio), before the tier exists, in that currency. */
+export function useServiceFeeForPrice(priceCents: number | null, currency: string = "EUR"): number | null {
   const valid = priceCents !== null && Number.isFinite(priceCents) && priceCents >= 0;
   const { data } = useQuery({
-    queryKey: ["service-fee-for-price", priceCents],
+    queryKey: ["service-fee-for-price", priceCents, currency],
     enabled: valid,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("get_studio_commission_cents", { p_price_cents: priceCents! });
+      const { data, error } = await supabase.rpc("get_studio_commission_cents", { p_price_cents: priceCents!, ...(currency === "GBP" ? { p_currency: currency } : {}) });
       if (error) throw error;
       return typeof data === "number" ? data : null;
     },

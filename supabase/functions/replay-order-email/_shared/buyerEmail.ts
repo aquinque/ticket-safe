@@ -1,4 +1,4 @@
-import { escapeHtmlText as esc } from "./receiptLegal.ts";
+import { escapeHtmlText as esc, moneyText } from "./receiptLegal.ts";
 // `appleWalletUrl` is only passed when the wallet-pass function can actually
 // sign a .pkpass (Apple secrets set). Without it the button is omitted entirely
 // — a button that lands on a "setup pending" page reads as an error to buyers.
@@ -30,14 +30,15 @@ export function renderTicketCard(o: { idx: number; total: number; holder: string
   </div>
 </div>`;
 }
-export function renderBuyerEmail(o: { firstName: string; evTitle: string; evDate: string; evLocation: string; tierName: string; totalEUR: number; ticketBlocksHtml: string; qty: number; summaryHtml?: string; legalHtml?: string; }): string {
-  const { firstName, evTitle, evDate, evLocation, tierName, totalEUR, ticketBlocksHtml, qty, summaryHtml, legalHtml } = o;
+// `totalCents` is in the order's currency (`currency`: 'EUR' or 'GBP', euros when absent).
+export function renderBuyerEmail(o: { firstName: string; evTitle: string; evDate: string; evLocation: string; tierName: string; totalCents: number; currency?: string | null; ticketBlocksHtml: string; qty: number; summaryHtml?: string; legalHtml?: string; }): string {
+  const { firstName, evTitle, evDate, evLocation, tierName, totalCents, currency, ticketBlocksHtml, qty, summaryHtml, legalHtml } = o;
   const hi = firstName ? `Hi ${esc(firstName)},` : `Hi,`;
   // Without a payment summary (older callers) the e-mail keeps its three-row recap.
   const totals = summaryHtml ?? `<table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:18px;border-top:1px solid #e2e8f0;padding-top:18px">
       <tr><td style="padding:5px 0;color:#64748b;width:42%">Tier</td><td style="padding:5px 0;color:#1e293b;font-weight:600">${esc(tierName)}</td></tr>
       <tr><td style="padding:5px 0;color:#64748b">Number of tickets</td><td style="padding:5px 0;color:#1e293b;font-weight:600">${qty}</td></tr>
-      <tr><td style="padding:5px 0;color:#64748b">Total paid</td><td style="padding:5px 0;color:#2440b6;font-weight:800">€${totalEUR.toFixed(2)}</td></tr>
+      <tr><td style="padding:5px 0;color:#64748b">Total paid</td><td style="padding:5px 0;color:#2440b6;font-weight:800">${moneyText(totalCents, "en", currency)}</td></tr>
     </table>`;
   return `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;padding:0;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif">
 <div style="max-width:560px;margin:32px auto;background:transparent">

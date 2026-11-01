@@ -121,7 +121,7 @@ const MyListings = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { language } = useI18n();
-  const dateLocale = language === "fr" ? "fr-FR" : "en-US";
+  const dateLocale = language === "fr" ? "fr-FR" : "en-GB";
 
   const [listings, setListings] = useState<RawListing[]>([]);
   const [loading, setLoading] = useState(true);

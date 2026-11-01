@@ -44,6 +44,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { parseExternalTicketsCsv, type ParsedExternalRow } from "@/lib/externalTicketsCsv";
+import { currencySymbol, formatMoney, formatMajor, toCurrency, type Currency } from "@/lib/money";
 
 // ── Types ────────────────────────────────────────────────────────────────
 interface ExtTier {
@@ -65,7 +66,10 @@ interface ExtRow {
   created_at: string;
 }
 
-const euros = (cents: number | null | undefined) => `€${((cents ?? 0) / 100).toFixed(2)}`;
+// Prices are in the event's own currency (pounds for London events).
+const money = (cents: number | null | undefined, currency: Currency) => formatMoney(cents ?? 0, currency);
+/** Lowest price accepted for an external tier, in minor units. */
+const MIN_PRICE_CENTS = 50;
 
 const STATUS_STYLE: Record<ExtRow["status"], string> = {
   available: "bg-emerald-50 text-emerald-700 border-emerald-200",
@@ -107,10 +111,11 @@ export function ExternalTicketsSection({
   const [loading, setLoading] = useState(true);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [busyTier, setBusyTier] = useState<string | null>(null);
+  const [currency, setCurrency] = useState<Currency>("EUR");
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [{ data: t }, { data: r }] = await Promise.all([
+    const [{ data: t }, { data: r }, { data: anyTier }] = await Promise.all([
       supabase
         .from("event_tiers")
         .select("id, name, price_cents, is_active")
@@ -122,7 +127,11 @@ export function ExternalTicketsSection({
         .select("id, tier_id, status, external_code, external_reference, original_provider, uploaded_file_url, notes, platform_price_cents, created_at")
         .eq("event_id", eventId)
         .order("created_at", { ascending: false }),
+      // The event's currency, from any of its tiers (event_tiers.currency
+      // always equals the event's). No tier yet = euros.
+      supabase.from("event_tiers").select("currency").eq("event_id", eventId).limit(1).maybeSingle(),
     ]);
+    setCurrency(toCurrency(anyTier?.currency));
     setTiers((t as ExtTier[]) ?? []);
     setRows((r as ExtRow[]) ?? []);
     setLoading(false);
@@ -150,8 +159,8 @@ export function ExternalTicketsSection({
   // ── Per-tier actions ─────────────────────────────────────────────────
   const setTierPrice = async (tier: ExtTier, euroStr: string) => {
     const cents = Math.round(parseFloat(euroStr) * 100);
-    if (!Number.isFinite(cents) || cents < 50) {
-      toast.error("Enter a price of at least €0.50.");
+    if (!Number.isFinite(cents) || cents < MIN_PRICE_CENTS) {
+      toast.error(`Enter a price of at least ${formatMoney(MIN_PRICE_CENTS, currency)}.`);
       return;
     }
     setBusyTier(tier.id);
@@ -222,7 +231,7 @@ export function ExternalTicketsSection({
       r.external_code ?? "",
       r.external_reference ?? "",
       r.status,
-      euros(r.platform_price_cents ?? tier.price_cents),
+      money(r.platform_price_cents ?? tier.price_cents, currency),
       r.notes ?? "",
       new Date(r.created_at).toLocaleString("en-GB"),
     ]);
@@ -283,7 +292,7 @@ export function ExternalTicketsSection({
                     )}
                   </div>
                   {/* Inline price editor */}
-                  <PriceEditor tier={tier} disabled={busy} onSave={(v) => setTierPrice(tier, v)} />
+                  <PriceEditor tier={tier} currency={currency} disabled={busy} onSave={(v) => setTierPrice(tier, v)} />
                 </div>
 
                 {/* Counts */}
@@ -339,6 +348,7 @@ export function ExternalTicketsSection({
           eventId={eventId}
           eventPublished={eventPublished}
           existingTiers={tiers}
+          currency={currency}
           onClose={() => setWizardOpen(false)}
           onDone={() => { setWizardOpen(false); refresh(); }}
         />
@@ -348,7 +358,7 @@ export function ExternalTicketsSection({
 }
 
 // Inline editable price for an external tier.
-function PriceEditor({ tier, disabled, onSave }: { tier: ExtTier; disabled: boolean; onSave: (euroStr: string) => void }) {
+function PriceEditor({ tier, currency, disabled, onSave }: { tier: ExtTier; currency: Currency; disabled: boolean; onSave: (euroStr: string) => void }) {
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState((tier.price_cents / 100).toFixed(2));
   useEffect(() => { setVal((tier.price_cents / 100).toFixed(2)); }, [tier.price_cents]);
@@ -358,7 +368,7 @@ function PriceEditor({ tier, disabled, onSave }: { tier: ExtTier; disabled: bool
         onClick={() => setEditing(true)}
         className="inline-flex items-center gap-1.5 px-2.5 min-h-[34px] rounded-lg text-sm font-bold text-primary bg-primary/5 hover:bg-primary/10 border border-primary/15"
       >
-        {euros(tier.price_cents)}
+        {money(tier.price_cents, currency)}
         <Tag className="w-3.5 h-3.5" />
       </button>
     );
@@ -366,7 +376,7 @@ function PriceEditor({ tier, disabled, onSave }: { tier: ExtTier; disabled: bool
   return (
     <div className="flex items-center gap-1.5">
       <div className="relative">
-        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">€</span>
+        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">{currencySymbol(currency)}</span>
         <input
           type="number"
           step="0.01"
@@ -398,12 +408,14 @@ function ImportWizard({
   eventId,
   eventPublished,
   existingTiers,
+  currency,
   onClose,
   onDone,
 }: {
   eventId: string;
   eventPublished: boolean;
   existingTiers: ExtTier[];
+  currency: Currency;
   onClose: () => void;
   onDone: () => void;
 }) {
@@ -443,7 +455,7 @@ function ImportWizard({
     if (creatingTier) {
       if (tierName.trim().length < 1) return false;
       const cents = Math.round(parseFloat(priceEur) * 100);
-      if (!Number.isFinite(cents) || cents < 50) return false;
+      if (!Number.isFinite(cents) || cents < MIN_PRICE_CENTS) return false;
     }
     return plannedCount > 0;
   })();
@@ -617,7 +629,7 @@ function ImportWizard({
               >
                 <option value="new">+ New category…</option>
                 {existingTiers.map((t) => (
-                  <option key={t.id} value={t.id}>{t.name} ({euros(t.price_cents)})</option>
+                  <option key={t.id} value={t.id}>{t.name} ({money(t.price_cents, currency)})</option>
                 ))}
               </select>
             </div>
@@ -636,7 +648,7 @@ function ImportWizard({
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1.5">Selling price</label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">€</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">{currencySymbol(currency)}</span>
                     <input
                       type="number" step="0.01" min="0.5"
                       value={priceEur}
@@ -736,7 +748,7 @@ function ImportWizard({
             <div className="grid grid-cols-2 gap-3">
               <Stat label="To import" value={String(preview.to_insert)} accent />
               <Stat label="Category" value={creatingTier ? (tierName || "—") : (existingTiers.find((t) => t.id === targetTier)?.name ?? "—")} />
-              <Stat label="Price each" value={creatingTier ? `€${(parseFloat(priceEur) || 0).toFixed(2)}` : euros(existingTiers.find((t) => t.id === targetTier)?.price_cents)} />
+              <Stat label="Price each" value={creatingTier ? formatMajor(parseFloat(priceEur) || 0, currency) : money(existingTiers.find((t) => t.id === targetTier)?.price_cents, currency)} />
               <Stat label="On sale" value={publish ? "Yes" : "Draft"} />
             </div>
             {preview.with_file > 0 && (

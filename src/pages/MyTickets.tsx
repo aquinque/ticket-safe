@@ -15,6 +15,7 @@ import { SEOHead } from "@/components/SEOHead";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { downloadTicketPdf } from "@/lib/ticketPdf";
+import { formatMoney } from "@/lib/money";
 import { toast } from "sonner";
 import { Mail } from "lucide-react";
 
@@ -24,6 +25,8 @@ interface OrderRow {
   buyer_id: string;
   quantity: number;
   total_cents: number;
+  /** 'EUR' | 'GBP', the currency the order was charged in. */
+  currency: string;
   status: string;
   created_at: string;
   event: {
@@ -102,7 +105,7 @@ const MyTickets = () => {
       const [{ data: ord }, { data: ev }, { data: tier }] = await Promise.all([
         supabase
           .from("event_orders")
-          .select("id, event_id, buyer_id, quantity, total_cents, status, created_at")
+          .select("id, event_id, buyer_id, quantity, total_cents, currency, status, created_at")
           .eq("id", orderId)
           .maybeSingle(),
         supabase
@@ -125,6 +128,7 @@ const MyTickets = () => {
         buyer_id: user.id,
         quantity: tix.length,
         total_cents: (ord as { total_cents?: number } | null)?.total_cents ?? 0,
+        currency: (ord as { currency?: string } | null)?.currency ?? "EUR",
         status: (ord as { status?: string } | null)?.status ?? "paid",
         created_at: (ord as { created_at?: string } | null)?.created_at ?? new Date().toISOString(),
         event: (ev as OrderRow["event"]) ?? null,
@@ -462,13 +466,13 @@ const MyTickets = () => {
                               // Compute per-ticket price from the order
                               // total. Falls back to "—" if either piece
                               // is missing.
-                              const perTicketEuros =
+                              const perTicketCents =
                                 order.total_cents > 0 && tickets.length > 0
-                                  ? (order.total_cents / 100 / tickets.length)
+                                  ? Math.round(order.total_cents / tickets.length)
                                   : null;
                               const pricePaid =
-                                perTicketEuros != null
-                                  ? `${perTicketEuros.toFixed(2)}€`
+                                perTicketCents != null
+                                  ? formatMoney(perTicketCents, order.currency)
                                   : "—";
                               // Status mapping: ticket.status "valid"
                               // -> "Valid", scanned -> "Used", refunded/

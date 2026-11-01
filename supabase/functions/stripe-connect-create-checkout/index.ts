@@ -17,7 +17,8 @@
  * (stripe-connect-payout-cron). Refunds: _shared/stripeRefund.ts.
  *
  * Fee model: the service fee comes from get_studio_commission_cents (4 % +
- * 0,80 € per ticket, min 0,70 €, max 3,50 €, or the event's override); it is
+ * 0,80 € per ticket, min 0,70 €; 4 % + £0.70, min £0.60 in pounds; no
+ * maximum; or the event's override); it is
  * not defined here. Tickets are issued by stripe-connect-webhook on
  * checkout.session.completed.
  *
@@ -342,6 +343,8 @@ serve(async (req) => {
     const { data: feeResult, error: feeErr } = await supabase.rpc("get_studio_commission_cents", {
       p_price_cents: unitPrice,
       p_override_cents: (ev as { commission_override_cents?: number | null }).commission_override_cents ?? null,
+      // Only sent for pounds, so a euro checkout makes the same call as before the UK migration.
+      ...((tier.currency ?? "EUR").toUpperCase() === "GBP" ? { p_currency: "GBP" } : {}),
     });
     if (feeErr || typeof feeResult !== "number") {
       console.error("[stripe-connect-create-checkout] service fee lookup failed:", feeErr);

@@ -6,7 +6,7 @@
  * to tell an organizer, before they click, why a document isn't available yet. Unit
  * tested from the web app's test suite (src/__tests__/billingRules.test.ts).
  */
-import { formatEurFr } from "./pdfText.ts";
+import { formatMoneyFr } from "./pdfText.ts";
 
 // ── What is billed ───────────────────────────────────────────────────────────
 
@@ -18,7 +18,7 @@ export interface FeeOrder {
 
 export interface InvoiceLine {
   description: string;
-  detail: string; // the ticket price the fee applies to, e.g. "billets à 10,00 €"; empty when it isn't known
+  detail: string; // the ticket price the fee applies to, e.g. "billets à 10,00 €" ("billets à £10.00" for a London event); empty when it isn't known
   quantity: number;
   unitPriceHtCents: number;
   vatRateBps: number;
@@ -47,8 +47,9 @@ export const INVOICE_LINE_LABEL = "Frais de service de billetterie";
  * split the same way, and the largest line absorbs the few cents rounding leaves, so the
  * lines always add up to the totals. A unit price excl. tax can then have more than two
  * decimals, which is why it is kept as a fraction of a cent.
+ * `currency` is the event's ('EUR' or 'GBP', euros when absent); it only changes how the ticket price is written.
  */
-export function buildInvoiceAmounts(orders: FeeOrder[], vat: { exempt: boolean; rateBps: number }): InvoiceAmounts {
+export function buildInvoiceAmounts(orders: FeeOrder[], vat: { exempt: boolean; rateBps: number }, currency?: string | null): InvoiceAmounts {
   const rateBps = vat.exempt ? 0 : Math.max(0, Math.trunc(vat.rateBps));
   const groups = new Map<string, { unitTtc: number; listPrice: number | null; quantity: number }>();
   let ticketCount = 0;
@@ -81,7 +82,7 @@ export function buildInvoiceAmounts(orders: FeeOrder[], vat: { exempt: boolean; 
 
   const lines: InvoiceLine[] = sorted.map((g, i) => ({
     description: INVOICE_LINE_LABEL,
-    detail: g.listPrice != null ? `billets à ${formatEurFr(g.listPrice)}` : "",
+    detail: g.listPrice != null ? `billets à ${formatMoneyFr(g.listPrice, currency)}` : "",
     quantity: g.quantity,
     unitPriceHtCents: Math.round((hts[i] / g.quantity) * 10000) / 10000,
     vatRateBps: rateBps,

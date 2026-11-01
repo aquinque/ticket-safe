@@ -60,6 +60,17 @@ function json(body: unknown, status = 200) {
 const SIGNED_URL_TTL_SECONDS = 300; // 5 minutes — "short duration" per spec
 const PAGE = 1000; // PostgREST returns at most 1000 rows per request
 
+
+/**
+ * The event's currency, from one of its tiers (the database keeps them equal):
+ * pounds for a London event. Not read from events.currency, so this keeps
+ * working before the UK migration adds that column.
+ */
+async function eventCurrency(supabase: any, eventId: string): Promise<string> {
+  const { data } = await supabase.from("event_tiers").select("currency").eq("event_id", eventId).limit(1).maybeSingle();
+  return (data as { currency?: string | null } | null)?.currency === "GBP" ? "GBP" : "EUR";
+}
+
 async function sha256Hex(bytes: Uint8Array): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", bytes);
   return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
@@ -320,6 +331,7 @@ async function handleSalesStatement(supabase: any, event: any, organizer: any, s
   }
 
   const data: SalesStatementData = {
+    currency: await eventCurrency(supabase, event.id),
     documentNumber: reserved.document_number,
     status: payoutStatus,
     issuedAt,
@@ -501,7 +513,7 @@ async function handleServiceInvoice(supabase: any, event: any, organizer: any, s
     if (problems.length > 0) return notReady(problems);
     if (blocker) return json({ error: blocker.message, code: blocker.code, missing: blocker.missing }, 422);
 
-    const amounts = buildInvoiceAmounts(orders, { exempt: !!settings.vat_exempt, rateBps: settings.vat_rate_bps ?? 0 });
+    const amounts = buildInvoiceAmounts(orders, { exempt: !!settings.vat_exempt, rateBps: settings.vat_rate_bps ?? 0 }, await eventCurrency(supabase, event.id));
     const { data: r, error: reserveErr } = await supabase.rpc("reserve_billing_document", {
       p_doc_type: "service_invoice",
       p_organizer_id: organizer.id,
@@ -528,6 +540,7 @@ async function handleServiceInvoice(supabase: any, event: any, organizer: any, s
   }
 
   const data: ServiceInvoiceData = {
+    currency: await eventCurrency(supabase, event.id),
     documentNumber: reserved.document_number,
     issuedAt: reserved.issued_at,
     serviceDate: (eventEnd(event) ?? new Date(reserved.issued_at)).toISOString(),

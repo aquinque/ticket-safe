@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import { Tag, Plus, Trash2, Percent, Euro } from "lucide-react";
+import { Tag, Plus, Trash2, Percent, Euro, PoundSterling } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { currencySymbol, formatMoney, toCurrency, type Currency } from "@/lib/money";
 
 interface PromoCodeRow {
   id: string;
@@ -27,13 +28,21 @@ export const PromoCodesPanel = ({ eventId }: { eventId: string }) => {
   const [discountValue, setDiscountValue] = useState("10");
   const [maxUses, setMaxUses] = useState("");
   const [creating, setCreating] = useState(false);
+  // Fixed discounts are in the event's own currency (pounds for London).
+  const [currency, setCurrency] = useState<Currency>("EUR");
 
   const load = useCallback(async () => {
-    const { data, error } = await supabase
-      .from("event_promo_codes")
-      .select("id, code, discount_type, discount_value, max_uses, used_count, is_active, created_at")
-      .eq("event_id", eventId)
-      .order("created_at", { ascending: false });
+    const [{ data, error }, { data: tier }] = await Promise.all([
+      supabase
+        .from("event_promo_codes")
+        .select("id, code, discount_type, discount_value, max_uses, used_count, is_active, created_at")
+        .eq("event_id", eventId)
+        .order("created_at", { ascending: false }),
+      // The event's currency, read from a tier (event_tiers.currency always
+      // equals the event's). No tier yet = euros.
+      supabase.from("event_tiers").select("currency").eq("event_id", eventId).limit(1).maybeSingle(),
+    ]);
+    setCurrency(toCurrency(tier?.currency));
     if (error) {
       console.error("[PromoCodesPanel] load failed:", error);
     } else {
@@ -131,7 +140,7 @@ export const PromoCodesPanel = ({ eventId }: { eventId: string }) => {
           className="px-3 py-2 rounded-lg border border-border bg-background text-sm"
         >
           <option value="percent">% off</option>
-          <option value="fixed">€ off</option>
+          <option value="fixed">{currencySymbol(currency)} off</option>
         </select>
         <input
           type="number"
@@ -171,12 +180,12 @@ export const PromoCodesPanel = ({ eventId }: { eventId: string }) => {
           {rows.map((row) => (
             <div key={row.id} className="flex items-center gap-3 p-3 rounded-lg border border-border">
               <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                {row.discount_type === "percent" ? <Percent className="w-4 h-4 text-primary" /> : <Euro className="w-4 h-4 text-primary" />}
+                {row.discount_type === "percent" ? <Percent className="w-4 h-4 text-primary" /> : currency === "GBP" ? <PoundSterling className="w-4 h-4 text-primary" /> : <Euro className="w-4 h-4 text-primary" />}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="font-mono font-bold text-sm truncate">{row.code}</div>
                 <div className="text-xs text-muted-foreground">
-                  {row.discount_type === "percent" ? `${row.discount_value}% off` : `€${(row.discount_value / 100).toFixed(2)} off`}
+                  {row.discount_type === "percent" ? `${row.discount_value}% off` : `${formatMoney(row.discount_value, currency)} off`}
                   {" · "}
                   {row.used_count} used{row.max_uses ? ` / ${row.max_uses}` : ""}
                 </div>

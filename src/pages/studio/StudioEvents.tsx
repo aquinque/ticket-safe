@@ -20,7 +20,8 @@ import { useThemeMode } from "@/hooks/useThemeMode";
 import { supabase } from "@/integrations/supabase/client";
 import EventStatusBadge, { deriveEventStatusKind, type EventStatus } from "@/components/studio/EventStatusBadge";
 import { FilterChips } from "@/components/studio/FilterChips";
-import { eur, plural, phaseOf, whenLabel, startOfDay, relativeTime, DAY_MS } from "@/lib/studioFormat";
+import { toCurrency } from "@/lib/money";
+import { fmtMoney, plural, phaseOf, whenLabel, startOfDay, relativeTime, DAY_MS } from "@/lib/studioFormat";
 
 interface Activity { sold7: number; sold14: number; lastSale: string | null }
 
@@ -33,6 +34,8 @@ interface EventRow {
   slug: string | null;
   banner_url: string | null;
   primary_color: string | null;
+  /** 'EUR' | 'GBP': revenue_cents is in this currency. */
+  currency: string;
   sold_count: number;
   total_capacity: number;
   revenue_cents: number;
@@ -80,15 +83,17 @@ const StudioEvents = () => {
       .order("date", { ascending: false });
 
     const ids = (evRows ?? []).map((e: { id: string }) => e.id);
-    type Agg = { sold: number; total: number; revenue: number };
+    // The event's currency comes from its tiers (event_tiers.currency always
+    // equals the event's); an event with no tier yet counts as euros.
+    type Agg = { sold: number; total: number; revenue: number; currency: string };
     let agg: Record<string, Agg> = {};
     if (ids.length) {
       const { data: tiers } = await supabase
         .from("event_tiers")
-        .select("event_id, sold_qty, total_qty, price_cents")
+        .select("event_id, sold_qty, total_qty, price_cents, currency")
         .in("event_id", ids);
-      agg = (tiers ?? []).reduce((acc, t: { event_id: string; sold_qty: number; total_qty: number; price_cents: number }) => {
-        const cur = acc[t.event_id] ?? { sold: 0, total: 0, revenue: 0 };
+      agg = (tiers ?? []).reduce((acc, t: { event_id: string; sold_qty: number; total_qty: number; price_cents: number; currency: string | null }) => {
+        const cur = acc[t.event_id] ?? { sold: 0, total: 0, revenue: 0, currency: toCurrency(t.currency) };
         cur.sold += t.sold_qty;
         cur.total += t.total_qty;
         cur.revenue += t.sold_qty * t.price_cents;
@@ -121,7 +126,8 @@ const StudioEvents = () => {
 
     setEvents(
       (evRows ?? []).map((e) => ({
-        ...(e as Omit<EventRow, "sold_count" | "total_capacity" | "revenue_cents">),
+        ...(e as Omit<EventRow, "currency" | "sold_count" | "total_capacity" | "revenue_cents">),
+        currency: agg[e.id]?.currency ?? "EUR",
         sold_count: agg[e.id]?.sold ?? 0,
         total_capacity: agg[e.id]?.total ?? 0,
         revenue_cents: agg[e.id]?.revenue ?? 0,
@@ -204,6 +210,10 @@ const StudioEvents = () => {
           campus: source.campus,
           university: source.university,
           base_price: source.base_price,
+          // Before the tiers below: the database copies the event's currency
+          // onto every tier, so a London copy must be created in pounds.
+          // Only sent when the source row has the column (older databases don't).
+          ...(source.currency ? { currency: source.currency } : {}),
           organizer_id: organizer.id,
           slug: finalSlug,
           primary_color: source.primary_color,
@@ -393,7 +403,7 @@ const EventRow = ({ event: e, index, activity, duplicating, onDuplicate }: { eve
           <div className="md:hidden mt-2 flex items-center gap-3 text-[11px] text-muted-foreground">
             <EventStatusBadge status={e.status} date={e.date} soldOut={soldOut} size="sm" />
             <span className="tabular-nums">{e.total_capacity > 0 ? `${e.sold_count}/${e.total_capacity} · ${salesNote}` : salesNote}</span>
-            <span className="font-bold text-foreground tabular-nums ml-auto">{eur(e.revenue_cents)}</span>
+            <span className="font-bold text-foreground tabular-nums ml-auto">{fmtMoney(e.revenue_cents, e.currency)}</span>
           </div>
         </div>
         <div className="hidden md:block"><EventStatusBadge status={e.status} date={e.date} soldOut={soldOut} size="sm" /></div>
@@ -412,7 +422,7 @@ const EventRow = ({ event: e, index, activity, duplicating, onDuplicate }: { eve
             <span className="inline-flex items-center gap-1 text-[11px] text-amber-700"><AlertCircle className="w-3 h-3" /> {salesNote}</span>
           )}
         </div>
-        <div className="hidden md:block text-sm font-bold tabular-nums text-right w-20">{eur(e.revenue_cents)}</div>
+        <div className="hidden md:block text-sm font-bold tabular-nums text-right w-20">{fmtMoney(e.revenue_cents, e.currency)}</div>
         {/* Actions */}
         <div className="col-span-2 md:col-span-1 md:absolute md:right-4 md:top-1/2 md:-translate-y-1/2 flex items-center gap-1.5 md:bg-card md:pl-2 md:opacity-0 md:group-hover:opacity-100 md:focus-within:opacity-100 transition-opacity">
           <Link to={`/studio/events/${e.id}`} title="Edit" aria-label={`Edit ${e.title}`} className={iconBtn}><Pencil className="w-3.5 h-3.5" /></Link>

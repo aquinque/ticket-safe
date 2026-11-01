@@ -128,12 +128,12 @@ const RefundPolicy = () => {
                         <div className="bg-muted/50 p-4 rounded-lg">
                           <h4 className="font-semibold text-foreground mb-2">Event Cancellation</h4>
                           <ul className="list-disc pl-6 space-y-1 text-sm text-muted-foreground">
-                            <li>Event is officially cancelled by the organizer</li>
+                            <li>Event is officially cancelled by the organiser</li>
                             <li>Event is postponed indefinitely with no rescheduled date</li>
                             <li>Event venue is changed to a significantly different location</li>
                           </ul>
                           <p className="text-xs text-muted-foreground mt-2 italic">
-                            Note: For rescheduled events, tickets typically remain valid for the new date. Refunds may be available at organizer's discretion.
+                            Note: For rescheduled events, tickets typically remain valid for the new date. Refunds may be available at the organiser's discretion.
                           </p>
                         </div>
 
@@ -190,10 +190,16 @@ const RefundPolicy = () => {
                         withdrawal for leisure services supplied on a specific date — ticket purchases are final
                         once confirmed, outside the eligible cases listed above.
                       </p>
+                      <p className="text-muted-foreground mt-3 text-sm">
+                        For consumers in the United Kingdom, the 14-day cancellation right under the Consumer Contracts
+                        (Information, Cancellation and Additional Charges) Regulations 2013 does not apply to tickets for an
+                        event on a specific date (regulation 28(1)(b)). Your other statutory rights under the Consumer Rights
+                        Act 2015 are not affected (see section 8.4).
+                      </p>
                       <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 mt-4">
                         <p className="text-sm text-amber-900 dark:text-amber-100">
                           <AlertCircle className="w-4 h-4 inline mr-1" />
-                          <strong>Recommendation:</strong> If you can't attend, consider reselling your tickets on TicketSafe rather than requesting a refund.
+                          <strong>Recommendation:</strong> If you can't attend, consider reselling your tickets on TicketSafe rather than requesting a refund. For events in the United Kingdom, resale listings must include the information required by Part 3, Chapter 5 of the Consumer Rights Act 2015 (see section 3.1 of our Terms &amp; Conditions).
                         </p>
                       </div>
                     </div>
@@ -271,7 +277,7 @@ const RefundPolicy = () => {
                       <li>Screenshots of error messages or invalid QR codes</li>
                       <li>Official event cancellation announcement (link or screenshot)</li>
                       <li>Communication with seller (if applicable)</li>
-                      <li>Proof of denied entry (photo, organizer statement)</li>
+                      <li>Proof of denied entry (photo, organiser statement)</li>
                       <li>Order confirmation email</li>
                     </ul>
 
@@ -333,7 +339,7 @@ const RefundPolicy = () => {
                     <h3 className="font-semibold text-foreground text-lg mt-4">4.3 Legitimate Seller Cancellations</h3>
                     <p>Sellers may cancel after purchase without penalty only if:</p>
                     <ul className="list-disc pl-6 space-y-2">
-                      <li>The event is officially cancelled by the organizer</li>
+                      <li>The event is officially cancelled by the organiser</li>
                       <li>Tickets were lost or stolen (with police report)</li>
                       <li>Platform error or system malfunction</li>
                     </ul>
@@ -348,17 +354,17 @@ const RefundPolicy = () => {
                   <div className="space-y-3 text-muted-foreground">
                     <h3 className="font-semibold text-foreground text-lg">5.1 Official Event Cancellation</h3>
                     <p>
-                      If an event is officially cancelled by the organizer:
+                      If an event is officially cancelled by the organiser:
                     </p>
                     <ul className="list-disc pl-6 space-y-2">
                       <li>All buyers are eligible for a full refund (ticket price + platform fee)</li>
                       <li>Refunds are processed automatically when we're notified</li>
-                      <li>You may also contact the original event organizer for a refund</li>
+                      <li>You may also contact the original event organiser for a refund</li>
                       <li>TicketSafe will assist with refund coordination</li>
                     </ul>
                     <p>
                       Buyers never pay for a cancellation. Stripe keeps its processing fee on every refunded payment: the
-                      organizer who cancels the event covers that cost, otherwise TicketSafe has to pay it.
+                      organiser who cancels the event covers that cost, otherwise TicketSafe has to pay it.
                     </p>
 
                     <h3 className="font-semibold text-foreground text-lg mt-4">5.2 Event Postponement</h3>
@@ -367,9 +373,9 @@ const RefundPolicy = () => {
                     </p>
                     <ul className="list-disc pl-6 space-y-2">
                       <li>Tickets typically remain valid for the rescheduled date</li>
-                      <li>Refunds are at the event organizer's discretion</li>
+                      <li>Refunds are at the event organiser's discretion</li>
                       <li>You may resell your tickets on TicketSafe if you can't attend the new date</li>
-                      <li>Contact support if the organizer offers refunds</li>
+                      <li>Contact support if the organiser offers refunds</li>
                     </ul>
 
                     <h3 className="font-semibold text-foreground text-lg mt-4">5.3 Event Changes</h3>
@@ -427,7 +433,7 @@ const RefundPolicy = () => {
 
                     <h3 className="font-semibold text-foreground text-lg mt-4">7.3 Currency Conversion</h3>
                     <p>
-                      If currency conversion was applied during purchase, refunds are processed in the original currency. Exchange rate fluctuations may result in slight differences.
+                      Refunds are always made in the currency you were charged in: pounds sterling (GBP) for London events, which are priced and charged in GBP, and euros (EUR) for all other events. If your bank or card issuer converted the payment into another currency, it converts the refund back at its own rate, so exchange rate fluctuations may result in slight differences.
                     </p>
                   </div>
                 </section>
@@ -467,6 +473,11 @@ const RefundPolicy = () => {
                       <li>Appeals are reviewed by a senior support team member</li>
                       <li>Final decisions are communicated within 5 business days</li>
                     </ul>
+
+                    <h3 className="font-semibold text-foreground text-lg mt-4">8.4 Your Statutory Rights</h3>
+                    <p>
+                      This policy does not limit the rights you have as a consumer under the law. In the EU, this includes the mandatory provisions of the French Consumer Code and of your country of residence. In the United Kingdom, this includes your rights under the Consumer Rights Act 2015 (for example, where a service is not performed with reasonable care and skill or does not match what was described) and under the Consumer Contracts Regulations 2013. UK consumers may also bring a claim in the courts of the part of the UK where they live.
+                    </p>
                   </div>
                 </section>
 

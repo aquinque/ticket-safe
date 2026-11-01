@@ -45,6 +45,7 @@ import { signStudioTicketJWT } from "../_shared/ticketJwt.ts";
 import { sendResaleCompletionEmails } from "../_shared/sendResaleCompletionEmails.ts";
 import { renderEmail, ctaButton, ticketSummary } from "../_shared/emailComponents.ts";
 import { emailTokens } from "../_shared/emailTokens.ts";
+import { formatMinor } from "../_shared/money.ts";
 
 async function sendEmail(resendKey: string, to: string, subject: string, html: string, text: string) {
   try {
@@ -241,10 +242,12 @@ serve(async (req) => {
         const pi = typeof dispute.payment_intent === "string" ? dispute.payment_intent : dispute.payment_intent?.id;
         console.error(`[stripe-connect-webhook] DISPUTE opened: ${dispute.id} amount=${dispute.amount} pi=${pi}`);
         if (resendKey) {
-          const bodyHtml = `<p style="margin:0 0 4px">A Stripe dispute (chargeback) was just opened.</p>${ticketSummary([["Dispute amount", `€${(dispute.amount / 100).toFixed(2)}`, emailTokens.danger], ["Payment intent", pi ?? "—"], ["Reason", dispute.reason ?? "—"]])}<p style="margin:16px 0 0;font-size:13px;color:${emailTokens.textMuted}">Respond in the Stripe Dashboard before the evidence deadline. Any payout tied to this order should be held until resolved.</p>`;
-          const text = `Dispute opened: €${(dispute.amount / 100).toFixed(2)}, payment_intent ${pi}, reason: ${dispute.reason}`;
-          const { html } = renderEmail({ eyebrow: "Stripe dispute", title: "A payment was disputed", bodyHtml, preheader: `Dispute opened for €${(dispute.amount / 100).toFixed(2)}`, text });
-          await sendEmail(resendKey, "ticketsafe.friendly@gmail.com", `[URGENT] Stripe dispute opened — €${(dispute.amount / 100).toFixed(2)}`, html, text);
+          // In the charge's currency: pounds for a London event (Stripe sends it lowercase, e.g. "gbp").
+          const disputeAmount = formatMinor(dispute.amount, dispute.currency, "prefix");
+          const bodyHtml = `<p style="margin:0 0 4px">A Stripe dispute (chargeback) was just opened.</p>${ticketSummary([["Dispute amount", disputeAmount, emailTokens.danger], ["Payment intent", pi ?? "—"], ["Reason", dispute.reason ?? "—"]])}<p style="margin:16px 0 0;font-size:13px;color:${emailTokens.textMuted}">Respond in the Stripe Dashboard before the evidence deadline. Any payout tied to this order should be held until resolved.</p>`;
+          const text = `Dispute opened: ${disputeAmount}, payment_intent ${pi}, reason: ${dispute.reason}`;
+          const { html } = renderEmail({ eyebrow: "Stripe dispute", title: "A payment was disputed", bodyHtml, preheader: `Dispute opened for ${disputeAmount}`, text });
+          await sendEmail(resendKey, "ticketsafe.friendly@gmail.com", `[URGENT] Stripe dispute opened — ${disputeAmount}`, html, text);
         }
         // Block any pending payout job for the order tied to this payment_intent.
         if (pi) {
@@ -305,12 +308,12 @@ serve(async (req) => {
             toEmail = authUser?.user?.email ?? null;
           }
           if (toEmail) {
-            const amountEur = `€${(payout.amount / 100).toFixed(2)}`;
-            const title = status === "sent" ? "Your payout is on its way" : "Your payout failed — check your IBAN";
+            const amountEur = formatMinor(payout.amount, payout.currency, "prefix"); // "€…", or "£…" for a payout in pounds
+            const title = status === "sent" ? "Your payout is on its way" : "Your payout failed — check your bank details";
             const bodyHtml = status === "sent"
               ? `<p style="margin:0 0 4px">${amountEur} has been sent to your bank account. It typically lands within a few business days.</p>`
-              : `<p style="margin:0 0 4px">We tried to send you ${amountEur} but it failed. This is usually an incorrect IBAN. Please check your payment details in Ticket Studio.</p>${ctaButton("Check my payout details", `${emailTokens.siteUrl}/studio/payouts`)}`;
-            const text = status === "sent" ? `${amountEur} sent to your bank account.` : `Payout of ${amountEur} failed — check your IBAN.`;
+              : `<p style="margin:0 0 4px">We tried to send you ${amountEur} but it failed. This is usually incorrect bank details (IBAN, or sort code and account number for a UK account). Please check your payment details in Ticket Studio.</p>${ctaButton("Check my payout details", `${emailTokens.siteUrl}/studio/payouts`)}`;
+            const text = status === "sent" ? `${amountEur} sent to your bank account.` : `Payout of ${amountEur} failed — check your bank details.`;
             const { html } = renderEmail({ eyebrow: "Payout", title, bodyHtml, preheader: text, text });
             await sendEmail(resendKey, toEmail, title, html, text);
           }

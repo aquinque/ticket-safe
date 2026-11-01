@@ -33,6 +33,7 @@
 
 import { PDFDocument, StandardFonts, rgb, PDFFont, PDFPage } from "https://esm.sh/pdf-lib@1.17.1";
 import { pdfSafe } from "./pdfText.ts";
+import { formatMinor } from "./money.ts";
 import {
   RECEIPT_LEGAL_FALLBACK,
   identityLine,
@@ -58,8 +59,8 @@ export interface OrderSummaryData {
 
   ticketType: string;       // "Early Bird", "VIP", …
   quantity: number;
-  unitPrice: string;        // "18.00€"
-  totalPaid: string;        // "18.00€"
+  unitPrice: string;        // "18.00€", "£18.00"
+  totalPaid: string;        // "18.00€", "£18.00"
 
   paymentMethod: string;    // "Card", "Apple Pay", …
   paymentStatus: "Paid" | "Pending" | "Refunded";
@@ -76,6 +77,8 @@ export interface OrderSummaryData {
    */
   ticketPriceCents?: number;
   serviceFeeCents?: number;
+  /** The order's currency ('EUR' or 'GBP') for the split above and the legal notice; euros when absent. */
+  currency?: string | null;
 
   /** "ticket" (default): the organizer sells the ticket. "resale": a private individual sells it on the marketplace. */
   kind?: ReceiptKind;
@@ -209,8 +212,8 @@ export async function generateOrderSummaryPDF(d: OrderSummaryData): Promise<Uint
   const hasFeeSplit = d.ticketPriceCents != null && d.serviceFeeCents != null;
   const itemName = `${d.eventName} — ${d.ticketType}`;
   if (hasFeeSplit) {
-    const ticketPriceStr = `${(d.ticketPriceCents! / 100).toFixed(2)}€`;
-    const feeStr = `${(d.serviceFeeCents! / 100).toFixed(2)}€`;
+    const ticketPriceStr = formatMinor(d.ticketPriceCents!, d.currency);
+    const feeStr = formatMinor(d.serviceFeeCents!, d.currency);
     drawText(page, itemName, { x: colItemX, y: fromTopMM(tableY), font: fontReg, size: 11, color: INK, maxWidth: colQtyX - colItemX - 14 });
     drawText(page, String(d.quantity), { x: colQtyX, y: fromTopMM(tableY), font: fontReg, size: 11, color: INK });
     drawText(page, ticketPriceStr, { x: colUnitX, y: fromTopMM(tableY), font: fontReg, size: 11, color: INK });
@@ -272,7 +275,7 @@ export async function generateOrderSummaryPDF(d: OrderSummaryData): Promise<Uint
   for (const [lang, x, color] of columns) {
     drawLabel(page2, noticeHeading(lang).toUpperCase(), x, fromTopMM(56), fontBold);
     let y = 63;
-    for (const item of noticeItems(lang, legal, kind, { organizerName: d.organizerName, site })) {
+    for (const item of noticeItems(lang, legal, kind, { organizerName: d.organizerName, site, currency: d.currency })) {
       drawText(page2, item.title, { x, y: fromTopMM(y), font: fontBold, size: 9, color });
       y += 4.4;
       y = paragraph(page2, item.text, { x, topMM: y, width: halfW, font: fontReg, size: 8.5, color, lineMM: 4.1 }) + 3;

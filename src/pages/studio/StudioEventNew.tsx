@@ -31,7 +31,8 @@ import { useOrganizer } from "@/hooks/useOrganizer";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { detectCampus } from "@/lib/campus";
+import { CAMPUS_LABELS, detectCampus, type Campus } from "@/lib/campus";
+import { CURRENCIES, currencyForCampus, currencySymbol, formatMajor, type Currency } from "@/lib/money";
 import { ImageCropDialog } from "@/components/ImageCropDialog";
 import { PromoVideo } from "@/components/PromoVideo";
 import EventPreviewCard from "@/components/studio/EventPreviewCard";
@@ -123,6 +124,10 @@ const StudioEventNew = () => {
   const [cropOpen, setCropOpen] = useState(false);
   const [slug, setSlug] = useState("");
   const [slugTouched, setSlugTouched] = useState(false);
+  // null = follow the city: pounds when the event is in London, euros elsewhere.
+  const [currencyChoice, setCurrencyChoice] = useState<Currency | null>(null);
+  // null = read the city from the location text; set once the organizer picks one.
+  const [cityChoice, setCityChoice] = useState<Campus | "other" | null>(null);
   const [tiers, setTiers] = useState<TierDraft[]>([makeTier()]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -179,6 +184,8 @@ const StudioEventNew = () => {
     setMaxPerBuyer(d.maxPerBuyer);
     setSlug(d.slug);
     setSlugTouched(d.slugTouched);
+    setCurrencyChoice(d.currency);
+    setCityChoice(d.city && (d.city === "other" || d.city in CAMPUS_LABELS) ? (d.city as Campus | "other") : null);
     setTiers(d.tiers);
     setRestoredAt(d.savedAt || new Date().toISOString());
     if (!urlStep && d.step > 0) setStep(d.step, true);
@@ -217,6 +224,8 @@ const StudioEventNew = () => {
       maxPerBuyer,
       slug,
       slugTouched,
+      currency: currencyChoice,
+      city: cityChoice,
       tiers,
       videoName: videoFile?.name ?? draftVideoName,
     }),
@@ -234,12 +243,29 @@ const StudioEventNew = () => {
       maxPerBuyer,
       slug,
       slugTouched,
+      currencyChoice,
+      cityChoice,
       tiers,
       videoFile,
       draftVideoName,
     ],
   );
   const draftIsEmpty = isEventDraftEmpty(draft);
+
+  // The event's city: the one the organizer picked, else read from the location
+  // text, else from the organizer's identity (slug, name, email). It files the
+  // event under its city on /tickets and sets the currency: pounds for London.
+  const detectedCity = useMemo<Campus | null>(
+    () =>
+      detectCampus({ location: location || null }) ??
+      (organizer
+        ? detectCampus({ slug: organizer.slug, name: organizer.name, contact_email: organizer.contact_email, about: organizer.about })
+        : null),
+    [location, organizer],
+  );
+  const city: Campus | "other" | null = cityChoice ?? detectedCity;
+  const currency: Currency = currencyChoice ?? currencyForCampus(city === "other" ? null : city);
+  const sym = currencySymbol(currency);
 
   useEffect(() => {
     if (!hydrated || !userId || draftClosed.current) return;
@@ -388,8 +414,8 @@ const StudioEventNew = () => {
         if (!t.name.trim()) return "Every ticket type needs a name.";
         const p = Number(t.priceEuros);
         const q = Number(t.totalQty);
-        if (!Number.isFinite(p) || p < 0 || p > 5000) return `"${t.name || "Tier"}" price must be between €0 and €5000.`;
-        if (p > 0 && p < 0.5) return `"${t.name || "Tier"}" price must be €0 (free) or at least €0.50.`;
+        if (!Number.isFinite(p) || p < 0 || p > 5000) return `"${t.name || "Tier"}" price must be between ${sym}0 and ${sym}5000.`;
+        if (p > 0 && p < 0.5) return `"${t.name || "Tier"}" price must be ${sym}0 (free) or at least ${sym}0.50.`;
         if (!Number.isInteger(q) || q < 1 || q > 20000) return `"${t.name || "Tier"}" quantity must be between 1 and 20000.`;
       }
     }
@@ -502,7 +528,9 @@ const StudioEventNew = () => {
           ends_at: endsAt ? new Date(endsAt).toISOString() : null,
           location: location.trim() || null,
           category: category || "other",
-          campus: autoCampus,
+          campus: city === "other" ? null : city ?? autoCampus,
+          // Euro events leave the column to its default, as before the UK migration.
+          ...(currency === "GBP" ? { currency } : {}),
           // No school by default: a Studio organizer isn't a school (e.g.
           // Ritual has no link to any university). Cards fall back to the
           // organizer's name when this is null.
@@ -536,7 +564,7 @@ const StudioEventNew = () => {
         name: t.name.trim(),
         description: t.description.trim() || null,
         price_cents: Math.round(Number(t.priceEuros) * 100),
-        currency: "EUR",
+        currency,
         total_qty: Number(t.totalQty),
         sort_order: i,
         is_active: true,
@@ -617,6 +645,7 @@ const StudioEventNew = () => {
       bannerUrl={bannerPreview}
       primaryColor={primaryColor}
       priceFromEuros={priceFrom}
+      currency={currency}
     />
   );
 
@@ -754,6 +783,26 @@ const StudioEventNew = () => {
                       maxLength={200}
                     />
                   </Field>
+                  <Field label="City" icon={MapPin} hint="Files the event under its city and sets the currency: London events are sold in pounds (£), the others in euros (€).">
+                    <select
+                      value={city ?? ""}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setCityChoice(v === "" ? null : (v as Campus | "other"));
+                        // A new city brings its own currency back, unless picked again on the pricing step.
+                        setCurrencyChoice(null);
+                      }}
+                      className="ts-input"
+                    >
+                      <option value="">Choose a city…</option>
+                      {(Object.keys(CAMPUS_LABELS) as Campus[]).map((c) => (
+                        <option key={c} value={c}>
+                          {CAMPUS_LABELS[c]} — {currencyForCampus(c) === "GBP" ? "£ GBP" : "€ EUR"}
+                        </option>
+                      ))}
+                      <option value="other">Other — € EUR</option>
+                    </select>
+                  </Field>
                 </StepCard>
               )}
 
@@ -763,6 +812,27 @@ const StudioEventNew = () => {
                   title="Ticket types & pricing"
                   desc="Add one or more tiers. We show you exactly what buyers pay and what you keep."
                 >
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                    <span className="text-muted-foreground">
+                      Buyers are charged in{" "}
+                      <strong className="text-foreground">{currency === "GBP" ? "pounds (£)" : "euros (€)"}</strong>
+                      {currencyChoice === null && <> — set from the event's city{city && city !== "other" ? ` (${CAMPUS_LABELS[city]})` : ""}</>}
+                    </span>
+                    <div className="inline-flex rounded-lg border border-border p-0.5" role="radiogroup" aria-label="Currency">
+                      {CURRENCIES.map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          role="radio"
+                          aria-checked={currency === c}
+                          onClick={() => setCurrencyChoice(c)}
+                          className={`px-2.5 py-1 rounded-md font-bold ${currency === c ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
+                        >
+                          {currencySymbol(c)} {c}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                   {tiers.map((t, i) => (
                     <div key={i} className="bg-muted/40 border border-border rounded-xl p-4">
                       <div className="flex items-center justify-between mb-3">
@@ -793,7 +863,7 @@ const StudioEventNew = () => {
                           />
                         </div>
                         <div>
-                          <label className="text-xs font-bold text-muted-foreground mb-1 block">Price (€)</label>
+                          <label className="text-xs font-bold text-muted-foreground mb-1 block">Price ({sym})</label>
                           <input
                             type="number"
                             value={t.priceEuros}
@@ -804,7 +874,7 @@ const StudioEventNew = () => {
                             step="0.5"
                           />
                           {Number.isFinite(Number(t.priceEuros)) && Number(t.priceEuros) > 0 && (
-                            <BuyerPaysHint priceEuros={Number(t.priceEuros)} />
+                            <BuyerPaysHint priceEuros={Number(t.priceEuros)} currency={currency} />
                           )}
                         </div>
                         <div>
@@ -1091,7 +1161,7 @@ const StudioEventNew = () => {
                   <SummaryRow
                     label="Tickets"
                     value={`${tiers.length} type${tiers.length === 1 ? "" : "s"}${
-                      priceFrom != null ? ` · from ${priceFrom <= 0 ? "Free" : `€${priceFrom}`}` : ""
+                      priceFrom != null ? ` · from ${priceFrom <= 0 ? "Free" : formatMajor(priceFrom, currency)}` : ""
                     }`}
                   />
                   <SummaryRow label="Public link" value={`ticket-safe.eu/e/${slug || "—"}`} mono />

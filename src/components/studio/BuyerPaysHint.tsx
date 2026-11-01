@@ -1,27 +1,29 @@
 import { useServiceFeeForPrice } from "@/hooks/useServiceFee";
-import { STUDIO_FEE_RULE_MAX } from "@/lib/studioFee";
+import { formatMajor } from "@/lib/money";
+import { studioFeeRuleWithMin } from "@/lib/studioFee";
 
 /**
  * Under a tier's price field: what the buyer will pay and what the organizer
- * receives. The fee comes from the server; nothing is computed here (the rule
- * is only named, from src/lib/studioFee.ts).
+ * receives, in the event's currency. The fee comes from the server; nothing is
+ * computed here (the rule is only named, from src/lib/studioFee.ts).
  */
-export const BuyerPaysHint = ({ priceEuros }: { priceEuros: number }) => {
+export const BuyerPaysHint = ({ priceEuros, currency = "EUR" }: { priceEuros: number; currency?: string }) => {
   const priceCents = Math.round(priceEuros * 100);
-  const feeCents = useServiceFeeForPrice(priceCents > 0 ? priceCents : null);
+  const feeCents = useServiceFeeForPrice(priceCents > 0 ? priceCents : null, currency);
   if (priceCents <= 0) return null;
   const fee = feeCents === null ? null : feeCents / 100;
+  const rule = studioFeeRuleWithMin(currency);
   return (
     <p className="text-[11px] text-muted-foreground mt-1.5 leading-snug">
       {fee === null ? (
-        <>Buyer pays the ticket price plus a service fee ({STUDIO_FEE_RULE_MAX})</>
+        <>Buyer pays the ticket price plus a service fee ({rule})</>
       ) : (
         <>
-          Buyer pays <strong className="text-foreground">€{(priceEuros + fee).toFixed(2)}</strong> (incl. a €{fee.toFixed(2)} service fee: {STUDIO_FEE_RULE_MAX})
+          Buyer pays <strong className="text-foreground">{formatMajor(priceEuros + fee, currency)}</strong> (incl. a {formatMajor(fee, currency)} service fee: {rule})
         </>
       )}
       {" "}· you receive the full{" "}
-      <strong className="text-primary">€{priceEuros.toFixed(2)}</strong> per ticket — Ticket Safe takes 0% from you.
+      <strong className="text-primary">{formatMajor(priceEuros, currency)}</strong> per ticket — Ticket Safe takes 0% from you.
     </p>
   );
 };

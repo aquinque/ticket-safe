@@ -81,8 +81,9 @@ export interface TicketData {
   // ─── Ticket ──────────────────────────────────────────────────────────
   /** Free-text — "Early Bird", "Regular", "VIP", "Staff", "Guest List", … */
   ticketType: string;
-  /** Pre-formatted price string ("18.00€"). The caller controls currency
-   *  + format so we don't try to guess locale here. */
+  /** Pre-formatted price string ("€18.00", "£18.00" for a London event):
+   *  build it with formatMoney from src/lib/money.ts and the order's
+   *  currency. The caller controls currency + format so we don't guess here. */
   pricePaid: string;
   /** Display ID printed on the ticket — short and human-quotable. */
   ticketId: string;
@@ -300,7 +301,7 @@ type JsPDFCtor = new (opts: { unit: string; format: string; orientation: string 
  *     buyerFirstName: "Achille",
  *     buyerLastName: "Quinquenel",
  *     ticketType: "Early Bird",
- *     pricePaid: "18.00€",
+ *     pricePaid: "€18.00",
  *     ticketId: "TS-ESC-000184",
  *     qrToken: "https://ticket-safe.eu/verify/unique-secure-token",
  *     organizerName: "ESCP Students' Union",
@@ -683,7 +684,7 @@ export const EXAMPLE_TICKET: TicketData = {
   buyerLastName: "Quinquenel",
   buyerEmail: "achille@edu.escp.eu",
   ticketType: "Early Bird",
-  pricePaid: "18.00€",
+  pricePaid: "€18.00",
   ticketId: "TS-ESC-000184",
   qrToken: "https://ticket-safe.eu/verify/unique-secure-token-here",
   status: "Valid",

@@ -18,7 +18,8 @@ import {
 } from "lucide-react";
 import { StatFigure } from "@/components/studio/StatFigure";
 import { FilterChips } from "@/components/studio/FilterChips";
-import { eur as eurFmt, fmtDate, fmtTime, phaseOf, whenLabel, relativeTime } from "@/lib/studioFormat";
+import { fmtMoney, fmtDate, fmtTime, phaseOf, whenLabel, relativeTime } from "@/lib/studioFormat";
+import { toCurrency } from "@/lib/money";
 import { StudioLayout } from "@/components/studio/StudioLayout";
 import { SEOHead } from "@/components/SEOHead";
 import { useAuth } from "@/hooks/useAuth";
@@ -32,6 +33,8 @@ interface EventRow {
   date: string;
   location: string | null;
   organizer_id: string;
+  /** 'EUR' | 'GBP': every amount on this page is in the event's currency. */
+  currency: string;
 }
 
 interface TierRow {
@@ -64,15 +67,13 @@ interface TicketRow {
 type SortKey = "name" | "date" | "amount" | "status";
 type StatusFilter = "all" | "checked_in" | "not_checked_in" | "cancelled";
 
-const eur = (cents: number) => eurFmt(cents, 2);
-
-function exportCsv(eventTitle: string, rows: ReturnType<typeof buildRows>) {
+function exportCsv(eventTitle: string, currency: string, rows: ReturnType<typeof buildRows>) {
   const esc = (v: unknown): string => {
     const s = String(v ?? "");
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
   const lines = [
-    ["Name", "Email", "Tier", "Amount paid", "Order date", "Status", "Checked in at"].join(","),
+    ["Name", "Email", "Tier", `Amount paid (${toCurrency(currency)})`, "Order date", "Status", "Checked in at"].join(","),
     ...rows.map((r) =>
       [
         esc(r.name),
@@ -147,10 +148,10 @@ const StudioEventAttendees = () => {
     setLoading(true);
     const [{ data: ev }, { data: tr }, { data: ord }, { data: tix }] = await Promise.all([
       supabase.from("events").select("id, title, date, location, organizer_id").eq("id", id).maybeSingle(),
-      supabase.from("event_tiers").select("id, name").eq("event_id", id),
+      supabase.from("event_tiers").select("id, name, currency").eq("event_id", id),
       supabase
         .from("event_orders")
-        .select("id, buyer_email, total_cents, fee_cents, quantity, status, created_at")
+        .select("id, buyer_email, total_cents, fee_cents, currency, quantity, status, created_at")
         .eq("event_id", id)
         .limit(2000),
       supabase
@@ -160,7 +161,13 @@ const StudioEventAttendees = () => {
         .order("created_at", { ascending: false })
         .limit(5000),
     ]);
-    setEvent((ev as EventRow) ?? null);
+    // The event's currency: from an order (what buyers were charged in), else
+    // a tier (event_tiers.currency always equals the event's), else euros.
+    const currency = toCurrency(
+      ((ord ?? []) as { currency?: string | null }[])[0]?.currency ??
+        ((tr ?? []) as { currency?: string | null }[])[0]?.currency,
+    );
+    setEvent(ev ? ({ ...(ev as Omit<EventRow, "currency">), currency }) : null);
     setTiers((tr as TierRow[]) ?? []);
     setOrders((ord as OrderRow[]) ?? []);
     setTickets((tix as TicketRow[]) ?? []);
@@ -294,7 +301,7 @@ const StudioEventAttendees = () => {
             </Link>
             <button
               type="button"
-              onClick={() => exportCsv(event.title, filteredSorted)}
+              onClick={() => exportCsv(event.title, event.currency, filteredSorted)}
               disabled={filteredSorted.length === 0}
               className="inline-flex items-center justify-center gap-2 px-4 min-h-[44px] font-bold text-sm bg-card border border-border hover:bg-muted disabled:opacity-50"
             >
@@ -434,7 +441,7 @@ const StudioEventAttendees = () => {
                 <tr key={r.id} className="border-b border-border last:border-0 hover:bg-muted/40">
                   <td className="px-4 py-2.5 font-semibold">{r.name}</td>
                   <td className="px-4 py-2.5 text-muted-foreground tabular-nums">{fmtDate(r.orderDate)}</td>
-                  <td className="px-4 py-2.5 font-semibold tabular-nums">{eur(r.amountCents)}</td>
+                  <td className="px-4 py-2.5 font-semibold tabular-nums">{fmtMoney(r.amountCents, event?.currency, 2)}</td>
                   <td className="px-4 py-2.5"><DoorPill checkedIn={r.checkedIn} at={r.scannedAt} /></td>
                   <td className="px-4 py-2.5 text-muted-foreground break-all">{r.email}</td>
                   <td className="px-4 py-2.5 text-muted-foreground">{r.tierName}</td>
@@ -460,7 +467,7 @@ const StudioEventAttendees = () => {
               </div>
               <div className="flex items-center justify-between mt-1.5 text-[11px] text-muted-foreground">
                 <span>{r.tierName} · {fmtDate(r.orderDate)}</span>
-                <span className="font-bold text-foreground tabular-nums">{eur(r.amountCents)}</span>
+                <span className="font-bold text-foreground tabular-nums">{fmtMoney(r.amountCents, event?.currency, 2)}</span>
               </div>
             </li>
           ))}

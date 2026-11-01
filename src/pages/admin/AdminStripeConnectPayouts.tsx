@@ -6,6 +6,7 @@ import { BackButton } from "@/components/BackButton";
 import Footer from "@/components/Footer";
 import { PageHeader } from "@/components/PageHeader";
 import { supabase } from "@/integrations/supabase/client";
+import { formatMoney } from "@/lib/money";
 
 /**
  * Admin — Stripe Connect payout queue. Separate page from the existing
@@ -27,6 +28,9 @@ interface PayoutJobRow {
   stripe_connect_account_id: string;
   account_holder_name?: string | null;
   event_title?: string | null;
+  /** The job table has no currency: an event payout is in its event's
+   *  currency (read from the event's tiers); anything else counts as euros. */
+  currency?: string;
 }
 
 const AdminStripeConnectPayouts = () => {
@@ -45,14 +49,16 @@ const AdminStripeConnectPayouts = () => {
 
     const accountIds = Array.from(new Set(rows.map((r) => r.stripe_connect_account_id)));
     const eventIds = Array.from(new Set(rows.map((r) => r.event_id).filter((v): v is string => !!v)));
-    const [{ data: accounts }, { data: events }] = await Promise.all([
+    const [{ data: accounts }, { data: events }, { data: tiers }] = await Promise.all([
       accountIds.length ? supabase.from("stripe_connect_accounts").select("id, account_holder_name").in("id", accountIds) : Promise.resolve({ data: [] as { id: string; account_holder_name: string | null }[] }),
       eventIds.length ? supabase.from("events").select("id, title").in("id", eventIds) : Promise.resolve({ data: [] as { id: string; title: string }[] }),
+      eventIds.length ? supabase.from("event_tiers").select("event_id, currency").in("event_id", eventIds) : Promise.resolve({ data: [] as { event_id: string; currency: string }[] }),
     ]);
+    const currencyMap = new Map((tiers ?? []).map((t) => [t.event_id, t.currency]));
     const accountMap = new Map((accounts ?? []).map((a) => [a.id, a.account_holder_name]));
     const eventMap = new Map((events ?? []).map((e) => [e.id, e.title]));
 
-    setJobs(rows.map((r) => ({ ...r, account_holder_name: accountMap.get(r.stripe_connect_account_id) ?? "—", event_title: r.event_id ? eventMap.get(r.event_id) ?? "—" : "Resale" })));
+    setJobs(rows.map((r) => ({ ...r, account_holder_name: accountMap.get(r.stripe_connect_account_id) ?? "—", event_title: r.event_id ? eventMap.get(r.event_id) ?? "—" : "Resale", currency: (r.event_id && currencyMap.get(r.event_id)) || "EUR" })));
     setLoading(false);
   }, []);
 
@@ -122,7 +128,7 @@ const AdminStripeConnectPayouts = () => {
                     <td className="py-2 pr-4 whitespace-nowrap">{new Date(job.scheduled_for).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}</td>
                     <td className="py-2 pr-4">{job.kind === "organizer_event_payout" ? "Organizer" : "Reseller"}</td>
                     <td className="py-2 pr-4">{job.kind === "organizer_event_payout" ? job.event_title : job.account_holder_name}</td>
-                    <td className="py-2 pr-4 font-semibold">{job.amount_cents != null ? `€${(job.amount_cents / 100).toFixed(2)}` : "—"}</td>
+                    <td className="py-2 pr-4 font-semibold">{job.amount_cents != null ? formatMoney(job.amount_cents, job.currency) : "—"}</td>
                     <td className="py-2 pr-4">{statusBadge(job.status)}</td>
                     <td className="py-2 pr-4 text-xs text-muted-foreground max-w-xs truncate">
                       {job.blocked_reason && <span className="inline-flex items-center gap-1"><AlertTriangle className="w-3 h-3" />{job.blocked_reason}</span>}

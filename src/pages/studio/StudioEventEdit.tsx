@@ -31,6 +31,7 @@ import {
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { StudioLayout } from "@/components/studio/StudioLayout";
 import { DESCRIPTION_FONTS, descriptionFontFamily } from "@/lib/descriptionFonts";
+import { currencySymbol } from "@/lib/money";
 import { ImageCropDialog } from "@/components/ImageCropDialog";
 import { PromoVideo } from "@/components/PromoVideo";
 import { SEOHead } from "@/components/SEOHead";
@@ -74,6 +75,8 @@ interface EventRow {
   og_image_url: string | null;
   seo_description: string | null;
   payment_provider?: string | null;
+  /** "EUR" or "GBP"; every tier follows it. */
+  currency?: string | null;
 }
 
 interface TierRow {
@@ -82,6 +85,7 @@ interface TierRow {
   name: string;
   description: string | null;
   price_cents: number;
+  currency?: string | null;
   total_qty: number;
   sold_qty: number;
   reserved_qty: number;
@@ -200,6 +204,8 @@ const StudioEventEdit = () => {
   const { organizer, loading: orgLoading } = useOrganizer();
 
   const [event, setEvent] = useState<EventRow | null>(null);
+  // Every amount on this page is in the event's currency: pounds for a London event.
+  const sym = currencySymbol(event?.currency);
   const [tiers, setTiers] = useState<TierRow[]>([]);
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [attendees, setAttendees] = useState<AttendeeRow[]>([]);
@@ -642,7 +648,7 @@ const StudioEventEdit = () => {
             <Highlight
               icon={Banknote}
               label="Revenue"
-              value={`€${(payoutCents / 100).toFixed(0)}`}
+              value={`${sym}${(payoutCents / 100).toFixed(0)}`}
               sub={`${paidOrders.length} paid order${paidOrders.length === 1 ? "" : "s"}`}
               accent="emerald"
             />
@@ -702,14 +708,14 @@ const StudioEventEdit = () => {
                       tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
                       tickLine={false}
                       axisLine={false}
-                      tickFormatter={(v) => `€${v}`}
+                      tickFormatter={(v) => `${sym}${v}`}
                       width={48}
                     />
                     <Tooltip
                       contentStyle={{ borderRadius: 0, border: "1px solid hsl(var(--border))" }}
                       labelStyle={{ fontSize: 11 }}
                       formatter={(v: number, name: string) =>
-                        name === "cumRev" ? [`€${v}`, "Revenue"] : [v, "Tickets"]
+                        name === "cumRev" ? [`${sym}${v}`, "Revenue"] : [v, "Tickets"]
                       }
                     />
                     <Area
@@ -780,7 +786,7 @@ const StudioEventEdit = () => {
                 {/* Headline numbers — revenue is what the organizer receives
                     (the buyer pays the service fee on top). */}
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-                  <KpiCard label="Revenue" value={`€${(payoutCents / 100).toFixed(0)}`} emphasize />
+                  <KpiCard label="Revenue" value={`${sym}${(payoutCents / 100).toFixed(0)}`} emphasize />
                   <KpiCard label="Paid orders" value={String(paidOrders.length)} />
                   <KpiCard
                     label="Tickets sold"
@@ -822,7 +828,7 @@ const StudioEventEdit = () => {
                             sub={
                               <>
                                 <MiniBar pct={typePct} color={barColor} />
-                                <div className="text-xs text-muted-foreground mt-1.5">€{typeRevenue.toFixed(0)} revenue</div>
+                                <div className="text-xs text-muted-foreground mt-1.5">{sym}{typeRevenue.toFixed(0)} revenue</div>
                               </>
                             }
                           />
@@ -840,7 +846,7 @@ const StudioEventEdit = () => {
                         {refundCount > 0 && (
                           <>
                             <GroupRow label="Refunds" />
-                            <StatRow label="Refunded" value={`${refundCount} · €${(refundCents / 100).toFixed(0)}`} />
+                            <StatRow label="Refunded" value={`${refundCount} · ${sym}${(refundCents / 100).toFixed(0)}`} />
                           </>
                         )}
 
@@ -856,7 +862,7 @@ const StudioEventEdit = () => {
                             {promoOrders.length > 0 && (
                               <>
                                 <StatRow label="Orders with a promo code" value={String(promoOrders.length)} />
-                                <StatRow label="Total discounted" value={`€${(totalDiscountCents / 100).toFixed(0)}`} />
+                                <StatRow label="Total discounted" value={`${sym}${(totalDiscountCents / 100).toFixed(0)}`} />
                               </>
                             )}
                           </>
@@ -899,6 +905,7 @@ const StudioEventEdit = () => {
             organizerName={organizer?.name}
             organizerLogoUrl={organizer?.logo_url}
             priceFromEuros={tiers.length ? Math.min(...tiers.map((t) => t.price_cents)) / 100 : null}
+            currency={tiers[0]?.currency}
           />
 
           {/* Published events get a narrower editor instead — description,
@@ -1052,7 +1059,7 @@ const StudioEventEdit = () => {
                           </div>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
-                          <div className="text-sm font-bold">€{(o.total_cents / 100).toFixed(2)}</div>
+                          <div className="text-sm font-bold">{sym}{(o.total_cents / 100).toFixed(2)}</div>
                           <StatusBadge status={o.status} />
                         </div>
                       </div>
@@ -1126,7 +1133,7 @@ const StudioEventEdit = () => {
                       {paid.length > 0 ? (
                         <>
                           This will <strong>refund {paid.length} buyer{paid.length === 1 ? "" : "s"}</strong>{" "}
-                          a total of <strong>€{refundEuros.toFixed(2)}</strong> to their original
+                          a total of <strong>{sym}{refundEuros.toFixed(2)}</strong> to their original
                           payment method, invalidate every ticket, and mark the event as cancelled.
                         </>
                       ) : (
@@ -1136,7 +1143,7 @@ const StudioEventEdit = () => {
                     {stripeOrders.length > 0 && (
                       <p>
                         <strong>Stripe keeps its card fee on every refunded payment</strong>
-                        {stripeFeeEuros !== null && <>: about €{stripeFeeEuros.toFixed(2)} for these orders, more for non-European cards</>}.
+                        {stripeFeeEuros !== null && <>: about {sym}{stripeFeeEuros.toFixed(2)} for these orders, more for non-European cards</>}.
                         As the organizer, you cover that cost; otherwise TicketSafe has to pay it.
                       </p>
                     )}
@@ -1580,6 +1587,7 @@ const EventDetailsEditor = ({
   organizerName,
   organizerLogoUrl,
   priceFromEuros,
+  currency,
 }: {
   event: EventRow;
   onSaved: (patch: Partial<EventRow>) => void;
@@ -1588,6 +1596,8 @@ const EventDetailsEditor = ({
   organizerName?: string;
   organizerLogoUrl?: string | null;
   priceFromEuros?: number | null;
+  /** The event's currency, from its tiers; euros when absent. */
+  currency?: string | null;
 }) => {
   const [open, setOpen] = useState(!disabled);
   const [title, setTitle] = useState(event.title);
@@ -1800,6 +1810,7 @@ const EventDetailsEditor = ({
                 bannerUrl={bannerPreview}
                 primaryColor={primaryColor}
                 priceFromEuros={priceFromEuros}
+                currency={currency}
               />
             </div>
             <p className="text-xs text-muted-foreground mt-3">
@@ -2467,7 +2478,7 @@ const TierEditor = ({
           />
         </div>
         <div>
-          <label className="text-xs font-bold text-muted-foreground mb-1 block">Price (€)</label>
+          <label className="text-xs font-bold text-muted-foreground mb-1 block">Price ({currencySymbol(tier.currency)})</label>
           <input
             type="number"
             value={draft.price_cents / 100}

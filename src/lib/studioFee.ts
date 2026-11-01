@@ -2,22 +2,37 @@
  * How the site words the Studio buyer service fee, in one place.
  *
  * Display only: the amount a buyer is charged always comes from the database
- * function get_studio_commission_cents (€0.80 + 4 % of the ticket price, never
- * above €3.50, nothing on a free ticket), read through
- * src/hooks/useServiceFee.ts. When that rule changes, change it there first,
- * then the numbers below. (Resale has its own model, in src/lib/fees.ts.)
+ * function get_studio_commission_cents (4 % of the ticket price + €0.80, at
+ * least €0.70; for a London event in pounds, 4 % + £0.70, at least £0.60; no
+ * maximum; nothing on a free ticket), read through src/hooks/useServiceFee.ts.
+ * When that rule changes, change it there first, then the numbers below.
+ * (Resale has its own model, in src/lib/fees.ts.)
  */
+import { formatMoney, toCurrency } from "@/lib/money";
+
 export const STUDIO_FEE_PERCENT = 4;
-export const STUDIO_FEE_FIXED_EUR = 0.8;
-export const STUDIO_FEE_MAX_EUR = 3.5;
+/** Fixed part and floor of the fee per ticket, in minor units, per currency. */
+export const STUDIO_FEE_FIXED_CENTS = { EUR: 80, GBP: 70 } as const;
+export const STUDIO_FEE_MIN_CENTS = { EUR: 70, GBP: 60 } as const;
 
-const eur = (n: number) => `€${n.toFixed(2)}`;
+/** "4% + €0.80 per ticket" / "4% + £0.70 per ticket" */
+export const studioFeeRule = (currency: string | null | undefined = "EUR"): string => {
+  const c = toCurrency(currency);
+  return `${STUDIO_FEE_PERCENT}% + ${formatMoney(STUDIO_FEE_FIXED_CENTS[c], c)} per ticket`;
+};
 
-/** "4% + €0.80 per ticket" */
-export const STUDIO_FEE_RULE = `${STUDIO_FEE_PERCENT}% + ${eur(STUDIO_FEE_FIXED_EUR)} per ticket`;
+/** "4% + €0.80 per ticket, min €0.70" */
+export const studioFeeRuleWithMin = (currency: string | null | undefined = "EUR"): string => {
+  const c = toCurrency(currency);
+  return `${studioFeeRule(c)}, min ${formatMoney(STUDIO_FEE_MIN_CENTS[c], c)}`;
+};
 
-/** "4% + €0.80 per ticket, max €3.50" */
-export const STUDIO_FEE_RULE_MAX = `${STUDIO_FEE_RULE}, max ${eur(STUDIO_FEE_MAX_EUR)}`;
+/** "4% of the ticket price + €0.80 per ticket (at least €0.70 per ticket)" */
+export const studioFeeRuleLong = (currency: string | null | undefined = "EUR"): string => {
+  const c = toCurrency(currency);
+  return `${STUDIO_FEE_PERCENT}% of the ticket price + ${formatMoney(STUDIO_FEE_FIXED_CENTS[c], c)} per ticket (at least ${formatMoney(STUDIO_FEE_MIN_CENTS[c], c)} per ticket)`;
+};
 
-/** "4% of the ticket price + €0.80 per ticket, capped at €3.50 per ticket" */
-export const STUDIO_FEE_RULE_LONG = `${STUDIO_FEE_PERCENT}% of the ticket price + ${eur(STUDIO_FEE_FIXED_EUR)} per ticket, capped at ${eur(STUDIO_FEE_MAX_EUR)} per ticket`;
+/** Both currencies, for pages that are not about one event: "4% + €0.80 per ticket (£0.70 for London events)" */
+export const STUDIO_FEE_RULE = `${studioFeeRule("EUR")} (4% + £0.70 for London events)`;
+export const STUDIO_FEE_RULE_LONG = `${studioFeeRuleLong("EUR")}; for London events priced in pounds, ${studioFeeRuleLong("GBP")}`;
