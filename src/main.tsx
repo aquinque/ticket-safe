@@ -6,6 +6,7 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import { I18nProvider } from "@/contexts/I18nContext";
 import { TicketListingsProvider } from "@/contexts/TicketListingsContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { installBackGuard } from "@/lib/backToHomeRuntime";
 import App from "./App.tsx";
 import "./index.css";
 
@@ -20,6 +21,9 @@ if (sentryDsn) {
 }
 
 const queryClient = new QueryClient();
+
+// The back button's guard listens to `popstate` before React Router does (listeners run in the order they were added).
+installBackGuard();
 
 createRoot(document.getElementById("root")!).render(
   <Sentry.ErrorBoundary

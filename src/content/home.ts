@@ -1,24 +1,14 @@
 /**
- * Everything the home page says and shows, in one place: edit a text, a call to action or a picture path here
- * without touching a component. The page itself is src/pages/Home.tsx and the slider src/components/home/HomeSlider.tsx;
- * the files to drop in are listed in public/media/home/README.md.
+ * Everything the home page says and shows, in one place: edit a text, a button or a media path here without
+ * touching a component. The page is src/pages/Home.tsx, the hero src/components/home/HeroCarousel.tsx, and the
+ * files to drop in are listed in public/media/home/README.md.
  *
- * The page is in English, like the rest of the site. The French copy is shown to visitors who pick French in the
- * language switcher (or arrive with ?lang=fr); Spanish visitors get English until there is Spanish copy.
- *
- * House rules for these texts: the word "safe" is only part of the name TicketSafe, so no sentence promises that
- * tickets are sold or resold "safely"; and no sentence talks about scams, fraud or fake tickets.
+ * The site is entirely in English, so this file is too: headlines, sublines, buttons, labels, aria-labels, empty
+ * states. Nothing here is translated.
  */
-import { frenchTypography, type HomeImage, type HomeLanguage } from "@/lib/homePage";
+import type { HomeImage, HomeVideo } from "@/lib/homePage";
 
-// ── The three main functions ──────────────────────────────────────────────
-
-/** In slide order. Each one has a text below, a picture behind and a tab with its own progress bar. */
-export const SLIDE_IDS = ["buy", "sell", "scan"] as const;
-
-export type SlideId = (typeof SLIDE_IDS)[number];
-
-// ── Where the calls to action go ──────────────────────────────────────────
+// ── Where the buttons go ──────────────────────────────────────────────────
 
 export const HOME_LINKS = {
   /** The events list (/events redirects here). */
@@ -36,109 +26,93 @@ export interface Cta {
   target: CtaTarget;
 }
 
-// ── Pictures ──────────────────────────────────────────────────────────────
+// ── The hero's three slides ───────────────────────────────────────────────
 
 /** The colours shown while a picture loads, and for good when its file is missing. */
 export type FallbackTone = "cobalt" | "ink" | "club";
 
-export interface HomeSlideMedia {
+export interface SlideMedia {
+  /** The still picture: also the poster of the video, and what phones and data-saving visitors get. */
   image: HomeImage;
+  /**
+   * Optional looping video. List it only once its files are in public/media/home (see the README): the page does
+   * not look for it, so a file that is listed but missing would only cost a failed request.
+   */
+  video?: HomeVideo;
   tone: FallbackTone;
-  /** CSS object-position: which part of the picture stays in view when the screen crops it (a wide screen shows a band). */
-  position: string;
+  /** CSS object-position: which part of the picture stays in view when the screen crops it. */
+  position?: string;
 }
 
-const picture = (name: string): HomeImage => ({ src: `/media/home/${name}.jpg`, width: 1080, height: 1920 });
+export interface HeroSlide {
+  id: string;
+  headline: string;
+  subline: string;
+  /** No button on a slide that has none. */
+  cta?: Cta;
+  media: SlideMedia;
+}
+
+const picture = (name: string): HomeImage => ({ src: `/media/home/${name}.jpg`, width: 1920, height: 1080 });
 
 /**
+ * To add a video to a slide, drop slide-N.mp4 (and slide-N.webm) next to its picture and list it:
+ *   media: { image: picture("slide-1"), video: { mp4: "/media/home/slide-1.mp4", webm: "/media/home/slide-1.webm" }, ... }
  * To add a WebP or AVIF version of a picture, drop it next to the JPEG with the same name and add the format:
- * `image: { ...picture("buy"), formats: ["avif", "webp", "jpg"] }`.
+ *   image: { ...picture("slide-1"), formats: ["avif", "webp", "jpg"] }
+ * Slide 1's headline is the page's one h1; the others are h2.
  */
-export const HOME_SLIDE_MEDIA: Record<SlideId, HomeSlideMedia> = {
-  buy: { image: picture("buy"), tone: "cobalt", position: "50% 70%" },
-  sell: { image: picture("sell"), tone: "ink", position: "50% 62%" },
-  scan: { image: picture("scan"), tone: "club", position: "50% 66%" },
-};
+export const HERO_SLIDES: HeroSlide[] = [
+  {
+    id: "platform",
+    headline: "The event platform for students",
+    subline: "Galas, parties, trips, conferences. One link, one ticket, zero fraud.",
+    cta: { label: "Browse events", target: "events" },
+    media: { image: picture("slide-1"), tone: "cobalt" },
+  },
+  {
+    id: "resale",
+    headline: "Can't make it? Resell it safely.",
+    subline:
+      "Resale happens on TicketSafe, at a capped price. The buyer gets a real ticket, the seller gets paid, the organizer stays in control.",
+    media: { image: picture("slide-2"), tone: "ink" },
+  },
+  {
+    id: "organizers",
+    headline: "Organizing an event?",
+    subline: "Create it in Ticket Studio, sell in minutes, withdraw your money whenever you want.",
+    cta: { label: "Open Ticket Studio", target: "studio" },
+    media: { image: picture("slide-3"), tone: "club" },
+  },
+];
 
-// ── Copy ──────────────────────────────────────────────────────────────────
+// ── The other texts of the page ───────────────────────────────────────────
 
-export interface HomeSlideCopy {
-  /** The word on the tab, under its progress bar. */
-  tab: string;
-  title: string;
-  body: string;
-  cta: Cta;
-}
-
-export interface HomeCopy {
-  /** The one h1 of the page. */
-  title: string;
-  /** Names the slideshow, and its row of tabs, for screen readers. */
-  sliderLabel: string;
-  pause: string;
-  play: string;
-  /** Read out for each slide: {n} and {total} are replaced. */
-  slideOf: string;
-  slides: Record<SlideId, HomeSlideCopy>;
-}
-
-const eventsCta = (label: string): Cta => ({ label, target: "events" });
-const studioCta = (label: string): Cta => ({ label, target: "studio" });
-
-const fr: HomeCopy = {
-  title: "Plateforme de billetterie",
-  sliderLabel: "Ce que fait TicketSafe",
-  pause: "Mettre le diaporama en pause",
-  play: "Relancer le diaporama",
-  slideOf: "Diapositive {n} sur {total}",
-  slides: {
-    buy: {
-      tab: "Acheter",
-      title: "Achète en 30 secondes",
-      body: "Ton billet est dans ton téléphone. Tu ne peux plus venir ? Revends rapidement.",
-      cta: eventsCta("Voir les événements"),
-    },
-    sell: {
-      tab: "Vendre",
-      title: "Vends en 5 minutes",
-      body: "Crée ton événement sur Ticket Studio, fixe tes prix, partage ton lien.",
-      cta: studioCta("Ouvrir Ticket Studio"),
-    },
-    scan: {
-      tab: "Scanner",
-      title: "Scanne à l'entrée",
-      body: "Contrôle chaque QR code à la porte, avec les stats en direct.",
-      cta: studioCta("Ouvrir Ticket Studio"),
+export const HOME_COPY = {
+  carousel: {
+    /** Names the carousel for screen readers. */
+    label: "TicketSafe highlights",
+    /** Names the row of indicators. */
+    choose: "Choose a slide",
+    previous: "Previous slide",
+    next: "Next slide",
+    /** {n} and {total} are replaced. */
+    goTo: "Go to slide {n} of {total}",
+    slideOf: "Slide {n} of {total}",
+  },
+  events: {
+    title: "Upcoming events",
+    seeAll: "See all events",
+    /** Shown instead of the grid while fewer than three events are published. */
+    soon: {
+      title: "Coming soon near you",
+      body: "New events are on their way. What if the next one was yours?",
+      cta: { label: "Open Ticket Studio", target: "studio" } as Cta,
     },
   },
-};
+  /** Written above the logos of src/config/partnerLogos.ts; nothing is shown while that list is empty. */
+  trusted: "Trusted by student associations across Europe",
+} as const;
 
-const en: HomeCopy = {
-  title: "Ticketing platform",
-  sliderLabel: "What TicketSafe does",
-  pause: "Pause the slideshow",
-  play: "Play the slideshow",
-  slideOf: "Slide {n} of {total}",
-  slides: {
-    buy: {
-      tab: "Buy",
-      title: "Buy in 30 seconds",
-      body: "Your ticket lives in your phone. Can't make it? Resell quickly.",
-      cta: eventsCta("See events"),
-    },
-    sell: {
-      tab: "Sell",
-      title: "Sell in 5 minutes",
-      body: "Create your event on Ticket Studio, set your prices, share your link.",
-      cta: studioCta("Open Ticket Studio"),
-    },
-    scan: {
-      tab: "Scan",
-      title: "Scan at the entrance",
-      body: "Check every QR code at the door, with live stats.",
-      cta: studioCta("Open Ticket Studio"),
-    },
-  },
-};
-
-export const HOME_CONTENT: Record<HomeLanguage, HomeCopy> = { fr: frenchTypography(fr), en };
+export const fill = (template: string, n: number, total: number): string =>
+  template.replace("{n}", String(n)).replace("{total}", String(total));

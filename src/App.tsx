@@ -6,6 +6,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import { CookieConsent } from "@/components/CookieConsent";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import ScrollToTop from "@/components/ScrollToTop";
+import BackToHomeGuard from "@/components/BackToHomeGuard";
 import ProtectedAdminRoute from "@/components/ProtectedAdminRoute";
 import { StudioAccessGate } from "@/components/studio/StudioAccessGate";
 
@@ -91,6 +92,7 @@ const App = () => (
     <Sonner />
     <CookieConsent />
     <ScrollToTop />
+    <BackToHomeGuard />
     <Suspense fallback={<RouteFallback />}>
       <Routes>
         <Route path="/" element={<Home />} />

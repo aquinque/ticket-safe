@@ -1,42 +1,98 @@
-# Home page pictures
+# Home page media
 
-The home page is one screen with three slides that slide in by themselves: **Buy**, **Sell**, **Scan**. Each slide
-has a picture behind its words. Drop your pictures in this folder, **with exactly these names**:
+The home page opens on a full-screen carousel of **3 slides**. Each slide has a big picture (or a looping video)
+behind one sentence. Drop the files in this folder, **with exactly these names**:
 
-| Slide | File |
-|---|---|
-| 1. Buy | `buy.jpg` |
-| 2. Sell (Ticket Studio) | `sell.jpg` |
-| 3. Scan (entrance check) | `scan.jpg` |
+| Slide | Picture (required) | Video (optional) |
+|---|---|---|
+| 1. Platform: "The event platform for students" | `slide-1.jpg` | `slide-1.mp4` + `slide-1.webm` |
+| 2. Secure resale: "Can't make it? Resell it safely." | `slide-2.jpg` | `slide-2.mp4` + `slide-2.webm` |
+| 3. Organizers: "Organizing an event?" | `slide-3.jpg` | `slide-3.mp4` + `slide-3.webm` |
 
-## What a good file looks like
+Until a file is here, its slide shows a gradient in the site's colours. Nothing breaks and no image is ever shown broken.
 
-- **JPEG, about 1920 px on its long side, quality 75–80, under 400 KB.** A heavier file makes the page slower
-  on a phone, where most visitors arrive from.
-- **Any proportion works.** The picture is cropped to fill the screen. A portrait picture (like a Pinterest pin)
-  is perfect on a phone; on a computer only a horizontal band of it shows, so keep what matters near the middle,
-  or move the band with `position` in `src/content/home.ts` (for example `"50% 30%"` shows the upper part).
-- **Real photos and footage only. No AI-generated images.** Nothing in the code makes or replaces a picture.
-- Pictures found on Pinterest belong to whoever made them: use your own photos, or ones you are allowed to use.
-- Until a file is here, its slide shows a navy gradient. Nothing breaks, no image is ever shown broken.
+## Sizes
 
-`buy.jpg`, `sell.jpg` and `scan.jpg` are right now three frames of the old home page video, only so that the
-screen is not empty. Replace them.
+- **Picture:** JPEG, 1920 × 1080, **under 400 KB**.
+- **Video:** 1080p, **8 to 12 seconds**, a loop that does not jump, **no sound**, **under 3 MB** each (MP4 and WebM).
+- Videos only play on a computer with a good connection. Phones, data saver, 2G/3G and "reduce motion" show the
+  picture, so the picture is what most visitors see: take care of it.
 
-## Changing the rest
+## What to look for (art direction)
 
-- **Texts, buttons, links, the order of the slides, the part of each picture that stays in view:** `src/content/home.ts`.
-  The page is in English; the French texts show when a visitor picks French.
-- **Time per slide (6.5 s):** `SLIDE_INTERVAL_MS` in `src/lib/homePage.ts` and `--slide-ms` in `src/index.css`.
-  Keep the two equal (a test checks it). How far a slide travels as it arrives is `--slide-shift` in `src/index.css`.
+Real photos and real footage of parties and events. **No AI-generated images.** Dark, coloured lights, a crowd,
+**no sharp face in the foreground, no school logo**. The page dims the picture with a dark gradient, so a bright
+or busy one still works, but a dark one looks best.
+
+Use only media you may use commercially: **Pexels**, **Coverr** and **Mixkit** all allow it (check the licence of
+each file you pick).
+
+## References (Pinterest)
+
+These pins only set the mood. **Do not download them**: they belong to their authors. Find free equivalents with the
+same framing, light and atmosphere using the keywords.
+
+### Slide 1: Platform (energy, crowd, lights)
+
+- https://fr.pinterest.com/pin/1010706341356354231/ (8 s video, backlit crowd in red light: the reference for a loop)
+- https://fr.pinterest.com/pin/793478028125109049/ (confetti and raised hands, student party)
+- https://fr.pinterest.com/pin/4590575510044889152/ (open-air rave)
+- https://fr.pinterest.com/pin/706783735316670526/ (blue and red stage, raised hands)
+
+Search: `concert crowd lights`, `festival crowd night`, `confetti party`
+
+### Slide 2: Secure resale (calmer, intimate, "after the party")
+
+- https://fr.pinterest.com/pin/918804761496117793/ (direct-flash party, film look)
+- https://fr.pinterest.com/pin/1090011916097831278/ (summer terrace, string lights, student crowd)
+- https://fr.pinterest.com/pin/969822101035231810/ (10 s video, crowd with lit phones)
+
+Search: `nightclub party crowd`, `phones in the crowd night`, `terrace party string lights`
+
+### Slide 3: Organizers (gala, hall, backstage / DJ)
+
+- https://fr.pinterest.com/pin/446771225557513977/ (gala hall, ceiling of lanterns)
+- https://fr.pinterest.com/pin/631348441549316578/ (gala, purple dance floor)
+- https://fr.pinterest.com/pin/1134766437382648347/ (30 s video, DJ and disco balls, club)
+
+Search: `gala dinner venue`, `disco ball club`, `dj booth club lights`
+
+## Preparing the files
+
+From any source (`source.jpg`, `source.mov`):
+
+```sh
+# Picture
+ffmpeg -i source.jpg -vf "scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080" -q:v 4 slide-1.jpg
+# Video: MP4 (plays everywhere), then WebM (smaller, taken first when it exists)
+ffmpeg -i source.mov -t 10 -vf "scale=1920:-2" -an -c:v libx264 -crf 28 -preset slow -movflags +faststart slide-1.mp4
+ffmpeg -i source.mov -t 10 -vf "scale=1920:-2" -an -c:v libvpx-vp9 -crf 36 -b:v 0 slide-1.webm
+# A poster from the video, if you have no separate picture
+ffmpeg -i source.mov -ss 1 -frames:v 1 -vf "scale=1920:-2" -q:v 4 slide-1.jpg
+```
+
+## Switching a video on
+
+The page does not look for videos by itself (a missing file would only cost a failed request). Once
+`slide-N.mp4` / `slide-N.webm` are here, list them for that slide in `src/content/home.ts`:
+
+```ts
+media: {
+  image: picture("slide-1"),
+  video: { mp4: "/media/home/slide-1.mp4", webm: "/media/home/slide-1.webm" },
+  tone: "cobalt",
+},
+```
+
+The picture is always the video's poster. Only the video of the slide in view and of the next one is loaded.
 
 ## WebP / AVIF (optional)
 
-Add a `.webp` and/or `.avif` file **next to the JPEG, with the same name** (for example `buy.webp`), then list
-the formats in `src/content/home.ts`:
+Add a `.webp` and/or `.avif` file next to the JPEG with the same name (for example `slide-1.webp`), then list the
+formats in `src/content/home.ts`: `image: { ...picture("slide-1"), formats: ["avif", "webp", "jpg"] }`. Only list a
+format whose file exists: the browser does not fall back to the JPEG when a listed file is missing.
 
-```ts
-buy: { image: { ...picture("buy"), formats: ["avif", "webp", "jpg"] }, tone: "cobalt", position: "50% 70%" },
-```
+## Texts, buttons and links
 
-Only list a format if its file exists: the browser does not fall back to the JPEG when a listed file is missing.
+All in `src/content/home.ts`, in English. `position` there (for example `"50% 30%"`) chooses the part of a picture
+that stays in view on a wide screen.
