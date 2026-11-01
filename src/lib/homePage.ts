@@ -100,22 +100,12 @@ export const FIRST_SCREEN_MEDIA_DELAY_MS = 700;
 
 export type HomeLanguage = "fr" | "en";
 
-const SUPPORTED = new Set(["fr", "en", "es"]);
-
-/** The language a visitor picked on purpose (?lang= in the address, or the switcher's saved choice), if any. */
-export function chosenLanguage(search: string, stored: string | null): string | null {
-  const fromUrl = new URLSearchParams(search).get("lang");
-  if (fromUrl && SUPPORTED.has(fromUrl)) return fromUrl;
-  if (stored && SUPPORTED.has(stored)) return stored;
-  return null;
-}
-
 /**
- * The home page is written in French. A visitor who picked English or Spanish gets the English version (there
- * is no Spanish copy yet); a visitor who picked nothing gets French, whatever the site-wide default is.
+ * The home page follows the site language, which is English unless the visitor picked another one (the switcher,
+ * or ?lang= in the address). French has its own copy; Spanish has none yet, so a Spanish visitor gets English.
  */
-export function resolveHomeLanguage(chosen: string | null): HomeLanguage {
-  return chosen === "en" || chosen === "es" ? "en" : "fr";
+export function resolveHomeLanguage(siteLanguage: string | null | undefined): HomeLanguage {
+  return siteLanguage === "fr" ? "fr" : "en";
 }
 
 // ── Upcoming events ───────────────────────────────────────────────────────

@@ -7,7 +7,6 @@ import {
   MAX_EVENTS_SHOWN,
   MIN_EVENTS_FOR_GRID,
   canPlayVideo,
-  chosenLanguage,
   hasEnoughEvents,
   pictureSources,
   resolveHomeLanguage,
@@ -67,23 +66,21 @@ describe("how media is described to the browser", () => {
 });
 
 describe("which language the copy is in", () => {
-  it("finds a language the visitor picked on purpose", () => {
-    expect(chosenLanguage("?lang=en", null)).toBe("en");
-    expect(chosenLanguage("", "es")).toBe("es");
-    expect(chosenLanguage("?lang=fr", "en")).toBe("fr"); // the address wins, like in the language context
-  });
-
-  it("ignores anything that is not a supported language, or nothing at all", () => {
-    expect(chosenLanguage("", null)).toBeNull();
-    expect(chosenLanguage("?lang=de", "xx")).toBeNull();
-    expect(chosenLanguage("?lang=", "")).toBeNull();
-  });
-
-  it("is French unless English or Spanish was chosen", () => {
-    expect(resolveHomeLanguage(null)).toBe("fr");
-    expect(resolveHomeLanguage("fr")).toBe("fr");
+  it("is English unless the visitor picked French", () => {
     expect(resolveHomeLanguage("en")).toBe("en");
+    expect(resolveHomeLanguage(null)).toBe("en");
+    expect(resolveHomeLanguage(undefined)).toBe("en");
+    expect(resolveHomeLanguage("fr")).toBe("fr");
+  });
+
+  it("gives English to a language it has no copy for", () => {
     expect(resolveHomeLanguage("es")).toBe("en");
+    expect(resolveHomeLanguage("de")).toBe("en");
+  });
+
+  it("follows the site language, so the default is the site's own default (English)", () => {
+    expect(read("src/hooks/useHomeLanguage.ts")).toContain("useI18n()");
+    expect(read("src/contexts/I18nContext.tsx")).toMatch(/return 'en';/);
   });
 });
 
@@ -168,7 +165,7 @@ describe("the home content", () => {
     // The typography above only swaps plain spaces for no-break ones; the words are the ones that were asked for.
     const fr = JSON.parse(JSON.stringify(HOME_CONTENT.fr).replace(/\u00a0/g, " ")) as HomeCopy;
     expect(fr.hero.title).toBe("La billetterie des événements étudiants");
-    expect(fr.hero.subtitle).toBe("Vends tes billets, revends-les en sécurité, zéro fraude.");
+    expect(fr.hero.subtitle).toBe("Vends tes billets, revends-les rapidement.");
     expect(fr.hero.primary.label).toBe("Voir les événements");
     expect(fr.hero.secondary.label).toBe("Organiser un événement");
     expect(fr.organisateurs.title).toBe("Vends tes billets en 5 minutes");
@@ -176,13 +173,32 @@ describe("the home content", () => {
     expect(fr.organisateurs.cta.label).toBe("Ouvrir Ticket Studio");
     expect(fr.associatif.title).toBe("Pensé pour les BDE et les assos");
     expect(fr.associatif.trustedTitle).toBe("Ils nous font confiance");
-    expect(fr.soirees.title).toBe("Les soirées, sans les arnaques");
-    expect(fr.revente.title).toBe("Tu ne peux plus venir ? Revends en sécurité");
+    expect(fr.soirees.title).toBe("Un scan, et tu entres");
+    expect(fr.revente.title).toBe("Tu ne peux plus venir ? Revends rapidement");
     expect(fr.reunions.title).toBe("Et aussi les conférences, forums, réunions");
     expect(fr.plateforme.title).toBe("Une plateforme, trois espaces");
     expect(fr.plateforme.cards.map((c) => c.title)).toEqual(["Acheteur", "Organisateur — Ticket Studio", "Contrôle à l'entrée"]);
     expect(fr.evenements.soon.title).toBe("Bientôt près de chez toi");
     expect(fr.final.title).toBe("Prêt pour ton prochain event ?");
+  });
+
+  it("never promises that anything is sold or resold \"safely\", and never talks about scams, fraud or fake tickets", () => {
+    // "Safe" is only part of the name TicketSafe. Say what the product does ("resell quickly") instead.
+    for (const lang of langs) {
+      const words = JSON.stringify(HOME_CONTENT[lang]).replace(/TicketSafe/g, "");
+      expect(words, lang).not.toMatch(/safe|secur|sécur|scam|fraud|arnaq|fake|faux|zéro/i);
+    }
+    expect(HOME_CONTENT.en.hero.subtitle).toBe("Sell your tickets, resell them quickly.");
+    expect(HOME_CONTENT.en.revente.title).toBe("Can't make it? Resell quickly");
+  });
+
+  it("keeps the header, footer and link previews shown with the home page free of those promises too", () => {
+    for (const file of ["src/components/Footer.tsx", "src/components/HeaderNight.tsx", "index.html", "src/pages/Home.tsx"]) {
+      expect(read(file), file).not.toMatch(/safely|No scams/i);
+    }
+    for (const lang of ["en", "fr", "es"]) {
+      expect(JSON.parse(read(`src/locales/${lang}.json`)).footer.tagline, lang).not.toMatch(/safely|sécurité|seguridad/i);
+    }
   });
 
   it("points every call to action at a route that exists", () => {
@@ -253,7 +269,11 @@ describe("the page itself", () => {
     expect(home).toContain('import HeaderNight from "@/components/HeaderNight"');
     expect(home).toContain('import Footer from "@/components/Footer"');
     expect(home).toContain('title="TicketSafe — Your nights."');
-    expect(home).toContain('description="Buy tickets directly from your student union, or organization, or resell yours safely."');
+    expect(home).toContain('description="Buy tickets directly from your student union, or organization, or resell yours quickly."');
+  });
+
+  it("shows no picture bundled in src/assets: only the real photos and footage dropped into public/media/home", () => {
+    for (const source of sources) expect(source).not.toMatch(/@\/assets|\.\.\/assets|\/assets\//);
   });
 
   it("gives the resale section no call to action", () => {

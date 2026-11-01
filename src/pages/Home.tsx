@@ -69,7 +69,7 @@ const Home = () => {
     <div className="theme-night min-h-screen flex flex-col bg-background">
       <SEOHead
         title="TicketSafe — Your nights."
-        description="Buy tickets directly from your student union, or organization, or resell yours safely."
+        description="Buy tickets directly from your student union, or organization, or resell yours quickly."
       />
 
       <HeaderNight />

@@ -3,8 +3,11 @@
  * without touching a component. The page itself is src/pages/Home.tsx; the files to drop in are listed in
  * public/media/home/README.md.
  *
- * The French copy is the reference. The English copy is shown to visitors who pick English (or Spanish, until
- * there is Spanish copy) in the language switcher.
+ * The page is in English, like the rest of the site. The French copy is shown to visitors who pick French in the
+ * language switcher (or arrive with ?lang=fr); Spanish visitors get English until there is Spanish copy.
+ *
+ * House rules for these texts: the word "safe" is only part of the name TicketSafe, so no sentence promises that
+ * tickets are sold or resold "safely"; and no sentence talks about scams, fraud or fake tickets.
  */
 import { STUDIO_FEE_FIXED_EUR, STUDIO_FEE_MAX_EUR, STUDIO_FEE_PERCENT } from "@/lib/studioFee";
 import { frenchTypography, type HomeImage, type HomeLanguage, type HomeVideo } from "@/lib/homePage";
@@ -139,7 +142,7 @@ const fr: HomeCopy = {
   scrollCue: "Faire défiler vers le bas",
   hero: {
     title: "La billetterie des événements étudiants",
-    subtitle: "Vends tes billets, revends-les en sécurité, zéro fraude.",
+    subtitle: "Vends tes billets, revends-les rapidement.",
     primary: eventsCta("Voir les événements"),
     secondary: studioCta("Organiser un événement"),
   },
@@ -162,12 +165,12 @@ const fr: HomeCopy = {
   },
   soirees: {
     kicker: "Soirées",
-    title: "Les soirées, sans les arnaques",
-    body: "Billets nominatifs, QR code unique, contrôle à l'entrée. Les faux billets n'entrent pas.",
+    title: "Un scan, et tu entres",
+    body: "Billets nominatifs, QR code unique, contrôle à l'entrée.",
   },
   revente: {
     kicker: "Revente",
-    title: "Tu ne peux plus venir ? Revends en sécurité",
+    title: "Tu ne peux plus venir ? Revends rapidement",
     body: "La revente se fait sur TicketSafe, à prix encadré. L'acheteur reçoit un vrai billet, le vendeur est remboursé, l'organisateur garde le contrôle.",
   },
   reunions: {
@@ -219,7 +222,7 @@ const en: HomeCopy = {
   scrollCue: "Scroll down",
   hero: {
     title: "The ticketing platform for student events",
-    subtitle: "Sell your tickets, resell them safely, zero fraud.",
+    subtitle: "Sell your tickets, resell them quickly.",
     primary: eventsCta("See events"),
     secondary: studioCta("Organize an event"),
   },
@@ -230,7 +233,7 @@ const en: HomeCopy = {
     bullets: [
       "Create an event in a few clicks",
       "Real-time sales dashboard",
-      "Withdraw your funds by hand, or automatically at the end of the event",
+      "Withdraw your funds manually, or automatically at the end of the event",
     ],
     cta: studioCta("Open Ticket Studio"),
   },
@@ -238,21 +241,21 @@ const en: HomeCopy = {
     kicker: "Student unions",
     title: "Built for student unions and societies",
     body: "Galas, integration parties, ski weekends, afterworks: ticketing made for student life, not for stadiums.",
-    trustedTitle: "They trust us",
+    trustedTitle: "Trusted by",
   },
   soirees: {
     kicker: "Parties",
-    title: "Parties, without the scams",
-    body: "Named tickets, unique QR code, entry check. Fake tickets don't get in.",
+    title: "One scan, and you're in",
+    body: "Named tickets, a unique QR code, a check at the entrance.",
   },
   revente: {
     kicker: "Resale",
-    title: "Can't make it? Resell safely",
-    body: "Resale happens on TicketSafe, at a capped price. The buyer gets a real ticket, the seller gets paid, the organizer stays in control.",
+    title: "Can't make it? Resell quickly",
+    body: "Resale happens on TicketSafe, at a capped price. The buyer gets a real ticket, the seller gets their money back, the organizer stays in control.",
   },
   reunions: {
     kicker: "Meetings & business events",
-    title: "And also conferences, forums, meetings",
+    title: "Conferences, forums and meetings too",
     body: "Free or paid event, named registration, exportable attendee list, check-in at the door.",
   },
   plateforme: {
@@ -263,7 +266,7 @@ const en: HomeCopy = {
       { icon: "organizer", title: "Organizer — Ticket Studio", body: "Creation, sales, withdrawals." },
       { icon: "scan", title: "Entry check", body: "QR scan, live stats." },
     ],
-    pricing: `Service fee paid by the buyer: ${STUDIO_FEE_PERCENT}% + €${enNumber(STUDIO_FEE_FIXED_EUR)} per ticket, €${enNumber(STUDIO_FEE_MAX_EUR)} maximum. Nothing to pay for the organizer.`,
+    pricing: `Service fee paid by the buyer: ${STUDIO_FEE_PERCENT}% + €${enNumber(STUDIO_FEE_FIXED_EUR)} per ticket, €${enNumber(STUDIO_FEE_MAX_EUR)} maximum. Organizers pay nothing.`,
   },
   evenements: {
     kicker: "Upcoming events",

@@ -4,6 +4,12 @@ Dépose ici les fichiers ci-dessous, **avec exactement ces noms**. Tant qu'un fi
 affiche un dégradé bleu nuit à la place : rien ne casse, aucune image cassée. Les textes, les liens et les
 chemins des médias se changent dans `src/content/home.ts`, jamais dans les composants.
 
+## Vraies photos et vraies vidéos uniquement
+
+**Aucune image générée par IA** sur cette page : seulement de vraies photos et de vraies images filmées
+(vos soirées, vos événements, vos équipes). Rien dans le code ne génère ni ne remplace un visuel : tant qu'un
+fichier est absent, la section reste sur son dégradé.
+
 ## Fichiers attendus
 
 | Section | Fichier(s) | Format | Cible |
