@@ -156,7 +156,7 @@ const StudioPayouts = () => {
         <div className="mb-5">
           <h1 className="text-xl md:text-2xl font-bold text-foreground">Payouts</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Events sold through Stripe pay out on their own, two days after the event. This page is for balances from earlier events, sent by bank transfer.
+            Events sold through Stripe pay out on their own as soon as the event ends, and you can cash out any time from the Payments page. This page is for balances from earlier events, sent by bank transfer.
           </p>
         </div>
 
@@ -168,7 +168,7 @@ const StudioPayouts = () => {
             <CreditCard className="w-4 h-4 text-primary shrink-0" />
             <span className="text-sm flex-1 min-w-0">
               {stripeActive
-                ? "Your Stripe account is active. Balance, next payout and history are on the Payments page."
+                ? "Your Stripe account is active. Balance, cash out and payout history are on the Payments page."
                 : "Set up payments with Stripe so new events pay out automatically."}
             </span>
             <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground group-hover:translate-x-0.5 transition-all shrink-0" />

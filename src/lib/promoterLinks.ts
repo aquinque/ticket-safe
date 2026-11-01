@@ -185,6 +185,7 @@ interface DbResult {
 interface LooseClient {
   rpc: (fn: string, args: Record<string, unknown>) => PromiseLike<DbResult>;
   from: (table: string) => {
+    select: (columns: string) => { eq: (column: string, value: string) => PromiseLike<DbResult> };
     insert: (row: Record<string, unknown>) => PromiseLike<DbResult>;
     update: (patch: Record<string, unknown>) => { eq: (column: string, value: string) => PromiseLike<DbResult> };
   };
@@ -235,4 +236,159 @@ export async function setPromoterLinkArchived(linkId: string, archived: boolean)
     .update({ archived_at: archived ? new Date().toISOString() : null })
     .eq("id", linkId);
   if (error) throw new Error(friendly(error));
+}
+
+// ── Promoter accounts ─────────────────────────────────────────────────────
+// The organizer sends an invitation (/p/<token>). The promoter signs in, claims the link, and finds it in their
+// personal space (/promoter) with their own sales and their own link to the ticket page.
+
+/** The invitation address the organizer sends to a promoter. */
+export const promoterInviteUrl = (token: string): string => `${SITE}/p/${token}`;
+
+/** Remembers an invitation across sign-up and e-mail confirmation (which may lose the page address). */
+const PENDING_INVITE_KEY = "ts-pending-promoter-invite";
+export const rememberPromoterInvite = (token: string): void => {
+  try {
+    localStorage.setItem(PENDING_INVITE_KEY, token);
+  } catch {
+    /* storage unavailable: the address still carries the token */
+  }
+};
+export const pendingPromoterInvite = (): string | null => {
+  try {
+    return localStorage.getItem(PENDING_INVITE_KEY);
+  } catch {
+    return null;
+  }
+};
+export const forgetPromoterInvite = (): void => {
+  try {
+    localStorage.removeItem(PENDING_INVITE_KEY);
+  } catch {
+    /* ignore */
+  }
+};
+
+export interface PromoterInviteState {
+  token: string;
+  /** Whether a promoter already accepted this invitation. */
+  claimed: boolean;
+}
+
+/** Invitation tokens of an event's links, by link id. Only the event's organizer can read them (RLS). */
+export async function fetchInviteStates(eventId: string): Promise<Record<string, PromoterInviteState>> {
+  const { data, error } = await db
+    .from("event_promoter_links")
+    .select("id, report_token, promoter_user_id")
+    .eq("event_id", eventId);
+  if (error) throw new Error(error.message);
+  const out: Record<string, PromoterInviteState> = {};
+  for (const row of Array.isArray(data) ? data : []) {
+    if (isRecord(row) && typeof row.id === "string" && typeof row.report_token === "string") {
+      out[row.id] = { token: row.report_token, claimed: typeof row.promoter_user_id === "string" };
+    }
+  }
+  return out;
+}
+
+export interface PromoterInvite {
+  name: string;
+  archived: boolean;
+  eventTitle: string;
+  eventDate: string | null;
+  eventLocation: string | null;
+  bannerUrl: string | null;
+  organizerName: string | null;
+  claimed: boolean;
+  /** The signed-in visitor is the promoter who claimed it. */
+  mine: boolean;
+}
+
+export async function fetchPromoterInvite(token: string): Promise<PromoterInvite | null> {
+  const { data, error } = await db.rpc("promoter_invite_info", { p_token: token });
+  if (error) throw new Error(error.message);
+  if (!isRecord(data)) return null;
+  return {
+    name: text(data.name) ?? "Promoter",
+    archived: data.archived === true,
+    eventTitle: text(data.event_title) ?? "Event",
+    eventDate: text(data.event_date),
+    eventLocation: text(data.event_location),
+    bannerUrl: text(data.banner_url),
+    organizerName: text(data.organizer_name),
+    claimed: data.claimed === true,
+    mine: data.mine === true,
+  };
+}
+
+export type ClaimResult = "claimed" | "already" | "taken" | "not_found";
+
+export async function claimPromoterLink(token: string): Promise<ClaimResult> {
+  const { data, error } = await db.rpc("claim_promoter_link", { p_token: token });
+  if (error) throw new Error(error.message);
+  return data === "claimed" || data === "already" || data === "taken" ? data : "not_found";
+}
+
+export interface MyPromoterLink {
+  id: string;
+  name: string;
+  code: string;
+  archived: boolean;
+  eventTitle: string;
+  eventSlug: string;
+  eventDate: string | null;
+  eventLocation: string | null;
+  bannerUrl: string | null;
+  eventStatus: string | null;
+  organizerName: string | null;
+  visits: number;
+  checkouts: number;
+  paidOrders: number;
+  tickets: number;
+  lastSaleAt: string | null;
+  series: PromoterDay[];
+}
+
+/** Reads what my_promoter_links() returns. Rows without an event or a code are dropped. */
+export function parseMyPromoterLinks(raw: unknown): MyPromoterLink[] {
+  const out: MyPromoterLink[] = [];
+  for (const row of Array.isArray(raw) ? raw : []) {
+    if (!isRecord(row)) continue;
+    const id = text(row.id);
+    const code = text(row.code);
+    const eventSlug = text(row.event_slug);
+    if (!id || !code || !eventSlug) continue;
+    const series: PromoterDay[] = [];
+    for (const d of Array.isArray(row.series) ? row.series : []) {
+      if (!isRecord(d)) continue;
+      const day = text(d.day);
+      if (day) series.push({ day, visits: num(d.visits), tickets: num(d.tickets) });
+    }
+    out.push({
+      id,
+      name: text(row.name) ?? code,
+      code,
+      archived: row.archived === true,
+      eventTitle: text(row.event_title) ?? "Event",
+      eventSlug,
+      eventDate: text(row.event_date),
+      eventLocation: text(row.event_location),
+      bannerUrl: text(row.banner_url),
+      eventStatus: text(row.event_status),
+      organizerName: text(row.organizer_name),
+      visits: num(row.visits),
+      checkouts: num(row.checkouts),
+      paidOrders: num(row.paid_orders),
+      tickets: num(row.tickets),
+      lastSaleAt: text(row.last_sale_at),
+      series,
+    });
+  }
+  return out;
+}
+
+export async function fetchMyPromoterLinks(): Promise<MyPromoterLink[]> {
+  const { data, error } = await db.rpc("my_promoter_links", {});
+  if (error) throw new Error(error.message);
+  return parseMyPromoterLinks(data);
 }

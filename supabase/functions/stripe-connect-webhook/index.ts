@@ -40,6 +40,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
+import { finalizeStudioOrder } from "../_shared/finalizeStudioOrder.ts";
 import { signStudioTicketJWT } from "../_shared/ticketJwt.ts";
 import { sendResaleCompletionEmails } from "../_shared/sendResaleCompletionEmails.ts";
 import { renderEmail, ctaButton, ticketSummary } from "../_shared/emailComponents.ts";
@@ -118,39 +119,11 @@ serve(async (req) => {
           if (!orderId || !tierId) break;
 
           const paymentIntentId = typeof session.payment_intent === "string" ? session.payment_intent : (session.payment_intent as Stripe.PaymentIntent)?.id ?? null;
-
-          const { data: updRows } = await supabase
-            .from("event_orders")
-            .update({ status: "paid", paid_at: new Date().toISOString(), stripe_payment_intent_id: paymentIntentId })
-            .eq("id", orderId).eq("status", "pending").select("id, event_id, buyer_id, attendees");
-          if (!updRows || updRows.length === 0) break; // already processed or not pending
-
-          const ord = updRows[0] as { id: string; event_id: string; buyer_id: string; attendees: unknown };
-          await supabase.rpc("finalize_tier_sale", { p_tier_id: tierId, p_qty: qty });
-
-          const { data: evForExp } = await supabase.from("events").select("date").eq("id", ord.event_id).maybeSingle();
-          const expSeconds = evForExp?.date ? Math.floor(new Date(evForExp.date).getTime() / 1000) + 86_400 : Math.floor(Date.now() / 1000) + 30 * 86_400;
-          const attendees = Array.isArray(ord.attendees) ? (ord.attendees as { first_name?: string; last_name?: string; email?: string; gender?: string }[]) : [];
-
-          const ticketRows = await Promise.all(Array.from({ length: qty }).map(async (_, i) => {
-            const att = attendees[i] ?? null;
-            const ticketId = crypto.randomUUID();
-            const signed = await signStudioTicketJWT({ ticket_id: ticketId, event_id: ord.event_id, exp_seconds: expSeconds });
-            const qrToken = signed ?? (crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, "").slice(0, 8));
-            return { id: ticketId, order_id: ord.id, event_id: ord.event_id, tier_id: tierId, buyer_id: ord.buyer_id, qr_token: qrToken, holder_first_name: att?.first_name ?? null, holder_last_name: att?.last_name ?? null, holder_email: att?.email ?? session.customer_email ?? null, holder_gender: att?.gender ?? null, status: "valid" as const };
-          }));
-          const { error: tixErr } = await supabase.from("event_tickets").insert(ticketRows);
-          if (tixErr) console.error("[stripe-connect-webhook] event_tickets insert failed:", tixErr);
-
-          try {
-            await fetch(`${supabaseUrl}/functions/v1/replay-order-email`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json", apikey: supabaseServiceKey, Authorization: `Bearer ${supabaseServiceKey}` },
-              body: JSON.stringify({ order_id: ord.id, admin_secret: replaySecret }),
-            });
-          } catch (e) { console.warn("[stripe-connect-webhook] studio email failed:", e); }
-
-          console.log(`[stripe-connect-webhook] studio sale finalized order=${ord.id} tickets=${ticketRows.length}`);
+          const result = await finalizeStudioOrder({
+            supabase, supabaseUrl, supabaseServiceKey, replaySecret,
+            orderId, tierId, qty, paymentIntentId, customerEmail: session.customer_email ?? null,
+          });
+          console.log(`[stripe-connect-webhook] studio sale order=${orderId}: ${result.outcome}${result.tickets ? ` tickets=${result.tickets}` : ""}`);
           break;
         }
 
@@ -228,11 +201,12 @@ serve(async (req) => {
       case "payment_intent.payment_failed": {
         const pi = event.data.object as Stripe.PaymentIntent;
         if (pi.metadata?.source === "stripe_connect_studio_sale") {
-          const orderId = pi.metadata.order_id;
-          const tierId = pi.metadata.tier_id;
-          const qty = parseInt(pi.metadata.quantity ?? "1", 10) || 1;
-          if (orderId) await supabase.from("event_orders").update({ status: "cancelled", cancelled_at: new Date().toISOString() }).eq("id", orderId).eq("status", "pending");
-          if (tierId) await supabase.rpc("release_tier_reservation", { p_tier_id: tierId, p_qty: qty });
+          // A declined attempt is not the end of the checkout: Stripe's page
+          // keeps the same session and payment intent and lets the buyer try
+          // another card. Keep the order pending and its seats reserved; the
+          // session's own expiry (checkout.session.expired, 30 min) and the
+          // stuck-orders cleanup release them if the buyer gives up.
+          console.log(`[stripe-connect-webhook] payment attempt failed for order ${pi.metadata.order_id ?? "?"}: ${pi.last_payment_error?.message ?? "no detail"}`);
         } else if (pi.metadata?.source === "stripe_connect_resale") {
           const listingId = pi.metadata.listing_id;
           const transactionId = pi.metadata.transaction_id;

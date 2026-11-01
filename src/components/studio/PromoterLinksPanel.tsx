@@ -8,12 +8,15 @@ import {
   conversionRate,
   createPromoterLink,
   fetchPromoterStats,
+  fetchInviteStates,
   formatRate,
   orderPromoterLinks,
   promoterLinkUrl,
+  promoterInviteUrl,
   promoterShare,
   setPromoterLinkArchived,
   type PromoterDay,
+  type PromoterInviteState,
   type PromoterLinkStats,
   type PromoterStats,
 } from "@/lib/promoterLinks";
@@ -24,7 +27,7 @@ const dayLabel = (day: string) =>
   new Date(`${day}T12:00:00`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
 
 /** Visits per day over the last 14 days. A darker bar is a day with at least one sale. */
-const DaysChart = ({ series }: { series: PromoterDay[] }) => {
+export const DaysChart = ({ series }: { series: PromoterDay[] }) => {
   const max = Math.max(1, ...series.map((d) => d.visits));
   const visits = series.reduce((sum, d) => sum + d.visits, 0);
   return (
@@ -58,35 +61,37 @@ const Figure = ({ label, value, hint }: { label: string; value: string; hint: st
 
 interface LinkCardProps {
   link: PromoterLinkStats;
-  url: string;
   isNew: boolean;
-  copied: boolean;
   busy: boolean;
-  onCopy: () => void;
+  onCopyReport: (() => void) | null;
+  reportCopied: boolean;
+  joined: boolean;
   onArchive: () => void;
 }
 
-const LinkCard = ({ link, url, isNew, copied, busy, onCopy, onArchive }: LinkCardProps) => {
+const LinkCard = ({ link, isNew, busy, onCopyReport, reportCopied, joined, onArchive }: LinkCardProps) => {
   const rate = conversionRate(link.visits, link.paidOrders);
-  const base = url.replace(/^https?:\/\//, "").replace(/\?ref=.*$/, "");
   return (
     <li className={`px-4 md:px-5 py-4 ${isNew ? "bg-primary/[0.04]" : ""}`}>
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
-          <div className="font-semibold text-sm truncate">{link.name}</div>
-          <div className="text-xs text-muted-foreground truncate mt-0.5" title={url}>
-            <span className="hidden sm:inline">{base}</span>?ref={link.code}
+          <div className="font-semibold text-sm truncate">
+            {link.name}
+            {joined && <span className="ml-2 align-middle text-[10px] uppercase tracking-wider font-bold text-primary">Joined</span>}
           </div>
         </div>
-        <button
-          type="button"
-          onClick={onCopy}
-          aria-label={`Copy the link for ${link.name}`}
-          className="shrink-0 inline-flex items-center justify-center gap-1.5 px-3 min-h-[40px] text-xs font-bold bg-primary text-primary-foreground hover:bg-primary-hover transition-colors"
-        >
-          {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-          {copied ? "Copied" : "Copy link"}
-        </button>
+        {onCopyReport && (
+          <button
+            type="button"
+            onClick={onCopyReport}
+            aria-label={`Copy the invite link for ${link.name}`}
+            title={joined ? "This promoter already has their account. Copy the invitation again if you need to." : "Invite the promoter: they create their Ticket Safe account and follow their own sales in a personal space."}
+            className="shrink-0 inline-flex items-center justify-center gap-1.5 px-3 min-h-[40px] text-xs font-bold bg-primary text-primary-foreground hover:bg-primary-hover transition-colors"
+          >
+            {reportCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+            {reportCopied ? "Copied" : "Invite link"}
+          </button>
+        )}
         <button
           type="button"
           onClick={onArchive}
@@ -131,16 +136,21 @@ export const PromoterLinksPanel = ({ eventId, slug, userId }: { eventId: string;
   const [name, setName] = useState("");
   const [creating, setCreating] = useState(false);
   const [newId, setNewId] = useState<string | null>(null);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [showArchived, setShowArchived] = useState(false);
+  const [tokens, setTokens] = useState<Record<string, PromoterInviteState>>({});
+  const [copiedReportId, setCopiedReportId] = useState<string | null>(null);
 
   // Returns what it loaded so a caller that needs the fresh list (a link was just created) does not read it twice.
   const load = useCallback(async (): Promise<PromoterStats | null> => {
     setRefreshing(true);
     try {
-      const fresh = await fetchPromoterStats(eventId);
+      const [fresh, reportTokens] = await Promise.all([
+        fetchPromoterStats(eventId),
+        fetchInviteStates(eventId).catch(() => ({} as Record<string, PromoterInviteState>)),
+      ]);
       setStats(fresh);
+      setTokens(reportTokens);
       setFailed(false);
       return fresh;
     } catch (err) {
@@ -192,12 +202,14 @@ export const PromoterLinksPanel = ({ eventId, slug, userId }: { eventId: string;
     }
   };
 
-  const copy = async (link: PromoterLinkStats) => {
+  const copyReport = async (link: PromoterLinkStats) => {
+    const invite = tokens[link.id];
+    if (!invite) return;
     try {
-      await navigator.clipboard.writeText(promoterLinkUrl(slug, link.code));
-      setCopiedId(link.id);
-      toast.success("Link copied");
-      setTimeout(() => setCopiedId((id) => (id === link.id ? null : id)), 2000);
+      await navigator.clipboard.writeText(promoterInviteUrl(invite.token));
+      setCopiedReportId(link.id);
+      toast.success("Invitation copied. Send it to the promoter: they create their account and follow their own sales.");
+      setTimeout(() => setCopiedReportId((id) => (id === link.id ? null : id)), 2000);
     } catch {
       toast.error("Could not copy the link.");
     }
@@ -225,7 +237,7 @@ export const PromoterLinksPanel = ({ eventId, slug, userId }: { eventId: string;
             Promoter links
           </h2>
           <p className="text-[13px] text-muted-foreground mt-0.5">
-            One link per promoter. They all open your ticket page; you see what each one brings.
+            One link per promoter. They all open your ticket page; you see what each one brings, and invite each promoter so they can follow their own sales.
           </p>
         </div>
         <button
@@ -298,11 +310,11 @@ export const PromoterLinksPanel = ({ eventId, slug, userId }: { eventId: string;
                 <LinkCard
                   key={link.id}
                   link={link}
-                  url={promoterLinkUrl(slug, link.code)}
                   isNew={link.id === newId}
-                  copied={copiedId === link.id}
                   busy={busyId === link.id}
-                  onCopy={() => copy(link)}
+                  onCopyReport={tokens[link.id] ? () => copyReport(link) : null}
+                  joined={tokens[link.id]?.claimed ?? false}
+                  reportCopied={copiedReportId === link.id}
                   onArchive={() => setArchived(link, true)}
                 />
               ))}

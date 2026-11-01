@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Menu, X, User, LogOut, Settings, MessageSquare, Sparkles, Ticket as TicketIcon, Shield, Banknote } from "lucide-react";
+import { Menu, X, User, LogOut, Settings, MessageSquare, Sparkles, Ticket as TicketIcon, Shield, Banknote, Megaphone } from "lucide-react";
 import Logo from "@/components/Logo";
 import WalletBalanceButton from "@/components/WalletBalanceButton";
 import { useAuth } from "@/hooks/useAuth";
@@ -9,6 +9,7 @@ import { useI18n } from "@/contexts/I18nContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useUnreadMessages } from "@/hooks/useUnreadMessages";
 import { useOrganizer } from "@/hooks/useOrganizer";
+import { useIsPromoter } from "@/hooks/useIsPromoter";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -46,6 +47,7 @@ const Header = ({ minimal = false }: HeaderProps) => {
   const { unreadCount, markAllRead } = useUnreadMessages();
   const { organizer } = useOrganizer();
   const isStudioOrganizer = !!user && organizer?.status === "approved";
+  const isPromoter = useIsPromoter();
 
   useEffect(() => {
     if (location.pathname.startsWith("/messages")) markAllRead();
@@ -203,6 +205,12 @@ const Header = ({ minimal = false }: HeaderProps) => {
                     <Banknote className="h-4 w-4 mr-2" />
                     My Wallet
                   </DropdownMenuItem>
+                  {isPromoter && (
+                    <DropdownMenuItem onClick={() => navigate("/promoter")} className="font-semibold">
+                      <Megaphone className="h-4 w-4 mr-2" />
+                      Promoter space
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => navigate("/settings/purchases")}>
                     My Purchases
@@ -318,6 +326,16 @@ const Header = ({ minimal = false }: HeaderProps) => {
                     <Banknote className="w-5 h-5" />
                     My Wallet
                   </Link>
+                  {isPromoter && (
+                    <Link
+                      to="/promoter"
+                      onClick={() => setIsMenuOpen(false)}
+                      className={`flex items-center gap-2.5 px-3 h-12 rounded-lg font-bold text-base transition-colors ${isActive("/promoter") ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`}
+                    >
+                      <Megaphone className="w-5 h-5" />
+                      Promoter space
+                    </Link>
+                  )}
                   <Link
                     to="/profile"
                     onClick={() => setIsMenuOpen(false)}

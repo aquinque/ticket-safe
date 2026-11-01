@@ -32,6 +32,7 @@ import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "rec
 import { StudioLayout } from "@/components/studio/StudioLayout";
 import { DESCRIPTION_FONTS, descriptionFontFamily } from "@/lib/descriptionFonts";
 import { ImageCropDialog } from "@/components/ImageCropDialog";
+import { PromoVideo } from "@/components/PromoVideo";
 import { SEOHead } from "@/components/SEOHead";
 import {
   AlertDialog,
@@ -958,6 +959,11 @@ const StudioEventEdit = () => {
 
           <GroupLabel>Sales</GroupLabel>
 
+          {/* Which rail buyers pay through. Stripe for every event; events created
+              before the switch may still sit on the legacy Revolut checkout and can
+              be moved here. */}
+          <PaymentRailControl event={event} onSaved={(patch) => setEvent({ ...event, ...patch })} />
+
           {/* Buyers — every order, with the named attendees that order issued */}
           <section className="bg-card border border-border rounded-2xl p-5 md:p-6">
             <div className="flex items-center justify-between mb-4 gap-3">
@@ -1195,6 +1201,111 @@ const StudioEventEdit = () => {
         </AlertDialogContent>
       </AlertDialog>
     </StudioLayout>
+  );
+};
+
+
+// ── Payment rail ────────────────────────────────────────────────────────────
+// Sales go through Stripe. Events created before 2026-10-29 were left on the
+// legacy Revolut checkout by the old column default; this card says which rail
+// the event is on and moves it to Stripe once the organizer's Stripe account can
+// take payments (stripe-connect-create-checkout refuses otherwise). Refunds stay
+// right either way: cancel-event and admin-refund-order pick the rail per order.
+const PaymentRailControl = ({
+  event,
+  onSaved,
+}: {
+  event: EventRow;
+  onSaved: (patch: Partial<EventRow>) => void;
+}) => {
+  const [stripeReady, setStripeReady] = useState<boolean | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    supabase
+      .from("stripe_connect_accounts")
+      .select("charges_enabled")
+      .eq("organizer_id", event.organizer_id)
+      .maybeSingle()
+      .then(({ data }) => setStripeReady(!!data?.charges_enabled));
+  }, [event.organizer_id]);
+
+  const onStripe = event.payment_provider !== "revolut";
+
+  const switchToStripe = async () => {
+    if (
+      !window.confirm(
+        "Move this event to Stripe? New purchases are paid through Stripe from now on. Tickets already bought are not affected.",
+      )
+    )
+      return;
+    setSaving(true);
+    const { error } = await supabase.from("events").update({ payment_provider: "stripe" }).eq("id", event.id);
+    setSaving(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    onSaved({ payment_provider: "stripe" });
+    toast.success("This event now sells through Stripe.");
+  };
+
+  const notReady = (
+    <p className="mt-3 flex items-start gap-2 text-sm text-amber-900 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+      <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+      <span>
+        Your Stripe account can't take payments yet, so buyers can't check out on Stripe.{" "}
+        <Link to="/studio/payments" className="font-bold underline underline-offset-2">
+          Finish setting up payments
+        </Link>
+        .
+      </span>
+    </p>
+  );
+
+  return (
+    <section
+      className={`bg-card border rounded-2xl p-5 md:p-6 mb-6 ${onStripe ? "border-border" : "border-amber-300"}`}
+    >
+      <div className="flex items-start gap-3">
+        <div
+          className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+            onStripe ? "bg-primary/10 text-primary" : "bg-amber-100 text-amber-700"
+          }`}
+        >
+          <Banknote className="w-5 h-5" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h2 className="text-lg font-bold">Payments</h2>
+          {onStripe ? (
+            <>
+              <p className="text-sm text-muted-foreground mt-1">
+                Buyers pay through <strong className="text-foreground">Stripe</strong>. The ticket price lands in your
+                Stripe account; the service fee is paid by the buyer.
+              </p>
+              {stripeReady === false && notReady}
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-foreground/85 mt-1">
+                <strong>This event still sells through Revolut</strong>, the old checkout. New purchases should go
+                through Stripe.
+              </p>
+              {stripeReady === false && notReady}
+              <button
+                type="button"
+                onClick={switchToStripe}
+                disabled={saving || stripeReady !== true}
+                className="mt-3 inline-flex items-center gap-2 min-h-[44px] px-5 rounded-xl font-bold bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-60 transition-colors"
+              >
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                Switch to Stripe
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </section>
   );
 };
 
@@ -1540,8 +1651,8 @@ const EventDetailsEditor = ({
       toast.error("Please choose a video file.");
       return;
     }
-    if (f.size > 50 * 1024 * 1024) {
-      toast.error("Video must be under 50 MB.");
+    if (f.size > 2048 * 1024 * 1024) {
+      toast.error("Video must be under 2 GB.");
       return;
     }
     setVideoFile(f);
@@ -1582,7 +1693,8 @@ const EventDetailsEditor = ({
       }
 
       // Upload a new promo video if the user picked one
-      let videoUrl = event.video_url;
+      // "Remove" clears the preview without a new file → drop the stored video
+      let videoUrl = videoPreview ? event.video_url : null;
       if (videoFile && userId) {
         setUploadingVideo(true);
         const ext = videoFile.name.split(".").pop()?.toLowerCase() ?? "mp4";
@@ -1633,6 +1745,7 @@ const EventDetailsEditor = ({
 
       onSaved(patch);
       setBannerFile(null);
+      setVideoFile(null);
       toast.success("Event details saved");
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Could not save.";
@@ -1799,10 +1912,10 @@ const EventDetailsEditor = ({
 
           <ImageCropDialog src={cropSrc} open={cropOpen} onOpenChange={setCropOpen} onCropped={onCropped} />
 
-          <Field label="Promo video (optional)" icon={Video} hint="Autoplays muted on your event page. Max 50 MB.">
+          <Field label="Promo video (optional)" icon={Video} hint="Autoplays muted on your event page. Max 2 GB.">
             {videoPreview ? (
               <div className="relative rounded-xl overflow-hidden">
-                <video src={videoPreview} className="w-full aspect-[16/9] object-cover" muted loop autoPlay playsInline />
+                <PromoVideo src={videoPreview} poster={bannerPreview} className="w-full aspect-[16/9] object-cover" />
                 <div className="absolute top-2 right-2 flex gap-2">
                   <label className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-black/60 text-white text-xs font-bold cursor-pointer hover:bg-black/75">
                     <Pencil className="w-3 h-3" />
@@ -1951,8 +2064,8 @@ const LiveEventDetailsEditor = ({
       toast.error("Please choose a video file.");
       return;
     }
-    if (f.size > 50 * 1024 * 1024) {
-      toast.error("Video must be under 50 MB.");
+    if (f.size > 2048 * 1024 * 1024) {
+      toast.error("Video must be under 2 GB.");
       return;
     }
     setVideoFile(f);
@@ -1976,7 +2089,8 @@ const LiveEventDetailsEditor = ({
         bannerUrl = pub.publicUrl;
       }
 
-      let videoUrl = event.video_url;
+      // "Remove" clears the preview without a new file → drop the stored video
+      let videoUrl = videoPreview ? event.video_url : null;
       if (videoFile && userId) {
         setUploadingVideo(true);
         const ext = videoFile.name.split(".").pop()?.toLowerCase() ?? "mp4";
@@ -2004,6 +2118,7 @@ const LiveEventDetailsEditor = ({
 
       onSaved(patch);
       setBannerFile(null);
+      setVideoFile(null);
       toast.success("Event updated");
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Could not save.";
@@ -2100,10 +2215,10 @@ const LiveEventDetailsEditor = ({
 
         <ImageCropDialog src={cropSrc} open={cropOpen} onOpenChange={setCropOpen} onCropped={onCropped} />
 
-        <Field label="Promo video (optional)" icon={Video} hint="Autoplays muted on your event page. Max 50 MB.">
+        <Field label="Promo video (optional)" icon={Video} hint="Autoplays muted on your event page. Max 2 GB.">
           {videoPreview ? (
             <div className="relative rounded-xl overflow-hidden">
-              <video src={videoPreview} className="w-full aspect-[16/9] object-cover" muted loop autoPlay playsInline />
+              <PromoVideo src={videoPreview} poster={bannerPreview} className="w-full aspect-[16/9] object-cover" />
               <div className="absolute top-2 right-2 flex gap-2">
                 <label className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-black/60 text-white text-xs font-bold cursor-pointer hover:bg-black/75">
                   <Pencil className="w-3 h-3" />

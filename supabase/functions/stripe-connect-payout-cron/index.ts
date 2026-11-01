@@ -10,8 +10,11 @@
  *
  *  2. PROCESS — for every job whose scheduled_for has arrived:
  *       - organizer_event_payout: stripe.payouts.create on behalf of the
- *         connected account (direct-charge money already sits in THEIR
- *         Stripe balance — this just pushes it to their bank).
+ *         connected account (the money already sits in THEIR Stripe
+ *         balance — this just pushes it to their bank), then keeps a
+ *         follow-up job while sales are still settling at Stripe, until the
+ *         event's organizer share has all been paid out. One payout at the
+ *         event's end would leave the last days' sales in the balance.
  *       - reseller_payout: stripe.transfers.create from the platform
  *         balance to the seller's connected account (separate-charges
  *         pattern — the resale charge landed on the platform, not on any
@@ -25,13 +28,69 @@
  *  onboarding run in the same invocation as a third pass.
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getStripeClient } from "../_shared/stripeConnect.ts";
 import { renderEmail, ctaButton } from "../_shared/emailComponents.ts";
 import { emailTokens } from "../_shared/emailTokens.ts";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+}
+
+type StripeClient = ReturnType<typeof getStripeClient>;
+/** Stripe money rows (balance entries, balance transactions) as far as this file reads them. */
+type EurRow = { currency: string; amount: number };
+type SettlingRow = EurRow & { available_on: number };
+
+/** Safety cap on follow-up jobs per event, so a chain can never run forever. */
+const MAX_SWEEPS_PER_EVENT = 30;
+
+/**
+ * Whether this event still has money to send: the organizer's share of its
+ * paid Stripe orders, minus what the event's payout chain has already sent.
+ * Keeps a chain from sweeping a later event's money on an account that keeps
+ * selling, and bounds the number of follow-ups.
+ */
+async function eventStillOwed(supabase: SupabaseClient, eventId: string): Promise<boolean> {
+  const [{ data: orders }, { data: jobs }] = await Promise.all([
+    supabase
+      .from("event_orders")
+      .select("total_cents, fee_cents")
+      .eq("event_id", eventId)
+      .eq("status", "paid")
+      .like("stripe_checkout_session_id", "cs_%"),
+    supabase
+      .from("stripe_connect_payout_jobs")
+      .select("amount_cents, status")
+      .eq("event_id", eventId)
+      .eq("kind", "organizer_event_payout"),
+  ]);
+  const owed = ((orders ?? []) as { total_cents: number | null; fee_cents: number | null }[])
+    .reduce((sum, o) => sum + (o.total_cents ?? 0) - (o.fee_cents ?? 0), 0);
+  const rows = ((jobs ?? []) as { amount_cents: number | null; status: string }[]);
+  if (rows.length >= MAX_SWEEPS_PER_EVENT) return false;
+  const paid = rows.filter((j) => j.status === "sent").reduce((sum, j) => sum + (j.amount_cents ?? 0), 0);
+  return paid < owed;
+}
+
+/**
+ * When the next pending euro on the account becomes available, so the sweep
+ * fires right after it lands instead of polling; six hours out when Stripe
+ * gives no date.
+ */
+async function nextSettlementIso(stripe: StripeClient, stripeAccountId: string): Promise<string> {
+  const nowSec = Math.floor(Date.now() / 1000);
+  let nextSec = nowSec + 6 * 3600;
+  try {
+    const txs = await stripe.balanceTransactions.list({ limit: 100 }, { stripeAccount: stripeAccountId });
+    const upcoming = (txs.data as SettlingRow[])
+      .filter((t) => t.currency === "eur" && t.amount > 0 && t.available_on > nowSec)
+      .map((t) => t.available_on);
+    if (upcoming.length > 0) nextSec = Math.min(...upcoming) + 5 * 60;
+  } catch (e) {
+    console.warn("[stripe-connect-payout-cron] settlement lookup failed:", e);
+  }
+  return new Date(nextSec * 1000).toISOString();
 }
 
 async function sendEmail(resendKey: string, to: string, subject: string, html: string, text: string) {
@@ -77,8 +136,10 @@ serve(async (req) => {
 
     for (const ev of dueEvents ?? []) {
       const endRef = ev.ends_at ?? ev.date;
-      const { data: existingJob } = await supabase.from("stripe_connect_payout_jobs").select("id").eq("event_id", ev.id).eq("kind", "organizer_event_payout").maybeSingle();
-      if (existingJob) continue;
+      // One chain of jobs per event: the first row is created here, follow-up
+      // rows (for money still settling) by pass 2, so look for any row at all.
+      const { data: existingJobs } = await supabase.from("stripe_connect_payout_jobs").select("id").eq("event_id", ev.id).eq("kind", "organizer_event_payout").limit(1);
+      if (existingJobs && existingJobs.length > 0) continue;
 
       const { data: account } = await supabase.from("stripe_connect_accounts").select("id").eq("organizer_id", ev.organizer_id).maybeSingle();
       if (!account) continue;
@@ -123,7 +184,7 @@ serve(async (req) => {
 
       try {
         const balance = await stripe.balance.retrieve(undefined, { stripeAccount: account.stripe_account_id });
-        const available = balance.available.find((b) => b.currency === "eur")?.amount ?? 0;
+        const available = (balance.available as EurRow[]).find((b) => b.currency === "eur")?.amount ?? 0;
 
         if (job.kind === "reseller_payout") {
           // Separate-charges pattern: transfer from platform balance to the
@@ -154,15 +215,41 @@ serve(async (req) => {
           }
           sent++;
         } else {
-          // organizer_event_payout: money already sits on the connected
-          // account from direct charges — just push the available balance.
-          if (available <= 0) {
-            await supabase.from("stripe_connect_payout_jobs").update({ status: "cancelled", blocked_reason: "Zero balance" }).eq("id", job.id);
-            continue;
+          // organizer_event_payout: the money already sits on the connected
+          // account (destination charges). Push what is available now, then
+          // keep sweeping: sales from the last days before the event are still
+          // settling at Stripe, so a single payout at the event's end would
+          // leave them in the balance until some later event. The chain stops
+          // once nothing is pending, once this event's sales have all been
+          // paid out, or at the safety cap.
+          const pending = (balance.pending as EurRow[]).find((b) => b.currency === "eur")?.amount ?? 0;
+          const nowIso = new Date().toISOString();
+
+          if (available > 0) {
+            const payout = await stripe.payouts.create({ amount: available, currency: "eur" }, { stripeAccount: account.stripe_account_id });
+            await supabase.from("stripe_connect_payout_jobs").update({ status: "sent", stripe_payout_id: payout.id, amount_cents: available, attempted_at: nowIso }).eq("id", job.id);
+            sent++;
           }
-          const payout = await stripe.payouts.create({ amount: available, currency: "eur" }, { stripeAccount: account.stripe_account_id });
-          await supabase.from("stripe_connect_payout_jobs").update({ status: "sent", stripe_payout_id: payout.id, amount_cents: available, attempted_at: new Date().toISOString() }).eq("id", job.id);
-          sent++;
+
+          const keepSweeping = pending > 0 && !!job.event_id && (await eventStillOwed(supabase, job.event_id));
+          if (keepSweeping) {
+            const nextAt = await nextSettlementIso(stripe, account.stripe_account_id);
+            if (available > 0) {
+              // This row is done; a fresh row waits for the next settlement.
+              await supabase.from("stripe_connect_payout_jobs").insert({
+                event_id: job.event_id,
+                stripe_connect_account_id: account.id,
+                kind: "organizer_event_payout",
+                scheduled_for: nextAt,
+                status: "scheduled",
+              });
+            } else {
+              // Nothing available yet: wait on this same row.
+              await supabase.from("stripe_connect_payout_jobs").update({ scheduled_for: nextAt, attempted_at: nowIso }).eq("id", job.id);
+            }
+          } else if (available <= 0) {
+            await supabase.from("stripe_connect_payout_jobs").update({ status: "cancelled", blocked_reason: "Nothing left to pay out" }).eq("id", job.id);
+          }
         }
       } catch (err) {
         console.error(`[stripe-connect-payout-cron] payout failed for job ${job.id}:`, err);

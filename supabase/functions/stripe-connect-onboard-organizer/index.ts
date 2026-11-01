@@ -77,12 +77,12 @@ serve(async (req) => {
   const { data: { user }, error: authErr } = await supabase.auth.getUser(authHeader.replace("Bearer ", ""));
   if (authErr || !user) return json({ error: "Invalid or expired token" }, 401);
 
-  let body: { organizer_id?: string; action?: string; business_type?: unknown };
+  let body: { organizer_id?: string; action?: string; business_type?: unknown; amount_cents?: unknown; request_id?: unknown };
   try { body = await req.json(); } catch { return json({ error: "Invalid JSON" }, 400); }
   const organizerId = body.organizer_id;
   const action = body.action ?? "onboard";
   if (!organizerId || !/^[0-9a-f-]{36}$/i.test(organizerId)) return json({ error: "Invalid organizer_id" }, 400);
-  if (!["onboard", "refresh", "dashboard", "balance", "reset"].includes(action)) return json({ error: "Invalid action" }, 400);
+  if (!["onboard", "refresh", "dashboard", "balance", "reset", "payout"].includes(action)) return json({ error: "Invalid action" }, 400);
   if (body.business_type !== undefined && !isConnectBusinessType(body.business_type)) return json({ error: "Invalid business_type" }, 400);
 
   const { data: org } = await supabase
@@ -149,6 +149,49 @@ serve(async (req) => {
       }
       await supabase.from("stripe_connect_accounts").delete().eq("id", existing.id);
       return json({ ok: true });
+    }
+
+    if (action === "payout") {
+      // Manual cash-out from the Studio: send what Stripe already holds as
+      // available straight to the organizer's bank. Money still settling
+      // (pending) can't be paid out by anyone, Stripe included; the automatic
+      // job picks it up as it lands. Recorded in stripe_connect_payout_jobs so
+      // the payments page lists it next to the automatic payouts.
+      if (!existing) return json({ error: "No payment account yet." }, 404);
+      const opts = { stripeAccount: existing.stripe_account_id };
+      const account = await stripe.accounts.retrieve(existing.stripe_account_id);
+      if (!account.payouts_enabled) return json({ error: "Stripe can't send money to your bank yet. Finish your setup first." }, 409);
+      const balance = await stripe.balance.retrieve(undefined, opts);
+      const available = (balance.available as { currency: string; amount: number }[])
+        .filter((b) => b.currency === "eur")
+        .reduce((s, b) => s + b.amount, 0);
+      if (available <= 0) return json({ error: "Nothing is available to cash out yet." }, 409);
+      const requested = typeof body.amount_cents === "number" && Number.isInteger(body.amount_cents) ? body.amount_cents : available;
+      if (requested < 100 || requested > available) {
+        return json({ error: `Choose an amount between €1.00 and €${(available / 100).toFixed(2)}.` }, 400);
+      }
+      // The page sends one id per click; a retried request can't pay twice.
+      const requestId = typeof body.request_id === "string" && /^[0-9a-f-]{36}$/i.test(body.request_id) ? body.request_id : crypto.randomUUID();
+      const payout = await stripe.payouts.create(
+        { amount: requested, currency: "eur", description: "Ticket Safe cash out", metadata: { source: "studio_manual_cashout", organizer_id: organizerId } },
+        { ...opts, idempotencyKey: `cashout-${organizerId}-${requestId}` },
+      );
+      const nowIso = new Date().toISOString();
+      const { error: logErr } = await supabase.from("stripe_connect_payout_jobs").insert({
+        stripe_connect_account_id: existing.id,
+        kind: "organizer_manual_payout",
+        scheduled_for: nowIso,
+        status: "sent",
+        stripe_payout_id: payout.id,
+        amount_cents: requested,
+        attempted_at: nowIso,
+      });
+      if (logErr) console.warn("[stripe-connect-onboard-organizer] cash-out sent but not logged:", logErr);
+      return json({
+        ok: true,
+        amount_cents: requested,
+        arrival_date: payout.arrival_date ? new Date(payout.arrival_date * 1000).toISOString() : null,
+      });
     }
 
     if (action === "balance") {

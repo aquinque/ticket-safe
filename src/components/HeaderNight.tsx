@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Menu, X, Globe, User, Ticket, Banknote, LayoutDashboard, LogOut, CalendarDays, Repeat2, ChevronRight, ArrowRight } from "lucide-react";
+import { Menu, X, Globe, User, Ticket, Banknote, LayoutDashboard, Megaphone, LogOut, CalendarDays, Repeat2, ChevronRight, ArrowRight } from "lucide-react";
 import Logo from "@/components/Logo";
 import WalletBalanceButton from "@/components/WalletBalanceButton";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/contexts/I18nContext";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrganizer } from "@/hooks/useOrganizer";
+import { useIsPromoter } from "@/hooks/useIsPromoter";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -46,6 +47,7 @@ const HeaderNight = () => {
   const { user, signOut } = useAuth();
   const { organizer } = useOrganizer();
   const isStudioOrganizer = !!user && organizer?.status === "approved";
+  const isPromoter = useIsPromoter();
   const [isScrolled, setIsScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -169,6 +171,12 @@ const HeaderNight = () => {
                       Ticket Safe Studio
                     </DropdownMenuItem>
                   )}
+                  {isPromoter && (
+                    <DropdownMenuItem onClick={() => navigate("/promoter")}>
+                      <Megaphone className="w-4 h-4 mr-2" />
+                      Promoter space
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => navigate("/settings")}>{t("nav.settings")}</DropdownMenuItem>
                   <DropdownMenuSeparator />
@@ -258,6 +266,25 @@ const HeaderNight = () => {
                 );
               })}
             </div>
+
+            {isPromoter && (
+              <div className="mt-7 pt-5 border-t border-border">
+                <p className="px-1 mb-2.5 text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">For promoters</p>
+                <Link
+                  to="/promoter"
+                  onClick={() => setMenuOpen(false)}
+                  aria-current={isActive("/promoter") ? "page" : undefined}
+                  className="flex items-center gap-3 rounded-xl border border-border bg-card px-3.5 py-3 transition-colors hover:border-primary/50"
+                >
+                  <Megaphone className="w-5 h-5 shrink-0 text-primary" />
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-[15px] font-semibold leading-tight text-foreground">Promoter space</span>
+                    <span className="block text-[13px] mt-0.5 leading-snug text-muted-foreground">Your link and your sales.</span>
+                  </span>
+                  <ChevronRight className="w-4 h-4 shrink-0 opacity-70" />
+                </Link>
+              </div>
+            )}
 
             {organizersLink && (
               <div className="mt-7 pt-5 border-t border-border">

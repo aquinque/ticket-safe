@@ -30,7 +30,7 @@ import { STUDIO_FEE_RULE } from "@/lib/studioFee";
  */
 
 type BusinessType = "individual" | "non_profit" | "company";
-type Action = "onboard" | "refresh" | "dashboard" | "balance" | "reset";
+type Action = "onboard" | "refresh" | "dashboard" | "balance" | "reset" | "payout";
 
 interface ConnectAccountRow {
   id: string;
@@ -59,6 +59,7 @@ interface PayoutJob {
   scheduled_for: string;
   status: "scheduled" | "sent" | "failed" | "blocked" | "cancelled";
   amount_cents: number | null;
+  /** Event name for automatic payouts, "Cash out" for manual ones, "Resale" otherwise. */
   event_title: string;
 }
 
@@ -304,18 +305,24 @@ const StudioPayments = () => {
     };
     const { data: jobs } = await untyped
       .from("stripe_connect_payout_jobs")
-      .select("id, scheduled_for, status, amount_cents, event_id")
+      .select("id, scheduled_for, status, amount_cents, event_id, kind")
       .eq("stripe_connect_account_id", row.id)
       .order("scheduled_for", { ascending: false })
       .limit(8);
-    const jobRows = ((jobs as unknown[] | null) ?? []) as { id: string; scheduled_for: string; status: PayoutJob["status"]; amount_cents: number | null; event_id: string | null }[];
+    const jobRows = ((jobs as unknown[] | null) ?? []) as { id: string; scheduled_for: string; status: PayoutJob["status"]; amount_cents: number | null; event_id: string | null; kind: string }[];
     const eventIds = [...new Set(jobRows.map((j) => j.event_id).filter(Boolean))] as string[];
     const titles = new Map<string, string>();
     if (eventIds.length > 0) {
       const { data: evs } = await supabase.from("events").select("id, title").in("id", eventIds);
       for (const e of (evs ?? []) as { id: string; title: string }[]) titles.set(e.id, e.title);
     }
-    setPayouts(jobRows.map((j) => ({ id: j.id, scheduled_for: j.scheduled_for, status: j.status, amount_cents: j.amount_cents, event_title: (j.event_id && titles.get(j.event_id)) || "Resale" })));
+    setPayouts(jobRows.map((j) => ({
+      id: j.id,
+      scheduled_for: j.scheduled_for,
+      status: j.status,
+      amount_cents: j.amount_cents,
+      event_title: j.kind === "organizer_manual_payout" ? "Cash out" : (j.event_id && titles.get(j.event_id)) || "Resale",
+    })));
 
     if (!row.details_submitted) { setBalanceState("idle"); return; }
     setBalanceState("loading");
@@ -391,6 +398,31 @@ const StudioPayments = () => {
   }, [organizer, orgLoading, authLoading]);
 
   const active = !!account?.charges_enabled && !!account?.payouts_enabled;
+
+  // Manual cash-out: what Stripe holds as available goes to the bank now. Money
+  // still settling can't be sent by anyone; the automatic payout picks it up.
+  const cashOut = useCallback(async () => {
+    if (!balance || balance.available_cents <= 0) return;
+    const amount = fmtEur(balance.available_cents);
+    if (!window.confirm(`Send ${amount} to your bank now? It arrives in 1 to 3 business days.`)) return;
+    setError(null);
+    setBusy("payout");
+    try {
+      const result = await callFn<{ amount_cents: number; arrival_date: string | null }>("payout", { request_id: crypto.randomUUID() });
+      toast.success(
+        result?.arrival_date
+          ? `${amount} is on its way. Expected in your bank by ${fmtDay(result.arrival_date)}.`
+          : `${amount} is on its way to your bank.`,
+      );
+      await refreshAll();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Something went wrong.";
+      setError(msg);
+      toast.error(msg);
+    } finally {
+      setBusy(null);
+    }
+  }, [balance, callFn, refreshAll]);
   const dueCodes = useMemo(() => account?.requirements_currently_due ?? [], [account]);
   const hasDue = dueCodes.length > 0;
   const dueList = useMemo(() => describeRequirements(dueCodes), [dueCodes]);
@@ -413,10 +445,10 @@ const StudioPayments = () => {
         : balance && balance.pending_cents > 0 && balance.next_available_on
           ? `${fmtEur(balance.pending_cents)} available on ${fmtDay(balance.next_available_on)}`
           : balance && balance.available_cents > 0
-            ? "Available, sent after your event"
+            ? "Available now. Cash out, or it is sent after your event"
             : "Nothing waiting";
     const bankNote = !account
-      ? `Sent ${delayDays} days after each event ends`
+      ? (delayDays === 0 ? "Sent as soon as each event ends" : `Sent ${delayDays} days after each event ends`)
       : nextPayoutDay
         ? `Next payout ${nextPayoutDay}, for ${nextEvent?.title}`
         : paidOut && paidOut > 0
@@ -622,14 +654,37 @@ const StudioPayments = () => {
             </section>
 
             <section className="bg-card border border-border p-5 md:col-span-3" aria-labelledby="payouts-heading">
-              <div className="flex items-baseline justify-between mb-3">
-                <h2 id="payouts-heading" className="text-sm font-bold">Payouts</h2>
-                <span className="text-xs text-muted-foreground">Sent {delayDays} days after each event ends</span>
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                <div>
+                  <h2 id="payouts-heading" className="text-sm font-bold">Payouts</h2>
+                  <p className="text-xs text-muted-foreground">
+                    {delayDays === 0 ? "Automatic as soon as each event ends" : `Sent ${delayDays} days after each event ends`}
+                  </p>
+                </div>
+                {active && balance && balance.available_cents > 0 && (
+                  <button
+                    type="button"
+                    onClick={cashOut}
+                    disabled={busy !== null}
+                    className="inline-flex items-center justify-center gap-1.5 px-4 min-h-[44px] font-bold bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-60 transition-colors"
+                  >
+                    {busy === "payout" ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
+                    Cash out {fmtEur(balance.available_cents)}
+                  </button>
+                )}
               </div>
+              {active && balance && balance.pending_cents > 0 && (
+                <p className="text-xs text-muted-foreground mb-3">
+                  {fmtEur(balance.pending_cents)} more is still settling at Stripe
+                  {balance.next_available_on ? `, available ${fmtDay(balance.next_available_on)}` : ""}. It is paid out automatically as it lands.
+                </p>
+              )}
               {payouts.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   {nextEvent && nextPayoutDay
-                    ? `Your first payout will be created on ${nextPayoutDay}, two days after ${nextEvent.title}. It reaches your bank 1 to 3 business days later.`
+                    ? (delayDays === 0
+                        ? `Your first payout is created on ${nextPayoutDay}, as soon as ${nextEvent.title} ends. It reaches your bank 1 to 3 business days later.`
+                        : `Your first payout will be created on ${nextPayoutDay}, ${delayDays} days after ${nextEvent.title}. It reaches your bank 1 to 3 business days later.`)
                     : "Nothing yet. A payout is created automatically after each of your events ends, and reaches your bank 1 to 3 business days later."}
                 </p>
               ) : (
