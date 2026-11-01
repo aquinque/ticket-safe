@@ -1,6 +1,7 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { allowNextHistoryBack } from "@/lib/backToHome";
 
 interface BackButtonProps {
   className?: string;
@@ -35,6 +36,8 @@ export const BackButton = ({ className = "", fallbackPath }: BackButtonProps) =>
     // (direct landing / shared link / new tab) — there, popping would leave
     // the app or land on a blank page, so go to a sensible parent instead.
     if (location.key && location.key !== "default") {
+      // This arrow is the page's own "back": the browser-button guard (BackToHomeGuard) must let it through.
+      allowNextHistoryBack();
       navigate(-1);
       return;
     }

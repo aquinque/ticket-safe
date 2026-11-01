@@ -1,30 +1,35 @@
 /**
- * The decisions behind the home page that do not need React, kept here so they can be tested: how the slides are
- * laid out and moved, how a picture is described to the browser, and which language the copy is in.
+ * The decisions behind the home page that do not need React, kept here so they can be tested: how the hero's
+ * slides follow one another, what a swipe or a key means, which media may load, and how a picture and a video are
+ * described to the browser.
  */
 
-// ── The slider ────────────────────────────────────────────────────────────
+// ── The carousel ──────────────────────────────────────────────────────────
 
-/**
- * How long a slide stays before the next one slides in. The progress bar under the active tab runs for exactly
- * this long (--slide-ms in index.css, which a test keeps equal to this) and moving on is triggered by its end, so
- * pausing the bar pauses the slideshow.
- */
-export const SLIDE_INTERVAL_MS = 6500;
+/** How long a slide stays before the next one fades in. The progress bar under its indicator runs for as long (--slide-ms in index.css). */
+export const SLIDE_INTERVAL_MS = 6000;
+
+/** How long one slide takes to fade over the other (--fade-ms in index.css). */
+export const FADE_MS = 800;
 
 export const nextSlide = (index: number, count: number): number => (index + 1) % count;
 export const previousSlide = (index: number, count: number): number => (index - 1 + count) % count;
 
-export type SlidePlace = "current" | "next" | "previous";
+export type SlideState = "current" | "leaving" | "idle";
 
 /**
- * Where a slide waits: the one in view; the one parked on the right, which slides in next; and the others on the
- * left, where the one that just left goes. Going forward always moves the slides the same way, from right to left.
+ * What a slide is doing: "current" is in view and on top; "leaving" is the one that was in view a moment ago and
+ * stays fully opaque underneath until the new one has covered it (so there is no dip to black between two
+ * half-faded pictures); the others are "idle" and invisible.
  */
-export function slidePlace(index: number, active: number, count: number): SlidePlace {
-  const offset = (index - active + count) % count;
-  if (offset === 0) return "current";
-  return offset === 1 ? "next" : "previous";
+export function slideState(index: number, active: number, leaving: number | null): SlideState {
+  if (index === active) return "current";
+  return index === leaving ? "leaving" : "idle";
+}
+
+/** The slides whose video may be loaded: the one in view and the one that comes next. */
+export function slidesToPrepare(active: number, count: number): number[] {
+  return count <= 1 ? [active] : [active, nextSlide(active, count)];
 }
 
 /** How far a finger must travel sideways before it counts as a swipe, in pixels. */
@@ -39,23 +44,45 @@ export function swipeDirection(dx: number, dy: number): "next" | "previous" | nu
   return dx < 0 ? "next" : "previous";
 }
 
-/** The slide a key goes to inside the row of tabs (arrows, Home, End), or null for any other key. */
-export function slideForKey(key: string, active: number, count: number): number | null {
-  switch (key) {
-    case "ArrowRight":
-      return nextSlide(active, count);
-    case "ArrowLeft":
-      return previousSlide(active, count);
-    case "Home":
-      return 0;
-    case "End":
-      return count - 1;
-    default:
-      return null;
-  }
+/** What an arrow key means for the carousel: -1 previous, +1 next, null for any other key (or one with a modifier). */
+export function keyDirection(key: string, modified = false): -1 | 1 | null {
+  if (modified) return null;
+  if (key === "ArrowLeft") return -1;
+  if (key === "ArrowRight") return 1;
+  return null;
 }
 
-// ── How a picture is described ────────────────────────────────────────────
+/** Keys typed into a field are the field's, not the carousel's. */
+export const isTypingTarget = (el: Element | null): boolean => {
+  if (!el) return false;
+  const tag = el.tagName;
+  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || (el as HTMLElement).isContentEditable === true;
+};
+
+// ── Which media may load ──────────────────────────────────────────────────
+
+export interface VideoPolicyInput {
+  /** Phone-sized screen (under 768px, like useIsMobile). */
+  isMobile: boolean;
+  reducedMotion: boolean;
+  /** navigator.connection.saveData */
+  saveData: boolean;
+  /** navigator.connection.effectiveType: "slow-2g" | "2g" | "3g" | "4g" */
+  effectiveType?: string | null;
+}
+
+const SLOW_CONNECTIONS = new Set(["slow-2g", "2g", "3g"]);
+
+/**
+ * Whether the background videos may load and play. Phones, a saved-data setting, a 2G/3G connection and
+ * reduced motion all get the still picture only: the page then costs a few hundred kB instead of several MB.
+ */
+export function canPlayVideo(input: VideoPolicyInput): boolean {
+  if (input.isMobile || input.reducedMotion || input.saveData) return false;
+  return !(input.effectiveType && SLOW_CONNECTIONS.has(input.effectiveType));
+}
+
+// ── How media is described ────────────────────────────────────────────────
 
 export type ImageFormat = "avif" | "webp" | "jpg";
 
@@ -66,6 +93,20 @@ export interface HomeImage {
   width: number;
   height: number;
   formats?: ImageFormat[];
+}
+
+export interface HomeVideo {
+  mp4: string;
+  /** Smaller than the MP4; the browser takes it first when it exists, and falls back to the MP4 when it does not. */
+  webm?: string;
+}
+
+/** The <source> list of a <video>: WebM first, MP4 as the one every browser plays. */
+export function videoSources(video: HomeVideo): { src: string; type: string }[] {
+  return [
+    ...(video.webm ? [{ src: video.webm, type: "video/webm" }] : []),
+    { src: video.mp4, type: "video/mp4" },
+  ];
 }
 
 const withExtension = (src: string, ext: string) => src.replace(/\.[a-z0-9]+$/i, `.${ext}`);
@@ -79,23 +120,6 @@ export function pictureSources(image: HomeImage): { srcSet: string; type: string
   return out;
 }
 
-// ── French typography ─────────────────────────────────────────────────────
-
-/**
- * French puts a no-break space before ? ! : ; % € and inside « »: without it a line can start with a lone "?".
- * Applied to the French copy, so the text in src/content/home.ts can be written (and edited) with plain spaces.
- */
-export function frenchTypography<T>(value: T): T {
-  if (typeof value === "string") {
-    return value.replace(/ ([?!:;%€»])/g, " $1").replace(/(«) /g, "$1 ") as T;
-  }
-  if (Array.isArray(value)) return value.map(frenchTypography) as T;
-  if (value && typeof value === "object") {
-    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, frenchTypography(v)])) as T;
-  }
-  return value;
-}
-
 // ── When the first picture starts ─────────────────────────────────────────
 
 /**
@@ -107,14 +131,11 @@ export function frenchTypography<T>(value: T): T {
  */
 export const FIRST_SCREEN_MEDIA_DELAY_MS = 700;
 
-// ── Which language the copy is in ─────────────────────────────────────────
+// ── Upcoming events ───────────────────────────────────────────────────────
 
-export type HomeLanguage = "fr" | "en";
+/** Below this many published events the grid gives way to a "coming soon" block, so it never looks empty. */
+export const MIN_EVENTS_FOR_GRID = 3;
+/** One row of four on a desktop, two rows of two on a phone. */
+export const MAX_EVENTS_SHOWN = 4;
 
-/**
- * The home page follows the site language, which is English unless the visitor picked another one (the switcher,
- * or ?lang= in the address). French has its own copy; Spanish has none yet, so a Spanish visitor gets English.
- */
-export function resolveHomeLanguage(siteLanguage: string | null | undefined): HomeLanguage {
-  return siteLanguage === "fr" ? "fr" : "en";
-}
+export const hasEnoughEvents = (count: number): boolean => count >= MIN_EVENTS_FOR_GRID;
