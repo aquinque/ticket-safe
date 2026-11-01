@@ -451,7 +451,9 @@ serve(async (req) => {
           // organizer. Stripe's processing fee is taken from the platform.
           application_fee_amount: buyerFeeCents,
           transfer_data: { destination: connectAccount.stripe_account_id },
-          metadata: { source: "stripe_connect_studio_sale", order_id: order.id, event_id: ev.id },
+          // Copied onto the charge: the financial statement finds the event's payments by event_id and counts
+          // tickets by quantity without opening our database.
+          metadata: { source: "stripe_connect_studio_sale", order_id: order.id, event_id: ev.id, tier_id: tierId, quantity: String(quantity) },
         },
         success_url: `${siteUrl}/checkout/success?order_id=${order.id}&provider=stripe&session_id={CHECKOUT_SESSION_ID}${orderToken ? `&t=${orderToken}` : ""}`,
         cancel_url: `${siteUrl}/e/${ev.slug}?checkout=cancelled`,
