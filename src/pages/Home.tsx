@@ -1,89 +1,69 @@
-import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import {
-  ArrowRight,
-  QrCode,
-  ShieldCheck,
-  Lock,
-  Repeat2,
-  LayoutDashboard,
-} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Check } from "lucide-react";
 import HeaderNight from "@/components/HeaderNight";
 import Footer from "@/components/Footer";
 import { SEOHead } from "@/components/SEOHead";
-import { Button } from "@/components/ui/button";
-import { EventCarousel } from "@/components/EventCarousel";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
+import { HomeCta } from "@/components/home/HomeCta";
+import { HomeSection } from "@/components/home/HomeSection";
+import { PlatformCards } from "@/components/home/PlatformCards";
+import { SectionText } from "@/components/home/SectionText";
+import { SideDots } from "@/components/home/SideDots";
+import { TrustedBy } from "@/components/home/TrustedBy";
+import { UpcomingEvents } from "@/components/home/UpcomingEvents";
+import { HOME_CONTENT, HOME_LINKS, HOME_MEDIA, SECTION_IDS, type Cta, type SectionId } from "@/content/home";
+import { useActiveSection, useNearViewport, useRevealOnScroll, useSnapScroll } from "@/hooks/useHomeScroll";
+import { useHomeLanguage } from "@/hooks/useHomeLanguage";
+import { useOrganizer } from "@/hooks/useOrganizer";
+import { useReducedMotion } from "@/hooks/useReducedMotion";
 import { useThemeMode } from "@/hooks/useThemeMode";
-import { partnerLogos } from "@/config/partnerLogos";
-import { useTicketsSoldCount } from "@/hooks/useTicketsSoldCount";
-import { fetchPublishedEvents, toEventData, type PublishedEvent } from "@/lib/publishedEvents";
-import type { EventData } from "@/data/eventsData";
-import { STUDIO_FEE_RULE, STUDIO_FEE_RULE_MAX } from "@/lib/studioFee";
+import { revealDelay } from "@/lib/homePage";
+import { fetchPublishedEvents, type PublishedEvent } from "@/lib/publishedEvents";
 
-const FAQS = [
-  {
-    q: "Is it limited to my school?",
-    a: "Yes — sign-up requires your student email. Each campus has its own space, no unverified accounts.",
-  },
-  {
-    q: "How do I know a resold ticket is real?",
-    a: "Every ticket has a unique QR, verified before it's listed for sale. Payment stays held until the transfer is confirmed.",
-  },
-  {
-    q: "How much does it cost?",
-    a: `Direct purchase: a service fee (${STUDIO_FEE_RULE_MAX}), always shown before you pay. Resale: a service fee for the buyer, shown at checkout, and a 5% commission for the seller, taken at withdrawal.`,
-  },
-  {
-    q: "What if the event is cancelled?",
-    a: "Full automatic refund, platform fees included, no support ticket needed.",
-  },
-  {
-    q: "How do I get paid if I resell?",
-    a: "Payment is released as soon as the buyer confirms they received the ticket, then you withdraw it by bank transfer.",
-  },
-];
-
+/**
+ * The home page: nine full-screen sections, each with a photo or video behind a few words. Every text, call to
+ * action and media path lives in src/content/home.ts; the files to drop in are listed in
+ * public/media/home/README.md. The header and footer are the site's own.
+ */
 const Home = () => {
   useThemeMode("night");
-  const navigate = useNavigate();
-  const [upcomingEvents, setUpcomingEvents] = useState<PublishedEvent[]>([]);
-  const [eventsLoading, setEventsLoading] = useState(true);
-  const ticketsSold = useTicketsSoldCount();
+  useSnapScroll();
 
-  // Same source of truth as /tickets (event_tiers inventory) — keeps the
-  // homepage carousel from drifting out of sync with what's actually for
-  // sale, which the old ESCP-ICS-calendar-sync hook this used to read from
-  // didn't know anything about.
+  const lang = useHomeLanguage();
+  const copy = HOME_CONTENT[lang];
+  const reducedMotion = useReducedMotion();
+  const { organizer } = useOrganizer();
+  const mainRef = useRef<HTMLElement>(null);
+  const active = useActiveSection(SECTION_IDS);
+  useRevealOnScroll(mainRef);
+
+  // An approved organizer goes straight into Ticket Studio, like the "Organizers" link of the header.
+  const studioHref = organizer?.status === "approved" ? HOME_LINKS.studioOpen : HOME_LINKS.studio;
+  const hrefFor = (cta: Cta) => (cta.target === "events" ? HOME_LINKS.events : studioHref);
+
+  const goTo = (id: SectionId) =>
+    document.getElementById(id)?.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "start" });
+
+  // The events are fetched when their section is within a screen and a half, not on arrival: the first screen
+  // has the whole connection to itself.
+  const eventsSentinel = useRef<HTMLDivElement>(null);
+  const eventsNear = useNearViewport(eventsSentinel, "150% 0px");
+  const [events, setEvents] = useState<PublishedEvent[]>([]);
+  const [eventsLoading, setEventsLoading] = useState(true);
   useEffect(() => {
+    if (!eventsNear) return;
     let cancelled = false;
-    (async () => {
-      setEventsLoading(true);
-      const rows = await fetchPublishedEvents();
-      if (!cancelled) {
-        setUpcomingEvents(rows.filter((e) => e.capacity > e.sold));
-        setEventsLoading(false);
-      }
-    })();
+    fetchPublishedEvents()
+      .then((rows) => {
+        if (!cancelled) setEvents(rows);
+      })
+      .catch((err) => console.error("[home] events:", err))
+      .finally(() => {
+        if (!cancelled) setEventsLoading(false);
+      });
     return () => {
       cancelled = true;
     };
-  }, []);
-
-  const slugById = new Map(upcomingEvents.map((e) => [e.id, e.slug]));
-  const carouselEvents: EventData[] = upcomingEvents.slice(0, 10).map(toEventData);
-
-  // Counters section: only real, verifiable numbers. Hidden individually
-  // when null rather than showing a fabricated placeholder value.
-  const counters = [
-    { value: ticketsSold, label: "tickets sold safely" },
-    { value: null, label: "active campuses" }, // TODO_DATA: no live "active campuses" count yet
-  ].filter((c) => c.value != null) as { value: number; label: string }[];
+  }, [eventsNear]);
 
   return (
     <div className="theme-night min-h-screen flex flex-col bg-background">
@@ -93,209 +73,122 @@ const Home = () => {
       />
 
       <HeaderNight />
+      <SideDots ids={SECTION_IDS} labels={copy.dots} active={active} ariaLabel={copy.dotsLabel} onSelect={goTo} />
 
-      <main className="flex-1">
-        {/* ============ HERO ============ */}
-        <section className="relative flex items-center md:min-h-[100svh] overflow-hidden bg-background">
-          {/* Hero media: the video plays everywhere, phones included
-              (muted + playsInline is what iOS/Android require for autoplay);
-              the poster covers the first frame while it loads. */}
-          <div className="absolute inset-0 overflow-hidden">
-            <video
-              className="w-full h-full object-cover"
-              autoPlay
-              muted
-              loop
-              playsInline
-              poster="/hero/home.jpg"
-              aria-hidden="true"
+      <main ref={mainRef} lang={lang} className="flex-1">
+        {/* 1 — Hero: the only h1 of the page */}
+        <HomeSection id="hero" media={HOME_MEDIA.hero} priority className="pb-28 md:pb-28">
+          <div className="max-w-5xl">
+            <h1
+              id="hero-title"
+              className="home-text-shadow text-balance text-[2.75rem] font-bold leading-[1.02] sm:text-6xl lg:text-7xl xl:text-[5.5rem]"
             >
-              <source src="/hero/home.mp4" type="video/mp4" />
-            </video>
-            <div className="absolute inset-0 bg-black/50" />
-          </div>
-
-          <div className="relative container mx-auto px-4 pb-10 pt-24 md:pt-0 md:pb-0">
-            <div className="max-w-2xl">
-              <h1
-                className="font-display font-bold text-foreground text-[40px] leading-[1.05] md:text-7xl lg:text-8xl mb-4 md:mb-6"
-                style={{ letterSpacing: "-0.02em" }}
-              >
-                Your nights.
-              </h1>
-              <p className="text-base md:text-xl text-muted-foreground mb-7 md:mb-9 max-w-lg">
-                Buy tickets directly from your student union, or organization, or resell your ticket safely.
-              </p>
-
-              <div className="flex flex-col sm:flex-row gap-3 mb-7 md:mb-9">
-                <Button variant="buy" size="lg" asChild>
-                  <Link to="/tickets">
-                    View events
-                    <ArrowRight className="w-4 h-4" />
-                  </Link>
-                </Button>
-                <Button variant="outline" size="lg" asChild className="border-border text-foreground hover:bg-accent">
-                  <Link to="/marketplace/buy">Resell my ticket</Link>
-                </Button>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs md:text-sm text-muted-foreground">
-                <span className="inline-flex items-center gap-1.5">
-                  <QrCode className="w-4 h-4 text-primary" />
-                  Verified QR codes
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <ShieldCheck className="w-4 h-4 text-primary" />
-                  Secure payment
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <Lock className="w-4 h-4 text-primary" />
-                  GDPR compliant
-                </span>
-              </div>
+              {copy.hero.title}
+            </h1>
+            <p className="home-text-shadow mt-5 max-w-2xl text-pretty text-lg text-white/85 sm:text-xl lg:text-2xl">
+              {copy.hero.subtitle}
+            </p>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <HomeCta cta={copy.hero.primary} href={hrefFor(copy.hero.primary)} tone="buy" />
+              <HomeCta cta={copy.hero.secondary} href={hrefFor(copy.hero.secondary)} tone="ghost" />
             </div>
           </div>
-        </section>
+          <button
+            type="button"
+            onClick={() => goTo("organisateurs")}
+            aria-label={copy.scrollCue}
+            className="absolute bottom-6 left-1/2 flex -translate-x-1/2 flex-col items-center gap-2.5 px-3 py-1 text-white/80 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+          >
+            <span className="text-[10px] font-semibold uppercase tracking-[0.3em]">{copy.scrollLabel}</span>
+            <span className="home-cue-bar relative block h-11 w-px overflow-hidden bg-white/30" />
+          </button>
+        </HomeSection>
 
-        {/* ============ CAROUSEL — Upcoming events ============ */}
-        <section className="py-12 md:py-16 border-t border-border">
-          <div className="container mx-auto px-4">
-            <div className="flex items-center justify-between mb-5 md:mb-6">
-              <h2 className="font-display font-bold text-2xl md:text-3xl text-foreground" style={{ letterSpacing: "-0.02em" }}>
-                Upcoming events
-              </h2>
-              <Link to="/tickets" className="text-sm font-semibold text-primary hover:underline inline-flex items-center gap-1 shrink-0">
-                See all
-                <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
-            </div>
-
-            {!eventsLoading && carouselEvents.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No events with tickets yet — check back soon.
-              </p>
-            ) : (
-              <EventCarousel
-                events={carouselEvents}
-                loading={eventsLoading}
-                onEventClick={(event) => {
-                  const slug = slugById.get(event.id);
-                  navigate(slug ? `/e/${slug}` : "/tickets");
-                }}
-              />
-            )}
-          </div>
-        </section>
-
-        {/* ============ SOCIAL PROOF ============ */}
-        {(partnerLogos.length > 0 || counters.length > 0) && (
-          <section className="py-10 md:py-12 border-t border-border">
-            <div className="container mx-auto px-4">
-              {partnerLogos.length > 0 && (
-                <div className="flex flex-wrap items-center justify-center gap-x-10 gap-y-4 opacity-70 mb-8">
-                  {partnerLogos.map((logo) => (
-                    <img key={logo.name} src={logo.src} alt={logo.name} className="h-6 md:h-8 w-auto" />
-                  ))}
-                </div>
-              )}
-              {counters.length > 0 && (
-                <div className="flex flex-wrap items-center justify-center gap-x-12 gap-y-4">
-                  {counters.map((c) => (
-                    <div key={c.label} className="text-center">
-                      <div className="font-display font-bold text-3xl md:text-4xl text-foreground tabular-nums" style={{ letterSpacing: "-0.02em" }}>
-                        {c.value}+
-                      </div>
-                      <div className="text-xs md:text-sm text-muted-foreground">{c.label}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </section>
-        )}
-
-
-        {/* ============ ORGANIZERS SECTION ============ */}
-        <section className="py-14 md:py-20 bg-secondary/50 border-t border-border">
-          <div className="container mx-auto px-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-16 items-center max-w-5xl mx-auto">
-              <div>
-                <h2 className="font-display font-bold text-2xl md:text-4xl text-foreground mb-4" style={{ letterSpacing: "-0.02em" }}>
-                  Running an event?
-                </h2>
-                <ul className="space-y-3 mb-6 text-sm md:text-base text-muted-foreground">
-                  <li className="flex items-start gap-2.5">
-                    <ShieldCheck className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                    Ticketing + secure resale, built in
-                  </li>
-                  <li className="flex items-start gap-2.5">
-                    <Repeat2 className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                    Per-member sales links for your team
-                  </li>
-                  <li className="flex items-start gap-2.5">
-                    <LayoutDashboard className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                    Real-time dashboard — sales, check-in, payouts
-                  </li>
-                </ul>
-                <p className="font-display font-bold text-3xl md:text-5xl text-foreground mb-1" style={{ letterSpacing: "-0.02em" }}>
-                  0% commission.
-                </p>
-                <p className="text-sm text-muted-foreground mb-6">
-                  You keep 100% of the ticket price — 0% fees for organizers, always. Buyers pay a service fee on top: {STUDIO_FEE_RULE}.
-                </p>
-                <Button variant="buy" size="lg" asChild>
-                  <Link to="/organizers">
-                    Launch my event with TicketSafe Studio
-                    <ArrowRight className="w-4 h-4" />
-                  </Link>
-                </Button>
-              </div>
-
-              {/* Studio dashboard mockup placeholder — swap for a real
-                  screenshot once available (public/hero/ or similar). */}
-              <div className="rounded-lg border border-border bg-card p-4 shadow-card">
-                <div className="flex items-center gap-1.5 mb-3">
-                  <span className="w-2.5 h-2.5 rounded-full bg-danger/60" />
-                  <span className="w-2.5 h-2.5 rounded-full bg-warning/60" />
-                  <span className="w-2.5 h-2.5 rounded-full bg-success/60" />
-                </div>
-                <div className="grid grid-cols-3 gap-2 mb-3">
-                  {["Tickets sold", "Net revenue", "Fill rate"].map((label) => (
-                    <div key={label} className="rounded-md bg-secondary p-2.5">
-                      <div className="h-2 w-10 rounded bg-muted-foreground/30 mb-2" />
-                      <div className="h-4 w-14 rounded bg-foreground/20 tabular-nums" />
-                    </div>
-                  ))}
-                </div>
-                <div className="rounded-md bg-secondary h-28 flex items-end gap-1.5 p-3">
-                  {[40, 65, 50, 80, 60, 90, 70].map((h, i) => (
-                    <div key={i} className="flex-1 rounded-sm bg-primary/60" style={{ height: `${h}%` }} />
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ============ FAQ ============ */}
-        <section className="py-14 md:py-20 border-t border-border">
-          <div className="container mx-auto px-4 max-w-2xl">
-            <h2 className="font-display font-bold text-2xl md:text-3xl text-foreground text-center mb-8 md:mb-10" style={{ letterSpacing: "-0.02em" }}>
-              Frequently asked questions
-            </h2>
-            <Accordion type="single" collapsible>
-              {FAQS.map((faq, i) => (
-                <AccordionItem key={i} value={`faq-${i}`}>
-                  <AccordionTrigger className="text-left font-semibold text-foreground">{faq.q}</AccordionTrigger>
-                  <AccordionContent className="text-muted-foreground">{faq.a}</AccordionContent>
-                </AccordionItem>
+        {/* 2 — Organizers */}
+        <HomeSection id="organisateurs" media={HOME_MEDIA.organisateurs}>
+          <SectionText id="organisateurs" kicker={copy.organisateurs.kicker} title={copy.organisateurs.title} body={copy.organisateurs.body}>
+            <ul className="mt-7 space-y-3 text-base text-white/90 sm:text-lg">
+              {copy.organisateurs.bullets.map((bullet, i) => (
+                <li key={bullet} data-reveal style={revealDelay(3 + i)} className="flex items-start gap-3">
+                  <Check className="mt-1 h-5 w-5 shrink-0 text-brand-200" aria-hidden="true" />
+                  <span>{bullet}</span>
+                </li>
               ))}
-            </Accordion>
+            </ul>
+            <div data-reveal style={revealDelay(6)} className="mt-9">
+              <HomeCta cta={copy.organisateurs.cta} href={hrefFor(copy.organisateurs.cta)} tone="brand" />
+            </div>
+          </SectionText>
+        </HomeSection>
+
+        {/* 3 — Student unions */}
+        <HomeSection id="associatif" media={HOME_MEDIA.associatif}>
+          <SectionText id="associatif" kicker={copy.associatif.kicker} title={copy.associatif.title} body={copy.associatif.body}>
+            <TrustedBy title={copy.associatif.trustedTitle} />
+          </SectionText>
+        </HomeSection>
+
+        {/* 4 — Parties */}
+        <HomeSection id="soirees" media={HOME_MEDIA.soirees}>
+          <SectionText id="soirees" kicker={copy.soirees.kicker} title={copy.soirees.title} body={copy.soirees.body} />
+        </HomeSection>
+
+        {/* 5 — Resale: kept quiet on purpose, no call to action */}
+        <HomeSection id="revente" media={HOME_MEDIA.revente}>
+          <SectionText id="revente" kicker={copy.revente.kicker} title={copy.revente.title} body={copy.revente.body} quiet />
+        </HomeSection>
+
+        {/* 6 — Meetings and business events */}
+        <HomeSection id="reunions" media={HOME_MEDIA.reunions}>
+          <SectionText id="reunions" kicker={copy.reunions.kicker} title={copy.reunions.title} body={copy.reunions.body} />
+        </HomeSection>
+
+        {/* 7 — One platform, three spaces */}
+        <HomeSection id="plateforme" media={HOME_MEDIA.plateforme} shade="even" place="center">
+          <SectionText id="plateforme" kicker={copy.plateforme.kicker} title={copy.plateforme.title} />
+          <PlatformCards cards={copy.plateforme.cards} />
+          <p
+            data-reveal
+            style={revealDelay(4)}
+            className="home-text-shadow mt-8 max-w-3xl border-t border-white/20 pt-5 text-sm text-white/80 md:text-base"
+          >
+            {copy.plateforme.pricing}
+          </p>
+        </HomeSection>
+
+        {/* 8 — Upcoming events */}
+        <HomeSection id="evenements" media={HOME_MEDIA.evenements} shade="even" place="center">
+          <div ref={eventsSentinel} aria-hidden="true" className="absolute inset-x-0 top-0 h-px" />
+          <UpcomingEvents
+            copy={copy.evenements}
+            events={events}
+            loading={eventsLoading}
+            eventsHref={HOME_LINKS.events}
+            studioHref={studioHref}
+          />
+        </HomeSection>
+
+        {/* 9 — Final call to action */}
+        <HomeSection id="rejoindre" media={HOME_MEDIA.rejoindre} shade="even" place="center">
+          <div className="mx-auto max-w-4xl text-center">
+            <h2
+              id="rejoindre-title"
+              data-reveal
+              className="home-text-shadow text-4xl font-bold leading-[1.05] sm:text-5xl lg:text-6xl xl:text-7xl"
+            >
+              {copy.final.title}
+            </h2>
+            <div data-reveal style={revealDelay(1)} className="mt-9 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
+              <HomeCta cta={copy.final.primary} href={hrefFor(copy.final.primary)} tone="buy" />
+              <HomeCta cta={copy.final.secondary} href={hrefFor(copy.final.secondary)} tone="ghost" />
+            </div>
           </div>
-        </section>
+        </HomeSection>
       </main>
 
-      <Footer />
+      <div className="home-snap-end">
+        <Footer />
+      </div>
     </div>
   );
 };
