@@ -1,61 +1,71 @@
 /**
- * The decisions behind the immersive home page that do not need React, kept here so they can be tested:
- * which background media may load, how a video and an image are described to the browser, and which language
- * the page copy is written in.
+ * The decisions behind the home page that do not need React, kept here so they can be tested: how the slides are
+ * laid out and moved, how a picture is described to the browser, and which language the copy is in.
  */
-import type { CSSProperties } from "react";
 
-/** The position of an element in the staggered fade-in of its section: 0 first, then 90ms later each (index.css). */
-export const revealDelay = (index: number): CSSProperties => ({ "--i": index }) as CSSProperties;
-
-// ── Which media may load ──────────────────────────────────────────────────
-
-export interface VideoPolicyInput {
-  /** Phone-sized screen (under 768px, like useIsMobile). */
-  isMobile: boolean;
-  reducedMotion: boolean;
-  /** navigator.connection.saveData */
-  saveData: boolean;
-  /** navigator.connection.effectiveType: "slow-2g" | "2g" | "3g" | "4g" */
-  effectiveType?: string | null;
-}
-
-const SLOW_CONNECTIONS = new Set(["slow-2g", "2g", "3g"]);
+// ── The slider ────────────────────────────────────────────────────────────
 
 /**
- * Whether the background videos may load and play. Phones, a saved-data setting, a 2G/3G connection and
- * reduced motion all get the poster only: the page then costs a few hundred kB instead of several MB.
+ * How long a slide stays before the next one slides in. The progress bar under the active tab runs for exactly
+ * this long (--slide-ms in index.css, which a test keeps equal to this) and moving on is triggered by its end, so
+ * pausing the bar pauses the slideshow.
  */
-export function canPlayVideo(input: VideoPolicyInput): boolean {
-  if (input.isMobile || input.reducedMotion || input.saveData) return false;
-  return !(input.effectiveType && SLOW_CONNECTIONS.has(input.effectiveType));
+export const SLIDE_INTERVAL_MS = 6500;
+
+export const nextSlide = (index: number, count: number): number => (index + 1) % count;
+export const previousSlide = (index: number, count: number): number => (index - 1 + count) % count;
+
+export type SlidePlace = "current" | "next" | "previous";
+
+/**
+ * Where a slide waits: the one in view; the one parked on the right, which slides in next; and the others on the
+ * left, where the one that just left goes. Going forward always moves the slides the same way, from right to left.
+ */
+export function slidePlace(index: number, active: number, count: number): SlidePlace {
+  const offset = (index - active + count) % count;
+  if (offset === 0) return "current";
+  return offset === 1 ? "next" : "previous";
 }
 
-// ── How media is described ────────────────────────────────────────────────
+/** How far a finger must travel sideways before it counts as a swipe, in pixels. */
+export const SWIPE_MIN_PX = 48;
+
+/**
+ * What a touch gesture means: a swipe left shows the next slide, a swipe right the previous one. A gesture that
+ * is short, or more up and down than sideways (someone scrolling the page), means nothing.
+ */
+export function swipeDirection(dx: number, dy: number): "next" | "previous" | null {
+  if (Math.abs(dx) < SWIPE_MIN_PX || Math.abs(dx) < Math.abs(dy) * 1.5) return null;
+  return dx < 0 ? "next" : "previous";
+}
+
+/** The slide a key goes to inside the row of tabs (arrows, Home, End), or null for any other key. */
+export function slideForKey(key: string, active: number, count: number): number | null {
+  switch (key) {
+    case "ArrowRight":
+      return nextSlide(active, count);
+    case "ArrowLeft":
+      return previousSlide(active, count);
+    case "Home":
+      return 0;
+    case "End":
+      return count - 1;
+    default:
+      return null;
+  }
+}
+
+// ── How a picture is described ────────────────────────────────────────────
 
 export type ImageFormat = "avif" | "webp" | "jpg";
 
 export interface HomeImage {
   /** The JPEG, always present. A same-name .webp / .avif next to it is used only when listed in `formats`. */
   src: string;
-  /** Intrinsic size, so the browser can reserve the space. The image is cropped to fill whatever the screen is. */
+  /** Intrinsic size. The picture is cropped to fill whatever the screen is, so any proportion works. */
   width: number;
   height: number;
   formats?: ImageFormat[];
-}
-
-export interface HomeVideo {
-  mp4: string;
-  /** Smaller than the MP4; the browser takes it first when it exists, and falls back to the MP4 when it does not. */
-  webm?: string;
-}
-
-/** The <source> list of a <video>: WebM first, MP4 as the one every browser plays. */
-export function videoSources(video: HomeVideo): { src: string; type: string }[] {
-  return [
-    ...(video.webm ? [{ src: video.webm, type: "video/webm" }] : []),
-    { src: video.mp4, type: "video/mp4" },
-  ];
 }
 
 const withExtension = (src: string, ext: string) => src.replace(/\.[a-z0-9]+$/i, `.${ext}`);
@@ -77,7 +87,7 @@ export function pictureSources(image: HomeImage): { srcSet: string; type: string
  */
 export function frenchTypography<T>(value: T): T {
   if (typeof value === "string") {
-    return value.replace(/ ([?!:;%€»])/g, "\u00A0$1").replace(/(«) /g, "$1\u00A0") as T;
+    return value.replace(/ ([?!:;%€»])/g, " $1").replace(/(«) /g, "$1 ") as T;
   }
   if (Array.isArray(value)) return value.map(frenchTypography) as T;
   if (value && typeof value === "object") {
@@ -86,13 +96,14 @@ export function frenchTypography<T>(value: T): T {
   return value;
 }
 
-// ── When the first screen's media starts ──────────────────────────────────
+// ── When the first picture starts ─────────────────────────────────────────
 
 /**
- * How long after the first paint the hero photo and video start loading. The words and the colour behind them
- * come first and the photo fades in, so its weight never competes with the scripts that draw the page: on a slow
- * connection the page is readable sooner, and a 300 kB photo no longer costs the first screen anything. The photo
- * fades in from transparent, so it does not count as the page's largest paint either.
+ * How long after the first paint the first picture starts loading. The words and the colour behind them come
+ * first and the picture fades in, so its weight never competes with the scripts that draw the page: on a slow
+ * connection the page is readable sooner, and a 300 kB picture no longer costs the first screen anything. The
+ * picture fades in from transparent, so it does not count as the page's largest paint either. The next slide's
+ * picture is only requested once the current one has arrived.
  */
 export const FIRST_SCREEN_MEDIA_DELAY_MS = 700;
 
@@ -107,12 +118,3 @@ export type HomeLanguage = "fr" | "en";
 export function resolveHomeLanguage(siteLanguage: string | null | undefined): HomeLanguage {
   return siteLanguage === "fr" ? "fr" : "en";
 }
-
-// ── Upcoming events ───────────────────────────────────────────────────────
-
-/** Below this many published events the grid gives way to a "coming soon" block, so it never looks empty. */
-export const MIN_EVENTS_FOR_GRID = 3;
-/** One row of four on a desktop, two rows of two on a phone. */
-export const MAX_EVENTS_SHOWN = 4;
-
-export const hasEnoughEvents = (count: number): boolean => count >= MIN_EVENTS_FOR_GRID;

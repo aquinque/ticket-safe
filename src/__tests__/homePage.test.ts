@@ -3,65 +3,93 @@ import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 import {
   FIRST_SCREEN_MEDIA_DELAY_MS,
+  SLIDE_INTERVAL_MS,
+  SWIPE_MIN_PX,
   frenchTypography,
-  MAX_EVENTS_SHOWN,
-  MIN_EVENTS_FOR_GRID,
-  canPlayVideo,
-  hasEnoughEvents,
+  nextSlide,
   pictureSources,
+  previousSlide,
   resolveHomeLanguage,
-  revealDelay,
-  videoSources,
+  slideForKey,
+  slidePlace,
+  swipeDirection,
 } from "../lib/homePage";
-import { HOME_CONTENT, HOME_LINKS, HOME_MEDIA, SECTION_IDS, type HomeCopy } from "../content/home";
-import { STUDIO_FEE_FIXED_EUR, STUDIO_FEE_MAX_EUR, STUDIO_FEE_PERCENT } from "../lib/studioFee";
+import { HOME_CONTENT, HOME_LINKS, HOME_SLIDE_MEDIA, SLIDE_IDS, type HomeCopy } from "../content/home";
 
 const read = (path: string) => readFileSync(resolve(process.cwd(), path), "utf8");
 
-describe("which background media may load", () => {
-  const desktop = { isMobile: false, reducedMotion: false, saveData: false, effectiveType: "4g" };
-
-  it("plays video on a desktop with a good connection", () => {
-    expect(canPlayVideo(desktop)).toBe(true);
-    expect(canPlayVideo({ ...desktop, effectiveType: undefined })).toBe(true);
-    expect(canPlayVideo({ ...desktop, effectiveType: null })).toBe(true);
+describe("the slides", () => {
+  it("go round: after the last comes the first, before the first comes the last", () => {
+    expect(nextSlide(0, 3)).toBe(1);
+    expect(nextSlide(2, 3)).toBe(0);
+    expect(previousSlide(1, 3)).toBe(0);
+    expect(previousSlide(0, 3)).toBe(2);
   });
 
-  it("shows the poster only on a phone", () => {
-    expect(canPlayVideo({ ...desktop, isMobile: true })).toBe(false);
+  it("wait in three places: in view, parked on the right (next), and on the left (the one that just left)", () => {
+    expect([0, 1, 2].map((i) => slidePlace(i, 0, 3))).toEqual(["current", "next", "previous"]);
+    expect([0, 1, 2].map((i) => slidePlace(i, 1, 3))).toEqual(["previous", "current", "next"]);
+    expect([0, 1, 2].map((i) => slidePlace(i, 2, 3))).toEqual(["next", "previous", "current"]);
   });
 
-  it("shows the poster only when data saving is on", () => {
-    expect(canPlayVideo({ ...desktop, saveData: true })).toBe(false);
+  it("always move the same way going forward: parked right, in view, left, then carried back to the right", () => {
+    // The slide that leaves goes to the left; the one that arrives comes from the right; the one that was on the
+    // left is carried to the right while nobody can see it.
+    const cycle = [0, 1, 2, 3, 4, 5].map((active) => slidePlace(1, active, 3));
+    expect(cycle).toEqual(["next", "current", "previous", "next", "current", "previous"]);
   });
 
-  it("shows the poster only on a slow connection", () => {
-    for (const effectiveType of ["slow-2g", "2g", "3g"]) expect(canPlayVideo({ ...desktop, effectiveType })).toBe(false);
-  });
-
-  it("shows the poster only for visitors who asked for less motion", () => {
-    expect(canPlayVideo({ ...desktop, reducedMotion: true })).toBe(false);
+  it("copes with two slides or one", () => {
+    expect([0, 1].map((i) => slidePlace(i, 0, 2))).toEqual(["current", "next"]);
+    expect(slidePlace(0, 0, 1)).toBe("current");
   });
 });
 
-describe("how media is described to the browser", () => {
-  it("lists WebM first and MP4 as the fallback, or the MP4 alone", () => {
-    expect(videoSources({ mp4: "/a.mp4", webm: "/a.webm" })).toEqual([
-      { src: "/a.webm", type: "video/webm" },
-      { src: "/a.mp4", type: "video/mp4" },
-    ]);
-    expect(videoSources({ mp4: "/a.mp4" })).toEqual([{ src: "/a.mp4", type: "video/mp4" }]);
+describe("swipes and keys", () => {
+  it("a swipe left shows the next slide and a swipe right the previous one", () => {
+    expect(swipeDirection(-120, 8)).toBe("next");
+    expect(swipeDirection(120, -8)).toBe("previous");
   });
 
-  it("only offers the image formats that are listed", () => {
-    const image = { src: "/media/home/revente.jpg", width: 1920, height: 1080 };
+  it("ignores a short move, and a move that is mostly up and down (someone scrolling)", () => {
+    expect(swipeDirection(-(SWIPE_MIN_PX - 1), 0)).toBeNull();
+    expect(swipeDirection(-SWIPE_MIN_PX, 0)).toBe("next");
+    expect(swipeDirection(-100, 90)).toBeNull();
+    expect(swipeDirection(60, 200)).toBeNull();
+    expect(swipeDirection(0, 0)).toBeNull();
+  });
+
+  it("moves between the tabs with the arrows, Home and End, and ignores other keys", () => {
+    expect(slideForKey("ArrowRight", 0, 3)).toBe(1);
+    expect(slideForKey("ArrowRight", 2, 3)).toBe(0);
+    expect(slideForKey("ArrowLeft", 0, 3)).toBe(2);
+    expect(slideForKey("Home", 2, 3)).toBe(0);
+    expect(slideForKey("End", 0, 3)).toBe(2);
+    expect(slideForKey("Enter", 0, 3)).toBeNull();
+    expect(slideForKey("a", 0, 3)).toBeNull();
+  });
+
+  it("keeps the time per slide the same in the code and in the stylesheet", () => {
+    // The bar under the tab runs for --slide-ms and moving on is triggered by its end, so they must agree.
+    const css = read("src/index.css");
+    expect(css).toMatch(new RegExp(`--slide-ms:\\s*${SLIDE_INTERVAL_MS}ms`));
+  });
+});
+
+describe("how a picture is described", () => {
+  const image = { src: "/media/home/buy.jpg", width: 1080, height: 1920 };
+
+  it("lists no extra format unless asked: only the JPEG exists until someone adds the others", () => {
     expect(pictureSources(image)).toEqual([]);
     expect(pictureSources({ ...image, formats: ["jpg"] })).toEqual([]);
+  });
+
+  it("lists AVIF then WebP when asked, as same-name files", () => {
     expect(pictureSources({ ...image, formats: ["avif", "webp", "jpg"] })).toEqual([
-      { srcSet: "/media/home/revente.avif", type: "image/avif" },
-      { srcSet: "/media/home/revente.webp", type: "image/webp" },
+      { srcSet: "/media/home/buy.avif", type: "image/avif" },
+      { srcSet: "/media/home/buy.webp", type: "image/webp" },
     ]);
-    expect(pictureSources({ ...image, formats: ["webp", "jpg"] })).toEqual([{ srcSet: "/media/home/revente.webp", type: "image/webp" }]);
+    expect(pictureSources({ ...image, formats: ["webp", "jpg"] })).toEqual([{ srcSet: "/media/home/buy.webp", type: "image/webp" }]);
   });
 });
 
@@ -84,36 +112,22 @@ describe("which language the copy is in", () => {
   });
 });
 
-describe("the first screen's media", () => {
-  it("starts after the first paint, so its weight never slows the page down", () => {
-    // Lighthouse mobile scored 80 with a 340 kB poster loaded at once and 91 with it loaded this much later.
+describe("the first screen's pictures", () => {
+  it("start after the first paint, so their weight never slows the page down", () => {
+    // Lighthouse mobile scored 80 with a 340 kB picture loaded at once and 91 with it loaded this much later.
     expect(FIRST_SCREEN_MEDIA_DELAY_MS).toBeGreaterThanOrEqual(500);
   });
 
-  it("is applied to the hero image and video", () => {
-    const media = read("src/components/home/HomeMedia.tsx");
-    expect(media).toContain("useAfterFirstPaint(FIRST_SCREEN_MEDIA_DELAY_MS)");
-    expect(media).toMatch(/mayLoad = !priority \|\| painted/);
+  it("are requested one after the other: the first after the delay, the next once the current one is there", () => {
+    const slider = read("src/components/home/HomeSlider.tsx");
+    expect(slider).toContain("useAfterFirstPaint(FIRST_SCREEN_MEDIA_DELAY_MS)");
+    expect(slider).toMatch(/if \(!painted\) return;/);
+    expect(slider).toMatch(/loaded\.includes\(active\) \|\| missing\.includes\(active\)/);
   });
 
-  it("keeps recharts out of every page's first load", () => {
+  it("keep recharts out of every page's first load", () => {
     // The entry chunk only needs clsx; left unassigned it lands in the charts chunk and drags 105 kB along.
     expect(read("vite.config.ts")).toMatch(/"vendor-react":\s*\[[^\]]*"clsx"/);
-  });
-});
-
-describe("the upcoming events block", () => {
-  it("needs three events for the grid and shows at most four", () => {
-    expect(MIN_EVENTS_FOR_GRID).toBe(3);
-    expect(MAX_EVENTS_SHOWN).toBe(4);
-    expect(hasEnoughEvents(0)).toBe(false);
-    expect(hasEnoughEvents(2)).toBe(false);
-    expect(hasEnoughEvents(3)).toBe(true);
-    expect(hasEnoughEvents(40)).toBe(true);
-  });
-
-  it("staggers the reveal with a CSS variable", () => {
-    expect(revealDelay(2)).toEqual({ "--i": 2 });
   });
 });
 
@@ -145,12 +159,15 @@ describe("the home content", () => {
     for (const lang of langs) expect(empty(HOME_CONTENT[lang], lang)).toEqual([]);
   });
 
-  it("has the nine sections in the planned order", () => {
-    expect([...SECTION_IDS]).toEqual([
-      "hero", "organisateurs", "associatif", "soirees", "revente", "reunions", "plateforme", "evenements", "rejoindre",
-    ]);
-    for (const lang of langs) expect(Object.keys(HOME_CONTENT[lang].dots).sort()).toEqual([...SECTION_IDS].sort());
-    expect(Object.keys(HOME_MEDIA).sort()).toEqual([...SECTION_IDS].sort());
+  it("is the three main functions, in order: buy, sell, scan", () => {
+    expect([...SLIDE_IDS]).toEqual(["buy", "sell", "scan"]);
+    for (const lang of langs) expect(Object.keys(HOME_CONTENT[lang].slides)).toEqual([...SLIDE_IDS]);
+    expect(Object.keys(HOME_SLIDE_MEDIA)).toEqual([...SLIDE_IDS]);
+  });
+
+  it("is titled just \"Ticketing platform\"", () => {
+    expect(HOME_CONTENT.en.title).toBe("Ticketing platform");
+    expect(HOME_CONTENT.fr.title).toBe("Plateforme de billetterie");
   });
 
   it("puts a no-break space before French double punctuation, never a plain one", () => {
@@ -161,25 +178,14 @@ describe("the home content", () => {
     expect(joined).toContain("venir\u00A0?");
   });
 
-  it("says what was asked in French", () => {
-    // The typography above only swaps plain spaces for no-break ones; the words are the ones that were asked for.
+  it("says in French what the English says", () => {
     const fr = JSON.parse(JSON.stringify(HOME_CONTENT.fr).replace(/\u00a0/g, " ")) as HomeCopy;
-    expect(fr.hero.title).toBe("La billetterie des événements étudiants");
-    expect(fr.hero.subtitle).toBe("Vends tes billets, revends-les rapidement.");
-    expect(fr.hero.primary.label).toBe("Voir les événements");
-    expect(fr.hero.secondary.label).toBe("Organiser un événement");
-    expect(fr.organisateurs.title).toBe("Vends tes billets en 5 minutes");
-    expect(fr.organisateurs.bullets).toHaveLength(3);
-    expect(fr.organisateurs.cta.label).toBe("Ouvrir Ticket Studio");
-    expect(fr.associatif.title).toBe("Pensé pour les BDE et les assos");
-    expect(fr.associatif.trustedTitle).toBe("Ils nous font confiance");
-    expect(fr.soirees.title).toBe("Un scan, et tu entres");
-    expect(fr.revente.title).toBe("Tu ne peux plus venir ? Revends rapidement");
-    expect(fr.reunions.title).toBe("Et aussi les conférences, forums, réunions");
-    expect(fr.plateforme.title).toBe("Une plateforme, trois espaces");
-    expect(fr.plateforme.cards.map((c) => c.title)).toEqual(["Acheteur", "Organisateur — Ticket Studio", "Contrôle à l'entrée"]);
-    expect(fr.evenements.soon.title).toBe("Bientôt près de chez toi");
-    expect(fr.final.title).toBe("Prêt pour ton prochain event ?");
+    expect(fr.slides.buy.title).toBe("Achète en 30 secondes");
+    expect(fr.slides.buy.body).toBe("Ton billet est dans ton téléphone. Tu ne peux plus venir ? Revends rapidement.");
+    expect(fr.slides.buy.cta.label).toBe("Voir les événements");
+    expect(fr.slides.sell.title).toBe("Vends en 5 minutes");
+    expect(fr.slides.sell.cta.label).toBe("Ouvrir Ticket Studio");
+    expect(fr.slides.scan.title).toBe("Scanne à l'entrée");
   });
 
   it("never promises that anything is sold or resold \"safely\", and never talks about scams, fraud or fake tickets", () => {
@@ -188,8 +194,8 @@ describe("the home content", () => {
       const words = JSON.stringify(HOME_CONTENT[lang]).replace(/TicketSafe/g, "");
       expect(words, lang).not.toMatch(/safe|secur|sécur|scam|fraud|arnaq|fake|faux|zéro/i);
     }
-    expect(HOME_CONTENT.en.hero.subtitle).toBe("Sell your tickets, resell them quickly.");
-    expect(HOME_CONTENT.en.revente.title).toBe("Can't make it? Resell quickly");
+    expect(HOME_CONTENT.en.slides.buy.body).toContain("Resell quickly");
+    expect(HOME_CONTENT.fr.slides.buy.body).toContain("Revends rapidement");
   });
 
   it("keeps the header, footer and link previews shown with the home page free of those promises too", () => {
@@ -206,24 +212,15 @@ describe("the home content", () => {
     for (const path of [HOME_LINKS.events, HOME_LINKS.studio, HOME_LINKS.studioOpen]) {
       expect(app, path).toContain(`path="${path}"`);
     }
+    for (const lang of langs) {
+      for (const slide of Object.values(HOME_CONTENT[lang].slides)) expect(["events", "studio"]).toContain(slide.cta.target);
+    }
   });
 
-  it("states the service fee from the site-wide constants, in both languages", () => {
-    const fixedFr = STUDIO_FEE_FIXED_EUR.toFixed(2).replace(".", ",");
-    const maxFr = STUDIO_FEE_MAX_EUR.toFixed(2).replace(".", ",");
-    const frPricing = HOME_CONTENT.fr.plateforme.pricing.replace(/\u00a0/g, " ");
-    expect(frPricing).toContain(`${STUDIO_FEE_PERCENT} % + ${fixedFr} € par billet, ${maxFr} € maximum`);
-    expect(HOME_CONTENT.en.plateforme.pricing).toContain(`${STUDIO_FEE_PERCENT}% + €${STUDIO_FEE_FIXED_EUR.toFixed(2)} per ticket`);
-    expect(frPricing).toContain("Rien à payer pour l'organisateur");
-  });
-
-  it("points every media path into /media/home and gives every video a poster", () => {
-    for (const [id, spec] of Object.entries(HOME_MEDIA)) {
-      if (spec.image) expect(spec.image.src, id).toMatch(/^\/media\/home\/[a-z]+\.jpg$/);
-      if (spec.video) {
-        expect(spec.video.mp4, id).toMatch(/^\/media\/home\/[a-z]+\.mp4$/);
-        expect(spec.image, `${id}: a video needs a poster`).toBeDefined();
-      }
+  it("points every picture into /media/home", () => {
+    for (const [id, media] of Object.entries(HOME_SLIDE_MEDIA)) {
+      expect(media.image.src, id).toMatch(/^\/media\/home\/[a-z]+\.jpg$/);
+      expect(media.position, id).toMatch(/^\d+% \d+%$/);
     }
   });
 });
@@ -231,41 +228,58 @@ describe("the home content", () => {
 describe("what the README promises is what the content asks for", () => {
   const readme = read("public/media/home/README.md");
 
-  it("lists every file the content refers to", () => {
-    for (const spec of Object.values(HOME_MEDIA)) {
-      for (const file of [spec.image?.src, spec.video?.mp4, spec.video?.webm]) {
-        if (file) expect(readme, file).toContain(file.replace("/media/home/", ""));
-      }
+  it("lists every picture the content refers to", () => {
+    for (const media of Object.values(HOME_SLIDE_MEDIA)) {
+      expect(readme, media.image.src).toContain(media.image.src.replace("/media/home/", ""));
     }
   });
 
-  it("keeps the README in the folder the owner drops files into", () => {
-    expect(readdirSync(resolve(process.cwd(), "public/media/home"))).toContain("README.md");
+  it("says: real photos only, no AI images", () => {
+    expect(readme).toMatch(/No AI-generated images/);
+  });
+
+  it("keeps the README in the folder the owner drops files into, next to a picture for every slide", () => {
+    const files = readdirSync(resolve(process.cwd(), "public/media/home"));
+    expect(files).toContain("README.md");
+    // Placeholders so the screen is never empty; replacing them must not break this, so only existence is checked.
+    for (const media of Object.values(HOME_SLIDE_MEDIA)) expect(files, media.image.src).toContain(media.image.src.split("/").pop());
   });
 });
 
 describe("the page itself", () => {
-  const sources = [
-    "src/pages/Home.tsx",
-    ...readdirSync(resolve(process.cwd(), "src/components/home")).map((f) => `src/components/home/${f}`),
-  ].map(read);
+  const slider = read("src/components/home/HomeSlider.tsx");
+  const home = read("src/pages/Home.tsx");
+  const sources = [home, ...readdirSync(resolve(process.cwd(), "src/components/home")).map((f) => read(`src/components/home/${f}`))];
 
-  it("has exactly one h1, in the hero", () => {
+  it("has exactly one h1, with the title", () => {
     const h1s = sources.join("\n").match(/<h1[\s>]/g) ?? [];
     expect(h1s).toHaveLength(1);
-    expect(read("src/pages/Home.tsx")).toMatch(/<h1\s[^>]*id="hero-title"/);
+    expect(slider).toMatch(/<h1\s[^>]*id="hero-title"/);
+    expect(slider).toContain("{copy.title}");
   });
 
-  it("names every section with an h2 the section points at", () => {
-    const joined = sources.join("\n");
-    // SectionText writes `${id}-title`; the two sections that write their own heading do it by hand.
-    expect(joined).toContain("id={`${id}-title`}");
-    expect(joined).toContain('id="evenements-title"');
-    expect(joined).toContain('id="rejoindre-title"');
+  it("is a labelled slideshow of three tab panels with a tab each, and a way to pause it", () => {
+    expect(slider).toContain('aria-roledescription="carousel"');
+    expect(slider).toContain('aria-labelledby="hero-title"');
+    expect(slider).toContain('role="tablist"');
+    expect(slider).toContain('role="tab"');
+    expect(slider).toContain('role="tabpanel"');
+    expect(slider).toContain("copy.pause");
+    expect(slider).toContain("copy.play");
   });
 
-  it("keeps the site's own header and footer, and the meta tags it had", () => {
-    const home = read("src/pages/Home.tsx");
+  it("moves on when the progress bar is full, so pausing the bar pauses the slideshow", () => {
+    expect(slider).toContain("onAnimationEnd={i === active ? advance : undefined}");
+    const css = read("src/index.css");
+    expect(css).toMatch(/\.home-hero\[data-paused="true"\] \.home-progress-fill \{ animation-play-state: paused; \}/);
+  });
+
+  it("stops moving when the visitor asks for less motion", () => {
+    expect(slider).toContain("useReducedMotion()");
+    expect(read("src/index.css")).toMatch(/@media \(prefers-reduced-motion: reduce\)[\s\S]*home-progress-fill/);
+  });
+
+  it("keeps the site's own header and footer, and the meta tags it has", () => {
     expect(home).toContain('import HeaderNight from "@/components/HeaderNight"');
     expect(home).toContain('import Footer from "@/components/Footer"');
     expect(home).toContain('title="TicketSafe — Your nights."');
@@ -276,17 +290,12 @@ describe("the page itself", () => {
     for (const source of sources) expect(source).not.toMatch(/@\/assets|\.\.\/assets|\/assets\//);
   });
 
-  it("gives the resale section no call to action", () => {
-    const home = read("src/pages/Home.tsx");
-    const resale = home.slice(home.indexOf('id="revente"'), home.indexOf('id="reunions"'));
-    expect(resale).not.toContain("HomeCta");
-    expect(resale).not.toContain("<Link");
-  });
-
-  it("adds no dependency for it", () => {
+  it("plays no video and adds no dependency for the slider", () => {
+    expect(sources.join("\n")).not.toContain("<video");
     const pkg = JSON.parse(read("package.json")) as { dependencies: Record<string, string> };
     for (const name of ["gsap", "lenis", "@studio-freight/lenis", "swiper", "framer-motion", "locomotive-scroll"]) {
       expect(pkg.dependencies[name], name).toBeUndefined();
     }
+    expect(slider).not.toMatch(/embla|swiper|gsap|lenis/i);
   });
 });

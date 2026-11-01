@@ -1,67 +1,42 @@
-# Médias de la page d'accueil
+# Home page pictures
 
-Dépose ici les fichiers ci-dessous, **avec exactement ces noms**. Tant qu'un fichier est absent, sa section
-affiche un dégradé bleu nuit à la place : rien ne casse, aucune image cassée. Les textes, les liens et les
-chemins des médias se changent dans `src/content/home.ts`, jamais dans les composants.
+The home page is one screen with three slides that slide in by themselves: **Buy**, **Sell**, **Scan**. Each slide
+has a picture behind its words. Drop your pictures in this folder, **with exactly these names**:
 
-## Vraies photos et vraies vidéos uniquement
+| Slide | File |
+|---|---|
+| 1. Buy | `buy.jpg` |
+| 2. Sell (Ticket Studio) | `sell.jpg` |
+| 3. Scan (entrance check) | `scan.jpg` |
 
-**Aucune image générée par IA** sur cette page : seulement de vraies photos et de vraies images filmées
-(vos soirées, vos événements, vos équipes). Rien dans le code ne génère ni ne remplace un visuel : tant qu'un
-fichier est absent, la section reste sur son dégradé.
+## What a good file looks like
 
-## Fichiers attendus
+- **JPEG, about 1920 px on its long side, quality 75–80, under 400 KB.** A heavier file makes the page slower
+  on a phone, where most visitors arrive from.
+- **Any proportion works.** The picture is cropped to fill the screen. A portrait picture (like a Pinterest pin)
+  is perfect on a phone; on a computer only a horizontal band of it shows, so keep what matters near the middle,
+  or move the band with `position` in `src/content/home.ts` (for example `"50% 30%"` shows the upper part).
+- **Real photos and footage only. No AI-generated images.** Nothing in the code makes or replaces a picture.
+- Pictures found on Pinterest belong to whoever made them: use your own photos, or ones you are allowed to use.
+- Until a file is here, its slide shows a navy gradient. Nothing breaks, no image is ever shown broken.
 
-| Section | Fichier(s) | Format | Cible |
-|---|---|---|---|
-| 1. Hero | `hero.mp4` + `hero.webm` | vidéo en boucle, 1920×1080, 8 à 12 s, **sans piste audio** | < 3 Mo chacune |
-| 1. Hero | `hero.jpg` | **poster** (voir ci-dessous), 1920 px de large | < 400 Ko |
-| 2. Organisateurs | `organisateurs.jpg` | photo, 1920 px de large | < 400 Ko |
-| 3. Associatif | `associatif.jpg` | photo, 1920 px de large | < 400 Ko |
-| 4. Soirées | `soiree.mp4` + `soiree.webm` | vidéo courte en boucle, 1920×1080, 8 à 12 s, sans audio | < 3 Mo chacune |
-| 4. Soirées | `soiree.jpg` | poster, 1920 px de large | < 400 Ko |
-| 5. Revente | `revente.jpg` | photo plus calme, 1920 px de large | < 400 Ko |
-| 6. Réunions & pro | `reunion.jpg` | photo, 1920 px de large | < 400 Ko |
-| 7. Plateforme | `plateforme.jpg` | photo très floutée ou fond sombre uni (la page applique en plus un flou) | < 200 Ko |
+`buy.jpg`, `sell.jpg` and `scan.jpg` are right now three frames of the old home page video, only so that the
+screen is not empty. Replace them.
 
-Les sections 8 (événements) et 9 (appel final) n'ont pas de média : elles sont lues depuis la base et sur fond dégradé.
+## Changing the rest
 
-## Le poster compte plus que la vidéo
+- **Texts, buttons, links, the order of the slides, the part of each picture that stays in view:** `src/content/home.ts`.
+  The page is in English; the French texts show when a visitor picks French.
+- **Time per slide (6.5 s):** `SLIDE_INTERVAL_MS` in `src/lib/homePage.ts` and `--slide-ms` in `src/index.css`.
+  Keep the two equal (a test checks it). How far a slide travels as it arrives is `--slide-shift` in `src/index.css`.
 
-Sur téléphone, avec l'économiseur de données, en 2G/3G et pour les personnes qui demandent moins d'animations,
-**la vidéo n'est jamais chargée** : on voit le poster. Or la majorité du trafic arrive depuis un iPhone. Le
-`hero.jpg` est donc la première chose vue par la plupart des visiteurs : soigne-le, et garde-le léger (c'est lui
-qui détermine la vitesse d'affichage de la page).
+## WebP / AVIF (optional)
 
-La vidéo ne se charge que lorsque la section est proche de l'écran, et se met en pause quand elle n'est plus visible.
-
-## Préparer les fichiers
-
-Depuis un export vidéo quelconque (`source.mov`) :
-
-```sh
-# MP4 (lu partout)
-ffmpeg -i source.mov -t 10 -vf "scale=1920:-2" -an -c:v libx264 -crf 28 -preset slow -movflags +faststart hero.mp4
-# WebM (plus léger, pris en premier quand il existe)
-ffmpeg -i source.mov -t 10 -vf "scale=1920:-2" -an -c:v libvpx-vp9 -crf 36 -b:v 0 hero.webm
-# Poster : une image de la vidéo
-ffmpeg -i source.mov -ss 1 -frames:v 1 -vf "scale=1920:-2" -q:v 4 hero.jpg
-```
-
-Une photo : exporte en JPEG, 1920 px de large, qualité 75 à 80.
-
-## WebP / AVIF (facultatif)
-
-Pour une photo, tu peux ajouter une version `.webp` et/ou `.avif` **à côté du `.jpg`, avec le même nom**
-(par exemple `revente.webp`), puis l'activer dans `src/content/home.ts` :
+Add a `.webp` and/or `.avif` file **next to the JPEG, with the same name** (for example `buy.webp`), then list
+the formats in `src/content/home.ts`:
 
 ```ts
-revente: { image: { ...photo("revente"), formats: ["avif", "webp", "jpg"] }, tone: "calm" },
+buy: { image: { ...picture("buy"), formats: ["avif", "webp", "jpg"] }, tone: "cobalt", position: "50% 70%" },
 ```
 
-N'active un format que si le fichier existe : le navigateur ne retombe pas sur le JPEG si une version listée est absente.
-
-## Aujourd'hui
-
-`hero.jpg` et `hero.mp4` sont les anciens fichiers de l'accueil (vertical 1280×2276, vidéo de 33 s et 6,7 Mo),
-déplacés ici pour que le hero ne soit pas vide. Remplace-les par les nouveaux. Les autres fichiers n'existent pas encore.
+Only list a format if its file exists: the browser does not fall back to the JPEG when a listed file is missing.

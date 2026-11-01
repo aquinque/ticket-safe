@@ -431,50 +431,64 @@
 .animate-studio-marquee { animation: studio-marquee 30s linear infinite; }
 .animate-studio-pulse-ring { animation: studio-pulse-ring 2.4s cubic-bezier(0,.4,.6,1) infinite; }
 
-/* ===== Immersive home (src/pages/Home.tsx) =====
-   Full-screen sections with a photo or video behind the text. The layout is Tailwind in the components; what
-   lives here is what utilities cannot say: scroll snapping on <html>, the parallax transform, the colour
-   fallbacks for missing media, the reveal states, and the scroll cue. */
+/* ===== Home (src/pages/Home.tsx, src/components/home/HomeSlider.tsx) =====
+   One screen: three slides that slide in from the right by themselves, a picture behind each, a few words in
+   front. The layout is Tailwind in the component; what lives here is what utilities cannot say: how a slide
+   arrives and leaves, the progress bars, the colour fallbacks for a missing picture, and reduced motion. */
 
-/* 100vh first for browsers without svh; svh keeps a section the height of what is visible on an iPhone,
+.home-hero {
+  /* How long a slide stays. Equal to SLIDE_INTERVAL_MS in src/lib/homePage.ts (a test checks it). */
+  --slide-ms: 6500ms;
+  /* How long a slide takes to arrive, and how far it travels while it does (a small part of the width). */
+  --slide-move: 1100ms;
+  --slide-shift: 14%;
+  /* Sideways swipes belong to the slider; the page's up-and-down scroll stays the browser's. */
+  touch-action: pan-y;
+  /* The slides wait just outside the screen. `clip` (unlike `hidden`) makes no scroll container, so focusing a
+     tab can never scroll the screen sideways and leave it shifted; `hidden` is the fallback for old browsers. */
+  overflow: hidden;
+  overflow: clip;
+}
+
+/* 100vh first for browsers without svh; svh keeps the screen the height of what is visible on an iPhone,
    address bar in or out. */
-.home-section-inner {
+.home-hero-inner {
   min-height: 100vh;
   min-height: 100svh;
 }
 
-.home-section { scroll-snap-align: start; }
-.home-snap-end { scroll-snap-align: end; }
-
-/* Snapping is firm with a mouse on a big screen, loose everywhere else so a swipe is never fought. */
-@media (min-width: 1024px) and (pointer: fine) {
-  html.home-snap { scroll-snap-type: y mandatory; }
-}
-@media (max-width: 1023px), (pointer: coarse) {
-  html.home-snap { scroll-snap-type: y proximity; }
-}
-
-/* Background layer: taller than its section so it can drift without showing an edge. --p (about -1 to 1) is
-   written by useParallax; the layer never uses position: fixed. */
-.home-layer {
+/* A picture layer has three places: "current" is in view and on top; "next" waits on the right and "previous" on
+   the left, both invisible. The slide that arrives fades in over the one that leaves while moving in from the
+   side; the one that leaves stays fully opaque until it is covered (no dip to black between two half-faded
+   pictures), drifts the other way, then disappears. */
+.home-pic {
   position: absolute;
-  inset: -8% 0;
-  transform: translate3d(0, calc(var(--p, 0) * -6%), 0);
-  will-change: transform;
+  inset: 0;
+  z-index: 0;
+  opacity: 0;
+  visibility: hidden;
+  will-change: transform, opacity;
 }
-@media (max-width: 767px) {
-  .home-layer {
-    inset: -5% 0;
-    transform: translate3d(0, calc(var(--p, 0) * -4%), 0);
-  }
+.home-pic[data-place="current"] {
+  z-index: 2;
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition:
+    transform var(--slide-move) cubic-bezier(0.22, 0.61, 0.36, 1),
+    opacity var(--slide-move) ease,
+    visibility 0s;
 }
-@media (prefers-reduced-motion: reduce) {
-  .home-layer {
-    inset: 0;
-    transform: none;
-    will-change: auto;
-  }
+.home-pic[data-place="next"],
+.home-pic[data-place="previous"] {
+  z-index: 1;
+  transition:
+    transform var(--slide-move) cubic-bezier(0.22, 0.61, 0.36, 1),
+    opacity 0s linear var(--slide-move),
+    visibility 0s linear var(--slide-move);
 }
+.home-pic[data-place="next"] { transform: translate3d(var(--slide-shift), 0, 0); }
+.home-pic[data-place="previous"] { transform: translate3d(calc(var(--slide-shift) * -1), 0, 0); }
 
 .home-media-fill {
   position: absolute;
@@ -483,45 +497,34 @@
   height: 100%;
   object-fit: cover;
 }
-.home-photo {
+.home-pic-img {
   opacity: 0;
   transition: opacity 0.7s ease;
 }
-.home-photo.is-loaded { opacity: 1; }
-.home-layer-blur .home-media-fill {
-  filter: blur(22px) saturate(1.1);
-  transform: scale(1.1);
-}
-.home-video {
-  opacity: 0;
-  transition: opacity 0.8s ease;
-}
-.home-video.is-ready { opacity: 1; }
+.home-pic-img.is-loaded { opacity: 1; }
 
-/* Black shade over the media so the text stays readable (AA) on any photo: from 40 % where there is no text
-   up to 70 % where it sits, low and on the left. Over the colour fallback alone (no photo yet) it is eased off,
-   so the blue lights stay visible: that background is already dark. */
+/* Black shade over the pictures so the text stays readable (AA) on any of them: 40 % at the top up to 70 % at
+   the bottom, where the words are. Over the colour fallback alone (no picture yet) it is eased off, so the blue
+   lights stay visible: that background is already dark. */
 .home-shade {
   position: absolute;
   inset: 0;
+  z-index: 3;
   pointer-events: none;
+  background: linear-gradient(to top, rgb(0 0 0 / 0.7) 0%, rgb(0 0 0 / 0.56) 45%, rgb(0 0 0 / 0.42) 100%);
   transition: opacity 0.7s ease;
 }
-.home-shade[data-media="off"] { opacity: 0.4; }
-.home-shade-text {
-  background: linear-gradient(to top, rgb(0 0 0 / 0.7) 0%, rgb(0 0 0 / 0.56) 45%, rgb(0 0 0 / 0.42) 100%);
-}
 @media (min-width: 768px) {
-  .home-shade-text {
+  .home-shade {
     background:
       linear-gradient(to top, rgb(0 0 0 / 0.7) 0%, rgb(0 0 0 / 0.5) 50%, rgb(0 0 0 / 0.4) 100%),
       linear-gradient(to right, rgb(0 0 0 / 0.38), transparent 65%);
   }
 }
-.home-shade-even { background: rgb(0 0 0 / 0.62); }
+.home-shade[data-media="off"] { opacity: 0.5; }
 
-/* What a section looks like before its photo arrives, or when the file is not there: navy with two soft
-   brand-blue lights, a different composition per section. */
+/* What a slide looks like before its picture arrives, or when the file is not there: navy with two soft
+   brand-blue lights, a different composition per slide. */
 .home-fallback {
   position: absolute;
   inset: 0;
@@ -533,18 +536,14 @@
 }
 .home-fallback-cobalt { --fc1: 227 77% 56%; --fc2: 222 100% 84%; }
 .home-fallback-ink { --fc1: 228 67% 43%; --fc2: 227 77% 56%; --fx1: 78%; --fy1: 24%; --fx2: 14%; --fy2: 80%; }
-.home-fallback-gala { --fc1: 222 100% 84%; --fc2: 227 77% 56%; --fx1: 30%; --fy1: 18%; --fx2: 76%; --fy2: 78%; }
 .home-fallback-club { --fc1: 238 70% 58%; --fc2: 227 77% 56%; --fx1: 70%; --fy1: 30%; --fx2: 20%; --fy2: 70%; }
-.home-fallback-calm { --fc1: 220 60% 50%; --fc2: 222 100% 84%; --fx1: 24%; --fy1: 62%; --fx2: 80%; --fy2: 22%; }
-.home-fallback-pro { --fc1: 228 67% 43%; --fc2: 222 60% 70%; --fx1: 60%; --fy1: 18%; --fx2: 18%; --fy2: 76%; }
-.home-fallback-plain { --fc1: 227 77% 56%; --fc2: 228 67% 43%; --fx1: 50%; --fy1: 100%; --fx2: 90%; --fy2: 10%; }
 
-/* Film grain over the whole section, very light. */
+/* Film grain over the whole screen, very light (above the pictures and their shade, below the words). */
 .home-grain::after {
   content: "";
   position: absolute;
   inset: 0;
-  z-index: 1;
+  z-index: 4;
   pointer-events: none;
   opacity: 0.06;
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
@@ -552,35 +551,72 @@
 
 .home-text-shadow { text-shadow: 0 1px 2px rgb(0 0 0 / 0.35), 0 2px 28px rgb(0 0 0 / 0.45); }
 
-/* Text fades in and rises as its section comes into view. The hidden state only exists once useRevealOnScroll
-   has run (home-reveal-on) and only for visitors who accept motion: otherwise everything is just there. */
-@media (prefers-reduced-motion: no-preference) {
-  .home-reveal-on [data-reveal] {
-    transition: opacity 0.9s cubic-bezier(0.2, 0.7, 0.2, 1), transform 0.9s cubic-bezier(0.2, 0.7, 0.2, 1);
-    transition-delay: calc(var(--i, 0) * 90ms);
-  }
-  .home-reveal-on [data-reveal]:not([data-in]) {
-    opacity: 0;
-    transform: translate3d(0, 28px, 0);
-  }
+/* The words of a slide share one grid cell. The one that leaves fades out fast; the one that arrives waits for
+   it, then fades in and slides in from the side. */
+.home-panel {
+  grid-area: 1 / 1;
+  opacity: 0;
+  visibility: hidden;
+}
+.home-panel[data-place="current"] {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition:
+    opacity 0.7s ease calc(var(--slide-move) * 0.4),
+    transform 0.8s cubic-bezier(0.22, 0.61, 0.36, 1) calc(var(--slide-move) * 0.4),
+    visibility 0s linear calc(var(--slide-move) * 0.4);
+}
+.home-panel[data-place="next"],
+.home-panel[data-place="previous"] {
+  transition: opacity 0.32s ease, transform 0.32s ease, visibility 0s linear 0.32s;
+}
+.home-panel[data-place="next"] { transform: translate3d(36px, 0, 0); }
+.home-panel[data-place="previous"] { transform: translate3d(-36px, 0, 0); }
+
+/* The tabs: a thin bar that fills while its slide is shown. When it is full, the next slide comes (see
+   HomeSlider). Pausing the slideshow pauses the bar. */
+.home-tab {
+  color: rgb(255 255 255 / 0.72);
+  transition: color 0.2s ease;
+}
+.home-tab:hover,
+.home-tab[aria-selected="true"] { color: #fff; }
+.home-progress {
+  display: block;
+  height: 2px;
+  overflow: hidden;
+  background: rgb(255 255 255 / 0.28);
+}
+.home-progress-fill {
+  display: block;
+  height: 100%;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left center;
+}
+@keyframes home-progress {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+.home-tab[aria-selected="true"] .home-progress-fill {
+  animation: home-progress var(--slide-ms) linear forwards;
+}
+.home-hero[data-paused="true"] .home-progress-fill { animation-play-state: paused; }
+/* A mouse over the slider pauses it too. CSS, not script: the browser always knows when the pointer has left. */
+@media (hover: hover) {
+  .home-hero:hover .home-progress-fill { animation-play-state: paused; }
 }
 
-/* The "scroll" cue at the bottom of the hero: a thin line with a light running down it. */
-@keyframes home-cue {
-  0% { transform: translateY(-110%); }
-  65%, 100% { transform: translateY(110%); }
-}
-.home-cue-bar::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: currentColor;
-  animation: home-cue 1.9s cubic-bezier(0.6, 0, 0.4, 1) infinite;
-}
+/* Reduced motion: nothing moves by itself and the slides change without sliding. The active tab just shows full. */
 @media (prefers-reduced-motion: reduce) {
-  .home-cue-bar::after {
+  .home-pic,
+  .home-pic[data-place],
+  .home-panel,
+  .home-panel[data-place],
+  .home-pic-img { transition: none !important; }
+  .home-tab[aria-selected="true"] .home-progress-fill {
     animation: none;
-    transform: none;
-    opacity: 0.55;
+    transform: scaleX(1);
   }
 }
