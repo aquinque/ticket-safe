@@ -192,15 +192,16 @@ describe("the three slides", () => {
 });
 
 describe("the events and the trust line under the hero", () => {
-  it("needs three events for the grid and shows at most four", () => {
-    expect(MIN_EVENTS_FOR_GRID).toBe(3);
+  it("shows the events as soon as there is one, four at most", () => {
+    // The site had one upcoming event and a "three at least" rule hid it behind "Coming soon": every event shows.
+    expect(MIN_EVENTS_FOR_GRID).toBe(1);
     expect(MAX_EVENTS_SHOWN).toBe(4);
     expect(hasEnoughEvents(0)).toBe(false);
-    expect(hasEnoughEvents(2)).toBe(false);
+    expect(hasEnoughEvents(1)).toBe(true);
     expect(hasEnoughEvents(3)).toBe(true);
   });
 
-  it("say \"Coming soon near you\" with the organizer button when there are fewer, and \"Trusted by…\" with logos", () => {
+  it("say \"Coming soon near you\" with the organizer button only when there is none, and \"Trusted by…\" with logos", () => {
     expect(HOME_COPY.events.title).toBe("Upcoming events");
     expect(HOME_COPY.events.soon.title).toBe("Coming soon near you");
     expect(HOME_COPY.events.soon.cta).toEqual({ label: "Open Ticket Studio", target: "studio" });

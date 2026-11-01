@@ -14,8 +14,9 @@ interface UpcomingEventsProps {
 }
 
 /**
- * The next published events as poster cards, under the hero. While fewer than three exist it says "coming soon"
- * and offers the organizer button instead, so the page never presents an empty shelf. No city filter on purpose.
+ * The next published events as poster cards, under the hero: every one there is, as soon as there is one. Only
+ * while none exists does it say "coming soon" and offer the organizer button instead, so the page never presents
+ * an empty shelf. No city filter on purpose.
  */
 export function UpcomingEvents({ events, loading, eventsHref, studioHref }: UpcomingEventsProps) {
   const navigate = useNavigate();
@@ -39,6 +40,11 @@ export function UpcomingEvents({ events, loading, eventsHref, studioHref }: Upco
 
   const slugById = new Map(events.map((e) => [e.id, e.slug]));
   const shown = events.slice(0, MAX_EVENTS_SHOWN);
+  // One event: a full-width poster on a phone, one of three columns on a desktop. Several: two across on a phone,
+  // three or four across on a desktop (four while the skeletons show).
+  const count = loading ? MAX_EVENTS_SHOWN : shown.length;
+  const columns =
+    count === 1 ? "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3" : count <= 3 ? "grid-cols-2 lg:grid-cols-3" : "grid-cols-2 lg:grid-cols-4";
 
   return (
     <section aria-labelledby="events-title" className="container mx-auto px-4 py-14 md:py-20">
@@ -55,7 +61,7 @@ export function UpcomingEvents({ events, loading, eventsHref, studioHref }: Upco
         </Link>
       </div>
 
-      <div className={`mt-8 grid grid-cols-2 gap-3 md:gap-4 ${events.length === 3 ? "lg:grid-cols-3" : "lg:grid-cols-4"}`}>
+      <div className={`mt-8 grid gap-3 md:gap-4 ${columns}`}>
         {loading
           ? Array.from({ length: MAX_EVENTS_SHOWN }).map((_, i) => <EventCardSkeleton key={i} />)
           : shown.map((event) => (
