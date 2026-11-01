@@ -20,6 +20,8 @@ export interface PublishedEvent {
   campus: Campus;
   category: Category;
   priceFrom: number;
+  /** "EUR" or "GBP", from the event's tiers (pounds for London). */
+  currency: string;
   tiersCount: number;
   capacity: number;
   sold: number;
@@ -70,16 +72,16 @@ export async function fetchPublishedEvents(): Promise<PublishedEvent[]> {
   }>;
 
   const ids = rows.map((e) => e.id);
-  let tierAgg: Record<string, { sold: number; total: number; minPriceCents: number; count: number }> = {};
+  let tierAgg: Record<string, { sold: number; total: number; minPriceCents: number; count: number; currency: string }> = {};
   if (ids.length) {
     const { data: tiers } = await supabase
       .from("event_tiers")
-      .select("event_id, sold_qty, total_qty, price_cents")
+      .select("event_id, sold_qty, total_qty, price_cents, currency")
       .in("event_id", ids)
       .eq("is_active", true);
     tierAgg = (tiers ?? []).reduce(
-      (acc, t: { event_id: string; sold_qty: number; total_qty: number; price_cents: number }) => {
-        const cur = acc[t.event_id] ?? { sold: 0, total: 0, minPriceCents: Infinity, count: 0 };
+      (acc, t: { event_id: string; sold_qty: number; total_qty: number; price_cents: number; currency: string | null }) => {
+        const cur = acc[t.event_id] ?? { sold: 0, total: 0, minPriceCents: Infinity, count: 0, currency: t.currency ?? "EUR" };
         cur.sold += t.sold_qty;
         cur.total += t.total_qty;
         cur.minPriceCents = Math.min(cur.minPriceCents, t.price_cents);
@@ -87,7 +89,7 @@ export async function fetchPublishedEvents(): Promise<PublishedEvent[]> {
         acc[t.event_id] = cur;
         return acc;
       },
-      {} as Record<string, { sold: number; total: number; minPriceCents: number; count: number }>,
+      {} as Record<string, { sold: number; total: number; minPriceCents: number; count: number; currency: string }>,
     );
   }
 
@@ -123,6 +125,7 @@ export async function fetchPublishedEvents(): Promise<PublishedEvent[]> {
         campus: derivedCampus as Campus,
         category: normCategory,
         priceFrom: agg && agg.minPriceCents !== Infinity ? Math.ceil(agg.minPriceCents / 100) : 0,
+        currency: agg?.currency ?? "EUR",
         tiersCount: agg?.count ?? 0,
         capacity: agg?.total ?? 0,
         sold: agg?.sold ?? 0,
@@ -155,6 +158,7 @@ export function toEventData(e: PublishedEvent): EventData {
     image: e.bannerUrl,
     isPastEvent: false,
     fromPriceCents: e.priceFrom > 0 ? e.priceFrom * 100 : undefined,
+    currency: e.currency,
     campus: e.campus.charAt(0).toUpperCase() + e.campus.slice(1),
     percentRemaining: hasCapacity ? 100 - soldPct : undefined,
     soldOut: hasCapacity && soldPct >= 100,

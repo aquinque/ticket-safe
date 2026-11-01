@@ -1,5 +1,5 @@
 import { useCountUp } from "@/hooks/useCountUp";
-import { eur } from "@/lib/studioFormat";
+import { fmtMoney } from "@/lib/studioFormat";
 
 /**
  * One figure with a small label: the Studio's unit of "a number that
@@ -10,6 +10,7 @@ export const StatFigure = ({
   label,
   value,
   money = false,
+  currency = "EUR",
   decimals = 0,
   hint,
   tone = "default",
@@ -18,13 +19,15 @@ export const StatFigure = ({
   label: string;
   value: number;
   money?: boolean;
+  /** With `money`: the amount's currency ('EUR' | 'GBP'). Defaults to euros. */
+  currency?: string | null;
   decimals?: number;
   hint?: string;
   tone?: "default" | "good" | "muted";
   size?: "md" | "lg";
 }) => {
   const shown = useCountUp(value);
-  const text = money ? eur(shown, decimals) : shown.toLocaleString("en-GB");
+  const text = money ? fmtMoney(shown, currency, decimals) : shown.toLocaleString("en-GB");
   return (
     <div>
       <div className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">{label}</div>

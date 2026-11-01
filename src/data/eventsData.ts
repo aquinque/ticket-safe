@@ -17,8 +17,10 @@ export interface EventData {
    *  photo (see EventCard.tsx). */
   image?: string | null;
   isPastEvent: boolean;
-  /** Cheapest available price, in cents. Shown as "from €X" on the card. */
+  /** Cheapest available price, in minor units. Shown as "from €X" / "from £X" on the card. */
   fromPriceCents?: number;
+  /** Currency of `fromPriceCents` ('EUR' | 'GBP'). Missing = euros (resale, older sources). */
+  currency?: string | null;
   /** Campus/school label for the card's top badge. Falls back to `organizer`. */
   campus?: string;
   /** 0-100. Below 15, the card shows a "Dernières places" urgency badge. */

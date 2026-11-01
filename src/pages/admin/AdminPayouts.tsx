@@ -8,17 +8,21 @@ import Footer from "@/components/Footer";
 import { PageHeader } from "@/components/PageHeader";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { CURRENCIES, formatMoney, toCurrency, type Currency } from "@/lib/money";
 
 interface PendingPayout {
   id: string;
   kind: "studio" | "resale";
   amount_cents: number;
+  /** organizer_payouts / seller_payouts.currency (resale is always EUR). */
+  currency: Currency;
   iban_used: string;
   iban_holder_used: string;
   who: string;
   requested_at: string;
 }
 
+/** payout_batches has no currency: batches are SEPA exports, so euros. */
 interface Batch {
   id: string;
   created_at: string;
@@ -67,13 +71,13 @@ const AdminPayouts = () => {
     const [{ data: studio }, { data: resale }, { data: batchRows }] = await Promise.all([
       supabase
         .from("organizer_payouts")
-        .select("id, amount_cents, iban_used, iban_holder_used, requested_at, organizer:organizer_profiles(name)")
+        .select("id, amount_cents, currency, iban_used, iban_holder_used, requested_at, organizer:organizer_profiles(name)")
         .eq("status", "requested")
         .is("batch_id", null)
         .order("requested_at", { ascending: true }),
       supabase
         .from("seller_payouts")
-        .select("id, amount_cents, iban_used, iban_holder_used, requested_at, seller:profiles(full_name, email)")
+        .select("id, amount_cents, currency, iban_used, iban_holder_used, requested_at, seller:profiles(full_name, email)")
         .eq("status", "requested")
         .is("batch_id", null)
         .order("requested_at", { ascending: true }),
@@ -88,6 +92,7 @@ const AdminPayouts = () => {
     for (const p of (studio ?? []) as {
       id: string;
       amount_cents: number;
+      currency: string | null;
       iban_used: string;
       iban_holder_used: string;
       requested_at: string;
@@ -98,6 +103,7 @@ const AdminPayouts = () => {
         id: p.id,
         kind: "studio",
         amount_cents: p.amount_cents,
+        currency: toCurrency(p.currency),
         iban_used: p.iban_used,
         iban_holder_used: p.iban_holder_used,
         who: org?.name ?? "Unknown organizer",
@@ -107,6 +113,7 @@ const AdminPayouts = () => {
     for (const p of (resale ?? []) as {
       id: string;
       amount_cents: number;
+      currency: string | null;
       iban_used: string;
       iban_holder_used: string;
       requested_at: string;
@@ -117,6 +124,7 @@ const AdminPayouts = () => {
         id: p.id,
         kind: "resale",
         amount_cents: p.amount_cents,
+        currency: toCurrency(p.currency),
         iban_used: p.iban_used,
         iban_holder_used: p.iban_holder_used,
         who: sel?.full_name ?? sel?.email ?? "Unknown seller",
@@ -312,7 +320,15 @@ const AdminPayouts = () => {
     );
   }
 
-  const totalCents = pending.reduce((a, p) => a + p.amount_cents, 0);
+  // One total per currency: pounds are never added to euros.
+  const totalsByCurrency = pending.reduce(
+    (acc, p) => ({ ...acc, [p.currency]: (acc[p.currency] ?? 0) + p.amount_cents }),
+    {} as Partial<Record<Currency, number>>,
+  );
+  const pendingCurrencies = CURRENCIES.filter((c) => totalsByCurrency[c] != null);
+  const totalText = pendingCurrencies.length
+    ? pendingCurrencies.map((c) => formatMoney(totalsByCurrency[c]!, c)).join(" · ")
+    : formatMoney(0, "EUR");
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -394,7 +410,7 @@ const AdminPayouts = () => {
           {/* Pending strip */}
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6">
             <Card label="Pending payouts" value={String(pending.length)} icon={Clock} />
-            <Card label="Total to wire" value={`€${(totalCents / 100).toFixed(2)}`} icon={Banknote} />
+            <Card label="Total to wire" value={totalText} icon={Banknote} />
             <Card label="Studio / Resale" value={`${pending.filter(p => p.kind === "studio").length} / ${pending.filter(p => p.kind === "resale").length}`} icon={FileText} />
           </div>
 
@@ -546,7 +562,7 @@ const AdminPayouts = () => {
                         </td>
                         <td className="px-2 py-3 font-semibold">{p.iban_holder_used}<div className="text-[11px] text-muted-foreground">{p.who}</div></td>
                         <td className="px-2 py-3 font-mono text-xs">{p.iban_used.slice(0, 4)} ··· {p.iban_used.slice(-4)}</td>
-                        <td className="px-2 py-3 text-right font-bold">€{(p.amount_cents / 100).toFixed(2)}</td>
+                        <td className="px-2 py-3 text-right font-bold">{formatMoney(p.amount_cents, p.currency)}</td>
                         <td className="px-2 py-3 text-xs text-muted-foreground">{new Date(p.requested_at).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}</td>
                       </tr>
                     ))}
@@ -568,7 +584,7 @@ const AdminPayouts = () => {
                     <div className="min-w-0">
                       <div className="font-mono font-bold">{b.id}</div>
                       <div className="text-xs text-muted-foreground">
-                        {b.num_payouts} payouts · €{(b.total_cents / 100).toFixed(2)} · created {new Date(b.created_at).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}
+                        {b.num_payouts} payouts · {formatMoney(b.total_cents, "EUR")} · created {new Date(b.created_at).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}
                         {b.sent_at ? ` · sent ${new Date(b.sent_at).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}` : ""}
                       </div>
                     </div>

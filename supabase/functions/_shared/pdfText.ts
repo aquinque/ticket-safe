@@ -12,6 +12,8 @@
  * which only ever emit characters the font can draw.
  */
 
+import { formatMinor, normalizeCurrency } from "./money.ts";
+
 const NBSP = "\u00a0";
 const PARIS = "Europe/Paris";
 
@@ -59,10 +61,19 @@ export function formatEurFr(cents: number): string {
   return `${n < 0 ? "-" : ""}${euros},${String(abs % 100).padStart(2, "0")}${NBSP}\u20ac`;
 }
 
-/** A unit price in cents: to the cent when it is a whole number of cents, to four decimals otherwise ("0,9333 €"). */
-export function formatUnitPriceFr(cents: number): string {
-  if (Math.abs(cents - Math.round(cents)) < 1e-9) return formatEurFr(cents);
+/**
+ * An amount in the event's currency: "21 044,25 €" in euros, "£21,044.25" in pounds (London events).
+ * Share capital and the legal 40 € indemnity are euros whatever the event, so they keep formatEurFr().
+ */
+export function formatMoneyFr(cents: number, currency?: string | null): string {
+  return normalizeCurrency(currency) === "GBP" ? formatMinor(cents, "GBP") : formatEurFr(cents);
+}
+
+/** A unit price in cents: to the cent when it is a whole number of cents, to four decimals otherwise ("0,9333 €", "£0.9333"). */
+export function formatUnitPriceFr(cents: number, currency?: string | null): string {
+  if (Math.abs(cents - Math.round(cents)) < 1e-9) return formatMoneyFr(cents, currency);
   const [euros, decimals] = (Math.abs(cents) / 100).toFixed(4).split(".");
+  if (normalizeCurrency(currency) === "GBP") return `${cents < 0 ? "-" : ""}£${euros.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}.${decimals}`;
   return `${cents < 0 ? "-" : ""}${euros.replace(/\B(?=(\d{3})+(?!\d))/g, NBSP)},${decimals}${NBSP}\u20ac`;
 }
 

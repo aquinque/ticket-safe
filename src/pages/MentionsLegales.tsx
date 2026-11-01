@@ -64,7 +64,10 @@ const MentionsLegales = () => {
               <span className="font-semibold not-italic">English summary —</span>{" "}
               This page is the statutory legal notice of Ticket Safe SAS under
               French law (LCEN Art. 19). The legally binding text below is in
-              French. For information on personal data, see the{" "}
+              French. Users in the United Kingdom are also covered by the UK
+              GDPR and the Data Protection Act 2018, and may complain to the
+              Information Commissioner's Office (ico.org.uk). For information
+              on personal data, see the{" "}
               <Link to="/privacy" className="text-primary hover:underline">
                 Privacy Policy
               </Link>
@@ -267,7 +270,9 @@ const MentionsLegales = () => {
                     </Link>
                     , conformément au Règlement (UE) 2016/679 du 27 avril 2016
                     (RGPD) et à la loi française n° 78-17 du 6 janvier 1978
-                    modifiée.
+                    modifiée. Pour les utilisateurs situés au Royaume-Uni, ce
+                    traitement est également soumis au UK GDPR et au Data
+                    Protection Act 2018.
                   </p>
                   <p>
                     Conformément aux articles 15 à 22 du RGPD, vous disposez
@@ -299,7 +304,18 @@ const MentionsLegales = () => {
                     >
                       cnil.fr
                     </a>
-                    ) en cas de désaccord persistant.
+                    ) en cas de désaccord persistant. Les utilisateurs situés au
+                    Royaume-Uni peuvent saisir l'Information Commissioner's
+                    Office (
+                    <a
+                      href="https://ico.org.uk"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline"
+                    >
+                      ico.org.uk
+                    </a>
+                    ).
                   </p>
                 </div>
               </section>
@@ -390,7 +406,11 @@ const MentionsLegales = () => {
                     français. En cas de litige, et après tentative de
                     résolution amiable, les tribunaux français seront seuls
                     compétents, sous réserve des règles impératives de
-                    compétence applicables aux consommateurs.
+                    compétence applicables aux consommateurs. Les consommateurs
+                    résidant au Royaume-Uni conservent la protection des
+                    dispositions impératives du droit britannique de la
+                    consommation et peuvent saisir les juridictions de la partie
+                    du Royaume-Uni où ils résident.
                   </p>
                 </div>
               </section>

@@ -16,6 +16,7 @@ import {
   Calendar,
   MapPin,
   Euro,
+  PoundSterling,
   CheckCircle2,
   Clock,
   XCircle,
@@ -25,6 +26,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { currencySymbol, formatMajor, toCurrency, type Currency } from "@/lib/money";
 
 type Purchase = {
   id: string;
@@ -33,6 +35,8 @@ type Purchase = {
   eventTitle: string;
   date: string;
   price: number;
+  /** Resale is always euros; a Studio order is in its event's currency. */
+  currency: Currency;
   status: string;
   campus: string;
   quantity: number;
@@ -71,7 +75,7 @@ const PurchaseHistory = () => {
         const studioQuery = supabase
           .from("event_orders")
           .select(`
-            id, status, quantity, total_cents, created_at,
+            id, status, quantity, total_cents, currency, created_at,
             event:events(title, university, campus, date, slug)
           `)
           .eq("buyer_id", user.id)
@@ -89,18 +93,20 @@ const PurchaseHistory = () => {
           eventTitle: p.ticket?.event?.title || "Unknown Event",
           date: p.ticket?.event?.date || p.created_at,
           price: p.amount,
+          currency: "EUR",
           quantity: p.quantity,
           status: p.status === "completed" ? "confirmed" : p.status,
           campus: p.ticket?.event?.university || "Unknown",
         }));
 
-        const studio: Purchase[] = (studioRes.data ?? []).map((o: { id: string; status: string; quantity: number; total_cents: number; created_at: string; event: { title?: string; university?: string; campus?: string; date?: string } | null }) => ({
+        const studio: Purchase[] = (studioRes.data ?? []).map((o: { id: string; status: string; quantity: number; total_cents: number; currency: string | null; created_at: string; event: { title?: string; university?: string; campus?: string; date?: string } | null }) => ({
           id: `studio-${o.id}`,
           source: "studio",
           orderId: o.id,
           eventTitle: o.event?.title || "Unknown Event",
           date: o.event?.date || o.created_at,
           price: o.total_cents / 100,
+          currency: toCurrency(o.currency),
           quantity: o.quantity,
           status: o.status === "paid" ? "confirmed" : o.status,
           campus: o.event?.campus || o.event?.university || "Unknown",
@@ -140,7 +146,16 @@ const PurchaseHistory = () => {
     }
   };
 
-  const totalSpent = purchases.reduce((sum, p) => sum + (p.price || 0), 0);
+  // Pounds and euros are never added together: one total per currency, euros first.
+  const totalsByCurrency = purchases.reduce(
+    (acc, p) => ({ ...acc, [p.currency]: (acc[p.currency] ?? 0) + (p.price || 0) }),
+    {} as Partial<Record<Currency, number>>,
+  );
+  const spentCurrencies = (["EUR", "GBP"] as Currency[]).filter((c) => totalsByCurrency[c] != null);
+  const totalSpentText = spentCurrencies.length
+    ? spentCurrencies.map((c) => `${currencySymbol(c)}${totalsByCurrency[c]!.toFixed(0)}`).join(" · ")
+    : `${currencySymbol("EUR")}0`;
+  const SpentIcon = spentCurrencies.length === 1 && spentCurrencies[0] === "GBP" ? PoundSterling : Euro;
 
   return (
     <div className="theme-night min-h-screen bg-background flex flex-col">
@@ -182,9 +197,9 @@ const PurchaseHistory = () => {
             <Card>
               <CardContent className="p-4 text-center">
                 <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center mx-auto mb-1.5">
-                  <Euro className="w-4 h-4 text-blue-600" />
+                  <SpentIcon className="w-4 h-4 text-blue-600" />
                 </div>
-                <p className="text-xl font-bold">{totalSpent.toFixed(0)}€</p>
+                <p className="text-xl font-bold">{totalSpentText}</p>
                 <p className="text-xs text-muted-foreground leading-tight">Total spent</p>
               </CardContent>
             </Card>
@@ -219,7 +234,7 @@ const PurchaseHistory = () => {
                           <p className="font-semibold text-sm leading-snug truncate">{purchase.eventTitle}</p>
                         </div>
                         <div className="shrink-0 text-right">
-                          <p className="font-bold text-base leading-none tabular-nums">{Number(purchase.price).toFixed(2)}€</p>
+                          <p className="font-bold text-base leading-none tabular-nums">{formatMajor(Number(purchase.price), purchase.currency)}</p>
                         </div>
                       </div>
 
@@ -227,7 +242,7 @@ const PurchaseHistory = () => {
                       <div className="mt-1.5 ml-6 flex flex-wrap items-center gap-x-3 gap-y-1">
                         <span className="flex items-center gap-1 text-xs text-muted-foreground">
                           <Calendar className="w-3 h-3" />
-                          {new Date(purchase.date).toLocaleDateString(language === 'fr' ? 'fr-FR' : 'en-US')}
+                          {new Date(purchase.date).toLocaleDateString(language === 'fr' ? 'fr-FR' : 'en-GB')}
                         </span>
                         <span className="flex items-center gap-1 text-xs text-muted-foreground">
                           <MapPin className="w-3 h-3" />

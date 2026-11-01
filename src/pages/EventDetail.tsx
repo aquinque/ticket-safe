@@ -45,9 +45,9 @@ const EventDetail = () => {
     const sameDay = startDate.toDateString() === endDate.toDateString();
 
     if (!sameDay) {
-      return `${startDate.toLocaleDateString('en-US', options)} - ${endDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`;
+      return `${startDate.toLocaleDateString('en-GB', options)} - ${endDate.toLocaleDateString('en-GB', { month: 'long', day: 'numeric', year: 'numeric' })}`;
     }
-    return startDate.toLocaleDateString('en-US', options);
+    return startDate.toLocaleDateString('en-GB', options);
   };
 
   const handleBrowseTickets = () => {

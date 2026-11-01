@@ -10,7 +10,7 @@
  * Same rendering stack as the service invoice (_shared/pdfKit.ts).
  */
 import { MARGIN_X, MM, A4_W, CONTENT_W, BRAND, INK, MUTED, Sheet, rgb, type TextStyle } from "./pdfKit.ts";
-import { formatDateFr, formatEurFr } from "./pdfText.ts";
+import { formatDateFr, formatEurFr, formatMoneyFr } from "./pdfText.ts";
 
 export interface SalesStatementData {
   documentNumber: string;
@@ -51,7 +51,9 @@ export interface SalesStatementData {
   refundedTickets: number;
   refundedCents: number;
   resaleCount: number;
-  resaleVolumeCents: number;
+  resaleVolumeCents: number; // resale is euro-only, so this one is always in euros
+  /** The event's currency ('EUR' or 'GBP'); euros when absent. Share capital and resale volume stay in euros. */
+  currency?: string | null;
 }
 
 const x = (mm: number) => mm * MM;
@@ -72,6 +74,7 @@ const place = (line: string | null, postal: string | null, city: string | null, 
     .join(", ");
 
 export async function generateSalesStatementPdf(d: SalesStatementData): Promise<Uint8Array> {
+  const money = (cents: number) => formatMoneyFr(cents, d.currency);
   const sheet = await Sheet.create({
     title: `Relevé de ventes ${d.documentNumber}`,
     subject: `Relevé de ventes \u2013 ${d.event.title}`,
@@ -143,10 +146,10 @@ export async function generateSalesStatementPdf(d: SalesStatementData): Promise<
     if (sheet.ensure(lines * 4.8 + 3)) header();
     const top = sheet.y;
     const y = sheet.block(tier.name, x(COL.name), top, x(COL.nameW), { size: 10 }, 4.8);
-    sheet.text(formatEurFr(tier.unitPriceCents), x(COL.unitR), top, { align: "right" });
+    sheet.text(money(tier.unitPriceCents), x(COL.unitR), top, { align: "right" });
     sheet.text(String(tier.quantity), x(COL.qtyR), top, { align: "right" });
-    sheet.text(tier.discountCents > 0 ? `-${formatEurFr(tier.discountCents)}` : "\u2014", x(COL.discR), top, { align: "right", color: MUTED });
-    sheet.text(formatEurFr(tier.netCents), x(COL.netR), top, { font: "bold", align: "right" });
+    sheet.text(tier.discountCents > 0 ? `-${money(tier.discountCents)}` : "\u2014", x(COL.discR), top, { align: "right", color: MUTED });
+    sheet.text(money(tier.netCents), x(COL.netR), top, { font: "bold", align: "right" });
     sheet.y = y + 1.5;
   }
   if (d.tiers.length === 0) {
@@ -166,9 +169,9 @@ export async function generateSalesStatementPdf(d: SalesStatementData): Promise<
     sheet.text(label, MARGIN_X + x(6), y, { size: big ? 11 : 10, color: big ? INK : MUTED });
     sheet.text(value, RIGHT - x(6), y, { font: "bold", size: big ? 13 : 10, color: big ? BRAND : INK, align: "right" });
   };
-  row(0, "Total payé par les acheteurs, frais de service compris", formatEurFr(d.paidByBuyersCents));
-  row(1, "Frais de service TicketSafe, payés par les acheteurs", `-${formatEurFr(d.serviceFeeCents)}`);
-  row(2, "Net revenant à l'organisateur", formatEurFr(d.netCents), true);
+  row(0, "Total payé par les acheteurs, frais de service compris", money(d.paidByBuyersCents));
+  row(1, "Frais de service TicketSafe, payés par les acheteurs", `-${money(d.serviceFeeCents)}`);
+  row(2, "Net revenant à l'organisateur", money(d.netCents), true);
   sheet.y = top + 31 + 6;
 
   sheet.flow(
@@ -176,11 +179,11 @@ export async function generateSalesStatementPdf(d: SalesStatementData): Promise<
     SMALL,
   );
   if (d.discountCents > 0) {
-    sheet.flow(`Les réductions accordées par codes promo (${formatEurFr(d.discountCents)}) sont déjà déduites du net.`, SMALL);
+    sheet.flow(`Les réductions accordées par codes promo (${money(d.discountCents)}) sont déjà déduites du net.`, SMALL);
   }
   if (d.refundedTickets > 0) {
     sheet.flow(
-      `Commandes remboursées ou annulées, non comprises ci-dessus : ${d.refundedTickets} billet${d.refundedTickets > 1 ? "s" : ""}, ${formatEurFr(d.refundedCents)}.`,
+      `Commandes remboursées ou annulées, non comprises ci-dessus : ${d.refundedTickets} billet${d.refundedTickets > 1 ? "s" : ""}, ${money(d.refundedCents)}.`,
       SMALL,
     );
   }

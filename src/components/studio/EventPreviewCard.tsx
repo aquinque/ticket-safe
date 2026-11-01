@@ -1,5 +1,6 @@
 import { Calendar, MapPin, ShieldCheck, Ticket } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { currencySymbol } from "@/lib/money";
 
 interface EventPreviewCardProps {
   title?: string;
@@ -10,8 +11,11 @@ interface EventPreviewCardProps {
   category?: string | null;
   bannerUrl?: string | null;
   primaryColor?: string | null;
-  /** Lowest tier price in euros — renders the "From €X" pill. */
+  /** Lowest tier price in major units (euros or pounds, despite the name) —
+   *  renders the "From €X" / "From £X" pill. */
   priceFromEuros?: number | null;
+  /** The event's currency ('EUR' | 'GBP'). Missing = euros. */
+  currency?: string | null;
   className?: string;
 }
 
@@ -28,10 +32,10 @@ const formatDate = (iso?: string | null): string => {
   );
 };
 
-const formatPrice = (euros?: number | null): string | null => {
-  if (euros == null || !Number.isFinite(euros)) return null;
-  if (euros <= 0) return "Free";
-  return `€${euros % 1 === 0 ? euros.toFixed(0) : euros.toFixed(2)}`;
+const formatPrice = (major?: number | null, currency?: string | null): string | null => {
+  if (major == null || !Number.isFinite(major)) return null;
+  if (major <= 0) return "Free";
+  return `${currencySymbol(currency)}${major % 1 === 0 ? major.toFixed(0) : major.toFixed(2)}`;
 };
 
 /**
@@ -50,10 +54,11 @@ const EventPreviewCard = ({
   bannerUrl,
   primaryColor,
   priceFromEuros,
+  currency,
   className,
 }: EventPreviewCardProps) => {
   const accent = primaryColor && HEX.test(primaryColor) ? primaryColor : "#003399";
-  const price = formatPrice(priceFromEuros);
+  const price = formatPrice(priceFromEuros, currency);
   const initial = (organizerName?.[0] ?? title?.[0] ?? "T").toUpperCase();
 
   return (

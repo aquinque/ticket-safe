@@ -75,17 +75,27 @@ export function receiptLegalFromSettings(row: Record<string, unknown> | null | u
 const NBSP = "\u00a0";
 const group = (n: number, sep: string) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, sep);
 
-/** 1120 -> "11,20 €" (fr, non-breaking spaces) or "€11.20" (en). */
-export function eurText(cents: number, lang: ReceiptLang): string {
+// London events are charged in pounds (event_orders.currency 'GBP'); everything else in euros.
+// Kept in this file rather than imported from _shared/money.ts so the replay-order-email copy stays standalone.
+const isGbp = (currency: string | null | undefined) => String(currency ?? "").trim().toUpperCase() === "GBP";
+
+/** 1120 -> "11,20 €" (fr, non-breaking spaces) or "€11.20" (en); in pounds "£11.20" in both languages. */
+export function moneyText(cents: number, lang: ReceiptLang, currency?: string | null): string {
   const n = Math.round(Number.isFinite(cents) ? cents : 0);
   const abs = Math.abs(n);
   const whole = Math.floor(abs / 100);
   const frac = String(abs % 100).padStart(2, "0");
   const sign = n < 0 ? "-" : "";
+  if (isGbp(currency)) return `${sign}£${group(whole, ",")}.${frac}`;
   return lang === "fr" ? `${sign}${group(whole, NBSP)},${frac}${NBSP}€` : `${sign}€${group(whole, ",")}.${frac}`;
 }
 
-/** Share capital, whole euros: "1 000 €" or "€1,000". */
+/** 1120 -> "11,20 €" (fr) or "€11.20" (en). */
+export function eurText(cents: number, lang: ReceiptLang): string {
+  return moneyText(cents, lang, "EUR");
+}
+
+/** Share capital, whole euros (the company's capital, whatever the order's currency): "1 000 €" or "€1,000". */
 function capitalText(cents: number, lang: ReceiptLang): string {
   const whole = Math.floor(cents / 100);
   const rest = cents % 100;
@@ -141,7 +151,7 @@ export function noticeItems(
   lang: ReceiptLang,
   legal: ReceiptLegal,
   kind: ReceiptKind,
-  opts: { organizerName?: string | null; site?: string } = {},
+  opts: { organizerName?: string | null; site?: string; currency?: string | null } = {},
 ): NoticeItem[] {
   const site = (opts.site ?? "https://ticket-safe.eu").replace(/\/+$/, "");
   const organizer = (opts.organizerName ?? "").trim();
@@ -167,8 +177,8 @@ export function noticeItems(
   const prices: NoticeItem = {
     title: fr ? "Prix et TVA" : "Prices and VAT",
     text: fr
-      ? `Prix en euros, toutes taxes comprises. Frais de service ${name} : ${vat}.`
-      : `Prices in euros, all taxes included. ${name} service fee: ${vat}.`,
+      ? `Prix en ${isGbp(opts.currency) ? "livres sterling" : "euros"}, toutes taxes comprises. Frais de service ${name} : ${vat}.`
+      : `Prices in ${isGbp(opts.currency) ? "pounds sterling" : "euros"}, all taxes included. ${name} service fee: ${vat}.`,
   };
 
   const withdrawal: NoticeItem = {
@@ -245,7 +255,7 @@ export const DEFAULT_NOTICE_STYLE: NoticeStyle = {
 export function renderNoticeHtml(
   legal: ReceiptLegal,
   kind: ReceiptKind,
-  opts: { organizerName?: string | null; site?: string; style?: NoticeStyle } = {},
+  opts: { organizerName?: string | null; site?: string; currency?: string | null; style?: NoticeStyle } = {},
 ): string {
   const s = opts.style ?? DEFAULT_NOTICE_STYLE;
   const block = (lang: ReceiptLang, color: string) =>
@@ -272,6 +282,8 @@ export interface PaymentSummary {
   ticketCents: number;
   feeCents: number;
   totalCents: number;
+  /** The order's currency ('EUR' or 'GBP'); euros when absent. */
+  currency?: string | null;
 }
 
 /** What the buyer paid, split between the ticket (organizer) and the service fee (Ticket Safe). English, like the rest of the e-mail. */
@@ -280,9 +292,9 @@ export function renderPaymentSummaryHtml(s: PaymentSummary, style: NoticeStyle =
     `<tr><td style="padding:5px 0;font-family:${style.font};font-size:13px;color:${style.label};width:56%">${escapeHtmlText(label)}</td>` +
     `<td style="padding:5px 0;font-family:${style.font};font-size:13px;text-align:right;color:${strong ? style.accent : style.strong};font-weight:${strong ? 800 : 600}">${escapeHtmlText(value)}</td></tr>`;
   const rows = [
-    row(`${s.quantity} × ${s.tierName}`, s.totalCents === 0 ? "Free" : eurText(s.ticketCents, "en")),
-    ...(s.feeCents > 0 ? [row("Service fee (Ticket Safe)", eurText(s.feeCents, "en"))] : []),
-    row("Total paid", eurText(s.totalCents, "en"), true),
+    row(`${s.quantity} × ${s.tierName}`, s.totalCents === 0 ? "Free" : moneyText(s.ticketCents, "en", s.currency)),
+    ...(s.feeCents > 0 ? [row("Service fee (Ticket Safe)", moneyText(s.feeCents, "en", s.currency))] : []),
+    row("Total paid", moneyText(s.totalCents, "en", s.currency), true),
   ].join("");
   return `<table style="width:100%;border-collapse:collapse;margin-top:18px;border-top:1px solid ${style.border}">${rows}</table>
 <p style="margin:8px 0 0;font-family:${style.font};font-size:11px;line-height:1.55;color:${style.muted}">Order ${escapeHtmlText(s.orderRef)} · paid on ${escapeHtmlText(s.paidOn)} · online payment through Stripe · prices include all taxes.</p>`;

@@ -13,7 +13,7 @@
  * a credit note has negative amounts and its own wording, and nothing issues one.
  */
 import { MARGIN_X, MM, A4_W, CONTENT_W, BRAND, INK, MUTED, Sheet, type TextStyle } from "./pdfKit.ts";
-import { formatDateFr, formatEurFr, formatUnitPriceFr } from "./pdfText.ts";
+import { formatDateFr, formatEurFr, formatMoneyFr, formatUnitPriceFr } from "./pdfText.ts";
 import type { InvoiceLine } from "./billingRules.ts";
 
 export interface ServiceInvoiceData {
@@ -56,6 +56,8 @@ export interface ServiceInvoiceData {
   totalHtCents: number;
   totalVatCents: number;
   totalTtcCents: number;
+  /** The event's currency ('EUR' or 'GBP'); euros when absent. Share capital stays in euros. */
+  currency?: string | null;
 }
 
 const x = (mm: number) => mm * MM;
@@ -73,6 +75,7 @@ const place = (line: string | null, postal: string | null, city: string | null, 
     .join(", ");
 
 export async function generateServiceInvoicePdf(d: ServiceInvoiceData): Promise<Uint8Array> {
+  const money = (cents: number) => formatMoneyFr(cents, d.currency);
   const sheet = await Sheet.create({
     title: `Facture ${d.documentNumber}`,
     subject: `Facture de frais de service de billetterie \u2013 ${d.eventTitle}`,
@@ -160,9 +163,9 @@ export async function generateServiceInvoicePdf(d: ServiceInvoiceData): Promise<
       bottom = sheet.block(l.detail, x(COL.desc), top + 4.6, x(COL.descW), SMALL, 4.3) - 4.3;
     }
     sheet.text(String(l.quantity), x(COL.qtyR), top, { align: "right" });
-    sheet.text(formatUnitPriceFr(l.unitPriceHtCents), x(COL.unitR), top, { align: "right" });
+    sheet.text(formatUnitPriceFr(l.unitPriceHtCents, d.currency), x(COL.unitR), top, { align: "right" });
     sheet.text(l.vatRateBps > 0 ? `${l.vatRateBps / 100} %`.replace(".", ",") : "\u2014", x(COL.vatR), top, { align: "right" });
-    sheet.text(formatEurFr(l.totalHtCents), x(COL.totalR), top, { font: "bold", align: "right" });
+    sheet.text(money(l.totalHtCents), x(COL.totalR), top, { font: "bold", align: "right" });
     sheet.rule(bottom + 2.3);
     sheet.y = bottom + 7;
   }
@@ -200,11 +203,11 @@ export async function generateServiceInvoicePdf(d: ServiceInvoiceData): Promise<
     sheet.text(label, boxX + x(5), y, { size: style.size ?? 10, color: style.color ?? MUTED });
     sheet.text(value, RIGHT - x(5), y, { font: "bold", size: style.size ?? 10, color: style.color ?? INK, align: "right" });
   };
-  row(0, "Total HT", formatEurFr(d.totalHtCents));
-  row(1, d.vatRateBps > 0 ? `TVA ${d.vatRateBps / 100} %`.replace(".", ",") : "TVA", d.vatRateBps > 0 ? formatEurFr(d.totalVatCents) : "non applicable");
-  row(2, "Total TTC", formatEurFr(d.totalTtcCents), { size: 12, color: BRAND });
-  row(3, "Réglé par compensation", `-${formatEurFr(d.totalTtcCents)}`);
-  row(4, "Reste à payer", formatEurFr(0));
+  row(0, "Total HT", money(d.totalHtCents));
+  row(1, d.vatRateBps > 0 ? `TVA ${d.vatRateBps / 100} %`.replace(".", ",") : "TVA", d.vatRateBps > 0 ? money(d.totalVatCents) : "non applicable");
+  row(2, "Total TTC", money(d.totalTtcCents), { size: 12, color: BRAND });
+  row(3, "Réglé par compensation", `-${money(d.totalTtcCents)}`);
+  row(4, "Reste à payer", money(0));
 
   // ── Late payment, in full ──
   sheet.y = Math.max(ty, top + BOX_H) + 5;

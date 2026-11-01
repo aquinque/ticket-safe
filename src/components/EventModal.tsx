@@ -18,7 +18,7 @@ const EventModal = ({ event, isOpen, onClose }: EventModalProps) => {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    const locale = language === 'fr' ? 'fr-FR' : 'en-US';
+    const locale = language === 'fr' ? 'fr-FR' : 'en-GB';
     return date.toLocaleDateString(locale, { 
       weekday: 'long', 
       day: 'numeric', 

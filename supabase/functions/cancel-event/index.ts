@@ -34,6 +34,7 @@ import { refundPlatformPayment } from "../_shared/stripeRefund.ts";
 import { planResaleAwareRefund, refundResaleBuyers } from "../_shared/resaleAwareRefund.ts";
 import { renderEmail, ticketSummary, escapeHtml as esc } from "../_shared/emailComponents.ts";
 import { emailTokens } from "../_shared/emailTokens.ts";
+import { formatMinor, normalizeCurrency, type Currency } from "../_shared/money.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -43,18 +44,20 @@ function json(b: unknown, s = 200) {
   return new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
 }
 
-function buyerCancellationEmail(args: { evTitle: string; refundAmount: number; reason: string | null }): { html: string; text: string } {
+// `currency` is the order's ('EUR' or 'GBP' for a London event); resale refunds are always in euros, so they omit it.
+function buyerCancellationEmail(args: { evTitle: string; refundCents: number; currency?: string | null; reason: string | null }): { html: string; text: string } {
+  const amount = formatMinor(args.refundCents, args.currency, "prefix");
   const bodyHtml = `
     <p style="margin:0 0 4px">The organizer has cancelled this event. Your purchase has been automatically refunded.</p>
     ${args.reason ? `<p style="margin:12px 0;padding:14px 18px;background:${emailTokens.bodyBg};border-left:3px solid ${emailTokens.danger};color:${emailTokens.textPrimary};font-size:13px;line-height:1.55">Reason: ${esc(args.reason)}</p>` : ""}
     ${ticketSummary([
-      ["Refund amount", `€${args.refundAmount.toFixed(2)}`, emailTokens.accent],
+      ["Refund amount", amount, emailTokens.accent],
       ["Where", "Back to the card used at checkout"],
       ["When", "3–10 business days, depending on your bank"],
     ])}
     <p style="margin:24px 0 0;font-size:13px;color:${emailTokens.textMuted}">Questions? Just reply to this email.</p>
   `;
-  const text = `${args.evTitle} has been cancelled.\n\nYour purchase has been automatically refunded.\n${args.reason ? `Reason: ${args.reason}\n` : ""}\nRefund amount: €${args.refundAmount.toFixed(2)}\nBack to the card used at checkout, 3–10 business days.`;
+  const text = `${args.evTitle} has been cancelled.\n\nYour purchase has been automatically refunded.\n${args.reason ? `Reason: ${args.reason}\n` : ""}\nRefund amount: ${amount}\nBack to the card used at checkout, 3–10 business days.`;
   return renderEmail({
     eyebrow: "Event cancelled",
     title: `${args.evTitle} has been cancelled`,
@@ -261,6 +264,14 @@ serve(async (req) => {
 
     let refundedCount = 0;
     let refundedTotalCents = 0;
+    // The same total split by currency, for the organizer's summary: a London event's
+    // orders are refunded in pounds but its resales in euros, so they can't be added up.
+    const returnedByCurrency = new Map<Currency, number>();
+    const addReturned = (currency: string | null | undefined, cents: number) => {
+      if (cents <= 0) return;
+      const c = normalizeCurrency(currency);
+      returnedByCurrency.set(c, (returnedByCurrency.get(c) ?? 0) + cents);
+    };
     const failures: { order_id: string; reason: string }[] = [];
 
     for (const order of orders ?? []) {
@@ -311,11 +322,14 @@ serve(async (req) => {
 
       refundedCount += 1;
       refundedTotalCents += originalBuyerRefundCents + resaleRefundResults.filter((r) => r.ok).reduce((a, r) => a + r.amountCents, 0);
+      addReturned(order.currency, originalBuyerRefundCents);
+      for (const r of resaleRefundResults) if (r.ok) addReturned("EUR", r.amountCents);
 
       if (resendKey && order.buyer_email && originalBuyerRefundCents > 0) {
         const { html, text } = buyerCancellationEmail({
           evTitle: ev.title,
-          refundAmount: originalBuyerRefundCents / 100,
+          refundCents: originalBuyerRefundCents,
+          currency: order.currency,
           reason,
         });
         fetch("https://api.resend.com/emails", {
@@ -338,7 +352,7 @@ serve(async (req) => {
           const { data: buyerAuth } = await supabase.auth.admin.getUserById(r.buyerId);
           const resaleBuyerEmail = buyerAuth?.user?.email;
           if (!resaleBuyerEmail) continue;
-          const { html, text } = buyerCancellationEmail({ evTitle: ev.title, refundAmount: r.amountCents / 100, reason });
+          const { html, text } = buyerCancellationEmail({ evTitle: ev.title, refundCents: r.amountCents, reason });
           fetch("https://api.resend.com/emails", {
             method: "POST",
             headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
@@ -356,15 +370,18 @@ serve(async (req) => {
 
     // 3. Summary email to organizer (best effort)
     if (resendKey && org.contact_email) {
+      const returnedText = returnedByCurrency.size > 0
+        ? [...returnedByCurrency].map(([c, cents]) => formatMinor(cents, c, "prefix")).join(" + ")
+        : formatMinor(0, orders?.[0]?.currency, "prefix");
       const summaryBody = `
         <p style="margin:0 0 4px">Event <strong>${esc(ev.title)}</strong> has been cancelled.</p>
         ${ticketSummary([
           ["Orders refunded", String(refundedCount)],
-          ["Total returned to buyers", `€${(refundedTotalCents / 100).toFixed(2)}`, emailTokens.accent],
+          ["Total returned to buyers", returnedText, emailTokens.accent],
           ...(failures.length > 0 ? ([["Failed refunds (need review)", String(failures.length), emailTokens.danger]] as [string, string, string][]) : []),
         ])}
       `;
-      const summaryText = `Event ${ev.title} has been cancelled.\n\nOrders refunded: ${refundedCount}\nTotal returned to buyers: €${(refundedTotalCents / 100).toFixed(2)}${failures.length > 0 ? `\nFailed refunds (need review): ${failures.length}` : ""}`;
+      const summaryText = `Event ${ev.title} has been cancelled.\n\nOrders refunded: ${refundedCount}\nTotal returned to buyers: ${returnedText}${failures.length > 0 ? `\nFailed refunds (need review): ${failures.length}` : ""}`;
       const { html, text } = renderEmail({
         eyebrow: "Event cancelled",
         title: `${ev.title} — cancellation summary`,

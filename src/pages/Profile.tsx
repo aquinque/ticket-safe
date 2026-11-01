@@ -40,6 +40,7 @@ import {
   Clock,
 } from "lucide-react";
 import { useCountUp } from "@/hooks/useCountUp";
+import { CURRENCIES, toCurrency, type Currency } from "@/lib/money";
 
 /** The page's one colour: the site's own blue, for the cover, the chips and the buttons. */
 const ACCENT = "hsl(var(--primary))";
@@ -56,18 +57,33 @@ function soonLabel(iso: string, fr: boolean): string {
   return fr ? `Dans ${days} jours` : `In ${days} days`;
 }
 
-const Figure = ({ label, value, money, locale }: { label: string; value: number; money?: boolean; locale: string }) => {
-  const shown = useCountUp(Math.round(money ? value * 100 : value));
-  const text = money
-    ? new Intl.NumberFormat(locale, { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(shown / 100)
-    : shown.toLocaleString(locale);
+const Figure = ({ label, value, locale }: { label: string; value: number; locale: string }) => {
+  const shown = useCountUp(Math.round(value));
   return (
     <div className="min-w-0">
       <p className="text-[10px] font-bold uppercase tracking-wider text-foreground/60 truncate">{label}</p>
-      <p className="text-2xl md:text-3xl font-bold tabular-nums leading-tight mt-0.5 text-foreground">{text}</p>
+      <p className="text-2xl md:text-3xl font-bold tabular-nums leading-tight mt-0.5 text-foreground">{shown.toLocaleString(locale)}</p>
     </div>
   );
 };
+
+/** One counted-up amount, in major units of `currency`. */
+const CountedMoney = ({ value, currency, locale }: { value: number; currency: Currency; locale: string }) => {
+  const shown = useCountUp(Math.round(value * 100));
+  return <>{new Intl.NumberFormat(locale, { style: "currency", currency, maximumFractionDigits: 0 }).format(shown / 100)}</>;
+};
+
+/** Money figure: one amount per currency (pounds are never added to euros). */
+const MoneyFigure = ({ label, amounts, locale }: { label: string; amounts: { value: number; currency: Currency }[]; locale: string }) => (
+  <div className="min-w-0">
+    <p className="text-[10px] font-bold uppercase tracking-wider text-foreground/60 truncate">{label}</p>
+    <p className={`${amounts.length > 1 ? "text-lg md:text-xl" : "text-2xl md:text-3xl"} font-bold tabular-nums leading-tight mt-0.5 text-foreground`}>
+      {amounts.map((a, i) => (
+        <span key={a.currency}>{i > 0 && " · "}<CountedMoney value={a.value} currency={a.currency} locale={locale} /></span>
+      ))}
+    </p>
+  </div>
+);
 
 /** A ticket the user holds for an event that has not happened yet. */
 interface UpcomingTicket {
@@ -90,6 +106,8 @@ interface Purchase {
   eventTitle: string;
   date: string;
   price: number;
+  /** Resale is always euros; a primary order is in its event's currency. */
+  currency: Currency;
   quantity: number;
   status: string;
   soldAt: string | null;
@@ -110,7 +128,8 @@ interface TxRow {
   kind: "purchase" | "sale";
   title: string;
   date: string; // ISO — when it happened (for sorting)
-  amount: number; // euros
+  amount: number; // major units of `currency`
+  currency: Currency;
   status: string;
   orderId?: string;
 }
@@ -138,7 +157,7 @@ const Profile = () => {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { language, t } = useI18n();
-  const dateLocale = language === "fr" ? "fr-FR" : "en-US";
+  const dateLocale = language === "fr" ? "fr-FR" : "en-GB";
   const fr = language === "fr";
 
   // Redirect to auth if not logged in
@@ -191,7 +210,7 @@ const Profile = () => {
 
         const { data: orderData } = await supabase
           .from("event_orders")
-          .select(`id, quantity, unit_price_cents, total_cents, status, paid_at, created_at, event:events(title, date)`)
+          .select(`id, quantity, unit_price_cents, total_cents, currency, status, paid_at, created_at, event:events(title, date)`)
           .eq("buyer_id", user.id)
           .eq("status", "paid")
           .order("paid_at", { ascending: false });
@@ -260,6 +279,7 @@ const Profile = () => {
           eventTitle: p.ticket?.event?.title || "Unknown Event",
           date: p.ticket?.event?.date || p.created_at,
           price: p.amount,
+          currency: "EUR" as const,
           quantity: p.quantity ?? 1,
           status: p.status === "completed" ? "confirmed" : p.status,
           soldAt: p.created_at,
@@ -271,6 +291,7 @@ const Profile = () => {
           eventTitle: o.event?.title || "Unknown Event",
           date: o.event?.date || o.paid_at || o.created_at,
           price: (o.total_cents ?? (o.unit_price_cents ?? 0) * (o.quantity ?? 1)) / 100,
+          currency: toCurrency(o.currency),
           quantity: o.quantity ?? 1,
           status: "confirmed",
           soldAt: o.paid_at || o.created_at,
@@ -441,6 +462,7 @@ const Profile = () => {
       title: p.eventTitle,
       date: p.soldAt || p.date,
       amount: p.price,
+      currency: p.currency,
       status: p.status,
       orderId: p.orderId,
     })),
@@ -452,21 +474,28 @@ const Profile = () => {
         title: s.eventTitle,
         date: s.soldAt || s.date,
         amount: s.salePrice,
+        currency: "EUR" as const, // resale is euro-only
         status: s.status,
       })),
   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-  const totalSpent = purchases.reduce((sum, p) => sum + (p.price || 0), 0);
+  // One total per currency, euros first; euros alone when nothing was bought.
+  const spentByCurrency = purchases.reduce(
+    (acc, p) => ({ ...acc, [p.currency]: (acc[p.currency] ?? 0) + (p.price || 0) }),
+    {} as Partial<Record<Currency, number>>,
+  );
+  const spent = CURRENCIES.filter((c) => spentByCurrency[c] != null).map((c) => ({ value: spentByCurrency[c]!, currency: c }));
+  const hasSpent = spent.some((a) => a.value > 0);
   const totalSold = sales.filter((s) => s.status === "sold").length;
   const activeListings = sales.filter((s) => s.status === "available").length;
   const eventsCount = new Set(purchases.map((p) => p.eventTitle)).size;
   const nextTicket = upcomingTickets[0] ?? null;
   const otherTickets = upcomingTickets.slice(1);
 
-  const formatEuros = (n: number) =>
+  const formatAmount = (n: number, currency: Currency) =>
     new Intl.NumberFormat(dateLocale, {
       style: "currency",
-      currency: "EUR",
+      currency,
       maximumFractionDigits: n % 1 === 0 ? 0 : 2,
     }).format(n);
   const formatDate = (s: string) =>
@@ -482,7 +511,7 @@ const Profile = () => {
   // the tiles can be told apart at a glance; the cards themselves stay alike.
   const tiles = [
     { to: "/tickets", icon: Sparkles, label: fr ? "Événements" : "Browse events", hint: fr ? "Trouver une soirée" : "Find a night out", chip: "bg-sky-400/15 text-sky-300", ring: "hover:border-sky-400/50" },
-    { to: "/settings/purchases", icon: Banknote, label: fr ? "Mes achats" : "Purchases", hint: totalSpent > 0 ? formatEuros(totalSpent) : fr ? "Rien encore" : "Nothing yet", chip: "bg-emerald-400/15 text-emerald-300", ring: "hover:border-emerald-400/50" },
+    { to: "/settings/purchases", icon: Banknote, label: fr ? "Mes achats" : "Purchases", hint: hasSpent ? spent.map((a) => formatAmount(a.value, a.currency)).join(" · ") : fr ? "Rien encore" : "Nothing yet", chip: "bg-emerald-400/15 text-emerald-300", ring: "hover:border-emerald-400/50" },
     ...(RESALE_ENABLED ? [{ to: "/settings/listings", icon: Tag, label: fr ? "Portefeuille" : "Wallet", hint: activeListings > 0 ? (fr ? `${activeListings} annonce${activeListings > 1 ? "s" : ""}` : `${activeListings} listed`) : fr ? "Revendre" : "Resell a ticket", chip: "bg-amber-400/15 text-amber-300", ring: "hover:border-amber-400/50" }] : []),
     { to: "/messages", icon: MessageCircle, label: "Messages", hint: fr ? "Vos conversations" : "Your conversations", chip: "bg-violet-400/15 text-violet-300", ring: "hover:border-violet-400/50" },
     { to: "/settings/privacy", icon: PrivacyIcon, label: fr ? "Données" : "Privacy & data", hint: fr ? "Exporter, supprimer" : "Export, delete", chip: "bg-rose-400/15 text-rose-300", ring: "hover:border-rose-400/50" },
@@ -594,7 +623,7 @@ const Profile = () => {
           <section className="grid grid-cols-2 sm:grid-cols-4 gap-3 motion-safe:animate-fade-in" style={{ animationDelay: "120ms", animationFillMode: "both" }} aria-label={fr ? "Mes chiffres" : "My numbers"}>
             <div className="rounded-2xl relative isolate border border-[rgba(130,160,255,0.22)] bg-card bg-[linear-gradient(180deg,rgba(58,95,230,0.22)_0%,rgba(58,95,230,0.07)_55%,rgba(58,95,230,0)_100%)] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.14),0_14px_36px_-18px_rgba(58,95,230,0.55)] before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] before:pointer-events-none before:bg-[radial-gradient(110%_70%_at_18%_-12%,rgba(255,255,255,0.13),transparent_58%)] p-4"><Figure label={fr ? "Billets à venir" : "Upcoming"} value={upcomingTickets.length} locale={dateLocale} /></div>
             <div className="rounded-2xl relative isolate border border-[rgba(130,160,255,0.22)] bg-card bg-[linear-gradient(180deg,rgba(58,95,230,0.22)_0%,rgba(58,95,230,0.07)_55%,rgba(58,95,230,0)_100%)] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.14),0_14px_36px_-18px_rgba(58,95,230,0.55)] before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] before:pointer-events-none before:bg-[radial-gradient(110%_70%_at_18%_-12%,rgba(255,255,255,0.13),transparent_58%)] p-4"><Figure label={fr ? "Événements" : "Events"} value={eventsCount} locale={dateLocale} /></div>
-            <div className="rounded-2xl relative isolate border border-[rgba(130,160,255,0.22)] bg-card bg-[linear-gradient(180deg,rgba(58,95,230,0.22)_0%,rgba(58,95,230,0.07)_55%,rgba(58,95,230,0)_100%)] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.14),0_14px_36px_-18px_rgba(58,95,230,0.55)] before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] before:pointer-events-none before:bg-[radial-gradient(110%_70%_at_18%_-12%,rgba(255,255,255,0.13),transparent_58%)] p-4"><Figure label={fr ? "Dépensé" : "Spent"} value={totalSpent} money locale={dateLocale} /></div>
+            <div className="rounded-2xl relative isolate border border-[rgba(130,160,255,0.22)] bg-card bg-[linear-gradient(180deg,rgba(58,95,230,0.22)_0%,rgba(58,95,230,0.07)_55%,rgba(58,95,230,0)_100%)] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.14),0_14px_36px_-18px_rgba(58,95,230,0.55)] before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] before:pointer-events-none before:bg-[radial-gradient(110%_70%_at_18%_-12%,rgba(255,255,255,0.13),transparent_58%)] p-4"><MoneyFigure label={fr ? "Dépensé" : "Spent"} amounts={spent.length ? spent : [{ value: 0, currency: "EUR" }]} locale={dateLocale} /></div>
             {RESALE_ENABLED ? (
               <div className="rounded-2xl relative isolate border border-[rgba(130,160,255,0.22)] bg-card bg-[linear-gradient(180deg,rgba(58,95,230,0.22)_0%,rgba(58,95,230,0.07)_55%,rgba(58,95,230,0)_100%)] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.14),0_14px_36px_-18px_rgba(58,95,230,0.55)] before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] before:pointer-events-none before:bg-[radial-gradient(110%_70%_at_18%_-12%,rgba(255,255,255,0.13),transparent_58%)] p-4"><Figure label={fr ? "Vendus" : "Sold"} value={totalSold} locale={dateLocale} /></div>
             ) : (
@@ -661,7 +690,7 @@ const Profile = () => {
                         <p className="text-sm font-semibold truncate">{tx.title}</p>
                         <p className="text-xs text-muted-foreground">{isPurchase ? (fr ? "Achat" : "Purchase") : (fr ? "Vente" : "Sale")} · {formatDate(tx.date)}</p>
                       </div>
-                      <span className={`text-sm font-bold tabular-nums shrink-0 ${isPurchase ? "text-foreground" : "text-emerald-400"}`}>{isPurchase ? "−" : "+"}{formatEuros(tx.amount)}</span>
+                      <span className={`text-sm font-bold tabular-nums shrink-0 ${isPurchase ? "text-foreground" : "text-emerald-400"}`}>{isPurchase ? "−" : "+"}{formatAmount(tx.amount, tx.currency)}</span>
                       {tx.orderId && (
                         <button type="button" onClick={() => navigate(`/my-tickets/${tx.orderId}`)} className="text-xs font-semibold text-primary hover:underline shrink-0">{fr ? "Billet" : "Ticket"}</button>
                       )}

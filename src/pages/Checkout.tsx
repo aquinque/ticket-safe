@@ -201,7 +201,7 @@ const Checkout = () => {
   const feePercent = Math.round(buyerFeeRateFor(unitPrice) * 100);
 
   const formattedDate = new Date(event.date).toLocaleDateString(
-    language === "fr" ? "fr-FR" : "en-US",
+    language === "fr" ? "fr-FR" : "en-GB",
     { month: "long", day: "numeric", year: "numeric" }
   );
 

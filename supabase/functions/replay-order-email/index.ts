@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { renderBuyerEmail, renderTicketCard, buildTicketUrls, deriveFirstName, appleWalletConfigured } from "./_shared/buyerEmail.ts";
 import { RECEIPT_LEGAL_COLUMNS, receiptLegalFromSettings, renderNoticeHtml, renderPaymentSummaryHtml } from "./_shared/receiptLegal.ts";
 import { generateTicketsPDFServer, type ServerTicketData } from "../_shared/ticketPdfServer.ts";
+import { formatMinor } from "../_shared/money.ts";
 
 // Reconciled with the deployed function. The only addition is the "Open my ticket"
 // link per ticket (guest_access_tokens, scope 'ticket'). Tokens are hashed before storage.
@@ -94,7 +95,7 @@ serve(async (req) => {
     }
   }
 
-  const { data: ord } = await supabase.from("event_orders").select("id, buyer_id, buyer_email, event_id, tier_id, quantity, total_cents, fee_cents, status, paid_at").eq("id", orderId).maybeSingle();
+  const { data: ord } = await supabase.from("event_orders").select("id, buyer_id, buyer_email, event_id, tier_id, quantity, total_cents, fee_cents, currency, status, paid_at").eq("id", orderId).maybeSingle();
   if (!ord) return json({ error: "order not found" }, 404);
 
   if (!viaSecret) {
@@ -129,7 +130,8 @@ serve(async (req) => {
   const evLocation = evRow?.location ?? "";
   const tierName = tierRow?.name ?? "Standard";
   const qty = ord.quantity ?? (tickets?.length ?? 1);
-  const total = (ord.total_cents ?? 0) / 100;
+  // London orders are charged in pounds; every amount below is in the order's currency.
+  const currency = (ord as { currency?: string | null }).currency ?? "EUR";
   const firstName = deriveFirstName(ord.buyer_email, (prof as { full_name?: string } | null)?.full_name ?? null);
   const fullName = ((prof as { full_name?: string } | null)?.full_name ?? "").trim();
   const nameParts = fullName.split(/\s+/).filter(Boolean);
@@ -143,8 +145,8 @@ serve(async (req) => {
   const paidOn = new Date(ord.paid_at ?? Date.now()).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "Europe/Paris" });
   const organizerName = (organizerRow as { name?: string } | null)?.name ?? null;
   const legal = receiptLegalFromSettings(legalRow as Record<string, unknown> | null);
-  const summaryHtml = renderPaymentSummaryHtml({ orderRef: orderNumber, paidOn, quantity: qty, tierName, ticketCents: Math.max(0, totalCents - feeCents), feeCents, totalCents });
-  const legalHtml = renderNoticeHtml(legal, "ticket", { organizerName, site: SITE_URL });
+  const summaryHtml = renderPaymentSummaryHtml({ orderRef: orderNumber, paidOn, quantity: qty, tierName, ticketCents: Math.max(0, totalCents - feeCents), feeCents, totalCents, currency });
+  const legalHtml = renderNoticeHtml(legal, "ticket", { organizerName, site: SITE_URL, currency });
 
   const blocks: string[] = [];
   const pdfTickets: ServerTicketData[] = [];
@@ -167,7 +169,7 @@ serve(async (req) => {
       buyerLastName: t.holder_last_name || fallbackLast,
       buyerEmail: ord.buyer_email,
       ticketType: tierName,
-      pricePaid: `${(total / qty).toFixed(2)}€`,
+      pricePaid: formatMinor((ord.total_cents ?? 0) / qty, currency),
       ticketId: t.id,
       orderNumber,
       qrToken: t.qr_token,
@@ -193,7 +195,7 @@ serve(async (req) => {
       from: "Ticket Safe <noreply@ticket-safe.eu>",
       to: [ord.buyer_email],
       subject: `🎫 Your ticket${qty > 1 ? "s" : ""} for ${evTitle}`,
-      html: renderBuyerEmail({ firstName, evTitle, evDate, evLocation, tierName, totalEUR: total, ticketBlocksHtml: blocks.join(""), qty: tickets?.length ?? 1, summaryHtml, legalHtml }),
+      html: renderBuyerEmail({ firstName, evTitle, evDate, evLocation, tierName, totalCents: ord.total_cents ?? 0, currency, ticketBlocksHtml: blocks.join(""), qty: tickets?.length ?? 1, summaryHtml, legalHtml }),
       ...(attachments.length > 0 ? { attachments } : {}),
     }),
   });

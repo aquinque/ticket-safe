@@ -3,6 +3,7 @@
  * all, time. Studio pages are organised around *when* (next event, this
  * week, last used), so the same phrases must read the same everywhere.
  */
+import { currencySymbol } from "@/lib/money";
 
 export const DAY_MS = 86_400_000;
 
@@ -12,9 +13,15 @@ export const startOfDay = (d: Date) => {
   return x;
 };
 
-/** "€12", "€1,240", or with decimals "€12.50". */
-export const eur = (cents: number, decimals = 0) =>
-  `€${(cents / 100).toLocaleString("en-GB", { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
+/** In the event's own currency: "€12", "£1,240", or with decimals "£12.50".
+ *  Never add amounts of different currencies before calling this. */
+export const fmtMoney = (cents: number, currency: string | null | undefined, decimals = 0) =>
+  `${currencySymbol(currency)}${(cents / 100).toLocaleString("en-GB", { minimumFractionDigits: decimals, maximumFractionDigits: decimals })}`;
+
+/** "€12", "€1,240", or with decimals "€12.50". Euros only: for amounts that
+ *  are always in euros (the legacy bank-transfer balance). Use fmtMoney for
+ *  anything tied to an event or an order. */
+export const eur = (cents: number, decimals = 0) => fmtMoney(cents, "EUR", decimals);
 
 export const plural = (n: number, one: string, many = `${one}s`) =>
   `${n.toLocaleString("en-GB")} ${n === 1 ? one : many}`;
