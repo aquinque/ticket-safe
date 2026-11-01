@@ -64,7 +64,7 @@ const Footer = () => {
             {ticketsSold !== null && (
               <div className="flex items-center gap-1.5">
                 <Ticket className="w-4 h-4 text-primary" aria-hidden="true" />
-                <span className="font-medium">{ticketsSold}+ tickets sold safely</span>
+                <span className="font-medium">{ticketsSold}+ tickets sold</span>
               </div>
             )}
           </div>

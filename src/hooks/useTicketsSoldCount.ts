@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 /**
- * "Tickets sold safely" trust counter — shown on both Home and Footer
+ * "Tickets sold" trust counter — shown in the Footer
  * (rendered on nearly every page). Shared + cached via react-query so the
  * two consumers issue one network request instead of two identical ones
  * on every page load.

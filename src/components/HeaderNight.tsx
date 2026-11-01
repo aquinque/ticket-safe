@@ -92,7 +92,7 @@ const HeaderNight = () => {
   // lower, in its own card.
   const mobileNavMeta: Record<string, { icon: typeof CalendarDays; subtitle: string }> = {
     tickets: { icon: CalendarDays, subtitle: "Browse upcoming events" },
-    resale: { icon: Repeat2, subtitle: "Buy or resell a ticket safely" },
+    resale: { icon: Repeat2, subtitle: "Buy or resell a ticket quickly" },
   };
   const exploreLinks = navLinks.filter((link) => link.key !== "organizers");
   const organizersLink = navLinks.find((link) => link.key === "organizers");

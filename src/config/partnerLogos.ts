@@ -1,15 +1,15 @@
 /**
- * Partner school/association logos shown in the homepage social-proof row.
- * Empty by default — the section hides itself entirely until real logo
- * files are dropped in and listed here (see TODO_DATA.md).
+ * Partner schools and associations shown in the "Ils nous font confiance" row of the home page.
+ * Empty by default — the row hides itself entirely until a name or a logo is listed here.
  *
- * Expected shape once populated, e.g.:
+ * `src` is optional: without it the name is written out in the same place. A logo is shown in white on the dark
+ * background, so a single-colour SVG or a transparent PNG works best.
  *   { name: "ESCP BDE", src: "/logos/partners/escp-bde.svg" },
- *   { name: "EBS Paris", src: "/logos/partners/ebs.svg" },
+ *   { name: "EBS Paris" },
  */
 export interface PartnerLogo {
   name: string;
-  src: string;
+  src?: string;
 }
 
 export const partnerLogos: PartnerLogo[] = [];
