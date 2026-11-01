@@ -133,8 +133,8 @@ export const FIRST_SCREEN_MEDIA_DELAY_MS = 700;
 
 // ── Upcoming events ───────────────────────────────────────────────────────
 
-/** Below this many published events the grid gives way to a "coming soon" block, so it never looks empty. */
-export const MIN_EVENTS_FOR_GRID = 3;
+/** Every published event is shown as soon as there is one; only with none does the grid give way to a "coming soon" block. */
+export const MIN_EVENTS_FOR_GRID = 1;
 /** One row of four on a desktop, two rows of two on a phone. */
 export const MAX_EVENTS_SHOWN = 4;
 

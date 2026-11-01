@@ -107,8 +107,9 @@ function SlideVideo({
  *
  * Moving on: every SLIDE_INTERVAL_MS, with the bar under the active indicator filling over the same time; a click on
  * an indicator, the arrows (desktop), a swipe (touch) or ← → (keyboard) move at once. It pauses while a mouse is over
- * it, while keyboard focus is inside it, while the tab is hidden and while it is scrolled out of view, and
- * continues from where it stopped.
+ * one of its controls (the indicators, the arrows, the button: not the picture, which fills the screen and would
+ * keep a desktop from ever moving on), while keyboard focus is inside it, while the tab is hidden and while it is
+ * scrolled out of view, and continues from where it stopped.
  *
  * It never touches the address or the browser history: no hash, no pushState. A missing picture leaves its colour
  * gradient, never a broken image.
@@ -119,7 +120,9 @@ export function HeroCarousel({ hrefFor }: HeroCarouselProps) {
   const rootRef = useRef<HTMLElement>(null);
   const videoAllowed = useVideoAllowed();
   const painted = useAfterFirstPaint(FIRST_SCREEN_MEDIA_DELAY_MS);
-  const mouseInside = useMouseInside(rootRef);
+  // A mouse pauses the slideshow only over the controls: the hero fills the screen, so a pointer simply resting on
+  // the picture must not stop it (on a desktop it would then never move on).
+  const mouseInside = useMouseInside(rootRef, ".home-bar, .home-arrow, .home-copy a");
   const pageHidden = usePageHidden();
   const onScreen = useOnScreen(rootRef);
   const paused = mouseInside || keyboardInside || pageHidden || !onScreen;

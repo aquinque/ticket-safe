@@ -6,18 +6,25 @@ import { useEffect, useState, type RefObject } from "react";
 const FINE_POINTER = "(hover: hover) and (pointer: fine)";
 
 /**
- * True while a mouse is over the element. Listens to `mouseover` on the window and asks where the pointer now is,
- * instead of trusting enter/leave pairs: those are lost when the element under the pointer is replaced. Touch
- * screens never count (a tap would otherwise leave the carousel "hovered" until the next tap elsewhere).
+ * True while a mouse is over the element, or, when `within` (a selector) is given, over one of its parts that
+ * match it. Listens to `mouseover` on the window and asks where the pointer now is, instead of trusting
+ * enter/leave pairs: those are lost when the element under the pointer is replaced. Touch screens never count (a
+ * tap would otherwise leave the carousel "hovered" until the next tap elsewhere).
  */
-export function useMouseInside(ref: RefObject<Element>): boolean {
+export function useMouseInside(ref: RefObject<Element>, within?: string): boolean {
   const [inside, setInside] = useState(false);
 
   useEffect(() => {
     if (typeof window.matchMedia !== "function" || !window.matchMedia(FINE_POINTER).matches) return;
     const onOver = (event: MouseEvent) => {
       const el = ref.current;
-      setInside(!!el && event.target instanceof Node && el.contains(event.target));
+      const target = event.target;
+      if (!el || !(target instanceof Element)) {
+        setInside(false);
+        return;
+      }
+      const part = within ? target.closest(within) : target;
+      setInside(part !== null && el.contains(part));
     };
     const onLeaveWindow = (event: MouseEvent) => {
       if (event.relatedTarget === null) setInside(false);
@@ -28,7 +35,7 @@ export function useMouseInside(ref: RefObject<Element>): boolean {
       window.removeEventListener("mouseover", onOver);
       document.removeEventListener("mouseleave", onLeaveWindow);
     };
-  }, [ref]);
+  }, [ref, within]);
 
   return inside;
 }
