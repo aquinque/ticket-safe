@@ -52,6 +52,7 @@ import { ScanStaffPanel } from "@/components/studio/ScanStaffPanel";
 import { PromoterLinksPanel } from "@/components/studio/PromoterLinksPanel";
 import { PromoCodesPanel } from "@/components/studio/PromoCodesPanel";
 import { GuestlistsPanel } from "@/components/studio/GuestlistsPanel";
+import { FinancialStatementCard } from "@/components/studio/FinancialStatementCard";
 
 interface EventRow {
   id: string;
@@ -723,6 +724,9 @@ const StudioEventEdit = () => {
               </div>
             )}
           </section>
+
+          {/* Financial statement from Stripe, once the event is over */}
+          <FinancialStatementCard eventId={event.id} eventDate={event.date} eventEndsAt={event.ends_at} paymentProvider={event.payment_provider ?? null} />
 
           {/* Guestlists — high on the page: organizers add names and check
               people in from here, mostly on a phone. */}

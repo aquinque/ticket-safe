@@ -99,3 +99,13 @@ verify_jwt = false
 # the deployed setting).
 [functions.wallet-pass]
 verify_jwt = false
+
+# Financial statement of an event, from Stripe's records. Authenticated; auth
+# (owner or admin) is handled inside with getUser.
+[functions.event-statement]
+verify_jwt = false
+
+# Hourly generation of the statements of events that ended 24 h ago; called
+# by pg_cron with the x-cron-secret header (STRIPE_PAYOUT_CRON_SECRET).
+[functions.event-statements-cron]
+verify_jwt = false

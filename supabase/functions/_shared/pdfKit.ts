@@ -54,6 +54,8 @@ export interface Chrome {
   number: string;
   /** TicketSafe's legal identity, printed at the foot of every page. */
   footer: string;
+  /** The brand icon (PNG bytes), drawn before the brand name on every page when given. */
+  logoPng?: Uint8Array;
 }
 
 export class Sheet {
@@ -65,14 +67,14 @@ export class Sheet {
     this.page = pdf.addPage([A4_W, A4_H]);
   }
 
-  static async create(meta: { title: string; subject: string; createdAt: Date }): Promise<Sheet> {
+  static async create(meta: { title: string; subject: string; createdAt: Date; language?: string }): Promise<Sheet> {
     const pdf = await PDFDocument.create();
     pdf.setTitle(pdfSafe(meta.title));
     pdf.setSubject(pdfSafe(meta.subject));
     pdf.setAuthor("Ticket Safe");
     pdf.setCreator("Ticket Safe");
     pdf.setProducer("Ticket Safe");
-    pdf.setLanguage("fr-FR");
+    pdf.setLanguage(meta.language ?? "fr-FR");
     pdf.setCreationDate(meta.createdAt);
     pdf.setModificationDate(meta.createdAt);
     const fonts: Fonts = {
@@ -187,9 +189,13 @@ export class Sheet {
   /** Adds the header and footer to every page, now that the page count is known, and returns the file. */
   async finish(chrome: Chrome): Promise<Uint8Array> {
     const pages = this.pdf.getPages();
+    const logo = chrome.logoPng ? await this.pdf.embedPng(chrome.logoPng) : null;
+    const logoH = 6.5 * MM;
+    const logoW = logo ? (logo.width / logo.height) * logoH : 0;
     pages.forEach((page, i) => {
       this.page = page;
-      this.text("TICKET SAFE", MARGIN_X, 9, { font: "bold", size: 11, color: BRAND, spacing: 1.4 });
+      if (logo) page.drawImage(logo, { x: MARGIN_X, y: this.top(11.2), width: logoW, height: logoH });
+      this.text("TICKET SAFE", MARGIN_X + (logo ? logoW + 2 * MM : 0), 9, { font: "bold", size: 11, color: BRAND, spacing: 1.4 });
       this.text(i === 0 ? chrome.label : `${chrome.label} ${chrome.number}`, A4_W - MARGIN_X, 9, {
         font: "bold",
         size: 10,

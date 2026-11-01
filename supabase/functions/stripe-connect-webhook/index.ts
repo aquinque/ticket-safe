@@ -35,7 +35,8 @@
  *  charge.refunded → mark refunded, re-list ticket if it was a resale.
  *  charge.dispute.created → flag + notify admin, block the event's payout job.
  *  account.updated → sync stripe_connect_accounts.
- *  payout.paid / payout.failed → update stripe_connect_payout_jobs, notify.
+ *  payout.paid / payout.failed → update stripe_connect_payout_jobs, notify;
+ *    payout.paid also refreshes the event's financial statement (_shared/eventStatement.ts).
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -45,6 +46,7 @@ import { signStudioTicketJWT } from "../_shared/ticketJwt.ts";
 import { sendResaleCompletionEmails } from "../_shared/sendResaleCompletionEmails.ts";
 import { renderEmail, ctaButton, ticketSummary } from "../_shared/emailComponents.ts";
 import { emailTokens } from "../_shared/emailTokens.ts";
+import { generateEventStatement } from "../_shared/eventStatement.ts";
 
 async function sendEmail(resendKey: string, to: string, subject: string, html: string, text: string) {
   try {
@@ -292,7 +294,7 @@ serve(async (req) => {
           .from("stripe_connect_payout_jobs")
           .update({ status, stripe_payout_id: payout.id, attempted_at: new Date().toISOString() })
           .eq("stripe_payout_id", payout.id)
-          .select("id, kind, stripe_connect_account_id")
+          .select("id, kind, stripe_connect_account_id, event_id")
           .maybeSingle();
         if (job && resendKey) {
           const { data: acct } = await supabase.from("stripe_connect_accounts").select("account_holder_name, user_id, organizer_id").eq("id", job.stripe_connect_account_id).maybeSingle();
@@ -313,6 +315,36 @@ serve(async (req) => {
             const text = status === "sent" ? `${amountEur} sent to your bank account.` : `Payout of ${amountEur} failed — check your IBAN.`;
             const { html } = renderEmail({ eyebrow: "Payout", title, bodyHtml, preheader: text, text });
             await sendEmail(resendKey, toEmail, title, html, text);
+          }
+        }
+
+        // The event's financial statement now lists this payout. The payout job names the event; a manual
+        // cash-out has no job, so every recent statement of that account is checked instead, and only one whose
+        // figures changed gets a new version (generateEventStatement is idempotent on its data).
+        if (event.type === "payout.paid") {
+          try {
+            const eventIds = new Set<string>();
+            if (job?.event_id) eventIds.add(job.event_id);
+            if (eventIds.size === 0 && event.account) {
+              const { data: acct } = await supabase.from("stripe_connect_accounts").select("organizer_id").eq("stripe_account_id", event.account).maybeSingle();
+              if (acct?.organizer_id) {
+                const { data: statements } = await supabase
+                  .from("event_statements")
+                  .select("event_id")
+                  .eq("organizer_id", acct.organizer_id)
+                  .gte("generated_at", new Date(Date.now() - 120 * 86_400_000).toISOString());
+                for (const row of statements ?? []) eventIds.add(row.event_id);
+              }
+            }
+            for (const eventId of [...eventIds].slice(0, 10)) {
+              const r = await generateEventStatement(
+                { supabase, stripe, resendKey, siteUrl: Deno.env.get("SITE_URL") ?? undefined },
+                { eventId, trigger: "webhook" },
+              );
+              console.log(`[stripe-connect-webhook] statement of event ${eventId} after ${payout.id}: ${r.outcome}${r.outcome === "skipped" ? ` (${r.reason})` : ""}`);
+            }
+          } catch (err) {
+            console.error("[stripe-connect-webhook] statement regeneration failed:", err);
           }
         }
         break;
