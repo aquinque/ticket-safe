@@ -42,6 +42,7 @@ import {
 import { useCountUp } from "@/hooks/useCountUp";
 import { CURRENCIES, toCurrency, type Currency } from "@/lib/money";
 import { isPastEvent } from "@/lib/eventTime";
+import { authPathHere } from "@/lib/returnTo";
 
 /** The page's one colour: the site's own blue, for the cover, the chips and the buttons. */
 const ACCENT = "hsl(var(--primary))";
@@ -163,7 +164,7 @@ const Profile = () => {
   // Redirect to auth if not logged in
   useEffect(() => {
     if (!authLoading && !user) {
-      navigate("/auth", { replace: true });
+      navigate(authPathHere(), { replace: true });
     }
   }, [user, authLoading, navigate]);
 

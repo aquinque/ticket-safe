@@ -4,6 +4,7 @@ import { BackButton } from "@/components/BackButton";
 import { SEOHead } from "@/components/SEOHead";
 import { Link } from "react-router-dom";
 import { RESALE_BUYER_FEE_COPY, buyerFeeRateFor, calcBreakdown } from "@/lib/fees";
+import { authPath } from "@/lib/returnTo";
 import {
   ArrowRight,
   Search,
@@ -412,7 +413,7 @@ const HowItWorks = () => {
                 </div>
                 <div className="flex flex-col sm:flex-row gap-2.5">
                   <Link
-                    to="/auth?mode=signup"
+                    to={authPath("/how-it-works", { signup: true })}
                     className="inline-flex items-center justify-center gap-2 px-6 min-h-[48px] rounded-xl font-bold bg-white text-primary hover:bg-white/95 transition-all"
                   >
                     <GraduationCap className="w-4 h-4" />

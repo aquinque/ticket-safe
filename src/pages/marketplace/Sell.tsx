@@ -76,6 +76,7 @@ import {
   QRValidationCode,
 } from "@/types/listings";
 import { useTicketListings } from "@/contexts/TicketListingsContext";
+import { authPathHere } from "@/lib/returnTo";
 
 // ---------------------------------------------------------------------------
 // Validation schema for the notes field
@@ -237,7 +238,7 @@ const Sell = () => {
   // Guard: redirect unauthenticated users
   useEffect(() => {
     if (!authLoading && !user) {
-      navigate(`/auth?next=${encodeURIComponent("/marketplace/sell" + (studioTicketParam ? `?studio_ticket=${studioTicketParam}` : ""))}`);
+      navigate(authPathHere(), { replace: true });
     }
   }, [user, authLoading, navigate, studioTicketParam]);
 
@@ -747,7 +748,7 @@ const Sell = () => {
       const accessToken = refreshed.session?.access_token;
       if (refreshError || !accessToken) {
         toast.error("Session expired. Please log in again.");
-        navigate("/auth");
+        navigate(authPathHere());
         return;
       }
 
@@ -795,7 +796,7 @@ const Sell = () => {
       if (res.status === 401) {
         console.error("[Sell] 401 auth error from submit-listing");
         toast.error("Session expired. Please log in again.");
-        navigate("/auth");
+        navigate(authPathHere());
         return;
       }
 

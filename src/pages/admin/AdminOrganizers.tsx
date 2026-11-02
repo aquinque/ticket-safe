@@ -23,6 +23,7 @@ import { SEOHead } from "@/components/SEOHead";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { authPathHere } from "@/lib/returnTo";
 
 interface OrgApp {
   id: string;
@@ -54,7 +55,7 @@ const AdminOrganizers = () => {
   const [acting, setActing] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!authLoading && !user) navigate("/auth?next=/admin/organizers");
+    if (!authLoading && !user) navigate(authPathHere(), { replace: true });
   }, [user, authLoading, navigate]);
 
   useEffect(() => {

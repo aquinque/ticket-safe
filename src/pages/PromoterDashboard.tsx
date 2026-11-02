@@ -20,6 +20,7 @@ import {
   type MyPromoterLink,
 } from "@/lib/promoterLinks";
 import { fmtDate, plural, relativeTime } from "@/lib/studioFormat";
+import { authPathHere } from "@/lib/returnTo";
 
 const Figure = ({ label, value }: { label: string; value: string }) => (
   <div className="min-w-0">
@@ -108,7 +109,7 @@ const PromoterDashboard = () => {
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    if (!authLoading && !user) navigate("/auth?next=/promoter", { replace: true });
+    if (!authLoading && !user) navigate(authPathHere(), { replace: true });
   }, [authLoading, user, navigate]);
 
   const load = useCallback(async () => {

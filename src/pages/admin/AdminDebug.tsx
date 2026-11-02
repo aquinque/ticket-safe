@@ -20,6 +20,7 @@ import Footer from "@/components/Footer";
 import { PageHeader } from "@/components/PageHeader";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { authPathHere } from "@/lib/returnTo";
 
 interface Health {
   stuck_orders: number;
@@ -56,7 +57,7 @@ const AdminDebug = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!authLoading && !user) navigate("/auth?next=/admin/debug");
+    if (!authLoading && !user) navigate(authPathHere(), { replace: true });
   }, [user, authLoading, navigate]);
 
   useEffect(() => {

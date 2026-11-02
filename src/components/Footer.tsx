@@ -1,12 +1,14 @@
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Instagram, ShieldCheck, Lock, Ticket, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEffect, useRef, useState } from "react";
 import { useI18n } from "@/contexts/I18nContext";
 import { useTicketsSoldCount } from "@/hooks/useTicketsSoldCount";
 import { TrustItem } from "@/components/common/TrustItem";
+import { authPath, currentReturnPath } from "@/lib/returnTo";
 
 const Footer = () => {
+  const location = useLocation();
   const { t } = useI18n();
   const currentYear = new Date().getFullYear();
   const footerRef = useRef<HTMLElement>(null);
@@ -86,7 +88,7 @@ const Footer = () => {
                 size="sm"
                 asChild
               >
-                <Link to="/auth">{t('nav.signUp')}</Link>
+                <Link to={authPath(currentReturnPath(location), { signup: true })}>{t('nav.signUp')}</Link>
               </Button>
             </div>
           </div>

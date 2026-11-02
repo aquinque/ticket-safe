@@ -27,6 +27,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useOrganizer } from "@/hooks/useOrganizer";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { supabase } from "@/integrations/supabase/client";
+import { authPathHere } from "@/lib/returnTo";
 
 interface EventRow {
   id: string;
@@ -177,7 +178,7 @@ const StudioEventAttendees = () => {
   }, [id]);
 
   useEffect(() => {
-    if (!authLoading && !user) navigate(`/auth?next=${encodeURIComponent(window.location.pathname)}`);
+    if (!authLoading && !user) navigate(authPathHere(), { replace: true });
   }, [user, authLoading, navigate]);
 
   useEffect(() => {

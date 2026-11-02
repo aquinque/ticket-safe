@@ -25,6 +25,7 @@ import { useThemeMode } from "@/hooks/useThemeMode";
 import { SEOHead } from "@/components/SEOHead";
 import { supabase } from "@/integrations/supabase/client";
 import { useEffect } from "react";
+import { authPathHere } from "@/lib/returnTo";
 
 const FullScreenSpinner = () => (
   <div className="min-h-screen flex items-center justify-center">
@@ -39,7 +40,7 @@ export const StudioAccessGate = ({ children }: { children: ReactNode }) => {
   const { organizer, loading: orgLoading } = useOrganizer();
 
   useEffect(() => {
-    if (!authLoading && !user) navigate(`/auth?next=${encodeURIComponent(window.location.pathname)}`);
+    if (!authLoading && !user) navigate(authPathHere(), { replace: true });
   }, [user, authLoading, navigate]);
 
   // Tell the admin team that an application is waiting. Signup itself has no session,

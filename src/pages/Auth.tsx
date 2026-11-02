@@ -13,6 +13,7 @@ import { Loader2, Mail, Lock, User, CheckCircle2, XCircle, Eye, EyeOff, AlertCir
 import { useAuth } from "@/hooks/useAuth";
 import { pendingPromoterInvite } from "@/lib/promoterLinks";
 import { authRedirect } from "@/lib/siteUrl";
+import { emailConfirmLanding, returnPathOr, safeReturnPath } from "@/lib/returnTo";
 import {
   GENDER_CHOICES,
   PASSWORD_MAX_LENGTH,
@@ -84,16 +85,20 @@ const Auth = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
 
-  // Redirect if already logged in. Honour a `next` query param so users who
-  // hit "Sign in" from a specific page bounce back there (open-redirect
-  // safe: must be a local path starting with `/` and not `//`).
+  // Where to go once signed in: the page the person came from (`?next=`, internal paths only, see
+  // lib/returnTo), else a pending promoter invitation, else the home. Never the account page.
+  const destination = (): string => {
+    const next = safeReturnPath(searchParams.get("next"));
+    if (next) return next;
+    const pendingInvite = pendingPromoterInvite();
+    return returnPathOr(pendingInvite ? `/p/${pendingInvite}` : null);
+  };
+
+  // Signed in (just now, or already when the page opened): leave the sign-in page. `replace` so the
+  // browser's Back button does not bring the person back to it.
   useEffect(() => {
-    if (!authLoading && user) {
-      const raw = searchParams.get("next");
-      const pendingInvite = pendingPromoterInvite();
-      const next = raw && raw.startsWith("/") && !raw.startsWith("//") ? raw : pendingInvite ? `/p/${pendingInvite}` : "/profile";
-      navigate(next, { replace: true });
-    }
+    if (!authLoading && user) navigate(destination(), { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, authLoading, navigate, searchParams]);
 
   // An error must be seen: on a phone the keyboard can hide it, so bring it into view.
@@ -135,7 +140,7 @@ const Auth = () => {
         ? await supabase.auth.resend({
             type: 'signup',
             email: pending.email,
-            options: { emailRedirectTo: authRedirect("/profile") },
+            options: { emailRedirectTo: authRedirect(emailConfirmLanding(destination())) },
           })
         : await supabase.auth.resetPasswordForEmail(pending.email, {
             redirectTo: authRedirect("/reset-password"),
@@ -263,17 +268,11 @@ const Auth = () => {
     }
   };
 
-  // A promoter invitation (/p/<token>) must survive e-mail confirmation; anything else lands on the profile.
-  const signupLanding = () => {
-    const raw = searchParams.get("next");
-    return raw && /^\/p\/[A-Za-z0-9]{32,128}$/.test(raw) ? raw : "/profile";
-  };
-
   const handleSignup = async () => {
     const outcome = await signUpWithEmail(
       supabase.auth,
       { email, password, firstName, lastName, gender },
-      { afterConfirm: authRedirect(signupLanding()), setPassword: authRedirect("/reset-password") },
+      { afterConfirm: authRedirect(emailConfirmLanding(destination())), setPassword: authRedirect("/reset-password") },
     );
 
     switch (outcome.kind) {

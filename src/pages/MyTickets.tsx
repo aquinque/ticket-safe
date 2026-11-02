@@ -18,6 +18,7 @@ import { downloadTicketPdf } from "@/lib/ticketPdf";
 import { formatMoney } from "@/lib/money";
 import { toast } from "sonner";
 import { Mail } from "lucide-react";
+import { authPathHere } from "@/lib/returnTo";
 
 interface OrderRow {
   id: string;
@@ -73,7 +74,7 @@ const MyTickets = () => {
 
   useEffect(() => {
     if (!authLoading && !user) {
-      navigate(`/auth?next=${encodeURIComponent(`/my-tickets/${orderId ?? ""}`)}`);
+      navigate(authPathHere(), { replace: true });
     }
   }, [user, authLoading, navigate, orderId]);
 

@@ -32,6 +32,7 @@ import { eventPhase } from "@/lib/eventTime";
 import { isArchivedEvent } from "@/lib/eventStatus";
 import { CURRENCIES, toCurrency, type Currency } from "@/lib/money";
 import { LiveFeed, SalesChart, SalesCurve, TierRing, UpdatedAgo, liveChartStyles, type DaySales, type RecentSale, type TierSlice } from "@/components/studio/dashboard/LiveCharts";
+import { authPathHere } from "@/lib/returnTo";
 
 /**
  * Studio dashboard — the first screen after login.
@@ -134,7 +135,7 @@ const StudioDashboard = () => {
   const [tiers, setTiers] = useState<TierSlice[] | null>(null);
 
   useEffect(() => {
-    if (!authLoading && !user) navigate("/auth?next=/studio");
+    if (!authLoading && !user) navigate(authPathHere(), { replace: true });
   }, [user, authLoading, navigate]);
 
   // Earlier-model earnings (manual payouts). Stripe events pay out on their

@@ -10,6 +10,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useConversations } from "@/hooks/useChat";
 import { SEOHead } from "@/components/SEOHead";
 import { useEffect } from "react";
+import { authPathHere } from "@/lib/returnTo";
 
 const Messages = () => {
   useThemeMode("night");
@@ -18,7 +19,7 @@ const Messages = () => {
   const { conversations, loading } = useConversations();
 
   useEffect(() => {
-    if (!authLoading && !user) navigate("/auth?next=/messages");
+    if (!authLoading && !user) navigate(authPathHere(), { replace: true });
   }, [user, authLoading, navigate]);
 
   return (

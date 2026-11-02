@@ -41,6 +41,7 @@ import { GuestList, type Guest } from "@/components/scan/GuestList";
 import { decodeQRFromFile } from "@/lib/qrValidator";
 import { doorStillOpen } from "@/lib/eventTime";
 import { DAY_MS } from "@/lib/studioFormat";
+import { authPathHere } from "@/lib/returnTo";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -171,7 +172,7 @@ const OrganizerScan = () => {
 
   // Redirect if not logged in
   useEffect(() => {
-    if (!authLoading && !user) navigate("/auth?next=/organizer/scan");
+    if (!authLoading && !user) navigate(authPathHere(), { replace: true });
   }, [user, authLoading, navigate]);
 
   // Load the events the user can still scan tickets for (coming up, on, or

@@ -48,6 +48,7 @@ import { getOrCreateConversation } from "@/hooks/useChat";
 import { calcBreakdown } from "@/lib/fees";
 import { ResaleHero, GroupChatVsUs, HowSellingWorks, resalePitchStyles } from "@/components/resale/ResalePitch";
 import { toast } from "sonner";
+import { authPathHere } from "@/lib/returnTo";
 
 // ────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -239,7 +240,7 @@ const Buy = () => {
   // ── Actions ────────────────────────────────────────────────────
   const handleMakeOffer = async (ticket: TicketListing) => {
     if (!user) {
-      navigate(`/auth?next=${encodeURIComponent(window.location.pathname)}`);
+      navigate(authPathHere());
       return;
     }
     if (user.id === ticket.sellerId) {

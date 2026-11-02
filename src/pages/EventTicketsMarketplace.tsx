@@ -17,6 +17,7 @@ import { useI18n } from "@/contexts/I18nContext";
 import { getOrCreateConversation } from "@/hooks/useChat";
 import { toast } from "sonner";
 import { calcBreakdown } from "@/lib/fees";
+import { authPathHere } from "@/lib/returnTo";
 
 interface EventInfo {
   id: string;
@@ -97,7 +98,7 @@ const EventTicketsMarketplace = () => {
 
   const handleNotifyMe = async () => {
     if (!user) {
-      navigate(`/auth?next=${encodeURIComponent(window.location.pathname + window.location.search)}`);
+      navigate(authPathHere());
       return;
     }
     if (!eventId) return;
@@ -121,7 +122,7 @@ const EventTicketsMarketplace = () => {
 
   const handleMakeOffer = async (listing: Listing) => {
     if (!user) {
-      navigate(`/auth?next=${encodeURIComponent(window.location.pathname + window.location.search)}`);
+      navigate(authPathHere());
       return;
     }
     if (user.id === listing.seller_id) {

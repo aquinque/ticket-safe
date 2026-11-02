@@ -14,6 +14,7 @@ import { ReactNode, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { authPathHere } from "@/lib/returnTo";
 
 const FullScreenSpinner = () => (
   <div className="min-h-screen flex items-center justify-center">
@@ -34,7 +35,7 @@ const ProtectedAdminRoute = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (authLoading) return;
     if (!user) {
-      navigate("/auth", { replace: true });
+      navigate(authPathHere(), { replace: true });
       return;
     }
     let active = true;

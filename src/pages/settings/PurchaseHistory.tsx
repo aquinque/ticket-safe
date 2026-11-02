@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { currencySymbol, formatMajor, toCurrency, type Currency } from "@/lib/money";
+import { authPathHere } from "@/lib/returnTo";
 
 type Purchase = {
   id: string;
@@ -56,7 +57,7 @@ const PurchaseHistory = () => {
     // which pollutes history and makes the Back button feel broken.
     if (authLoading) return;
     if (!user) {
-      navigate("/auth?next=/settings/purchases");
+      navigate(authPathHere(), { replace: true });
       return;
     }
 

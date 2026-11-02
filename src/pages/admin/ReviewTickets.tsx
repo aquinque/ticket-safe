@@ -32,6 +32,7 @@ import {
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { authPathHere } from "@/lib/returnTo";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -77,7 +78,7 @@ const ReviewTickets = () => {
 
   // Redirect if not logged in
   useEffect(() => {
-    if (!authLoading && !user) navigate("/auth?next=/admin/review");
+    if (!authLoading && !user) navigate(authPathHere(), { replace: true });
   }, [user, authLoading, navigate]);
 
   // Check admin role

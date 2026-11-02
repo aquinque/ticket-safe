@@ -22,6 +22,7 @@ import { useChatRoom } from "@/hooks/useChat";
 import { supabase } from "@/integrations/supabase/client";
 import { SEOHead } from "@/components/SEOHead";
 import { toast } from "sonner";
+import { authPathHere } from "@/lib/returnTo";
 
 interface ConversationMeta {
   id: string;
@@ -64,7 +65,7 @@ const ChatRoom = () => {
 
   useEffect(() => {
     if (!authLoading && !user) {
-      navigate(`/auth?next=${encodeURIComponent(window.location.pathname)}`);
+      navigate(authPathHere(), { replace: true });
     }
   }, [user, authLoading, navigate]);
 

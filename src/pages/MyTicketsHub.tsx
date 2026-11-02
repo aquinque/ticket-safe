@@ -20,6 +20,7 @@ import { SEOHead } from "@/components/SEOHead";
 import { PageHeader } from "@/components/PageHeader";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { authPathHere } from "@/lib/returnTo";
 
 interface OrderCard {
   id: string;
@@ -55,7 +56,7 @@ const MyTicketsHub = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!authLoading && !user) navigate("/auth?next=/my-tickets");
+    if (!authLoading && !user) navigate(authPathHere(), { replace: true });
   }, [user, authLoading, navigate]);
 
   useEffect(() => {

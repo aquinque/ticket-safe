@@ -27,6 +27,7 @@ import { useThemeMode } from "@/hooks/useThemeMode";
 import { supabase } from "@/integrations/supabase/client";
 import { authRedirect } from "@/lib/siteUrl";
 import { toast } from "sonner";
+import { authPath } from "@/lib/returnTo";
 
 /** Convert a name to a URL-safe slug (a-z, 0-9, dashes). */
 const slugify = (input: string): string =>
@@ -434,7 +435,7 @@ const OrganizerApply = () => {
                 Renvoyer l'email
               </button>
               <Link
-                to="/auth"
+                to={authPath("/organizers/apply")}
                 className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-semibold text-white"
                 style={{ background: "var(--gradient-hero)" }}
               >
