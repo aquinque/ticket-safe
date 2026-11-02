@@ -36,6 +36,8 @@ $$;
 comment on function public.event_end(timestamptz, timestamptz) is
   'End of an event: ends_at when set (and after the start), otherwise the start + 8 hours. The same rule as supabase/functions/_shared/eventTime.ts; past = now() >= event_end().';
 
+alter function public.event_end(timestamptz, timestamptz) set search_path = public;
+
 -- ── 2. VAT rate per event (not exposed yet) ──────────────────────────────────
 alter table public.events add column if not exists vat_rate numeric(5, 2);
 
@@ -76,6 +78,9 @@ $$;
 create or replace trigger trg_restrict_past_event_tier_changes
   before insert or update on public.event_tiers
   for each row execute function public.restrict_past_event_tier_changes();
+
+-- Fired by the trigger only; not callable through the API.
+revoke execute on function public.restrict_past_event_tier_changes() from public, anon, authenticated;
 
 -- ── 4. Per-event sales figures for the archive ───────────────────────────────
 create or replace function public.studio_event_sales_summary(p_organizer_id uuid)
@@ -192,7 +197,7 @@ $$;
 comment on function public.studio_event_sales_summary(uuid) is
   'Per-event sales figures of an organizer for the Ticket Studio Sales archive: paid orders (tickets, gross, fees, net), refunded orders, check-ins and a payout status (paid / pending / none). Runs with the caller''s row-level security.';
 
-revoke all on function public.studio_event_sales_summary(uuid) from public;
+revoke all on function public.studio_event_sales_summary(uuid) from public, anon;
 grant execute on function public.studio_event_sales_summary(uuid) to authenticated, service_role;
 
 -- ── 5. The 'transferred' ticket status the resale webhooks write ─────────────
