@@ -1,0 +1,23 @@
+{
+  "slug": "stripe-webhook",
+  "last_live_version": 56,
+  "verify_jwt": false,
+  "entrypoint": "index.ts",
+  "files": [
+    "index.ts",
+    "_shared/ticketJwt.ts",
+    "_shared/ticketPdfServer.ts",
+    "_shared/sendTicketConfirmationEmail.ts",
+    "_shared/orderEmail.ts",
+    "_shared/orderSummaryPdf.ts"
+  ],
+  "identical_to_repo": {
+    "index.ts": false,
+    "_shared/ticketJwt.ts": true,
+    "_shared/ticketPdfServer.ts": false,
+    "_shared/sendTicketConfirmationEmail.ts": false,
+    "_shared/orderEmail.ts": false,
+    "_shared/orderSummaryPdf.ts": false
+  },
+  "retired_at": "2026-11-02"
+}

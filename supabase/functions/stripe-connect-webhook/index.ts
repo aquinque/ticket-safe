@@ -64,7 +64,7 @@ serve(async (req) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   const resendKey = Deno.env.get("RESEND_API_KEY");
-  const replaySecret = Deno.env.get("REPLAY_ADMIN_SECRET") ?? "ts-replay-secret-2026";
+  const replaySecret = Deno.env.get("REPLAY_ADMIN_SECRET") ?? "";
 
   if (!stripeSecretKey || (!webhookSecretAccount && !webhookSecretConnect) || !supabaseUrl || !supabaseServiceKey) {
     console.error("[stripe-connect-webhook] Missing environment variables");

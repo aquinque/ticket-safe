@@ -1,0 +1,13 @@
+{
+  "slug": "stripe-express-dashboard",
+  "last_live_version": 25,
+  "verify_jwt": false,
+  "entrypoint": "index.ts",
+  "files": [
+    "index.ts"
+  ],
+  "identical_to_repo": {
+    "index.ts": true
+  },
+  "retired_at": "2026-11-02"
+}

@@ -1,0 +1,13 @@
+{
+  "slug": "stripe-create-checkout",
+  "last_live_version": 53,
+  "verify_jwt": false,
+  "entrypoint": "index.ts",
+  "files": [
+    "index.ts"
+  ],
+  "identical_to_repo": {
+    "index.ts": true
+  },
+  "retired_at": "2026-11-02"
+}

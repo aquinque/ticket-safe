@@ -74,7 +74,7 @@ serve(async (req) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   const resendKey = Deno.env.get("RESEND_API_KEY");
-  const adminSecret = Deno.env.get("REPLAY_ADMIN_SECRET") ?? "ts-replay-secret-2026";
+  const adminSecret = Deno.env.get("REPLAY_ADMIN_SECRET") ?? "";
   if (!supabaseUrl || !supabaseKey || !resendKey) return json({ error: "misconfig" }, 500);
 
   const body = await req.json().catch(() => ({}));
@@ -85,7 +85,8 @@ serve(async (req) => {
 
   // Authorize: a back-office admin_secret, OR the signed-in buyer of this order
   // (resending their own ticket email), OR a platform admin.
-  const viaSecret = !!body.admin_secret && body.admin_secret === adminSecret;
+  // No default: with REPLAY_ADMIN_SECRET unset, the secret path is closed.
+  const viaSecret = !!adminSecret && !!body.admin_secret && body.admin_secret === adminSecret;
   let callerId: string | null = null;
   if (!viaSecret) {
     const authHeader = req.headers.get("Authorization") ?? "";
