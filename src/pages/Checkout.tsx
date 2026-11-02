@@ -205,7 +205,7 @@ const Checkout = () => {
     { month: "long", day: "numeric", year: "numeric" }
   );
 
-  // --- Revolut Checkout — no account required (guest checkout) ---
+  // --- Stripe Checkout — no account required (guest checkout) ---
   const handleCheckout = async () => {
     if (!listingId) return;
     if (!user) {
@@ -230,10 +230,10 @@ const Checkout = () => {
         headers.Authorization = `Bearer ${token}`;
       }
 
-      // Revolut is the payment provider now (Stripe set aside). Same response
-      // shape ({ checkout_url }), so only the endpoint changes.
+      // Resale is paid through Stripe: the money waits on Ticket Safe's account
+      // and the seller is paid out after the event (stripe-connect-payout-cron).
       const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/revolut-resale-checkout`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stripe-connect-resale-checkout`,
         {
           method: "POST",
           headers,
@@ -400,7 +400,7 @@ const Checkout = () => {
                 {isProcessing ? (
                   <>
                     <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                    Redirecting to Revolut…
+                    Redirecting to secure payment…
                   </>
                 ) : (
                   <>
@@ -412,7 +412,7 @@ const Checkout = () => {
 
               <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
                 <ShieldCheck className="w-3.5 h-3.5" />
-                Secure payment powered by Revolut
+                Secure payment by Stripe · card, Apple Pay, Google Pay
               </div>
             </CardContent>
           </Card>
