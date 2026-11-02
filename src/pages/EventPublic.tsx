@@ -38,6 +38,7 @@ import { ProtectionBadge } from "@/components/common/ProtectionBadge";
 import { useAuth } from "@/hooks/useAuth";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { readPromoterRef, trackPromoterVisit } from "@/lib/promoterLinks";
+import { eventEnd, eventPhase, eventStart, isPastEvent, type EventTimeFields } from "@/lib/eventTime";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -81,13 +82,12 @@ function useNow(tickMs: number): number {
   return now;
 }
 
-/** "In 26 days", "In 3 h 12 min", "Happening now", "Ended". Short, for a chip. */
-function countdown(startIso: string, endIso: string | null, now: number): { label: string; live: boolean; over: boolean } {
-  const start = new Date(startIso).getTime();
-  const end = endIso ? new Date(endIso).getTime() : start + 6 * 3_600_000;
-  if (now >= end) return { label: "Ended", live: false, over: true };
-  if (now >= start) return { label: "Happening now", live: true, over: false };
-  const diff = start - now;
+/** "In 26 days", "In 3 h 12 min", "Happening now", "Ended". Short, for a chip. Over and live follow the product's one end-of-event rule. */
+function countdown(ev: EventTimeFields, now: number): { label: string; live: boolean; over: boolean } {
+  const phase = eventPhase(ev, new Date(now));
+  if (phase === "past") return { label: "Ended", live: false, over: true };
+  if (phase === "live") return { label: "Happening now", live: true, over: false };
+  const diff = Math.max(0, (eventStart(ev)?.getTime() ?? now) - now);
   const d = Math.floor(diff / 86_400_000);
   const h = Math.floor((diff % 86_400_000) / 3_600_000);
   const m = Math.floor((diff % 3_600_000) / 60_000);
@@ -100,7 +100,8 @@ function countdown(startIso: string, endIso: string | null, now: number): { labe
 /** Calendar file for Apple, Google, Outlook: one download, every app opens it. */
 function downloadIcs(ev: { title: string; date: string; ends_at: string | null; location: string | null; slug: string; description: string | null }) {
   const stamp = (iso: string) => new Date(iso).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
-  const end = ev.ends_at ?? new Date(new Date(ev.date).getTime() + 4 * 3_600_000).toISOString();
+  // The end the rest of the product uses: ends_at, or 8 h after the start.
+  const end = eventEnd(ev)?.toISOString() ?? ev.date;
   const esc = (t: string) => t.replace(/\\/g, "\\\\").replace(/\n/g, "\\n").replace(/,/g, "\\,").replace(/;/g, "\\;");
   const lines = [
     "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Ticket Safe//EN", "BEGIN:VEVENT",
@@ -394,6 +395,11 @@ const EventPublic = () => {
 
   const handleBuy = async () => {
     if (!selectedTier) return;
+    // The server refuses an order for an ended event; say so here rather than open a checkout that fails.
+    if (event && isPastEvent(event)) {
+      toast.error("This event has ended.");
+      return;
+    }
     // No account required to buy — the server creates a passwordless shadow
     // account from the first attendee's email (getOrCreateGuestAccount) when
     // there's no Authorization header, so guest orders still have a real
@@ -552,8 +558,9 @@ const EventPublic = () => {
   // ── Derived buyer-facing status ───────────────────────────────────────────
   const anyAvailable = tiers.some((t) => t.available_qty > 0);
   const eventSoldOut = tiers.length > 0 && !anyAvailable;
-  const endRef = event.ends_at ?? event.date;
-  const isPast = new Date(endRef).getTime() < Date.now();
+  // Over once the event has ended (ends_at, or 8 h after the start): the same rule as the Studio and the
+  // checkout, which refuses an order for an ended event. Re-read on every tick of the clock.
+  const isPast = isPastEvent(event, new Date(nowTs));
   const sellingFast =
     !eventSoldOut &&
     tiers.some((t) => t.available_qty > 0 && t.total_qty > 0 && t.available_qty / t.total_qty < 0.3);
@@ -580,7 +587,7 @@ const EventPublic = () => {
   const readyCount = attendees.filter(attendeeReady).length;
 
   // Time, attendance, atmosphere.
-  const clock = countdown(event.date, event.ends_at, nowTs);
+  const clock = countdown(event, nowTs);
   const soldTotal = tiers.reduce((n, t) => n + Math.max(0, t.total_qty - t.available_qty), 0);
   const goingLabel = soldTotal >= 10 ? `${Math.floor(soldTotal / 10) * 10}+ going` : null;
   const startDate = new Date(event.date);
@@ -771,7 +778,7 @@ const EventPublic = () => {
         const fewLeft = !soldOut && t.total_qty > 0 && remaining < 0.3;
         const popular = mostPopularId === t.tier_id && !soldOut;
         const choose = () => {
-          if (soldOut) return;
+          if (soldOut || isPast) return;
           if (!isSelected) { setSelectedTier(t.tier_id); setQty(1); }
         };
         return (
@@ -1081,7 +1088,9 @@ const EventPublic = () => {
                   <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Tickets</h2>
                   {tiers.length > 1 && <span className="text-[11px] text-muted-foreground">{tiers.length} options</span>}
                 </div>
-                {tiers.length === 0 ? (
+                {isPast ? (
+                  <p className="text-sm text-muted-foreground py-4">This event has ended.</p>
+                ) : tiers.length === 0 ? (
                   <p className="text-sm text-muted-foreground py-4">Tickets will be on sale soon. Check back shortly.</p>
                 ) : eventSoldOut ? (
                   renderSummary(true)
@@ -1089,12 +1098,12 @@ const EventPublic = () => {
                   renderTiers()
                 )}
               </section>
-              {selected && !eventSoldOut && (
+              {selected && !eventSoldOut && !isPast && (
                 <section className="rounded-2xl border border-border bg-card/50 p-5">
                   {renderAttendees()}
                 </section>
               )}
-              {selected && !eventSoldOut && <div className="lg:sticky lg:top-24">{renderSummary(true)}</div>}
+              {selected && !eventSoldOut && !isPast && <div className="lg:sticky lg:top-24">{renderSummary(true)}</div>}
             </aside>
 
             {/* ===== RIGHT: the story (on a phone: tickets first, then the story) ===== */}
@@ -1104,7 +1113,9 @@ const EventPublic = () => {
                   <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Tickets</h2>
                   {tiers.length > 1 && <span className="text-[11px] text-muted-foreground">{tiers.length} options</span>}
                 </div>
-                {tiers.length === 0 ? (
+                {isPast ? (
+                  <p className="text-sm text-muted-foreground py-4">This event has ended.</p>
+                ) : tiers.length === 0 ? (
                   <p className="text-sm text-muted-foreground py-4">Tickets will be on sale soon. Check back shortly.</p>
                 ) : eventSoldOut ? (
                   renderSummary(true)
@@ -1112,12 +1123,12 @@ const EventPublic = () => {
                   renderTiers()
                 )}
               </section>
-              {selected && !eventSoldOut && (
+              {selected && !eventSoldOut && !isPast && (
                 <section className="lg:hidden rounded-2xl border border-border bg-card/50 p-4 motion-safe:animate-fade-in">
                   {renderAttendees()}
                 </section>
               )}
-              {selected && !eventSoldOut && <div id="checkout" className="lg:hidden scroll-mt-20">{renderSummary(true)}</div>}
+              {selected && !eventSoldOut && !isPast && <div id="checkout" className="lg:hidden scroll-mt-20">{renderSummary(true)}</div>}
               {event.description && (
                 <section className="rounded-2xl border border-border bg-card/50 p-5">
                   <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground mb-3">About</h2>
@@ -1235,7 +1246,7 @@ const EventPublic = () => {
       </main>
 
       {/* ===== Phone: a bar only once a ticket is picked, taking you to the checkout ===== */}
-      {selected && !eventSoldOut && (
+      {selected && !eventSoldOut && !isPast && (
         <div className="lg:hidden fixed bottom-0 inset-x-0 z-40 border-t border-border bg-background/90 backdrop-blur px-4 pt-3 pb-[calc(0.75rem_+_env(safe-area-inset-bottom))] motion-safe:animate-slide-up">
           <div className="flex items-center gap-3">
             <div className="flex-1 min-w-0">

@@ -10,6 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { STUDIO_FEE_RULE } from "@/lib/studioFee";
 import { CURRENCIES, formatMoney, toCurrency, type Currency } from "@/lib/money";
+import { eventEnd } from "@/lib/eventTime";
 
 /**
  * Studio "Payments" — Stripe Connect (Express) onboarding + where the money is.
@@ -296,7 +297,9 @@ const StudioPayments = () => {
     }
     setSales({ tickets: orders.reduce((n, o) => n + o.quantity, 0), revenue });
     const ev = nextRes.data as { title: string; date: string; ends_at: string | null } | null;
-    setNextEvent(ev ? { title: ev.title, ends: ev.ends_at ?? ev.date } : null);
+    // The payout clock starts when the event ends: ends_at, or the start plus 8 h.
+    const evEnd = ev ? eventEnd(ev) : null;
+    setNextEvent(ev && evEnd ? { title: ev.title, ends: evEnd.toISOString() } : null);
 
     if (!row) { setBalanceState("idle"); setPayouts([]); return; }
 

@@ -96,18 +96,12 @@ export function buildInvoiceAmounts(orders: FeeOrder[], vat: { exempt: boolean; 
 
 // ── When an invoice can be issued ───────────────────────────────────────────
 
-/** Same reference the payouts use: the end of the event, or its start when no end is set. */
-export function eventEnd(event: { ends_at?: string | null; date?: string | null }): Date | null {
-  const raw = event.ends_at ?? event.date;
-  if (!raw) return null;
-  const d = new Date(raw);
-  return Number.isNaN(d.getTime()) ? null : d;
-}
-
-export function isEventOver(event: { ends_at?: string | null; date?: string | null }, now: Date = new Date()): boolean {
-  const end = eventEnd(event);
-  return end !== null && end.getTime() <= now.getTime();
-}
+/**
+ * The end of the event and whether it is over: the product-wide rule of ./eventTime.ts
+ * (ends_at, or the start + 8 hours), re-exported so the billing code keeps its names.
+ */
+import { eventEnd, isEventOver } from "./eventTime.ts";
+export { eventEnd, isEventOver };
 
 export interface ClientIdentity {
   name?: string | null;

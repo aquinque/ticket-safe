@@ -21,7 +21,9 @@ import { supabase } from "@/integrations/supabase/client";
 import EventStatusBadge, { deriveEventStatusKind, type EventStatus } from "@/components/studio/EventStatusBadge";
 import { FilterChips } from "@/components/studio/FilterChips";
 import { toCurrency } from "@/lib/money";
-import { fmtMoney, plural, phaseOf, whenLabel, startOfDay, relativeTime, DAY_MS } from "@/lib/studioFormat";
+import { fmtMoney, plural, whenLabel, relativeTime, DAY_MS } from "@/lib/studioFormat";
+import { eventPhase } from "@/lib/eventTime";
+import { isArchivedEvent } from "@/lib/eventStatus";
 
 interface Activity { sold7: number; sold14: number; lastSale: string | null }
 
@@ -29,6 +31,7 @@ interface EventRow {
   id: string;
   title: string;
   date: string;
+  ends_at: string | null;
   location: string | null;
   status: EventStatus;
   slug: string | null;
@@ -41,7 +44,7 @@ interface EventRow {
   revenue_cents: number;
 }
 
-type Filter = "all" | "live" | "draft" | "past";
+type Filter = "all" | "live" | "draft";
 
 const slugify = (input: string): string =>
   input
@@ -57,7 +60,9 @@ const slugify = (input: string): string =>
  * with status/date/sold-capacity/actions, built for organizers juggling
  * several events at once. Deliberately not the dashboard's card-grid
  * "browse" view (see StudioDashboard.tsx) — this is where you come to
- * find and act on a specific event, not to admire a KPI overview.
+ * find and act on a specific event, not to admire a KPI overview. Past
+ * events (ended, by the product's end-of-event rule) are not here: they
+ * have moved to Sales, read-only.
  */
 const StudioEvents = () => {
   useThemeMode("studio");
@@ -71,18 +76,24 @@ const StudioEvents = () => {
   const [filter, setFilter] = useState<Filter>("all");
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
   const [activity, setActivity] = useState<Record<string, Activity>>({});
+  const [pastCount, setPastCount] = useState(0);
 
   const load = useCallback(async () => {
     if (!organizer) return;
     setLoading(true);
     const { data: evRows } = await supabase
       .from("events")
-      .select("id, title, date, location, status, slug, banner_url, primary_color")
+      .select("id, title, date, ends_at, location, status, slug, banner_url, primary_color")
       .eq("organizer_id", organizer.id)
       .neq("status", "cancelled")
       .order("date", { ascending: false });
 
-    const ids = (evRows ?? []).map((e: { id: string }) => e.id);
+    // Past events have moved to Sales: only current ones are managed here.
+    type Loaded = Omit<EventRow, "currency" | "sold_count" | "total_capacity" | "revenue_cents">;
+    const now = new Date();
+    const currentRows = ((evRows ?? []) as Loaded[]).filter((e) => !isArchivedEvent(e, now));
+    setPastCount((evRows ?? []).length - currentRows.length);
+    const ids = currentRows.map((e) => e.id);
     // The event's currency comes from its tiers (event_tiers.currency always
     // equals the event's); an event with no tier yet counts as euros.
     type Agg = { sold: number; total: number; revenue: number; currency: string };
@@ -125,8 +136,8 @@ const StudioEvents = () => {
     }
 
     setEvents(
-      (evRows ?? []).map((e) => ({
-        ...(e as Omit<EventRow, "currency" | "sold_count" | "total_capacity" | "revenue_cents">),
+      currentRows.map((e) => ({
+        ...e,
         currency: agg[e.id]?.currency ?? "EUR",
         sold_count: agg[e.id]?.sold ?? 0,
         total_capacity: agg[e.id]?.total ?? 0,
@@ -140,47 +151,37 @@ const StudioEvents = () => {
     load();
   }, [load]);
 
-  const counts = useMemo(() => {
-    const now = Date.now();
-    return {
+  const counts = useMemo(
+    () => ({
       all: events.length,
-      live: events.filter((e) => deriveEventStatusKind(e.status, e.date, e.sold_count >= e.total_capacity && e.total_capacity > 0) === "live").length,
+      live: events.filter((e) => deriveEventStatusKind(e.status, e.date, e.sold_count >= e.total_capacity && e.total_capacity > 0, e.ends_at) === "live").length,
       draft: events.filter((e) => (e.status ?? "draft") === "draft").length,
-      past: events.filter((e) => new Date(e.date).getTime() < now).length,
-    };
-  }, [events]);
+    }),
+    [events],
+  );
 
   const filtered = useMemo(() => {
-    const now = Date.now();
     const q = search.trim().toLowerCase();
     return events
       .filter((e) => {
-        if (filter === "past") return new Date(e.date).getTime() < now;
         if (filter === "draft") return (e.status ?? "draft") === "draft";
-        if (filter === "live") return deriveEventStatusKind(e.status, e.date, e.sold_count >= e.total_capacity && e.total_capacity > 0) === "live";
+        if (filter === "live") return deriveEventStatusKind(e.status, e.date, e.sold_count >= e.total_capacity && e.total_capacity > 0, e.ends_at) === "live";
         return true;
       })
       .filter((e) => (q ? e.title.toLowerCase().includes(q) || (e.location ?? "").toLowerCase().includes(q) : true));
   }, [events, filter, search]);
 
-  // Two groups, two orders: what is coming (soonest first) and what is done
-  // (most recent first). The list reads as a timeline, not a database.
-  const groups = useMemo(() => {
-    const today = startOfDay(new Date()).getTime();
-    const upcoming = filtered
-      .filter((e) => startOfDay(new Date(e.date)).getTime() >= today)
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    const past = filtered
-      .filter((e) => startOfDay(new Date(e.date)).getTime() < today)
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    return { upcoming, past };
-  }, [filtered]);
+  // One group, soonest first: what is on now and what is coming. The list
+  // reads as a timeline, not a database.
+  const upcoming = useMemo(
+    () => [...filtered].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()),
+    [filtered],
+  );
 
   const summary = useMemo(() => {
     const parts: string[] = [];
     if (counts.live) parts.push(`${plural(counts.live, "event")} on sale`);
     if (counts.draft) parts.push(plural(counts.draft, "draft"));
-    if (counts.past) parts.push(`${counts.past} past`);
     return parts.join(" · ") || "No events yet";
   }, [counts]);
 
@@ -298,13 +299,35 @@ const StudioEvents = () => {
               { key: "all", label: "All", count: counts.all },
               { key: "live", label: "On sale", count: counts.live },
               { key: "draft", label: "Drafts", count: counts.draft },
-              { key: "past", label: "Past", count: counts.past },
             ]}
           />
         </div>
 
         {loading ? (
           <div className="space-y-2">{[0, 1, 2].map((i) => <div key={i} className="h-20 bg-muted animate-pulse" />)}</div>
+        ) : events.length === 0 && pastCount > 0 ? (
+          <div className="text-center py-14 px-6 bg-card border border-border">
+            <p className="text-[11px] uppercase tracking-wider font-bold text-muted-foreground mb-2">Nothing coming up</p>
+            <p className="text-sm text-muted-foreground mb-5 max-w-sm mx-auto">
+              Create your next event, or look back at what your past events sold.
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              <Link
+                to="/studio/events/new"
+                className="inline-flex items-center justify-center gap-2 px-5 min-h-[44px] font-bold bg-primary text-primary-foreground hover:bg-primary-hover"
+              >
+                <Plus className="w-4 h-4" />
+                Create event
+              </Link>
+              <Link
+                to="/studio/sales"
+                className="inline-flex items-center justify-center gap-2 px-5 min-h-[44px] font-bold border border-border bg-card hover:bg-muted"
+              >
+                Sales
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+          </div>
         ) : events.length === 0 ? (
           <div className="text-center py-14 px-6 bg-card border border-border">
             <div className="inline-flex w-14 h-14 items-center justify-center mb-4 text-white" style={{ background: "var(--gradient-hero)" }}>
@@ -327,32 +350,25 @@ const StudioEvents = () => {
             {search ? `Nothing matches "${search}".` : "Nothing here."}
           </p>
         ) : (
-          <div className="space-y-6">
-            {groups.upcoming.length > 0 && (
-              <section aria-labelledby="upcoming-heading">
-                <h2 id="upcoming-heading" className="text-sm font-bold mb-2">
-                  Coming up <span className="text-muted-foreground font-medium">{groups.upcoming.length}</span>
-                </h2>
-                <ul className="bg-card border border-border divide-y divide-border">
-                  {groups.upcoming.map((e, i) => (
-                    <EventRow key={e.id} event={e} index={i} activity={activity[e.id]} duplicating={duplicatingId === e.id} onDuplicate={() => duplicateEvent(e.id)} />
-                  ))}
-                </ul>
-              </section>
-            )}
-            {groups.past.length > 0 && (
-              <section aria-labelledby="past-heading">
-                <h2 id="past-heading" className="text-sm font-bold mb-2">
-                  Past <span className="text-muted-foreground font-medium">{groups.past.length}</span>
-                </h2>
-                <ul className="bg-card border border-border divide-y divide-border">
-                  {groups.past.map((e, i) => (
-                    <EventRow key={e.id} event={e} index={i} activity={activity[e.id]} duplicating={duplicatingId === e.id} onDuplicate={() => duplicateEvent(e.id)} />
-                  ))}
-                </ul>
-              </section>
-            )}
-          </div>
+          <section aria-labelledby="upcoming-heading">
+            <h2 id="upcoming-heading" className="text-sm font-bold mb-2">
+              Coming up <span className="text-muted-foreground font-medium">{upcoming.length}</span>
+            </h2>
+            <ul className="bg-card border border-border divide-y divide-border">
+              {upcoming.map((e, i) => (
+                <EventRow key={e.id} event={e} index={i} activity={activity[e.id]} duplicating={duplicatingId === e.id} onDuplicate={() => duplicateEvent(e.id)} />
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {!loading && pastCount > 0 && (
+          <p className="mt-6 text-xs text-muted-foreground">
+            Past events have moved to{" "}
+            <Link to="/studio/sales" className="font-semibold text-primary hover:underline">
+              Sales ({pastCount})
+            </Link>
+          </p>
         )}
       </div>
     </StudioLayout>
@@ -366,7 +382,7 @@ const StudioEvents = () => {
  */
 const EventRow = ({ event: e, index, activity, duplicating, onDuplicate }: { event: EventRow; index: number; activity?: Activity; duplicating: boolean; onDuplicate: () => void }) => {
   const d = new Date(e.date);
-  const phase = phaseOf(e.date);
+  const phase = eventPhase(e);
   const soldPct = e.total_capacity > 0 ? Math.min(100, Math.round((e.sold_count / e.total_capacity) * 100)) : 0;
   const soldOut = e.total_capacity > 0 && e.sold_count >= e.total_capacity;
   const left = e.total_capacity - e.sold_count;
@@ -401,12 +417,12 @@ const EventRow = ({ event: e, index, activity, duplicating, onDuplicate }: { eve
           </Link>
           {/* Phone: numbers under the title */}
           <div className="md:hidden mt-2 flex items-center gap-3 text-[11px] text-muted-foreground">
-            <EventStatusBadge status={e.status} date={e.date} soldOut={soldOut} size="sm" />
+            <EventStatusBadge status={e.status} date={e.date} endsAt={e.ends_at} soldOut={soldOut} size="sm" />
             <span className="tabular-nums">{e.total_capacity > 0 ? `${e.sold_count}/${e.total_capacity} · ${salesNote}` : salesNote}</span>
             <span className="font-bold text-foreground tabular-nums ml-auto">{fmtMoney(e.revenue_cents, e.currency)}</span>
           </div>
         </div>
-        <div className="hidden md:block"><EventStatusBadge status={e.status} date={e.date} soldOut={soldOut} size="sm" /></div>
+        <div className="hidden md:block"><EventStatusBadge status={e.status} date={e.date} endsAt={e.ends_at} soldOut={soldOut} size="sm" /></div>
         <div className="hidden md:block w-44">
           {e.total_capacity > 0 ? (
             <>

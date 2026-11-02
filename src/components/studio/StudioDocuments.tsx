@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import type { OrganizerProfile } from "@/hooks/useOrganizer";
 import { eur, plural } from "@/lib/studioFormat";
+import { isPastEvent } from "@/lib/eventTime";
 
 // Only the sales statement is offered. TicketSafe does not invoice organizers: the service fee pays for what it
 // does for the buyer and is owed by the buyer, so the organizer receives a statement of what it is owed.
@@ -76,6 +77,8 @@ function useStudioDocuments(organizerId: string) {
           .in("id", ids.slice(i, i + 100));
         if (error) throw error;
         for (const e of data ?? []) {
+          // The Sales tab is an archive: only events that have ended are listed.
+          if (!isPastEvent({ date: e.date, ends_at: e.ends_at })) continue;
           found.push({
             eventId: e.id,
             title: e.title ?? "Untitled event",

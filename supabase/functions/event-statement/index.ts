@@ -17,6 +17,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { createDashboardLink, getStripeClient } from "../_shared/stripeConnect.ts";
 import { STATEMENTS_BUCKET, callStatementGenerator, latestStatement, type StatementRow } from "../_shared/eventStatementRow.ts";
+import { eventEnd, isEventOver } from "../_shared/eventTime.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -81,9 +82,11 @@ serve(async (req) => {
     isAdmin = !!adminRow;
   }
 
-  const endsAt = new Date(event.ends_at ?? event.date);
-  const availableFrom = new Date(endsAt.getTime() + DAY_MS);
+  // The end from the product's one rule (ends_at, else start + 8 h); without a readable date the event is not ended.
+  const endsAt = eventEnd(event);
+  const availableFrom = endsAt ? new Date(endsAt.getTime() + DAY_MS) : null;
   const now = Date.now();
+  const ended = isEventOver(event, new Date(now));
 
   const status = async (extra: Record<string, unknown> = {}) => {
     const latest = await latestStatement(supabase, eventId);
@@ -97,7 +100,7 @@ serve(async (req) => {
       .maybeSingle();
     const nextAllowed = lastManual ? new Date(new Date(lastManual.generated_at).getTime() + REGENERATE_EVERY_MS) : null;
     return json({
-      event: { id: event.id, ends_at: endsAt.toISOString(), available_from: availableFrom.toISOString(), ended: endsAt.getTime() <= now, stripe: event.payment_provider === "stripe" },
+      event: { id: event.id, ends_at: endsAt?.toISOString() ?? null, available_from: availableFrom?.toISOString() ?? null, ended, stripe: event.payment_provider === "stripe" },
       is_admin: isAdmin,
       statement: latest ? publicStatement(latest, isAdmin) : null,
       can_regenerate_at: nextAllowed && nextAllowed.getTime() > now ? nextAllowed.toISOString() : null,
@@ -124,7 +127,7 @@ serve(async (req) => {
 
       case "regenerate": {
         if (event.payment_provider !== "stripe") return json({ error: "This event is not paid through Stripe." }, 409);
-        if (endsAt.getTime() > now) return json({ error: "The statement is available once the event has ended." }, 409);
+        if (!ended) return json({ error: "The statement is available once the event has ended." }, 409);
         const { data: lastManual } = await supabase
           .from("event_statements")
           .select("generated_at")

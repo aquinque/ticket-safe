@@ -19,6 +19,7 @@ import {
 import { StatFigure } from "@/components/studio/StatFigure";
 import { FilterChips } from "@/components/studio/FilterChips";
 import { fmtMoney, fmtDate, fmtTime, phaseOf, whenLabel, relativeTime } from "@/lib/studioFormat";
+import { eventPhase } from "@/lib/eventTime";
 import { toCurrency } from "@/lib/money";
 import { StudioLayout } from "@/components/studio/StudioLayout";
 import { SEOHead } from "@/components/SEOHead";
@@ -31,6 +32,7 @@ interface EventRow {
   id: string;
   title: string;
   date: string;
+  ends_at: string | null;
   location: string | null;
   organizer_id: string;
   /** 'EUR' | 'GBP': every amount on this page is in the event's currency. */
@@ -147,7 +149,7 @@ const StudioEventAttendees = () => {
     if (!id) return;
     setLoading(true);
     const [{ data: ev }, { data: tr }, { data: ord }, { data: tix }] = await Promise.all([
-      supabase.from("events").select("id, title, date, location, organizer_id").eq("id", id).maybeSingle(),
+      supabase.from("events").select("id, title, date, ends_at, location, organizer_id").eq("id", id).maybeSingle(),
       supabase.from("event_tiers").select("id, name, currency").eq("event_id", id),
       supabase
         .from("event_orders")
@@ -278,7 +280,7 @@ const StudioEventAttendees = () => {
       <SEOHead title={`Attendees · ${event.title} · Studio`} description={`Attendee list for ${event.title}.`} />
 
       <div className="p-4 md:p-6 max-w-5xl mx-auto">
-        {(() => { const phase = phaseOf(event.date); const doorDay = phase !== "upcoming"; return (
+        {(() => { const phase = phaseOf(event.date); const doorDay = phase === "today" || eventPhase({ date: event.date, ends_at: event.ends_at }) !== "upcoming"; return (
         <>
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-3 mb-5">
           <div className="min-w-0">

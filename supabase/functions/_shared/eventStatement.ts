@@ -13,7 +13,7 @@
 import type Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { collectEventStatementData } from "./eventStatementData.ts";
-import { aggregate, reconcile, statementFingerprint, formatMoney } from "./eventStatementMath.ts";
+import { aggregate, reconcile, statementFingerprint, formatMoney, STATEMENT_VAT_LINE } from "./eventStatementMath.ts";
 import { generateEventStatementPdf } from "./eventStatementPdf.ts";
 import { renderEmail, ctaButton, escapeHtml } from "./emailComponents.ts";
 import { emailTokens, legalFooter } from "./emailTokens.ts";
@@ -143,6 +143,7 @@ export async function generateEventStatement(
     balance: data.balance,
     studioEventUrl: `${siteUrl}/studio/events/${event.id}`,
     footer: `${legalFooter.companyLine} · ${legalFooter.supportEmail} · Figures sourced from Stripe; this statement is not an invoice.`,
+    vatLine: STATEMENT_VAT_LINE,
   });
 
   const stamp = generatedAt.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");

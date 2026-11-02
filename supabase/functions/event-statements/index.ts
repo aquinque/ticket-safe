@@ -18,6 +18,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getStripeClient } from "../_shared/stripeConnect.ts";
 import { generateEventStatement, type GenerateOutcome, type StatementTrigger } from "../_shared/eventStatement.ts";
+import { eventEnd } from "../_shared/eventTime.ts";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
@@ -48,7 +49,8 @@ interface Body {
 /** The ended Stripe events of the last LOOKBACK_DAYS days, those with a statement marked. */
 async function endedEvents(supabase: SupabaseClient) {
   const now = Date.now();
-  const cutoff = new Date(now - 24 * HOUR).toISOString();
+  const endedBefore = now - 24 * HOUR;
+  const cutoff = new Date(endedBefore).toISOString();
   const since = new Date(now - LOOKBACK_DAYS * 24 * HOUR).toISOString();
   const { data, error } = await supabase
     .from("events")
@@ -60,7 +62,11 @@ async function endedEvents(supabase: SupabaseClient) {
     .lt("date", cutoff)
     .order("date", { ascending: true });
   if (error) throw new Error(error.message);
-  const ended = (data ?? []).filter((ev) => new Date(ev.ends_at ?? ev.date).toISOString() < cutoff);
+  // Ended more than a day ago by the product's one rule (ends_at, else start + 8 h); without a readable date the event is not ended.
+  const ended = (data ?? []).filter((ev) => {
+    const end = eventEnd(ev);
+    return end !== null && end.getTime() <= endedBefore;
+  });
   const done = new Set<string>();
   if (ended.length) {
     const { data: existing } = await supabase.from("event_statements").select("event_id").in("event_id", ended.map((ev) => ev.id));
@@ -129,7 +135,7 @@ serve(async (req) => {
     const { ended, done } = await endedEvents(supabase);
     const todo = ended.filter((ev) => !done.has(ev.id));
     if (body.dry_run) {
-      return json({ ok: true, dry_run: true, ended: ended.length, with_statement: done.size, candidates: todo.map((ev) => ({ id: ev.id, title: ev.title, ends_at: ev.ends_at ?? ev.date })) });
+      return json({ ok: true, dry_run: true, ended: ended.length, with_statement: done.size, candidates: todo.map((ev) => ({ id: ev.id, title: ev.title, ends_at: eventEnd(ev)?.toISOString() ?? null })) });
     }
     const batch = todo.slice(0, MAX_EVENTS_PER_SWEEP);
     const results: Record<string, string> = {};

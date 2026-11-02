@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, Clock, Download, ExternalLink, FileText, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { callStatement, openFromFunction } from "@/lib/eventStatementClient";
+import { eventEnd } from "@/lib/eventTime";
 
 interface StatementTotals {
   currency: string;
@@ -47,35 +48,6 @@ const money = (cents: number, currency: string) =>
 const when = (iso: string) =>
   new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 
-/** Calls the event-statement function as the signed-in user. Throws with the function's message on an error. */
-async function callStatement<T>(eventId: string, action: string): Promise<T> {
-  const { data: sessionData } = await supabase.auth.getSession();
-  const token = sessionData.session?.access_token;
-  if (!token) throw new Error("Please sign in again.");
-  const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/event-statement`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ event_id: eventId, action }),
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error ?? "Something went wrong.");
-  return data as T;
-}
-
-/** Opens a URL the function will give us in a tab created inside the click, so the browser does not block it. */
-async function openFromFunction(eventId: string, action: "download" | "dashboard_link") {
-  const tab = window.open("about:blank", "_blank");
-  if (tab) tab.opener = null;
-  try {
-    const { url } = await callStatement<{ url: string }>(eventId, action);
-    if (tab) tab.location.href = url;
-    else window.open(url, "_blank", "noopener,noreferrer");
-  } catch (err) {
-    tab?.close();
-    toast.error(err instanceof Error ? err.message : "Something went wrong.");
-  }
-}
-
 /**
  * "Financial statement" on the event page: the PDF built from the organizer's Stripe account once the event is
  * over (24 h after it ends, then again when a payout is paid), with its headline figures, the download, a
@@ -109,10 +81,11 @@ export function FinancialStatementCard({ eventId, eventDate, eventEndsAt, paymen
 
   if (paymentProvider !== "stripe") return null;
 
-  const end = new Date(eventEndsAt ?? eventDate);
-  const availableFrom = status ? new Date(status.event.available_from) : new Date(end.getTime() + 86_400_000);
-  const ended = end.getTime() <= now;
-  const available = availableFrom.getTime() <= now;
+  // The product's one end-of-event rule; a null end (no readable date) means "not ended yet".
+  const end = eventEnd({ date: eventDate, ends_at: eventEndsAt });
+  const availableFrom = status ? new Date(status.event.available_from) : end ? new Date(end.getTime() + 86_400_000) : null;
+  const ended = end !== null && end.getTime() <= now;
+  const available = availableFrom !== null && availableFrom.getTime() <= now;
   const statement = status?.statement ?? null;
   const waitMs = status?.can_regenerate_at ? new Date(status.can_regenerate_at).getTime() - now : 0;
   const canRegenerate = ended && waitMs <= 0;

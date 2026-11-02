@@ -41,6 +41,7 @@ import {
 } from "lucide-react";
 import { useCountUp } from "@/hooks/useCountUp";
 import { CURRENCIES, toCurrency, type Currency } from "@/lib/money";
+import { isPastEvent } from "@/lib/eventTime";
 
 /** The page's one colour: the site's own blue, for the cover, the chips and the buttons. */
 const ACCENT = "hsl(var(--primary))";
@@ -91,13 +92,12 @@ interface UpcomingTicket {
   orderId: string;
   eventTitle: string;
   eventDate: string | null;
+  /** The end the organizer set, if any; without one the event ends 8 h after its start (see @/lib/eventTime). */
+  eventEndsAt: string | null;
   location: string | null;
   tierName: string | null;
   holderName: string | null;
 }
-
-/** Tickets stay "upcoming" until 12 hours after the event starts, so a night event is still there after midnight. */
-const UPCOMING_GRACE_MS = 12 * 60 * 60 * 1000;
 
 interface Purchase {
   id: string;
@@ -230,7 +230,7 @@ const Profile = () => {
           .from("event_tickets")
           .select(
             `id, order_id, status, holder_first_name, holder_last_name,
-             event:events(title, date, location),
+             event:events(title, date, ends_at, location),
              tier:event_tiers(name)`,
           )
           .eq("buyer_id", user.id)
@@ -252,25 +252,26 @@ const Profile = () => {
         setEditLastName(profile.last_name || nameParts.slice(1).join(" ") || "");
         setEditGender(profile.gender === "female" || profile.gender === "male" ? profile.gender : "");
 
-        const cutoff = Date.now() - UPCOMING_GRACE_MS;
         const one = <T,>(value: T | T[] | null | undefined): T | null =>
           Array.isArray(value) ? value[0] ?? null : value ?? null;
         setUpcomingTickets(
           (ticketData ?? [])
             .map((row) => {
-              const event = one(row.event as { title: string | null; date: string | null; location: string | null } | null);
+              const event = one(row.event as { title: string | null; date: string | null; ends_at: string | null; location: string | null } | null);
               const tier = one(row.tier as { name: string | null } | null);
               return {
                 id: row.id,
                 orderId: row.order_id,
                 eventTitle: event?.title || "Événement",
                 eventDate: event?.date ?? null,
+                eventEndsAt: event?.ends_at ?? null,
                 location: event?.location ?? null,
                 tierName: tier?.name ?? null,
                 holderName: [row.holder_first_name, row.holder_last_name].filter(Boolean).join(" ") || null,
               };
             })
-            .filter((tk) => !tk.eventDate || new Date(tk.eventDate).getTime() >= cutoff)
+            // A ticket stays upcoming until its event has ended (ends_at, or 8 h after the start): the product's one rule.
+            .filter((tk) => !tk.eventDate || !isPastEvent({ date: tk.eventDate, ends_at: tk.eventEndsAt }))
             .sort((a, b) => new Date(a.eventDate ?? 0).getTime() - new Date(b.eventDate ?? 0).getTime()),
         );
 

@@ -54,6 +54,8 @@ export interface Chrome {
   number: string;
   /** TicketSafe's legal identity, printed at the foot of every page. */
   footer: string;
+  /** An extra line printed just above the legal identity on every page (e.g. the VAT note of a statement). */
+  footerNote?: string;
   /** The brand icon (PNG bytes), drawn before the brand name on every page when given. */
   logoPng?: Uint8Array;
 }
@@ -214,7 +216,9 @@ export class Sheet {
       page.drawRectangle({ x: MARGIN_X, y: this.top(14), width: CONTENT_W, height: 0.6, color: BRAND });
 
       this.rule(278);
-      this.block(chrome.footer, MARGIN_X, 283, CONTENT_W - 28 * MM, { size: 7, color: MUTED }, 3.4);
+      let footerY = 283;
+      if (chrome.footerNote) footerY = this.block(chrome.footerNote, MARGIN_X, 282, CONTENT_W - 28 * MM, { size: 7, color: MUTED }, 3.4) + 0.6;
+      this.block(chrome.footer, MARGIN_X, footerY, CONTENT_W - 28 * MM, { size: 7, color: MUTED }, 3.4);
       this.text(`Page ${i + 1} / ${pages.length}`, A4_W - MARGIN_X, 283, { size: 8, color: MUTED, align: "right" });
     });
     return await this.pdf.save();

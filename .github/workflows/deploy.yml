@@ -99,7 +99,8 @@ jobs:
           # Deploy only the functions this repo is known to match production for.
           # A full deploy would overwrite production code that the repo does not
           # carry (for example mark-payout-batch-sent is a stub on disk). replay-order-email
-          # is deployed by hand once the guest ticket page is live.
-          for fn in ticket-access revolut-create-checkout; do
+          # is deployed by hand once the guest ticket page is live. export-event-sales
+          # (the Studio sales CSV) was born in this repo, so the repo is its only source.
+          for fn in ticket-access revolut-create-checkout export-event-sales; do
             supabase functions deploy "$fn" --project-ref "$SUPABASE_PROJECT_REF"
           done

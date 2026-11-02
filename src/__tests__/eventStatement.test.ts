@@ -17,6 +17,7 @@ import {
   reconcile,
   statementFingerprint,
   ticketsOnCharge,
+  STATEMENT_VAT_LINE,
   type StatementCharge,
 } from "../../supabase/functions/_shared/eventStatementMath";
 
@@ -270,6 +271,20 @@ describe("formatting", () => {
     expect(formatDateEn(1_762_000_000)).toBe("1 Nov 2025");
     expect(formatDateEn("2026-11-06T23:01:00+00:00")).toBe("7 Nov 2026");
     expect(formatDateEn(null)).toBe("—");
+  });
+});
+
+describe("the VAT note", () => {
+  it("is the agreed sentence: no VAT on TicketSafe's fees, ticket VAT is the organizer's", () => {
+    expect(STATEMENT_VAT_LINE).toBe(
+      "VAT: not applicable on TicketSafe service fees (art. 293 B CGI). VAT treatment of ticket revenue is the organizer's responsibility.",
+    );
+  });
+
+  it("is printed at the foot of every statement page", () => {
+    expect(read("supabase/functions/_shared/eventStatement.ts")).toContain("vatLine: STATEMENT_VAT_LINE");
+    expect(read("supabase/functions/_shared/eventStatementPdf.ts")).toContain("footerNote: d.vatLine");
+    expect(read("supabase/functions/_shared/pdfKit.ts")).toMatch(/if \(chrome\.footerNote\) footerY = this\.block\(chrome\.footerNote/);
   });
 });
 

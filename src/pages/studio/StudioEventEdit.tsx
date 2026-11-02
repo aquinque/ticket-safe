@@ -27,11 +27,16 @@ import {
   Video,
   Search,
   ChevronDown,
+  ArrowRight,
+  Lock,
 } from "lucide-react";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { StudioLayout } from "@/components/studio/StudioLayout";
 import { DESCRIPTION_FONTS, descriptionFontFamily } from "@/lib/descriptionFonts";
 import { currencySymbol } from "@/lib/money";
+import { fmtMoney } from "@/lib/studioFormat";
+import { eventPhase } from "@/lib/eventTime";
+import { isArchivedEvent } from "@/lib/eventStatus";
 import { ImageCropDialog } from "@/components/ImageCropDialog";
 import { PromoVideo } from "@/components/PromoVideo";
 import { SEOHead } from "@/components/SEOHead";
@@ -127,6 +132,9 @@ interface AttendeeRow {
 
 const GENDER_LABEL: Record<string, string> = { female: "Female", male: "Male", other: "Other" };
 
+// Mirrors the database trigger that refuses tier changes once the event has ended.
+const TIERS_ENDED_MESSAGE = "This event has ended: its ticket tiers are read-only.";
+
 // CSV export for door staff. We never leak qr_token in the export — that
 // would let anyone with the file walk anyone in. Just the buyer, the
 // attendee name, and scan state.
@@ -206,6 +214,10 @@ const StudioEventEdit = () => {
   const [event, setEvent] = useState<EventRow | null>(null);
   // Every amount on this page is in the event's currency: pounds for a London event.
   const sym = currencySymbol(event?.currency);
+  // Ended by the product's end-of-event rule (ends_at, or the start plus 8 h):
+  // the event is then kept read-only here; its sales and exports are in Sales.
+  const phase = event ? eventPhase({ date: event.date, ends_at: event.ends_at }) : "upcoming";
+  const readOnly = !!event && isArchivedEvent(event);
   const [tiers, setTiers] = useState<TierRow[]>([]);
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [attendees, setAttendees] = useState<AttendeeRow[]>([]);
@@ -360,6 +372,10 @@ const StudioEventEdit = () => {
 
   const addTier = async () => {
     if (!event) return;
+    if (readOnly) {
+      toast.error(TIERS_ENDED_MESSAGE);
+      return;
+    }
     const { error } = await supabase.from("event_tiers").insert({
       event_id: event.id,
       name: "New tier",
@@ -373,12 +389,20 @@ const StudioEventEdit = () => {
   };
 
   const updateTier = async (tierId: string, patch: Partial<TierRow>) => {
+    if (readOnly) {
+      toast.error(TIERS_ENDED_MESSAGE);
+      return;
+    }
     const { error } = await supabase.from("event_tiers").update(patch).eq("id", tierId);
     if (error) toast.error(error.message);
     else load();
   };
 
   const removeTier = async (tierId: string) => {
+    if (readOnly) {
+      toast.error(TIERS_ENDED_MESSAGE);
+      return;
+    }
     const t = tiers.find((x) => x.id === tierId);
     if (t && t.sold_qty > 0) {
       toast.error("Cannot delete a tier with sales. Mark inactive instead.");
@@ -442,7 +466,6 @@ const StudioEventEdit = () => {
   const scannedCount = attendees.filter((a) => a.scanned_at != null).length;
   const eventDateMs = new Date(event.date).getTime();
   const daysToGo = Math.max(0, Math.ceil((eventDateMs - Date.now()) / 86_400_000));
-  const eventInPast = eventDateMs < Date.now();
   const pctSold = totalCapacity > 0 ? Math.min(100, Math.round((totalSold / totalCapacity) * 100)) : 0;
 
   const attendeesByOrder = new Map<string, AttendeeRow[]>();
@@ -490,6 +513,28 @@ const StudioEventEdit = () => {
             </Link>
           </div>
 
+          {/* Ended: kept read-only here; the figures and exports live in Sales. */}
+          {readOnly && (
+            <section className="bg-card border border-border p-4 md:p-5 mb-4 flex flex-col sm:flex-row sm:items-center gap-3" aria-labelledby="ended-heading">
+              <div className="flex items-start gap-3 flex-1 min-w-0">
+                <Lock className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
+                <div>
+                  <h2 id="ended-heading" className="text-sm font-bold">This event has ended</h2>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    It is kept read-only: ticket tiers and prices can no longer be changed and no new ticket can be sold. Its sales and exports are in Sales.
+                  </p>
+                </div>
+              </div>
+              <Link
+                to={`/studio/sales/${event.id}`}
+                className="inline-flex items-center justify-center gap-2 px-4 min-h-[44px] font-bold text-sm bg-primary text-primary-foreground hover:bg-primary-hover transition-colors shrink-0"
+              >
+                View sales
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            </section>
+          )}
+
           {/* Header — same language as the dashboard's "next up" hero: the event's
               own color and banner, display font, square edges, 44px actions. */}
           {(() => {
@@ -527,6 +572,7 @@ const StudioEventEdit = () => {
                     <EventStatusBadge
                       status={event.status}
                       date={event.date}
+                      endsAt={event.ends_at}
                       soldOut={totalCapacity > 0 && totalSold >= totalCapacity}
                       size="sm"
                       className="shrink-0"
@@ -534,7 +580,7 @@ const StudioEventEdit = () => {
                   </div>
 
                   <div className="mt-6 grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
-                    {event.status !== "published" && (
+                    {!readOnly && event.status !== "published" && (
                       <button onClick={publish} disabled={saving} className={`${btnPrimary} col-span-2 sm:col-span-1`}>
                         <Eye className="w-4 h-4" />
                         Publish
@@ -546,13 +592,13 @@ const StudioEventEdit = () => {
                         <ExternalLink className="w-3.5 h-3.5" />
                       </a>
                     )}
-                    {event.status === "published" && (
+                    {!readOnly && event.status === "published" && (
                       <button onClick={unpublish} disabled={saving} className={btnGhost}>
                         <EyeOff className="w-4 h-4" />
                         Unpublish
                       </button>
                     )}
-                    {event.status !== "cancelled" && (
+                    {!readOnly && event.status !== "cancelled" && (
                       <button
                         onClick={openCancelDialog}
                         disabled={saving}
@@ -573,7 +619,7 @@ const StudioEventEdit = () => {
               first. The whole link row is the Copy button (big tap target,
               small on screen); the phone's share sheet sits beside it when
               there is one. A light wash of the brand blue, nothing louder. */}
-          {event.status === "published" && event.slug && (() => {
+          {!readOnly && event.status === "published" && event.slug && (() => {
             const shareUrl = `https://ticket-safe.eu/e/${event.slug}`;
             const shortUrl = shareUrl.replace(/^https?:\/\//, "");
             const canNativeShare = typeof navigator !== "undefined" && "share" in navigator;
@@ -637,7 +683,7 @@ const StudioEventEdit = () => {
 
           {/* Promoter links — their own card, right under the main link: one link per promoter
               to the same page, with the visits and sales each one brought. */}
-          {event.status === "published" && event.slug && (
+          {!readOnly && event.status === "published" && event.slug && (
             <PromoterLinksPanel eventId={event.id} slug={event.slug} userId={user?.id ?? null} />
           )}
 
@@ -668,7 +714,7 @@ const StudioEventEdit = () => {
             />
             <Highlight
               icon={Calendar}
-              label={eventInPast ? "Event passed" : daysToGo === 0 ? "Today" : `${daysToGo}d to go`}
+              label={readOnly ? "Event ended" : phase === "live" ? "On now" : daysToGo === 0 ? "Today" : `${daysToGo}d to go`}
               value={new Date(event.date).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
               sub={new Date(event.date).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
               accent="amber"
@@ -736,9 +782,11 @@ const StudioEventEdit = () => {
 
           {/* Guestlists — high on the page: organizers add names and check
               people in from here, mostly on a phone. */}
-          <div className="mb-6">
-            <GuestlistsPanel eventId={event.id} />
-          </div>
+          {!readOnly && (
+            <div className="mb-6">
+              <GuestlistsPanel eventId={event.id} />
+            </div>
+          )}
 
           {/* Event statistics — one consolidated, detailed table: overview,
               ticket types (with check-in rate), tables, promo codes,
@@ -894,9 +942,10 @@ const StudioEventEdit = () => {
             );
           })()}
 
-          <GroupLabel>Setup</GroupLabel>
+          <GroupLabel>{readOnly ? "Tickets" : "Setup"}</GroupLabel>
 
           {/* Editable event details (draft only) */}
+          {!readOnly && (
           <EventDetailsEditor
             event={event}
             onSaved={(patch) => setEvent({ ...event, ...patch })}
@@ -907,12 +956,13 @@ const StudioEventEdit = () => {
             priceFromEuros={tiers.length ? Math.min(...tiers.map((t) => t.price_cents)) / 100 : null}
             currency={tiers[0]?.currency}
           />
+          )}
 
           {/* Published events get a narrower editor instead — description,
               banner, location only. Title/date/price/tiers are locked once
               tickets are on sale (see restrict_published_event_updates()
               trigger for the server-side enforcement of the same limits). */}
-          {event.status === "published" && (
+          {!readOnly && event.status === "published" && (
             <LiveEventDetailsEditor
               event={event}
               onSaved={(patch) => setEvent({ ...event, ...patch })}
@@ -920,21 +970,41 @@ const StudioEventEdit = () => {
             />
           )}
 
-          {/* Tiers manager */}
+          {/* Tiers manager; a read-only list once the event has ended */}
           <section className="bg-card border border-border rounded-2xl p-5 md:p-6 mb-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold">Ticket tiers</h2>
-              <button
-                onClick={addTier}
-                className="inline-flex items-center gap-1.5 text-sm font-bold text-primary hover:underline"
-              >
-                <Plus className="w-4 h-4" />
-                Add tier
-              </button>
+              {!readOnly && (
+                <button
+                  onClick={addTier}
+                  className="inline-flex items-center gap-1.5 text-sm font-bold text-primary hover:underline"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add tier
+                </button>
+              )}
             </div>
 
             {tiers.filter((t) => t.source !== "external").length === 0 ? (
-              <p className="text-sm text-muted-foreground">No tiers yet. Add at least one before publishing.</p>
+              <p className="text-sm text-muted-foreground">
+                {readOnly ? "This event had no ticket tiers." : "No tiers yet. Add at least one before publishing."}
+              </p>
+            ) : readOnly ? (
+              <ul className="border border-border divide-y divide-border">
+                {tiers.filter((t) => t.source !== "external").map((t) => (
+                  <li key={t.id} className="flex items-center gap-3 px-4 py-3 min-h-[44px] text-sm">
+                    <span className="flex-1 min-w-0 truncate font-semibold">
+                      {t.name}
+                      {t.kind === "table" && <span className="font-normal text-muted-foreground"> (table)</span>}
+                      {!t.is_active && <span className="ml-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">inactive</span>}
+                    </span>
+                    <span className="shrink-0 tabular-nums text-muted-foreground">{t.sold_qty} / {t.total_qty} sold</span>
+                    <span className="w-20 shrink-0 text-right tabular-nums font-bold">
+                      {fmtMoney(t.price_cents, t.currency ?? event.currency, t.price_cents % 100 === 0 ? 0 : 2)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
             ) : (
               <div className="space-y-3">
                 {/* External (imported) tiers are managed in the External tickets
@@ -954,26 +1024,28 @@ const StudioEventEdit = () => {
 
           {/* External ticket import — partner/nightclub allocations resold via
               Ticket Safe. Lives attached to this event. */}
-          <ExternalTicketsSection
-            eventId={event.id}
-            eventPublished={event.status === "published"}
-            onChanged={load}
-          />
+          {!readOnly && (
+            <ExternalTicketsSection
+              eventId={event.id}
+              eventPublished={event.status === "published"}
+              onChanged={load}
+            />
+          )}
 
           {/* Per-buyer limit — editable at any status (only affects new purchases) */}
-          <PerBuyerLimitControl event={event} onSaved={(patch) => setEvent({ ...event, ...patch })} />
+          {!readOnly && <PerBuyerLimitControl event={event} onSaved={(patch) => setEvent({ ...event, ...patch })} />}
 
           {/* Social sharing — per-event OG image + meta description so the
               link preview when a BDE drops the URL in WhatsApp / Instagram /
               email reads as intentional rather than generic. */}
-          <SocialSharingControl event={event} onSaved={(patch) => setEvent({ ...event, ...patch })} />
+          {!readOnly && <SocialSharingControl event={event} onSaved={(patch) => setEvent({ ...event, ...patch })} />}
 
           <GroupLabel>Sales</GroupLabel>
 
           {/* Which rail buyers pay through. Stripe for every event; events created
               before the switch may still sit on the legacy Revolut checkout and can
               be moved here. */}
-          <PaymentRailControl event={event} onSaved={(patch) => setEvent({ ...event, ...patch })} />
+          {!readOnly && <PaymentRailControl event={event} onSaved={(patch) => setEvent({ ...event, ...patch })} />}
 
           {/* Buyers — every order, with the named attendees that order issued */}
           <section className="bg-card border border-border rounded-2xl p-5 md:p-6">
@@ -1097,13 +1169,17 @@ const StudioEventEdit = () => {
             )}
           </section>
 
-          <PromoCodesPanel eventId={event.id} />
+          {!readOnly && <PromoCodesPanel eventId={event.id} />}
 
-          <GroupLabel>Door & access</GroupLabel>
+          {!readOnly && (
+            <>
+              <GroupLabel>Door & access</GroupLabel>
 
-          {/* Door-scan access for staff/volunteers — no login needed, see
-              src/components/studio/ScanStaffPanel.tsx */}
-          <ScanStaffPanel eventId={event.id} />
+              {/* Door-scan access for staff/volunteers — no login needed, see
+                  src/components/studio/ScanStaffPanel.tsx */}
+              <ScanStaffPanel eventId={event.id} />
+            </>
+          )}
       </div>
 
       {/* Cancel-event confirmation dialog. Surfaces the real impact (buyer

@@ -33,6 +33,8 @@ export interface EventStatementPdfData {
   studioEventUrl: string;
   /** TicketSafe's legal identity line for the footer. */
   footer: string;
+  /** The VAT note printed above the legal identity on every page (STATEMENT_VAT_LINE). */
+  vatLine: string;
 }
 
 const x = (mm: number) => mm * MM;
@@ -240,6 +242,7 @@ export async function generateEventStatementPdf(d: EventStatementPdfData): Promi
     label: "FINANCIAL STATEMENT",
     number: `v${d.version}`,
     footer: d.footer,
+    footerNote: d.vatLine,
     logoPng: brandIconPng(),
   });
 }

@@ -4,10 +4,8 @@ import {
   Search,
   Ticket,
   ArrowRight,
-  Sparkles,
   Building2,
   Check,
-  Lock,
   Repeat2,
   MousePointerClick,
   CreditCard,
@@ -17,7 +15,6 @@ import {
   MapPin,
   LocateFixed,
   Loader2,
-  Flame,
 } from "lucide-react";
 import HeaderNight from "@/components/HeaderNight";
 import Footer from "@/components/Footer";
@@ -33,7 +30,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useRecommendations } from "@/hooks/useRecommendations";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { fetchPublishedEvents, toEventData, type PublishedEvent } from "@/lib/publishedEvents";
 
@@ -127,9 +123,8 @@ function useNearCity(userId: string | undefined) {
   return { city, source, locating, locate, choose };
 }
 
-const DAY_MS = 86_400_000;
-const daysFromNow = (iso: string) => Math.ceil((new Date(iso).getTime() - Date.now()) / DAY_MS);
-
+// Every event is listed exactly once, in the one grid below: closest city first, then soonest
+// first, so what is happening soon is at the top without a rail of its own repeating it.
 const Tickets = () => {
   useThemeMode("night");
   const navigate = useNavigate();
@@ -156,11 +151,6 @@ const Tickets = () => {
   }, [allEvents]);
   const activeOrg = organizations.find((o) => o.id === selectedOrg) ?? null;
   const [loading, setLoading] = useState(true);
-
-  // Personalised event recommendations when the viewer has past purchases.
-  // The hook's row type is narrower than PublishedEvent in name only; the fields it reads are all there.
-  const { recommended: recommendedRaw, reason } = useRecommendations(allEvents as unknown as Parameters<typeof useRecommendations>[0], user?.id, 4);
-  const recommended = recommendedRaw as unknown as PublishedEvent[];
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -204,15 +194,6 @@ const Tickets = () => {
 
   const nearCount = useMemo(() => filteredEvents.filter(isNear).length, [filteredEvents, isNear]);
   const firstFar = useMemo(() => filteredEvents.findIndex((e) => !isNear(e)), [filteredEvents, isNear]);
-
-  // The next seven days, soonest first, for the rail at the top.
-  const soon = useMemo(
-    () => [...allEvents].filter((e) => { const d = daysFromNow(e.date); return d >= 0 && d <= 7; }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).slice(0, 8),
-    [allEvents],
-  );
-  const thisWeekCount = useMemo(() => allEvents.filter((e) => { const d = daysFromNow(e.date); return d >= 0 && d <= 7; }).length, [allEvents]);
-  const tonightCount = useMemo(() => allEvents.filter((e) => daysFromNow(e.date) === 0).length, [allEvents]);
-  const showReco = recommended.length > 0 && reason === "personalized" && query.trim() === "" && category === "all" && !selectedOrg;
 
   const chip = "shrink-0 inline-flex items-center gap-1.5 px-3.5 min-h-[40px] text-xs font-semibold border transition-colors";
 
@@ -339,33 +320,7 @@ const Tickets = () => {
           </div>
         </section>
 
-        {/* ===================== HAPPENING SOON — next 7 days, swipeable ===================== */}
-        {!loading && soon.length > 0 && query.trim() === "" && category === "all" && !selectedOrg && (
-          <section className="pt-6 md:pt-8">
-            <div className="container mx-auto px-4">
-              <div className="flex items-end justify-between gap-3 mb-3">
-                <div className="flex items-center gap-2.5">
-                  <span className="w-9 h-9 rounded-xl bg-primary/15 text-primary flex items-center justify-center"><Flame className="w-4 h-4" /></span>
-                  <div>
-                    <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-foreground/70">Happening soon</div>
-                    <div className="text-sm font-semibold">{tonightCount > 0 ? `${tonightCount} tonight, ${thisWeekCount} within the week` : "The next seven days"}</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="ts-chips flex gap-3 overflow-x-auto snap-x snap-mandatory px-4 pb-2 md:[&>*]:w-64 [&>*]:w-56">
-              {soon.map((e, i) => (
-                <div key={`soon-${e.id}`} className="snap-start shrink-0 animate-in fade-in slide-in-from-right-4 fill-mode-both" style={{ animationDelay: `${i * 60}ms` }}>
-                  <div className="rounded-lg transition-transform duration-300 hover:-translate-y-1 hover:shadow-[0_24px_50px_-20px_hsl(var(--primary)/0.7)]">
-                    <EventCardShared event={toEventData(e)} onClick={() => navigate(`/e/${e.slug}`)} />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* ===================== EVENTS GRID ===================== */}
+        {/* ===================== EVENTS GRID — each event once ===================== */}
         <section className="py-6 md:py-10">
           <div className="container mx-auto px-4">
             {loading ? (
@@ -376,27 +331,6 @@ const Tickets = () => {
               <EmptyState query={query} category={category} hasAnyEvent={allEvents.length > 0} />
             ) : (
               <>
-                {showReco && (
-                  <div className="mb-8">
-                    <div className="flex items-center gap-2.5 mb-4">
-                      <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-primary/15"><Sparkles className="w-4 h-4 text-primary" /></div>
-                      <div>
-                        <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-foreground/70">Picked for you</div>
-                        <div className="text-sm font-semibold">Based on what you've been to before</div>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
-                      {recommended.slice(0, 4).map((e, i) => (
-                        <div key={`reco-${e.id}`} className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both" style={{ animationDelay: `${i * 50}ms` }}>
-                          <div className="rounded-lg transition-transform duration-300 hover:-translate-y-1 hover:shadow-[0_24px_50px_-20px_hsl(var(--primary)/0.7)]">
-                            <EventCardShared event={toEventData(e)} onClick={() => navigate(`/e/${e.slug}`)} />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
                 <div className="flex items-center gap-3 mb-4">
                   <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-foreground/70">
                     {nearCity && nearCount > 0 ? `Near ${nearCity.label} · ${nearCount}` : `All events · ${filteredEvents.length}`}
@@ -482,16 +416,6 @@ const Tickets = () => {
                 Go to resale
                 <ArrowRight className="w-4 h-4" />
               </Link>
-            </div>
-          </div>
-        </section>
-
-        {/* ===================== COMING SOON ===================== */}
-        <section className="py-8 bg-muted/30 border-y border-border">
-          <div className="container mx-auto px-4 text-center">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-card border border-border text-xs font-semibold text-muted-foreground">
-              <Lock className="w-3 h-3" />
-              More organisers coming soon
             </div>
           </div>
         </section>
