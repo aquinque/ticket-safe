@@ -17,8 +17,9 @@ export type EventStatus = "draft" | "published" | "cancelled" | "sold_out" | nul
 export type EventStatusKind = "live" | "draft" | "soldout" | "ended" | "cancelled";
 
 /**
- * Cancelled first, then sold out (the stored status, or a published event the
- * caller found full), then ended, then live; anything else is a draft.
+ * Cancelled first, then ended (an event that is over is no longer selling,
+ * whatever its stock), then sold out (the stored status, or a published event
+ * the caller found full), then live; anything else is a draft.
  * Without a readable date an event is never "ended".
  */
 export function deriveEventStatusKind(
@@ -29,8 +30,9 @@ export function deriveEventStatusKind(
   now: Date = new Date(),
 ): EventStatusKind {
   if (status === "cancelled") return "cancelled";
+  const onSale = status === "published" || status === "sold_out";
+  if (onSale && isPastEvent({ date, ends_at: endsAt }, now)) return "ended";
   if (status === "sold_out" || (status === "published" && soldOut)) return "soldout";
-  if (status === "published" && isPastEvent({ date, ends_at: endsAt }, now)) return "ended";
   if (status === "published") return "live";
   return "draft";
 }

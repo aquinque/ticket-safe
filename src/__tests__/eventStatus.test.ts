@@ -60,7 +60,12 @@ describe("deriveEventStatusKind: draft, cancelled and sold out keep their meanin
 
   it("sold out: the stored status, or a published event the caller found full", () => {
     expect(deriveEventStatusKind("sold_out", ahead(DAY), false, null, now)).toBe("soldout");
-    expect(deriveEventStatusKind("sold_out", ago(2 * DAY), false, ago(DAY), now)).toBe("soldout");
+    expect(deriveEventStatusKind("sold_out", ahead(DAY), false, ahead(DAY + 3 * 3_600_000), now)).toBe("soldout");
+  });
+
+  it("ended wins over sold out: an event that is over is no longer selling, whatever its stock", () => {
+    expect(deriveEventStatusKind("sold_out", ago(2 * DAY), false, ago(DAY), now)).toBe("ended");
+    expect(deriveEventStatusKind("published", ago(2 * DAY), true, ago(DAY), now)).toBe("ended");
     expect(deriveEventStatusKind("published", ahead(DAY), true, null, now)).toBe("soldout");
     expect(deriveEventStatusKind("draft", ahead(DAY), true, null, now)).toBe("draft");
   });
