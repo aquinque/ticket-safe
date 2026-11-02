@@ -218,7 +218,7 @@ const StudioSales = () => {
                             {event.title || "Untitled event"}
                           </Link>
                           <div className="mt-1">
-                            <EventStatusBadge status={event.status as EventStatus} date={event.date} size="sm" />
+                            <EventStatusBadge status={event.status as EventStatus} date={event.date} endsAt={event.ends_at} size="sm" />
                           </div>
                         </td>
                         <td className="px-4 py-3 align-top text-muted-foreground whitespace-nowrap tabular-nums">
@@ -250,7 +250,7 @@ const StudioSales = () => {
                           {event.date ? `${fmtDate(event.date)} ${fmtTime(event.date)}` : "—"}
                         </div>
                       </div>
-                      <EventStatusBadge status={event.status as EventStatus} date={event.date} size="sm" className="shrink-0" />
+                      <EventStatusBadge status={event.status as EventStatus} date={event.date} endsAt={event.ends_at} size="sm" className="shrink-0" />
                     </div>
                     <dl className="grid grid-cols-3 gap-2 mt-2 text-xs">
                       <div>

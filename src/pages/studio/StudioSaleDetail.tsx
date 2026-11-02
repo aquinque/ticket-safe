@@ -20,7 +20,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useOrganizer } from "@/hooks/useOrganizer";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { supabase } from "@/integrations/supabase/client";
-import { eventPhase } from "@/lib/eventTime";
+import { isArchivedEvent } from "@/lib/eventStatus";
 import { fmtDate, fmtDay, fmtMoney, fmtTime } from "@/lib/studioFormat";
 import {
   buildOrderViews,
@@ -78,6 +78,21 @@ const OrderStatusBadge = ({ status }: { status: OrderStatusLabel }) => (
 
 const checkInText = (checkIns: { scanned: number; total: number }) => (checkIns.scanned > 0 ? `${checkIns.scanned} / ${checkIns.total}` : "—");
 
+/** Every row of a query, page by page: the API answers at most 1000 rows per request. */
+async function readPages(page: (from: number, to: number) => PromiseLike<{ data: unknown; error: unknown }>): Promise<{ data: unknown[]; error: unknown }> {
+  const rows: unknown[] = [];
+  const size = 1000;
+  // At most 100 pages (100,000 rows): a guard against a runaway loop, far beyond any event.
+  for (let from = 0; from < 100 * size; from += size) {
+    const { data, error } = await page(from, from + size - 1);
+    if (error) return { data: rows, error };
+    const batch = (data ?? []) as unknown[];
+    rows.push(...batch);
+    if (batch.length === 0) break;
+  }
+  return { data: rows, error: null };
+}
+
 const StudioSaleDetail = () => {
   useThemeMode("studio");
   const { id } = useParams<{ id: string }>();
@@ -115,7 +130,7 @@ const StudioSaleDetail = () => {
         return;
       }
       setEvent(ev as EventDetailRow);
-      if (eventPhase(ev) !== "past") {
+      if (!isArchivedEvent(ev)) {
         // Still upcoming or live: the render sends it back to /studio/events/:id.
         setState("ready");
         return;
@@ -123,18 +138,23 @@ const StudioSaleDetail = () => {
       const [summaryRes, tiersRes, ordersRes, ticketsRes, statementRes] = await Promise.all([
         supabase.rpc("studio_event_sales_summary", { p_organizer_id: ownerId }),
         supabase.from("event_tiers").select("id, name, price_cents, currency").eq("event_id", eventId).order("sort_order", { ascending: true }),
-        supabase
-          .from("event_orders")
-          .select("id, buyer_id, buyer_email, attendees, quantity, unit_price_cents, total_cents, fee_cents, discount_cents, currency, tier_id, status, paid_at, created_at, refunded_at")
-          .eq("event_id", eventId)
-          .in("status", ["paid", "refunded"])
-          .order("created_at", { ascending: false })
-          .limit(2000),
-        supabase
-          .from("event_tickets")
-          .select("id, order_id, tier_id, buyer_id, holder_first_name, holder_last_name, holder_email, status, scanned_at, created_at")
-          .eq("event_id", eventId)
-          .limit(5000),
+        readPages((from, to) =>
+          supabase
+            .from("event_orders")
+            .select("id, buyer_id, buyer_email, attendees, quantity, unit_price_cents, total_cents, fee_cents, discount_cents, currency, tier_id, status, paid_at, created_at, refunded_at")
+            .eq("event_id", eventId)
+            .in("status", ["paid", "refunded"])
+            .order("created_at", { ascending: false })
+            .order("id", { ascending: true })
+            .range(from, to)),
+        readPages((from, to) =>
+          supabase
+            .from("event_tickets")
+            .select("id, order_id, tier_id, buyer_id, holder_first_name, holder_last_name, holder_email, status, scanned_at, created_at")
+            .eq("event_id", eventId)
+            .order("created_at", { ascending: true })
+            .order("id", { ascending: true })
+            .range(from, to)),
         supabase.from("event_statements").select("id").eq("event_id", eventId).limit(1),
       ]);
       if (summaryRes.error) throw summaryRes.error;
@@ -236,7 +256,7 @@ const StudioSaleDetail = () => {
   }
 
   // Not over yet: it is still managed from Events.
-  if (eventPhase(event) !== "past") return <Navigate to={`/studio/events/${event.id}`} replace />;
+  if (!isArchivedEvent(event)) return <Navigate to={`/studio/events/${event.id}`} replace />;
 
   const figures = summary ?? emptySummary(event.id);
   const currency = event.currency;
@@ -262,7 +282,7 @@ const StudioSaleDetail = () => {
             <h1 className="font-display text-2xl md:text-3xl font-bold leading-tight text-balance">{title}</h1>
             <p className="text-sm text-muted-foreground mt-1">{whenWhere}</p>
             <div className="mt-2">
-              <EventStatusBadge status={event.status as EventStatus} date={event.date} />
+              <EventStatusBadge status={event.status as EventStatus} date={event.date} endsAt={event.ends_at} />
             </div>
           </div>
           <SalesExportMenu variant="buttons" event={event} hasStatement={hasStatement} onStatementGenerated={() => setHasStatement(true)} />

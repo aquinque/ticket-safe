@@ -65,9 +65,9 @@ export function emptySummary(eventId: string): SalesSummaryRow {
 /** The instant an event is filed under: its start, or its end when it has no readable start. */
 const filedAt = (event: EventTimeFields): number => eventStart(event)?.getTime() ?? eventEnd(event)?.getTime() ?? 0;
 
-/** The events that have ended (isPastEvent), newest first. */
-export function pastEventsNewestFirst<T extends EventTimeFields>(events: T[], now: Date = new Date()): T[] {
-  return events.filter((event) => isPastEvent(event, now)).sort((a, b) => filedAt(b) - filedAt(a));
+/** The events that have ended (isPastEvent) and were not drafts, newest first. */
+export function pastEventsNewestFirst<T extends EventTimeFields & { status?: string | null }>(events: T[], now: Date = new Date()): T[] {
+  return events.filter((event) => event.status !== "draft" && isPastEvent(event, now)).sort((a, b) => filedAt(b) - filedAt(a));
 }
 
 /** Pairs past events with their summary row (zeros without one) and their statement flag, keeping the order given. */

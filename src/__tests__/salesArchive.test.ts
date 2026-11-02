@@ -82,11 +82,16 @@ describe("pastEventsNewestFirst", () => {
     expect(pastEventsNewestFirst([startedSevenHoursAgo, startedNineHoursAgo], NOW).map((e) => e.id)).toEqual(["over"]);
   });
 
-  it("lists the newest first, whatever the status", () => {
+  it("lists the newest first, cancelled events included", () => {
     const old = event({ id: "old", date: "2026-10-01T20:00:00Z", status: "cancelled" });
-    const recent = event({ id: "recent", date: "2026-11-01T20:00:00Z", status: "draft" });
+    const recent = event({ id: "recent", date: "2026-11-01T20:00:00Z" });
     const mid = event({ id: "mid", date: "2026-10-15T20:00:00Z" });
     expect(pastEventsNewestFirst([old, recent, mid], NOW).map((e) => e.id)).toEqual(["recent", "mid", "old"]);
+  });
+
+  it("leaves out a draft whose date has passed: it was never on sale and stays in Events to be re-dated", () => {
+    const draft = event({ id: "draft", date: "2026-11-01T20:00:00Z", status: "draft" });
+    expect(pastEventsNewestFirst([draft], NOW)).toEqual([]);
   });
 
   it("never archives an event whose date cannot be read", () => {

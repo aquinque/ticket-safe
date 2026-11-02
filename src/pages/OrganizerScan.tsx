@@ -182,8 +182,9 @@ const OrganizerScan = () => {
   useEffect(() => {
     if (!user) return;
     (async () => {
-      // Coarse window in SQL (two days back); the exact door rule is applied below.
+      // Coarse window in SQL (started in the last two days, or ending later than that); the exact door rule is applied below.
       const cutoffISO = new Date(Date.now() - 2 * DAY_MS).toISOString();
+      const windowFilter = `date.gte.${cutoffISO},ends_at.gte.${cutoffISO}`;
 
       // Studio events owned by the current user (their organizer profile)
       const { data: studioOrg } = await supabase
@@ -198,7 +199,7 @@ const OrganizerScan = () => {
             .select("id, title, date, ends_at, location")
             .eq("organizer_id", studioOrg.id)
             .in("status", ["published", "sold_out"])
-            .gte("date", cutoffISO)
+            .or(windowFilter)
             .order("date", { ascending: true })
         : Promise.resolve({ data: [] as Event[] });
 
@@ -207,7 +208,7 @@ const OrganizerScan = () => {
         .from("events")
         .select("id, title, date, ends_at, location")
         .eq("is_active", true)
-        .gte("date", cutoffISO)
+        .or(windowFilter)
         .order("date", { ascending: true });
 
       const [studioRes, catalogRes] = await Promise.all([studioPromise, catalogPromise]);

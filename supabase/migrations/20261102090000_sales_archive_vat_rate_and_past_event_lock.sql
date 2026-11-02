@@ -9,8 +9,8 @@
 --    phase (upcoming / live / past) is computed wherever it is read, from the same two columns.
 -- 2. events.vat_rate: nullable, not shown in the UI yet. TicketSafe's own service fees carry
 --    no VAT (art. 293 B CGI); the VAT treatment of ticket revenue is the organizer's.
--- 3. Ticket tiers of an ended event are read-only for organizers (BEFORE INSERT OR UPDATE
---    trigger, same shape as restrict_published_event_updates). The service role (edge
+-- 3. Ticket tiers of an ended (non-draft) event are read-only for organizers (BEFORE INSERT,
+--    UPDATE OR DELETE trigger, same shape as restrict_published_event_updates). The service role (edge
 --    functions: refunds, releases, inventory) and admins keep working after the event.
 -- 4. public.studio_event_sales_summary(organizer): one row per event with tickets sold,
 --    capacity, gross, fees, net, refunds, check-ins and a payout status, for the Sales archive
@@ -51,32 +51,33 @@ language plpgsql
 security definer
 set search_path = public
 as $$
-declare
-  v_end timestamptz;
 begin
   if auth.role() is null or auth.role() = 'service_role' then
-    return new;
+    return coalesce(new, old);
   end if;
 
   if exists (select 1 from public.user_roles where user_id = auth.uid() and role = 'admin') then
-    return new;
+    return coalesce(new, old);
   end if;
 
-  select public.event_end(e.date, e.ends_at) into v_end
-  from public.events e
-  where e.id = new.event_id;
-
-  if v_end is not null and v_end <= now() then
+  -- The event the tier belongs to, before and after the change (a tier cannot be moved out of, or into,
+  -- an ended event either). A draft is never locked: it was never on sale and can still be re-dated.
+  if exists (
+    select 1 from public.events e
+    where e.id in (case when tg_op <> 'INSERT' then old.event_id end, case when tg_op <> 'DELETE' then new.event_id end)
+      and e.status is distinct from 'draft'
+      and public.event_end(e.date, e.ends_at) <= now()
+  ) then
     raise exception 'This event has ended: its ticket tiers are read-only.'
       using errcode = '42501';
   end if;
 
-  return new;
+  return coalesce(new, old);
 end;
 $$;
 
 create or replace trigger trg_restrict_past_event_tier_changes
-  before insert or update on public.event_tiers
+  before insert or update or delete on public.event_tiers
   for each row execute function public.restrict_past_event_tier_changes();
 
 -- Fired by the trigger only; not callable through the API.

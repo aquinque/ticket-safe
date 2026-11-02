@@ -43,13 +43,15 @@ interface PageResult {
 /** Every row of a query, read in pages of PAGE_SIZE; the query must carry a stable order for the pages to tile. */
 async function readAll<T>(page: (from: number, to: number) => PromiseLike<PageResult>): Promise<T[]> {
   const rows: T[] = [];
-  for (let from = 0; ; from += PAGE_SIZE) {
+  // At most 100 pages: a guard against a runaway loop, far beyond any event.
+  for (let from = 0; from < 100 * PAGE_SIZE; from += PAGE_SIZE) {
     const { data, error } = await page(from, from + PAGE_SIZE - 1);
     if (error) throw new Error(error.message);
     const batch = (data ?? []) as T[];
     rows.push(...batch);
-    if (batch.length < PAGE_SIZE) return rows;
+    if (batch.length === 0) break;
   }
+  return rows;
 }
 
 serve(async (req) => {

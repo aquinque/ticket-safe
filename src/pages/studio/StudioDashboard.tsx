@@ -29,6 +29,7 @@ import { supabase } from "@/integrations/supabase/client";
 import EventStatusBadge from "@/components/studio/EventStatusBadge";
 import { DAY_MS, startOfDay, eur, fmtMoney, plural, phaseOf, whenLabel, relativeTime, fmtDay } from "@/lib/studioFormat";
 import { eventPhase } from "@/lib/eventTime";
+import { isArchivedEvent } from "@/lib/eventStatus";
 import { CURRENCIES, toCurrency, type Currency } from "@/lib/money";
 
 /**
@@ -146,7 +147,7 @@ const StudioDashboard = () => {
       // Past events have moved to Sales: the dashboard is about what is current.
       type Loaded = Omit<StudioEvent, "currency" | "sold_count" | "total_capacity" | "revenue_cents" | "price_from_cents">;
       const now = new Date();
-      const currentRows = ((evRows ?? []) as Loaded[]).filter((e) => eventPhase(e, now) !== "past");
+      const currentRows = ((evRows ?? []) as Loaded[]).filter((e) => !isArchivedEvent(e, now));
       setPastCount((evRows ?? []).length - currentRows.length);
       const ids = currentRows.map((e) => e.id);
       // The event's currency comes from its tiers (event_tiers.currency always

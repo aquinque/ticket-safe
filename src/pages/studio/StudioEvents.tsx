@@ -23,6 +23,7 @@ import { FilterChips } from "@/components/studio/FilterChips";
 import { toCurrency } from "@/lib/money";
 import { fmtMoney, plural, whenLabel, relativeTime, DAY_MS } from "@/lib/studioFormat";
 import { eventPhase } from "@/lib/eventTime";
+import { isArchivedEvent } from "@/lib/eventStatus";
 
 interface Activity { sold7: number; sold14: number; lastSale: string | null }
 
@@ -90,7 +91,7 @@ const StudioEvents = () => {
     // Past events have moved to Sales: only current ones are managed here.
     type Loaded = Omit<EventRow, "currency" | "sold_count" | "total_capacity" | "revenue_cents">;
     const now = new Date();
-    const currentRows = ((evRows ?? []) as Loaded[]).filter((e) => eventPhase(e, now) !== "past");
+    const currentRows = ((evRows ?? []) as Loaded[]).filter((e) => !isArchivedEvent(e, now));
     setPastCount((evRows ?? []).length - currentRows.length);
     const ids = currentRows.map((e) => e.id);
     // The event's currency comes from its tiers (event_tiers.currency always

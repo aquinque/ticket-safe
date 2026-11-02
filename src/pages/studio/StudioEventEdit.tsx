@@ -36,6 +36,7 @@ import { DESCRIPTION_FONTS, descriptionFontFamily } from "@/lib/descriptionFonts
 import { currencySymbol } from "@/lib/money";
 import { fmtMoney } from "@/lib/studioFormat";
 import { eventPhase } from "@/lib/eventTime";
+import { isArchivedEvent } from "@/lib/eventStatus";
 import { ImageCropDialog } from "@/components/ImageCropDialog";
 import { PromoVideo } from "@/components/PromoVideo";
 import { SEOHead } from "@/components/SEOHead";
@@ -216,7 +217,7 @@ const StudioEventEdit = () => {
   // Ended by the product's end-of-event rule (ends_at, or the start plus 8 h):
   // the event is then kept read-only here; its sales and exports are in Sales.
   const phase = event ? eventPhase({ date: event.date, ends_at: event.ends_at }) : "upcoming";
-  const readOnly = phase === "past";
+  const readOnly = !!event && isArchivedEvent(event);
   const [tiers, setTiers] = useState<TierRow[]>([]);
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [attendees, setAttendees] = useState<AttendeeRow[]>([]);

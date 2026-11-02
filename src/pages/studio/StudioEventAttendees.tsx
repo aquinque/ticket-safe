@@ -280,7 +280,7 @@ const StudioEventAttendees = () => {
       <SEOHead title={`Attendees · ${event.title} · Studio`} description={`Attendee list for ${event.title}.`} />
 
       <div className="p-4 md:p-6 max-w-5xl mx-auto">
-        {(() => { const phase = phaseOf(event.date); const doorDay = eventPhase({ date: event.date, ends_at: event.ends_at }) !== "upcoming"; return (
+        {(() => { const phase = phaseOf(event.date); const doorDay = phase === "today" || eventPhase({ date: event.date, ends_at: event.ends_at }) !== "upcoming"; return (
         <>
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-3 mb-5">
           <div className="min-w-0">

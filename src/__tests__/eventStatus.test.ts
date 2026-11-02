@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deriveEventStatusKind } from "../lib/eventStatus";
+import { deriveEventStatusKind, isArchivedEvent } from "../lib/eventStatus";
 
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
@@ -81,5 +81,15 @@ describe("deriveEventStatusKind: the previous call shape (no endsAt, no now) sti
     expect(deriveEventStatusKind("draft", new Date(realNow - 9 * HOUR).toISOString())).toBe("draft");
     expect(deriveEventStatusKind("cancelled")).toBe("cancelled");
     expect(deriveEventStatusKind("published")).toBe("live");
+  });
+});
+
+describe("isArchivedEvent", () => {
+  it("is an ended event that is not a draft", () => {
+    const now = new Date("2026-11-02T12:00:00Z");
+    expect(isArchivedEvent({ status: "published", date: "2026-10-01T20:00:00Z" }, now)).toBe(true);
+    expect(isArchivedEvent({ status: "cancelled", date: "2026-10-01T20:00:00Z" }, now)).toBe(true);
+    expect(isArchivedEvent({ status: "draft", date: "2026-10-01T20:00:00Z" }, now)).toBe(false);
+    expect(isArchivedEvent({ status: "published", date: "2026-11-02T08:00:00Z" }, now)).toBe(false);
   });
 });

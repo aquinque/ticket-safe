@@ -10,7 +10,15 @@
  *
  * Pure (no JSX): EventStatusBadge re-exports it, and the tests import it directly.
  */
-import { isPastEvent } from "@/lib/eventTime";
+import { isPastEvent, type EventTimeFields } from "@/lib/eventTime";
+
+/**
+ * An event that has moved to the Sales archive: it has ended (the shared end rule) and it is not a
+ * draft. A draft whose date has passed was never on sale; it stays in Events so it can be re-dated.
+ */
+export function isArchivedEvent(event: EventTimeFields & { status?: string | null }, now: Date = new Date()): boolean {
+  return event.status !== "draft" && isPastEvent(event, now);
+}
 
 export type EventStatus = "draft" | "published" | "cancelled" | "sold_out" | null | undefined;
 
