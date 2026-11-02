@@ -28,7 +28,7 @@ import { useCountUp } from "@/hooks/useCountUp";
 import { supabase } from "@/integrations/supabase/client";
 import EventStatusBadge from "@/components/studio/EventStatusBadge";
 import { DAY_MS, startOfDay, eur, fmtMoney, plural, phaseOf, whenLabel, relativeTime, fmtDay } from "@/lib/studioFormat";
-import { eventPhase } from "@/lib/eventTime";
+import { eventEnd, eventPhase } from "@/lib/eventTime";
 import { isArchivedEvent } from "@/lib/eventStatus";
 import { CURRENCIES, toCurrency, type Currency } from "@/lib/money";
 
@@ -251,6 +251,28 @@ const StudioDashboard = () => {
       supabase.removeChannel(channel);
     };
   }, [organizer, loadEvents, loadDailySales, events]);
+
+  // The list is filtered when it loads, so an event that ends while the page is open would stay here with an
+  // "Ended" badge. Reload at the next end instant (and when the organizer comes back to the tab) so it moves to
+  // Sales on time. Long waits are capped so the timer stays within what setTimeout accepts.
+  useEffect(() => {
+    const nowMs = Date.now();
+    const ends = events
+      .map((e) => eventEnd(e)?.getTime() ?? null)
+      .filter((t): t is number => t !== null && t > nowMs);
+    if (ends.length === 0) return;
+    const wait = Math.min(Math.min(...ends) - nowMs + 1000, 6 * 60 * 60 * 1000);
+    const timer = setTimeout(() => loadEvents(false), wait);
+    return () => clearTimeout(timer);
+  }, [events, loadEvents]);
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible") loadEvents(false);
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [loadEvents]);
 
   // Stripe payment account, for the to-do list.
   useEffect(() => {

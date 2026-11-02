@@ -229,7 +229,7 @@ export const PromoterLinksPanel = ({ eventId, slug, userId }: { eventId: string;
   };
 
   return (
-    <section className="bg-card border border-border mt-3" aria-labelledby="promoter-heading">
+    <section className="bg-card border border-border mb-6" aria-labelledby="promoter-heading">
       <div className="flex items-start justify-between gap-3 px-4 md:px-5 pt-4">
         <div className="min-w-0">
           <h2 id="promoter-heading" className="text-sm font-bold flex items-center gap-1.5">
@@ -321,18 +321,6 @@ export const PromoterLinksPanel = ({ eventId, slug, userId }: { eventId: string;
             </ul>
           )}
 
-          {stats && (
-            <div className="px-4 md:px-5 py-3 border-t border-border">
-              <div className="flex items-baseline justify-between gap-3 text-[13px]">
-                <span className="font-semibold">Main link and other sources</span>
-                <span className="shrink-0 tabular-nums">
-                  {plural(stats.other.tickets, "ticket")} · {money(stats.other.revenueCents)}
-                </span>
-              </div>
-              <p className="text-xs text-muted-foreground mt-0.5">Sales that did not come through a promoter link.</p>
-            </div>
-          )}
-
           {archived.length > 0 && (
             <div className="border-t border-border">
               <button
@@ -371,12 +359,6 @@ export const PromoterLinksPanel = ({ eventId, slug, userId }: { eventId: string;
           )}
         </>
       )}
-
-      <p className="px-4 md:px-5 py-3 border-t border-border text-[11px] leading-relaxed text-muted-foreground">
-        A visit is counted each time your page opens from a link; nothing is stored in the visitor's browser, and your own visits are not counted.
-        A sale belongs to a link when the buyer starts the checkout on a page opened from it. Revenue is the ticket price you receive,
-        without the service fee the buyer pays on top.
-      </p>
     </section>
   );
 };
