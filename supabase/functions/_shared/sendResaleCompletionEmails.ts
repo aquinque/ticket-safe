@@ -75,7 +75,7 @@ export async function sendResaleCompletionEmails(
 
   const { data: tx } = await supabase
     .from("transactions")
-    .select("id, buyer_id, seller_id, ticket_id, status, amount, fee_amount")
+    .select("id, buyer_id, seller_id, ticket_id, status, amount, fee_amount, commission_cents")
     .eq("id", transactionId)
     .maybeSingle();
   if (!tx) return { ok: false, sellerSent: false, buyerSent: false, buyerPremium: false, error: "transaction_not_found" };
@@ -110,7 +110,35 @@ export async function sendResaleCompletionEmails(
     const sellerName = ((sellerProfile as { full_name?: string } | null)?.full_name ?? sellerEmail?.split("@")[0] ?? "there").split(" ")[0];
 
     // ===== Seller "your ticket sold" =====
-    if (resendApiKey && sellerEmail) {
+    if (resendApiKey && sellerEmail && provider === "stripe") {
+      // Stripe resale: the money waits on Ticket Safe's account and is sent to
+      // the seller's bank after the event, minus the 5 % seller fee. They add
+      // their bank details once, on Stripe's page, from My listings.
+      const payout = netSeller - Number(tx.commission_cents ?? 0) / 100;
+      const { data: account } = await supabase.from("stripe_connect_accounts").select("payouts_enabled")
+        .eq("user_id", tx.seller_id).eq("owner_type", "reseller").maybeSingle();
+      const bankReady = !!(account as { payouts_enabled?: boolean } | null)?.payouts_enabled;
+      const next = bankReady
+        ? "We'll send it to your bank account automatically after the event. It usually arrives 2 to 3 working days later."
+        : "Add your bank details once, in 2 minutes, and we'll send it to you automatically after the event.";
+      const bodyHtml = `
+        <p style="margin:0 0 4px">Hi ${esc(sellerName)},</p>
+        <p style="margin:0 0 4px">Good news — your ticket for <strong>${esc(eventTitle)}</strong>${eventWhen ? ` (${esc(eventWhen)})` : ""} has just been bought on Ticket Safe.</p>
+        ${ticketSummary([["You'll receive", `€${payout.toFixed(2)}`, emailTokens.accent]])}
+        <p style="margin:0 0 24px;font-size:13px;color:${emailTokens.textMuted}">${next} (Sale price minus the 5% Ticket Safe fee.)</p>
+        ${ctaButton(bankReady ? "See my sales" : "Add my bank details", `${emailTokens.siteUrl}/settings/listings`)}
+      `;
+      const text = `Your ticket for ${eventTitle} has just been bought on Ticket Safe.\n\nYou'll receive: €${payout.toFixed(2)} (sale price minus the 5% Ticket Safe fee).\n${next}\n${emailTokens.siteUrl}/settings/listings`;
+      const { html } = renderEmail({
+        eyebrow: "Resale",
+        title: "Your ticket sold",
+        bodyHtml,
+        preheader: bankReady ? `€${payout.toFixed(2)} on its way after the event.` : `Add your bank details to get your €${payout.toFixed(2)}.`,
+        text,
+      });
+      await sendEmail(resendApiKey, sellerEmail, `Your ticket for ${eventTitle} sold — you'll receive €${payout.toFixed(2)}`, html, text);
+      sellerSent = true;
+    } else if (resendApiKey && sellerEmail) {
       const bodyHtml = `
         <p style="margin:0 0 4px">Hi ${esc(sellerName)},</p>
         <p style="margin:0 0 4px">Good news — your ticket for <strong>${esc(eventTitle)}</strong>${eventWhen ? ` (${esc(eventWhen)})` : ""} has just been bought on Ticket Safe.</p>

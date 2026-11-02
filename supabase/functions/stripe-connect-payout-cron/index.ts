@@ -102,6 +102,38 @@ async function nextSettlementIso(stripe: StripeClient, stripeAccountId: string):
   return new Date(nextSec * 1000).toISOString();
 }
 
+/**
+ * A seller's resale sales that are ready to pay: paid through Stripe (the
+ * money sits on the platform account; wallet-era Revolut sales stay in the
+ * wallet), not paid out yet, and whose event ended at least delayDays ago, so
+ * a fake or already-used ticket can still be refunded to the buyer first.
+ * The seller gets what the buyer paid, minus the buyer fee and the 5 % seller
+ * fee.
+ */
+async function maturedResaleSales(supabase: SupabaseClient, sellerId: string, delayDays: number) {
+  const { data } = await supabase
+    .from("transactions")
+    .select("id, amount, fee_amount, commission_cents, ticket:tickets(event:events(date, ends_at))")
+    .eq("seller_id", sellerId)
+    .eq("status", "completed")
+    .is("payout_job_id", null)
+    .like("stripe_checkout_session_id", "cs_%");
+  const cutoff = Date.now() - delayDays * 86_400_000;
+  const rows = ((data ?? []) as unknown as {
+    id: string; amount: number | string; fee_amount: number | string | null; commission_cents: number | null;
+    ticket: { event: { date: string | null; ends_at: string | null } | null } | null;
+  }[]).filter((t) => {
+    const ev = t.ticket?.event;
+    const end = ev ? eventEnd(ev) : null;
+    return !!end && end.getTime() <= cutoff;
+  });
+  const owedCents = rows.reduce(
+    (sum, t) => sum + Math.round(Number(t.amount) * 100) - Math.round(Number(t.fee_amount ?? 0) * 100) - (t.commission_cents ?? 0),
+    0,
+  );
+  return { ids: rows.map((t) => t.id), owedCents };
+}
+
 async function sendEmail(resendKey: string, to: string, subject: string, html: string, text: string) {
   try {
     await fetch("https://api.resend.com/emails", {
@@ -167,6 +199,29 @@ serve(async (req) => {
     }
   }
 
+  // ── Pass 1b: queue a payout for every reseller whose sales are ready ──
+  // (event over + delay). Sellers who haven't added their bank details yet
+  // are picked up the moment they do (stripe-connect-onboard-reseller).
+  {
+    const { data: resellers } = await supabase
+      .from("stripe_connect_accounts")
+      .select("id, user_id")
+      .eq("owner_type", "reseller")
+      .eq("payouts_enabled", true);
+    for (const r of resellers ?? []) {
+      if (!r.user_id) continue;
+      const { owedCents } = await maturedResaleSales(supabase, r.user_id, delayDays);
+      if (owedCents <= 0) continue;
+      const { data: queued } = await supabase.from("stripe_connect_payout_jobs").select("id")
+        .eq("stripe_connect_account_id", r.id).eq("kind", "reseller_payout").eq("status", "scheduled").limit(1);
+      if (queued && queued.length > 0) continue;
+      await supabase.from("stripe_connect_payout_jobs").insert({
+        stripe_connect_account_id: r.id, kind: "reseller_payout", scheduled_for: new Date().toISOString(), status: "scheduled",
+      });
+      scheduled++;
+    }
+  }
+
   // ── Pass 2: process due, non-blocked jobs ──
   let sent = 0;
   let failed = 0;
@@ -202,18 +257,11 @@ serve(async (req) => {
           // Separate-charges pattern: transfer from platform balance to the
           // connected account first (the resale charge landed on the
           // platform, not on this account), THEN payout from their account
-          // to their bank. Amount = whatever the seller is actually owed
-          // right now, computed from their completed, un-transferred resale
-          // transactions.
+          // to their bank. Amount = their Stripe resale sales whose event is
+          // over (maturedResaleSales), minus the buyer fee and the 5 % seller fee.
           const { data: sellerRow } = await supabase.from("stripe_connect_accounts").select("user_id").eq("id", account.id).maybeSingle();
           if (!sellerRow?.user_id) throw new Error("Reseller account has no user_id");
-          const { data: txs } = await supabase
-            .from("transactions")
-            .select("id, amount, commission_cents")
-            .eq("seller_id", sellerRow.user_id)
-            .eq("status", "completed")
-            .is("payout_job_id", null);
-          const owedCents = (txs ?? []).reduce((sum, t) => sum + Math.round(Number(t.amount) * 100) - (t.commission_cents ?? 0), 0);
+          const { ids: txIds, owedCents } = await maturedResaleSales(supabase, sellerRow.user_id, delayDays);
           if (owedCents <= 0) {
             await supabase.from("stripe_connect_payout_jobs").update({ status: "cancelled", blocked_reason: "Nothing owed" }).eq("id", job.id);
             continue;
@@ -222,8 +270,8 @@ serve(async (req) => {
           const payout = await stripe.payouts.create({ amount: owedCents, currency: "eur" }, { stripeAccount: account.stripe_account_id });
           await supabase.from("stripe_connect_payout_jobs").update({ status: "sent", stripe_payout_id: payout.id, amount_cents: owedCents, attempted_at: new Date().toISOString() }).eq("id", job.id);
           // Mark these transactions as paid out so they aren't double-counted next run.
-          if (txs && txs.length > 0) {
-            await supabase.from("transactions").update({ payout_job_id: job.id }).in("id", txs.map((t) => t.id));
+          if (txIds.length > 0) {
+            await supabase.from("transactions").update({ payout_job_id: job.id }).in("id", txIds);
           }
           sent++;
         } else {

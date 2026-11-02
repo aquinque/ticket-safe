@@ -14,9 +14,9 @@ import {
 const read = (path: string) => readFileSync(resolve(process.cwd(), path), "utf8");
 
 describe("how the site words the resale buyer fee", () => {
-  it("names both tiers", () => {
-    expect(RESALE_BUYER_FEE_COPY).toBe("6% (7% for tickets of €50 or more)");
-    expect(RESALE_BUYER_FEE_PHRASE).toBe("6%, or 7% for tickets of €50 or more");
+  it("states one flat rate", () => {
+    expect(RESALE_BUYER_FEE_COPY).toBe("5%");
+    expect(RESALE_BUYER_FEE_PHRASE).toBe("5%");
   });
 
   it("follows the rates the checkout uses", () => {
@@ -44,6 +44,8 @@ describe("the tiers match the server", () => {
   const constant = (name: string) => Number(new RegExp(`const ${name} = (\\d+);`).exec(server)?.[1]);
 
   it("charges the same percentages and threshold as the checkout page", () => {
+    const stripe = read("supabase/functions/stripe-connect-resale-checkout/index.ts");
+    expect(Number(/const BUYER_FEE_PERCENT = (\d+);/.exec(stripe)?.[1])).toBe(Math.round(BUYER_FEE_RATE * 100));
     expect(constant("BUYER_FEE_PERCENT")).toBe(Math.round(BUYER_FEE_RATE * 100));
     expect(constant("BUYER_FEE_PERCENT_HIGH")).toBe(Math.round(BUYER_FEE_RATE_HIGH * 100));
     expect(constant("HIGH_VALUE_THRESHOLD_EUR")).toBe(HIGH_VALUE_THRESHOLD_EUR);
@@ -52,17 +54,17 @@ describe("the tiers match the server", () => {
 
 describe("the example on the How It Works page", () => {
   // The page computes its example with calcBreakdown at €40; these are the figures a visitor reads.
-  it("shows a €40 ticket at 6%", () => {
+  it("shows a €40 ticket at 5%", () => {
     const example = calcBreakdown(40, 1);
-    expect(example.buyerFeeCents).toBe(240);
-    expect(example.buyerTotalCents).toBe(4240);
+    expect(example.buyerFeeCents).toBe(200);
+    expect(example.buyerTotalCents).toBe(4200);
     expect(example.sellerCommissionCents).toBe(200);
     expect(example.sellerPayoutCents).toBe(3800);
   });
 
-  it("would have been wrong at €50, where the fee is 7%", () => {
+  it("uses the same 5% at €50", () => {
     const fifty = calcBreakdown(50, 1);
-    expect(fifty.buyerFeeCents).toBe(350);
-    expect(fifty.buyerTotalCents).toBe(5350);
+    expect(fifty.buyerFeeCents).toBe(250);
+    expect(fifty.buyerTotalCents).toBe(5250);
   });
 });

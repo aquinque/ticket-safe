@@ -11,9 +11,9 @@ import {
   calcBreakdown,
 } from "../lib/fees";
 
-// Resale model: buyer +6% at checkout, seller -5% at withdrawal.
+// Resale model: buyer +5% at checkout, seller -5% from their payout.
 describe("fee constants", () => {
-  it("buyer fee rate is 6%", () => expect(BUYER_FEE_RATE).toBe(0.06));
+  it("buyer fee rate is 5%", () => expect(BUYER_FEE_RATE).toBe(0.05));
   it("seller commission rate is 5%", () => expect(SELLER_COMMISSION_RATE).toBe(0.05));
 });
 
@@ -30,15 +30,15 @@ describe("currency conversion", () => {
 });
 
 describe("buyer fee calculations", () => {
-  it("6% buyer fee on €50 = 300 cents", () => {
-    expect(calcBuyerFeeCents(5000)).toBe(300);
+  it("5% buyer fee on €50 = 250 cents", () => {
+    expect(calcBuyerFeeCents(5000)).toBe(250);
   });
-  it("buyer total on €50 = 5300 cents", () => {
-    expect(calcBuyerTotalCents(5000)).toBe(5300);
+  it("buyer total on €50 = 5250 cents", () => {
+    expect(calcBuyerTotalCents(5000)).toBe(5250);
   });
   it("handles fractional cent rounding (e.g. €33 ticket)", () => {
-    const fee = calcBuyerFeeCents(3300); // 33 * 6% = 1.98 → 198 cents
-    expect(fee).toBe(198);
+    const fee = calcBuyerFeeCents(3300); // 33 * 5% = 1.65 → 165 cents
+    expect(fee).toBe(165);
   });
 });
 
@@ -58,33 +58,32 @@ describe("seller commission calculations", () => {
 });
 
 describe("calcBreakdown", () => {
-  it("€50 ticket × 1 applies the 7% high-value buyer fee", () => {
+  it("€50 ticket × 1: 5% from the buyer, 5% from the seller", () => {
     const b = calcBreakdown(50, 1);
     expect(b.listPriceCents).toBe(5000);
-    expect(b.buyerFeeCents).toBe(350);
-    expect(b.buyerTotalCents).toBe(5350);
+    expect(b.buyerFeeCents).toBe(250);
+    expect(b.buyerTotalCents).toBe(5250);
     expect(b.sellerCommissionCents).toBe(250);
     expect(b.sellerPayoutCents).toBe(4750);
     // Euro helpers
     expect(b.listPriceEuros).toBe(50);
-    expect(b.buyerFeeEuros).toBe(3.5);
-    expect(b.buyerTotalEuros).toBe(53.5);
+    expect(b.buyerFeeEuros).toBe(2.5);
+    expect(b.buyerTotalEuros).toBe(52.5);
     expect(b.sellerCommissionEuros).toBe(2.5);
     expect(b.sellerPayoutEuros).toBe(47.5);
   });
 
-  it("buyer fee steps up from 6% to 7% at €50 (by unit price)", () => {
-    expect(calcBreakdown(49, 1).buyerFeeCents).toBe(294); // 4900 × 6%
-    expect(calcBreakdown(50, 1).buyerFeeCents).toBe(350); // 5000 × 7%
-    expect(calcBreakdown(60, 1).buyerFeeCents).toBe(420); // 6000 × 7%
-    // Tier is on the UNIT price: €25 × 2 stays at 6% even though the line is €50.
-    expect(calcBreakdown(25, 2).buyerFeeCents).toBe(300); // 5000 × 6%
+  it("buyer fee is a flat 5% at every price", () => {
+    expect(calcBreakdown(49, 1).buyerFeeCents).toBe(245); // 4900 × 5%
+    expect(calcBreakdown(50, 1).buyerFeeCents).toBe(250); // 5000 × 5%
+    expect(calcBreakdown(60, 1).buyerFeeCents).toBe(300); // 6000 × 5%
+    expect(calcBreakdown(25, 2).buyerFeeCents).toBe(250); // 5000 × 5%
   });
 
   it("€25 ticket × 2 = €50 list price", () => {
     const b = calcBreakdown(25, 2);
     expect(b.listPriceCents).toBe(5000);
-    expect(b.buyerTotalEuros).toBe(53);
+    expect(b.buyerTotalEuros).toBe(52.5);
     expect(b.sellerPayoutEuros).toBe(47.5);
   });
 
