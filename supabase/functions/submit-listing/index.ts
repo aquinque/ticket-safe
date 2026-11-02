@@ -1,7 +1,7 @@
 /**
  * submit-listing v57 — v56 + resale-validation email also goes to the shared
  * Ticket Safe inbox (primary) and is flagged high-priority.
- * v56: anti-scalping cap on resale price (max 1.5× face value).
+ * v58: no resale price cap (the v56 1.5× face value limit is removed).
  */
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -119,23 +119,7 @@ serve(async (req) => {
     const graceMs = 6 * 60 * 60 * 1000;
     if (Date.now() > endsAtMs + graceMs) return jsonResponse({ code: "EXPIRED", message: "Cannot sell tickets for past events" }, 400);
 
-    // ── Anti-scalping cap (max 1.5× face value) ──
-    {
-      const { data: tiers } = await supabase.from("event_tiers").select("price_cents").eq("event_id", eventId.trim());
-      const maxTierCents = (tiers ?? []).reduce((m: number, t: { price_cents?: number }) => Math.max(m, t.price_cents ?? 0), 0);
-      const refCents = maxTierCents > 0
-        ? maxTierCents
-        : (typeof event.base_price === "number" ? Math.round(event.base_price * 100) : 0);
-      if (refCents > 0) {
-        const capCents = Math.ceil(refCents * 1.5);
-        if (Math.round(price * 100) > capCents) {
-          return jsonResponse({
-            code: "INVALID_FORMAT",
-            message: `Anti-scalping: you cannot sell above €${(capCents / 100).toFixed(2)} (face value × 1.5).`,
-          }, 400);
-        }
-      }
-    }
+    // No resale price cap: sellers set any price.
 
     const rawExtractedText = typeof extractedText === "string" ? extractedText.toLowerCase().trim() : null;
     if (rawExtractedText && rawExtractedText.length > 50) {

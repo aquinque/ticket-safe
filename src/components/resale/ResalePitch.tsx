@@ -9,7 +9,7 @@
  *   HowSellingWorks   the three steps a seller goes through, in order.
  *
  * Every claim here is what the product does today: the QR is checked before
- * a ticket is listed (submit-listing), the price is capped at 1.5x face value,
+ * a ticket is listed (submit-listing), the seller sets the price,
  * a resold TicketSafe ticket is reissued to the buyer with a new QR and the
  * seller's is marked transferred (stripe-connect-webhook), and the seller
  * fee comes from src/lib/fees.ts. No payout date is promised here.
@@ -71,7 +71,7 @@ export function ResaleHero({ listedCount }: { listedCount: number }) {
           </div>
           <ul className="rs-rise mt-6 flex flex-wrap gap-x-5 gap-y-2 text-xs text-muted-foreground" style={{ animationDelay: "240ms" }}>
             <li className="inline-flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-success" />QR checked before listing</li>
-            <li className="inline-flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-success" />Max 1.5× face value</li>
+            <li className="inline-flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-success" />You set the price</li>
             <li className="inline-flex items-center gap-1.5"><Check className="w-3.5 h-3.5 text-success" />{SELLER_FEE} fee, nothing upfront</li>
           </ul>
         </div>
@@ -198,7 +198,7 @@ function QrGlyph() {
 const ROWS: { q: string; chat: string; us: string }[] = [
   { q: "Is the ticket real?", chat: "You trust a screenshot.", us: "The QR is checked before it can be listed." },
   { q: "Where does the money go?", chat: "Straight to someone you've never met.", us: "The buyer pays TicketSafe, not a stranger." },
-  { q: "What does it cost?", chat: "Whatever people dare to ask.", us: "Never more than 1.5× face value." },
+  { q: "What does it cost?", chat: "Hidden costs and deposits.", us: "The price is shown up front, with a 5% fee." },
   {
     q: "Can it be sold twice?",
     chat: "The same QR can go to five people.",
