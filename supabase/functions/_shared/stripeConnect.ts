@@ -12,7 +12,7 @@
  * money is held until after the event and refunds can still reverse the
  * transfer.
  */
-import Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
+import Stripe from "npm:stripe@14.21.0";
 
 export function getStripeClient(): Stripe {
   const key = Deno.env.get("STRIPE_SECRET_KEY");

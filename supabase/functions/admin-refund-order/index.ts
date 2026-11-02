@@ -22,7 +22,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
+import Stripe from "npm:stripe@14.21.0";
 import { refundPlatformPayment } from "../_shared/stripeRefund.ts";
 import { planResaleAwareRefund, refundResaleBuyers } from "../_shared/resaleAwareRefund.ts";
 import { renderEmail, ticketSummary, escapeHtml as esc } from "../_shared/emailComponents.ts";

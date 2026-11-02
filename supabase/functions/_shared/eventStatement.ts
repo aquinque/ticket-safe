@@ -10,7 +10,7 @@
  * Reconciliation: Stripe's gross is compared with our orders; a difference is logged and flagged on the row (for
  * the admins' banner) but the statement is produced with Stripe's figures regardless.
  */
-import type Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
+import type Stripe from "npm:stripe@14.21.0";
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { collectEventStatementData } from "./eventStatementData.ts";
 import { aggregate, reconcile, statementFingerprint, formatMoney, STATEMENT_VAT_LINE } from "./eventStatementMath.ts";
