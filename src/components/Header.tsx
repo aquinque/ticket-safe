@@ -179,7 +179,7 @@ const Header = ({ minimal = false }: HeaderProps) => {
                 }`}
               >
                 <Sparkles className="w-4 h-4" />
-                Ticket Safe Studio
+                TicketSafe Studio
               </Link>
             )}
             {user && <WalletBalanceButton />}
@@ -299,7 +299,7 @@ const Header = ({ minimal = false }: HeaderProps) => {
                     className="flex items-center justify-center gap-2 w-full h-12 rounded-lg font-bold text-base text-white bg-primary"
                   >
                     <Sparkles className="w-4 h-4" />
-                    Ticket Safe Studio
+                    TicketSafe Studio
                   </Link>
                 </div>
               )}
