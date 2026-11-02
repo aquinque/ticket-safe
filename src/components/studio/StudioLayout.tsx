@@ -70,13 +70,16 @@ export const StudioLayout = ({
     window.location.href = "/auth";
   };
 
-  const SidebarContent = ({ onNavigate }: { onNavigate?: () => void }) => (
+  // The logo goes back to the site's home page. The mobile drawer draws its own, beside the close button.
+  const SidebarContent = ({ onNavigate, showLogo = true }: { onNavigate?: () => void; showLogo?: boolean }) => (
     <>
-      <div className="flex items-center gap-2 px-4 h-16 border-b border-border shrink-0">
-        <Link to="/studio" className="flex items-center gap-2 min-w-0" onClick={onNavigate}>
-          <Logo height={26} iconOnly={collapsed} />
-        </Link>
-      </div>
+      {showLogo && (
+        <div className="flex items-center gap-2 px-4 h-16 border-b border-border shrink-0">
+          <Link to="/" className="flex items-center gap-2 min-w-0" onClick={onNavigate} aria-label="TicketSafe home">
+            <Logo height={26} iconOnly={collapsed} />
+          </Link>
+        </div>
+      )}
       <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
@@ -147,7 +150,9 @@ export const StudioLayout = ({
           <div className="absolute inset-0 bg-black/50" onClick={() => setMobileOpen(false)} />
           <aside className="absolute left-0 top-0 bottom-0 w-72 bg-card flex flex-col">
             <div className="flex items-center justify-between px-4 h-16 border-b border-border">
-              <Logo height={26} />
+              <Link to="/" className="flex items-center min-w-0" onClick={() => setMobileOpen(false)} aria-label="TicketSafe home">
+                <Logo height={26} />
+              </Link>
               <button
                 type="button"
                 onClick={() => setMobileOpen(false)}
@@ -157,7 +162,7 @@ export const StudioLayout = ({
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <SidebarContent onNavigate={() => setMobileOpen(false)} />
+            <SidebarContent onNavigate={() => setMobileOpen(false)} showLogo={false} />
           </aside>
         </div>
       )}

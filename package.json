@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && node scripts/prerender-event-pages.mjs dist",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
@@ -96,6 +96,7 @@
     "globals": "^15.15.0",
     "jsdom": "^28.1.0",
     "postcss": "^8.5.6",
+    "sharp": "^0.33.5",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.38.0",
