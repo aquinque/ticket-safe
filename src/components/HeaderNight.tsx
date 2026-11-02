@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Menu, X, Globe, User, Ticket, Banknote, LayoutDashboard, Megaphone, LogOut, CalendarDays, Repeat2, ChevronRight, ArrowRight } from "lucide-react";
+import { Menu, X, Globe, User, Ticket, Banknote, LayoutDashboard, Megaphone, LogOut, LogIn, UserPlus, CalendarDays, Repeat2, ChevronRight, type LucideIcon } from "lucide-react";
 import Logo from "@/components/Logo";
 import WalletBalanceButton from "@/components/WalletBalanceButton";
 import { Button } from "@/components/ui/button";
@@ -40,6 +40,49 @@ const LANGUAGES: { code: "fr" | "en" | "es"; label: string }[] = [
   { code: "es", label: "Español" },
 ];
 
+/** A labelled group of the mobile menu; groups are separated by a thin rule. */
+const MenuSection = ({ label, children }: { label: string; children: React.ReactNode }) => (
+  <section className="border-b border-border py-3 last:border-b-0">
+    <p className="px-4 pb-1 pt-1 text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">{label}</p>
+    <ul>{children}</ul>
+  </section>
+);
+
+/** One entry of the mobile menu: thin icon, title, quiet subtitle, chevron. The page you are on gets the only accent. */
+const MenuRow = ({
+  to,
+  icon: Icon,
+  title,
+  subtitle,
+  active,
+  onSelect,
+}: {
+  to: string;
+  icon: LucideIcon;
+  title: string;
+  subtitle?: string;
+  active: boolean;
+  onSelect: () => void;
+}) => (
+  <li>
+    <Link
+      to={to}
+      onClick={onSelect}
+      aria-current={active ? "page" : undefined}
+      className={`group flex items-center gap-3.5 min-h-[56px] pl-4 pr-3 py-2 border-l-2 transition-colors hover:bg-accent ${
+        active ? "border-brand-200 bg-accent" : "border-transparent"
+      }`}
+    >
+      <Icon className="w-5 h-5 shrink-0 text-muted-foreground group-hover:text-foreground transition-colors" strokeWidth={1.5} aria-hidden="true" />
+      <span className="flex-1 min-w-0">
+        <span className="block text-[15px] font-semibold leading-tight text-foreground">{title}</span>
+        {subtitle && <span className="block text-[13px] leading-snug mt-0.5 text-muted-foreground truncate">{subtitle}</span>}
+      </span>
+      <ChevronRight className="w-4 h-4 shrink-0 text-muted-foreground" strokeWidth={1.75} aria-hidden="true" />
+    </Link>
+  </li>
+);
+
 const HeaderNight = () => {
   const { t, language, setLanguage } = useI18n();
   const location = useLocation();
@@ -77,6 +120,16 @@ const HeaderNight = () => {
     };
   }, [menuOpen]);
 
+  // Escape closes the menu, like any dialog.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMenuOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [menuOpen]);
+
   const isActive = (path: string) => location.pathname === path;
 
   // Once an account already has Studio access, the "Organizers" tab should
@@ -87,14 +140,14 @@ const HeaderNight = () => {
     link.key === "organizers" && isStudioOrganizer ? { ...link, to: "/studio" } : link,
   );
 
-  // Mobile menu: Events and Resale are the two main doors, so they get big
-  // tiles at the top. Organizers / Studio is a different audience: it sits
-  // lower, in its own card.
+  // Mobile menu: every entry is the same kind of row (see MenuRow); sections in this order:
+  // Explore, For promoters, For organizers, Account.
   const mobileNavMeta: Record<string, { icon: typeof CalendarDays; subtitle: string }> = {
     tickets: { icon: CalendarDays, subtitle: "Browse upcoming events" },
-    resale: { icon: Repeat2, subtitle: "Buy or resell a ticket quickly" },
+    resale: { icon: Repeat2, subtitle: "Buy or resell a ticket" },
   };
   const exploreLinks = navLinks.filter((link) => link.key !== "organizers");
+  const close = () => setMenuOpen(false);
   const organizersLink = navLinks.find((link) => link.key === "organizers");
 
   return (
@@ -168,7 +221,7 @@ const HeaderNight = () => {
                   {isStudioOrganizer && (
                     <DropdownMenuItem onClick={() => navigate("/studio")}>
                       <LayoutDashboard className="w-4 h-4 mr-2" />
-                      Ticket Safe Studio
+                      TicketSafe Studio
                     </DropdownMenuItem>
                   )}
                   {isPromoter && (
@@ -211,155 +264,115 @@ const HeaderNight = () => {
         </div>
       </header>
 
-      {/* Full-screen mobile menu */}
+      {/* Full-screen mobile menu: one list, one row style, one accent (the page you are on). */}
       {menuOpen && (
-        <div className="fixed inset-0 z-50 bg-background flex flex-col md:hidden">
-          <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-            <Logo height={30} variant="light" />
+        <div
+          data-mobile-menu
+          role="dialog"
+          aria-modal="true"
+          aria-label="Menu"
+          className="fixed inset-0 z-50 bg-background flex flex-col md:hidden pt-[env(safe-area-inset-top)]"
+        >
+          <div className="px-4 h-16 flex items-center justify-between border-b border-border shrink-0">
+            <Link to="/" onClick={close} aria-label="TicketSafe home" className="flex items-center min-h-[44px]">
+              <Logo height={28} variant="light" />
+            </Link>
             <button
               type="button"
-              onClick={() => setMenuOpen(false)}
-              className="inline-flex items-center justify-center w-11 h-11 rounded-md text-foreground hover:bg-secondary transition-colors"
+              onClick={close}
+              className="-mr-2 inline-flex items-center justify-center w-11 h-11 text-foreground hover:bg-accent transition-colors"
               aria-label="Close menu"
             >
-              <X className="w-6 h-6" />
+              <X className="w-5 h-5" strokeWidth={1.75} />
             </button>
           </div>
 
-          <nav className="flex-1 overflow-y-auto px-4 pt-2 pb-4 flex flex-col">
-            <p className="px-1 text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Explore</p>
-            <div className="mt-2.5 flex flex-col gap-2.5">
+          <nav className="flex-1 overflow-y-auto overscroll-contain" aria-label="Main">
+            <MenuSection label="Explore">
               {exploreLinks.map((link) => {
                 const meta = mobileNavMeta[link.key];
-                const Icon = meta?.icon ?? CalendarDays;
-                const active = isActive(link.to);
-                const solid = link.key === "tickets";
                 return (
-                  <Link
+                  <MenuRow
                     key={link.key}
                     to={link.to}
-                    onClick={() => setMenuOpen(false)}
-                    aria-current={active ? "page" : undefined}
-                    className={`group flex items-center gap-3.5 rounded-xl border px-3.5 min-h-[68px] transition-colors ${
-                      solid
-                        ? "border-primary bg-primary text-primary-foreground hover:bg-primary-hover"
-                        : "border-primary/40 bg-primary/10 text-foreground hover:bg-primary/20"
-                    } ${active ? "ring-1 ring-foreground/35" : ""}`}
-                  >
-                    <span
-                      className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
-                        solid ? "bg-white/15" : "bg-primary text-primary-foreground"
-                      }`}
-                    >
-                      <Icon className="w-5 h-5" />
-                    </span>
-                    <span className="flex-1 min-w-0">
-                      <span className="block text-[17px] font-semibold leading-tight">{t(link.labelKey)}</span>
-                      {meta?.subtitle && (
-                        <span className={`block text-[13px] mt-0.5 truncate ${solid ? "text-white/75" : "text-muted-foreground"}`}>
-                          {meta.subtitle}
-                        </span>
-                      )}
-                    </span>
-                    <ChevronRight className="w-4 h-4 shrink-0 opacity-70 transition-transform group-hover:translate-x-0.5" />
-                  </Link>
+                    icon={meta?.icon ?? CalendarDays}
+                    title={t(link.labelKey)}
+                    subtitle={meta?.subtitle}
+                    active={isActive(link.to)}
+                    onSelect={close}
+                  />
                 );
               })}
-            </div>
+            </MenuSection>
 
             {isPromoter && (
-              <div className="mt-7 pt-5 border-t border-border">
-                <p className="px-1 mb-2.5 text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">For promoters</p>
-                <Link
-                  to="/promoter"
-                  onClick={() => setMenuOpen(false)}
-                  aria-current={isActive("/promoter") ? "page" : undefined}
-                  className="flex items-center gap-3 rounded-xl border border-border bg-card px-3.5 py-3 transition-colors hover:border-primary/50"
-                >
-                  <Megaphone className="w-5 h-5 shrink-0 text-primary" />
-                  <span className="flex-1 min-w-0">
-                    <span className="block text-[15px] font-semibold leading-tight text-foreground">Promoter space</span>
-                    <span className="block text-[13px] mt-0.5 leading-snug text-muted-foreground">Your link and your sales.</span>
-                  </span>
-                  <ChevronRight className="w-4 h-4 shrink-0 opacity-70" />
-                </Link>
-              </div>
+              <MenuSection label="For promoters">
+                <MenuRow to="/promoter" icon={Megaphone} title="Promoter space" subtitle="Your link and your sales" active={isActive("/promoter")} onSelect={close} />
+              </MenuSection>
             )}
 
             {organizersLink && (
-              <div className="mt-7 pt-5 border-t border-border">
-                <p className="px-1 mb-2.5 text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">For organizers</p>
-                <Link
+              <MenuSection label="For organizers">
+                <MenuRow
                   to={organizersLink.to}
-                  onClick={() => setMenuOpen(false)}
-                  aria-current={isActive(organizersLink.to) ? "page" : undefined}
-                  className="flex items-center gap-3 rounded-xl border border-[hsl(222_100%_84%/0.3)] bg-gradient-to-br from-primary/25 via-primary/10 to-transparent px-3.5 py-3 transition-colors hover:border-[hsl(222_100%_84%/0.55)]"
-                >
-                  <span className="flex-1 min-w-0">
-                    <span className="block text-[15px] font-semibold leading-tight text-foreground">Ticket Safe Studio</span>
-                    <span className="block text-[13px] mt-0.5 leading-snug text-muted-foreground">
-                      {isStudioOrganizer ? "Sales, guests, scanning." : "Sell with 0% commission."}
-                    </span>
-                  </span>
-                  <span className="shrink-0 inline-flex items-center gap-1.5 h-9 px-3.5 rounded-lg bg-foreground text-background text-[13px] font-semibold">
-                    {isStudioOrganizer ? "Open Studio" : "Request access"}
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </span>
-                </Link>
-              </div>
+                  icon={LayoutDashboard}
+                  title="TicketSafe Studio"
+                  subtitle={isStudioOrganizer ? "Sales, guests, scanning" : "Sell your tickets with 0% commission"}
+                  active={isActive(organizersLink.to)}
+                  onSelect={close}
+                />
+              </MenuSection>
             )}
+
+            <MenuSection label="Account">
+              {user ? (
+                <>
+                  <MenuRow to="/my-tickets" icon={Ticket} title="My Tickets" subtitle="Your tickets and QR codes" active={isActive("/my-tickets")} onSelect={close} />
+                  <MenuRow to="/settings/listings" icon={Banknote} title="My Wallet" subtitle="Your resales and payouts" active={isActive("/settings/listings")} onSelect={close} />
+                </>
+              ) : (
+                <>
+                  <MenuRow to="/auth" icon={LogIn} title={t("nav.login")} subtitle="Find your tickets and resales" active={false} onSelect={close} />
+                  <MenuRow to="/auth?mode=signup" icon={UserPlus} title={t("nav.signUp")} subtitle="Buy, resell and keep your tickets" active={false} onSelect={close} />
+                </>
+              )}
+            </MenuSection>
           </nav>
 
-          <div className="px-4 pb-6 pt-3 border-t border-border flex flex-col gap-3">
-            <div className="flex items-center gap-2">
-              <Globe className="w-4 h-4 text-muted-foreground shrink-0" />
-              {LANGUAGES.map((l) => (
-                <button
-                  key={l.code}
-                  type="button"
-                  onClick={() => setLanguage(l.code)}
-                  className={`flex-1 h-11 rounded-md text-sm font-bold border transition-colors ${
-                    language === l.code
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "text-muted-foreground border-border"
-                  }`}
-                >
-                  {l.code.toUpperCase()}
-                </button>
+          <div className="shrink-0 border-t border-border px-4 pt-1 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex items-center justify-between gap-3">
+            <div role="group" aria-label="Language" className="flex items-center">
+              <Globe className="w-4 h-4 mr-1 text-muted-foreground" strokeWidth={1.75} aria-hidden="true" />
+              {LANGUAGES.map((l, i) => (
+                <span key={l.code} className="flex items-center">
+                  {i > 0 && <span className="text-muted-foreground" aria-hidden="true">·</span>}
+                  <button
+                    type="button"
+                    onClick={() => setLanguage(l.code)}
+                    aria-pressed={language === l.code}
+                    aria-label={l.label}
+                    className={`min-w-[44px] min-h-[44px] px-2 text-[13px] font-semibold tracking-wide transition-colors ${
+                      language === l.code
+                        ? "text-foreground underline underline-offset-[6px] decoration-2"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {l.code.toUpperCase()}
+                  </button>
+                </span>
               ))}
             </div>
-            {user ? (
-              <>
-                <div className="grid grid-cols-2 gap-2">
-                  <Button variant="outline" size="lg" asChild onClick={() => setMenuOpen(false)}>
-                    <Link to="/my-tickets">My Tickets</Link>
-                  </Button>
-                  <Button variant="outline" size="lg" asChild onClick={() => setMenuOpen(false)}>
-                    <Link to="/settings/listings">My Wallet</Link>
-                  </Button>
-                </div>
-                <Button
-                  variant="primary"
-                  size="lg"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    handleSignOut();
-                  }}
-                >
-                  {t("nav.signOut")}
-                </Button>
-              </>
-            ) : (
-              <>
-                <div className="grid grid-cols-2 gap-2">
-                  <Button variant="outline" size="lg" asChild onClick={() => setMenuOpen(false)}>
-                    <Link to="/auth">{t("nav.login")}</Link>
-                  </Button>
-                  <Button variant="primary" size="lg" asChild onClick={() => setMenuOpen(false)}>
-                    <Link to="/auth?mode=signup">{t("nav.signUp")}</Link>
-                  </Button>
-                </div>
-              </>
+            {user && (
+              <button
+                type="button"
+                onClick={() => {
+                  close();
+                  handleSignOut();
+                }}
+                className="inline-flex items-center gap-2 min-h-[44px] px-2 -mr-2 text-[13px] font-semibold text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <LogOut className="w-4 h-4" strokeWidth={1.75} aria-hidden="true" />
+                {t("nav.signOut")}
+              </button>
             )}
           </div>
         </div>
