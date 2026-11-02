@@ -31,6 +31,7 @@ import { DAY_MS, startOfDay, eur, fmtMoney, plural, phaseOf, whenLabel, relative
 import { eventPhase } from "@/lib/eventTime";
 import { isArchivedEvent } from "@/lib/eventStatus";
 import { CURRENCIES, toCurrency, type Currency } from "@/lib/money";
+import { LiveFeed, SalesChart, SalesCurve, TierRing, UpdatedAgo, liveChartStyles, type DaySales, type RecentSale, type TierSlice } from "@/components/studio/dashboard/LiveCharts";
 
 /**
  * Studio dashboard — the first screen after login.
@@ -43,10 +44,12 @@ import { CURRENCIES, toCurrency, type Currency } from "@/lib/money";
  * compact ledger of every current event. Past events (ended, by the
  * product's end-of-event rule) have moved to Sales and are not here.
  * Everything re-renders from Realtime, so a sale shows up while the page
- * is open.
+ * is open, and it all re-reads every 30 seconds in case a Realtime message is
+ * missed. The screen itself is DashboardView, which the local demo
+ * (/studio/demo, development only) renders with sample numbers.
  */
 
-interface StudioEvent {
+export interface StudioEvent {
   id: string;
   title: string;
   date: string;
@@ -65,7 +68,7 @@ interface StudioEvent {
   price_from_cents: number | null;
 }
 
-interface Earnings {
+export interface Earnings {
   net_earned_cents: number;
   gross_cents: number;
   platform_fee_cents: number;
@@ -75,13 +78,33 @@ interface Earnings {
   releasable_cents: number;
 }
 
-/** Amounts per currency: an organizer with London and Paris events sells in
- *  both, and pounds are never added to euros. */
-type CentsByCurrency = Partial<Record<Currency, number>>;
-interface DaySales { day: string; cents: CentsByCurrency; tickets: number }
-interface Pace { sold7: number; lastSale: string | null }
+/** Amounts per currency (DaySales.cents): an organizer with London and Paris
+ *  events sells in both, and pounds are never added to euros. */
+type CentsByCurrency = DaySales["cents"];
+export interface Pace { sold7: number; lastSale: string | null }
 /** The hero's moment: its calendar day, on right now (started before today), or still to come. */
-type HeroPhase = "today" | "live" | "upcoming";
+export type HeroPhase = "today" | "live" | "upcoming";
+
+type OrderRow = { total_cents: number; currency: string | null; quantity: number; created_at: string };
+
+/** Paid orders into 14 days from `since`: amount per currency and tickets per day. */
+function bucketByDay(since: Date, rows: OrderRow[]): DaySales[] {
+  const buckets = new Map<string, { cents: CentsByCurrency; tickets: number }>();
+  for (let i = 0; i < 14; i++) {
+    const d = new Date(since);
+    d.setDate(d.getDate() + i);
+    buckets.set(d.toISOString().slice(0, 10), { cents: {}, tickets: 0 });
+  }
+  for (const row of rows) {
+    const b = buckets.get(row.created_at.slice(0, 10));
+    if (b) {
+      const c = toCurrency(row.currency);
+      b.cents[c] = (b.cents[c] ?? 0) + row.total_cents;
+      b.tickets += row.quantity;
+    }
+  }
+  return Array.from(buckets.entries()).map(([day, v]) => ({ day, ...v }));
+}
 
 // event_scan_staff is newer than the generated database types.
 const staffLinks = () =>
@@ -106,6 +129,9 @@ const StudioDashboard = () => {
   const [linkedEvents, setLinkedEvents] = useState<Set<string>>(new Set());
   const [pastCount, setPastCount] = useState(0);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [recent, setRecent] = useState<RecentSale[] | null>(null);
+  const [heroDays, setHeroDays] = useState<DaySales[] | null>(null);
+  const [tiers, setTiers] = useState<TierSlice[] | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user) navigate("/auth?next=/studio");
@@ -205,34 +231,53 @@ const StudioDashboard = () => {
       .eq("status", "paid")
       .gte("created_at", since.toISOString());
 
-    const buckets = new Map<string, { cents: CentsByCurrency; tickets: number }>();
-    for (let i = 0; i < 14; i++) {
-      const d = new Date(since);
-      d.setDate(d.getDate() + i);
-      buckets.set(d.toISOString().slice(0, 10), { cents: {}, tickets: 0 });
-    }
-    for (const row of (data ?? []) as { total_cents: number; currency: string | null; quantity: number; created_at: string }[]) {
-      const key = row.created_at.slice(0, 10);
-      const b = buckets.get(key);
-      if (b) {
-        const c = toCurrency(row.currency);
-        b.cents[c] = (b.cents[c] ?? 0) + row.total_cents;
-        b.tickets += row.quantity;
-      }
-    }
-    setDailySales(Array.from(buckets.entries()).map(([day, v]) => ({ day, ...v })));
+    setDailySales(bucketByDay(since, (data ?? []) as OrderRow[]));
   }, [organizer]);
 
   useEffect(() => {
     loadDailySales();
   }, [loadDailySales]);
 
+  // The latest paid orders, for the live feed.
+  const loadRecent = useCallback(async () => {
+    if (!organizer) return;
+    const { data } = await supabase
+      .from("event_orders")
+      .select("id, event_id, tier_id, quantity, unit_price_cents, currency, created_at")
+      .eq("organizer_id", organizer.id)
+      .eq("status", "paid")
+      .order("created_at", { ascending: false })
+      .limit(8);
+    const rows = (data ?? []) as { id: string; event_id: string; tier_id: string | null; quantity: number; unit_price_cents: number; currency: string | null; created_at: string }[];
+    const eventIds = [...new Set(rows.map((r) => r.event_id))];
+    const tierIds = [...new Set(rows.map((r) => r.tier_id).filter((t): t is string => !!t))];
+    const [{ data: evs }, { data: trs }] = await Promise.all([
+      eventIds.length ? supabase.from("events").select("id, title").in("id", eventIds) : Promise.resolve({ data: [] }),
+      tierIds.length ? supabase.from("event_tiers").select("id, name").in("id", tierIds) : Promise.resolve({ data: [] }),
+    ]);
+    const title = new Map(((evs ?? []) as { id: string; title: string }[]).map((e) => [e.id, e.title]));
+    const tierName = new Map(((trs ?? []) as { id: string; name: string }[]).map((t) => [t.id, t.name]));
+    setRecent(rows.map((r) => ({
+      id: r.id,
+      event_title: title.get(r.event_id) ?? "Event",
+      tier_name: r.tier_id ? tierName.get(r.tier_id) ?? null : null,
+      quantity: r.quantity,
+      amount_cents: r.unit_price_cents * r.quantity,
+      currency: toCurrency(r.currency),
+      created_at: r.created_at,
+    })));
+  }, [organizer]);
+
+  useEffect(() => {
+    loadRecent();
+  }, [loadRecent]);
+
   // Realtime: re-fetch on any change to this organizer's events, their tier
   // inventory, or any order tied to them. A sale lands on screen within a
   // second, no polling.
   useEffect(() => {
     if (!organizer) return;
-    const refresh = () => { loadEvents(false); loadDailySales(); };
+    const refresh = () => { loadEvents(false); loadDailySales(); loadRecent(); };
     const channel = supabase
       .channel(`studio-dashboard-${organizer.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "events", filter: `organizer_id=eq.${organizer.id}` }, refresh)
@@ -247,10 +292,13 @@ const StudioDashboard = () => {
         },
       )
       .subscribe();
+    // Every 30 seconds as well, in case a Realtime message was missed (a phone waking up, a flaky network).
+    const timer = window.setInterval(() => { if (document.visibilityState === "visible") refresh(); }, 30_000);
     return () => {
+      window.clearInterval(timer);
       supabase.removeChannel(channel);
     };
-  }, [organizer, loadEvents, loadDailySales, events]);
+  }, [organizer, loadEvents, loadDailySales, loadRecent, events]);
 
   // Stripe payment account, for the to-do list.
   useEffect(() => {
@@ -302,6 +350,31 @@ const StudioDashboard = () => {
         lastSale: (last as { created_at: string } | null)?.created_at ?? null,
       });
     })();
+  }, [next, lastUpdated]);
+
+  // The hero event's own sales per day, for the curve in the hero.
+  useEffect(() => {
+    if (!next) { setHeroDays(null); return; }
+    const since = startOfDay(new Date());
+    since.setDate(since.getDate() - 13);
+    supabase
+      .from("event_orders")
+      .select("total_cents, currency, quantity, created_at")
+      .eq("event_id", next.id)
+      .eq("status", "paid")
+      .gte("created_at", since.toISOString())
+      .then(({ data }) => setHeroDays(bucketByDay(since, (data ?? []) as OrderRow[])));
+  }, [next, lastUpdated]);
+
+  // The hero event's ticket types, for the ring.
+  useEffect(() => {
+    if (!next) { setTiers(null); return; }
+    supabase
+      .from("event_tiers")
+      .select("name, sold_qty, total_qty, price_cents, sort_order")
+      .eq("event_id", next.id)
+      .order("sort_order")
+      .then(({ data }) => setTiers(((data ?? []) as { name: string; sold_qty: number; total_qty: number; price_cents: number }[]).map((t) => ({ name: t.name, sold: t.sold_qty, total: t.total_qty, price_cents: t.price_cents }))));
   }, [next, lastUpdated]);
 
   // Which events already have a door-staff link (for the to-do list).
@@ -389,6 +462,55 @@ const StudioDashboard = () => {
   }
 
   // ── Approved organizer dashboard ────────────────────────────────────────
+  return (
+    <DashboardView
+      organizer={{ name: organizer.name, logo_url: organizer.logo_url }}
+      events={events}
+      loadingEvents={loadingEvents}
+      next={next}
+      phase={phase}
+      pace={pace}
+      checkedIn={checkedIn}
+      dailySales={dailySales}
+      heroDays={heroDays}
+      recent={recent}
+      tiers={tiers}
+      linkedEvents={linkedEvents}
+      payments={payments}
+      earnings={earnings}
+      pastCount={pastCount}
+      lastUpdated={lastUpdated}
+    />
+  );
+};
+
+export interface DashboardViewProps {
+  organizer: { name: string; logo_url: string | null };
+  events: StudioEvent[];
+  loadingEvents: boolean;
+  next: StudioEvent | null;
+  phase: HeroPhase | null;
+  pace: Pace | null;
+  checkedIn: number | null;
+  dailySales: DaySales[] | null;
+  /** The hero event's own sales per day, last 14 days. */
+  heroDays: DaySales[] | null;
+  recent: RecentSale[] | null;
+  tiers: TierSlice[] | null;
+  linkedEvents: Set<string>;
+  payments: { exists: boolean; active: boolean } | null;
+  earnings: Earnings | null;
+  pastCount: number;
+  lastUpdated: Date | null;
+  /** Shown above everything: the local demo's notice. */
+  banner?: React.ReactNode;
+}
+
+/** The approved organizer's dashboard, from numbers already loaded. */
+export const DashboardView = ({
+  organizer, events, loadingEvents, next, phase, pace, checkedIn, dailySales, heroDays, recent, tiers, linkedEvents, payments, earnings, pastCount, lastUpdated, banner,
+}: DashboardViewProps) => {
+  const now = new Date();
   // Pounds only when every event is a London (GBP) event; euros otherwise.
   const homeCurrency: Currency = events.length > 0 && events.every((e) => toCurrency(e.currency) === "GBP") ? "GBP" : "EUR";
   const week = (() => {
@@ -447,6 +569,8 @@ const StudioDashboard = () => {
                     <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
                   </span>
                   Live
+                  <span className="text-muted-foreground/70">·</span>
+                  <UpdatedAgo at={lastUpdated} />
                 </span>
               )}
             </p>
@@ -460,12 +584,14 @@ const StudioDashboard = () => {
           </Link>
         </div>
 
+        {banner}
+
         {loadingEvents ? (
           <div className="h-64 bg-muted animate-pulse mb-4" />
         ) : !next ? (
           pastCount > 0 ? <NothingComingUp /> : <EmptyEvents />
         ) : (
-          <NextUp event={next} phase={phase ?? "upcoming"} pace={pace} checkedIn={checkedIn} />
+          <NextUp event={next} phase={phase ?? "upcoming"} pace={pace} checkedIn={checkedIn} days={heroDays} />
         )}
 
         {(events.length > 0 || pastCount > 0) && (
@@ -492,11 +618,37 @@ const StudioDashboard = () => {
               ) : (
                 <div className="h-14 bg-muted animate-pulse mb-4" />
               )}
-              <Bars days={dailySales} />
+              <SalesChart days={dailySales} currency={week?.revenue[0]?.currency ?? homeCurrency} />
             </section>
 
+            {/* Live sales */}
+            <section className="bg-card border border-border p-4 md:p-5 md:col-span-2" aria-labelledby="feed-heading">
+              <div className="flex items-baseline justify-between mb-2">
+                <h2 id="feed-heading" className="text-sm font-bold inline-flex items-center gap-2">
+                  Live sales
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="motion-safe:animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60" />
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+                  </span>
+                </h2>
+                <Link to="/studio/sales" className="text-xs font-bold text-primary hover:underline">All sales</Link>
+              </div>
+              <LiveFeed sales={recent} />
+            </section>
+
+            {/* Ticket types of the event in the hero */}
+            {next && (
+              <section className="bg-card border border-border p-4 md:p-5 md:col-span-2" aria-labelledby="tiers-heading">
+                <div className="flex items-baseline justify-between mb-3 gap-2">
+                  <h2 id="tiers-heading" className="text-sm font-bold">Ticket types</h2>
+                  <span className="text-[11px] text-muted-foreground truncate">{next.title}</span>
+                </div>
+                <TierRing tiers={tiers} currency={next.currency} />
+              </section>
+            )}
+
             {/* To do */}
-            <section className="bg-card border border-border p-4 md:p-5 md:col-span-2" aria-labelledby="todo-heading">
+            <section className={`bg-card border border-border p-4 md:p-5 ${next ? "md:col-span-3" : "md:col-span-5"}`} aria-labelledby="todo-heading">
               <h2 id="todo-heading" className="text-sm font-bold mb-3">Needs you</h2>
               {todos.length === 0 ? (
                 <div className="flex items-start gap-2 text-sm text-muted-foreground">
@@ -545,13 +697,14 @@ const StudioDashboard = () => {
           </p>
         )}
       </div>
+      <style>{liveChartStyles}</style>
     </StudioLayout>
   );
 };
 
 /* ───────────────────────── Hero: the next event ───────────────────────── */
 
-const NextUp = ({ event, phase, pace, checkedIn }: { event: StudioEvent; phase: HeroPhase; pace: Pace | null; checkedIn: number | null }) => {
+const NextUp = ({ event, phase, pace, checkedIn, days }: { event: StudioEvent; phase: HeroPhase; pace: Pace | null; checkedIn: number | null; days: DaySales[] | null }) => {
   const sold = useCountUp(event.sold_count);
   const pct = event.total_capacity > 0 ? Math.min(100, Math.round((event.sold_count / event.total_capacity) * 100)) : 0;
   const soldOut = event.total_capacity > 0 && event.sold_count >= event.total_capacity;
@@ -656,6 +809,16 @@ const NextUp = ({ event, phase, pace, checkedIn }: { event: StudioEvent; phase: 
               {checkedIn != null && phase !== "upcoming" ? ` · ${checkedIn.toLocaleString("en-GB")} checked in` : ""}
             </p>
             {paceLine && <p className="mt-1.5 text-sm text-white/95 font-medium">{paceLine}</p>}
+            <div className="mt-4 -mx-1">
+              <SalesCurve days={days} sold={event.sold_count} />
+              {days && days.length > 1 && (
+                <div className="flex justify-between text-[10px] text-white/70 mt-1 px-1">
+                  <span>{new Date(days[0].day).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</span>
+                  <span>tickets sold, day by day</span>
+                  <span>today</span>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="flex flex-wrap gap-2">
@@ -695,30 +858,6 @@ const Figure = ({ label, value, prev, currency }: { label: string; value: number
       <div className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">{label}</div>
       <div className="font-display text-2xl md:text-3xl font-bold tabular-nums leading-tight mt-0.5">{money ? fmtMoney(shown, currency) : shown.toLocaleString("en-GB")}</div>
       <div className={`text-xs mt-0.5 ${delta > 0 ? "text-emerald-700" : delta < 0 ? "text-muted-foreground" : "text-muted-foreground"}`}>{deltaText}</div>
-    </div>
-  );
-};
-
-const Bars = ({ days }: { days: DaySales[] | null }) => {
-  if (!days) return <div className="h-20 bg-muted animate-pulse" />;
-  const max = Math.max(1, ...days.map((d) => d.tickets));
-  const label = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
-  return (
-    <div>
-      <div className="flex items-end gap-1 h-16" role="img" aria-label="Tickets sold per day over the last 14 days">
-        {days.map((d, i) => (
-          <div
-            key={d.day}
-            title={`${label(d.day)}: ${plural(d.tickets, "ticket")}${CURRENCIES.filter((c) => d.cents[c]).map((c) => `, ${fmtMoney(d.cents[c]!, c)}`).join("")}`}
-            className={`flex-1 origin-bottom motion-safe:transition-transform motion-safe:duration-500 ${i >= 7 ? "bg-primary" : "bg-primary/35"}`}
-            style={{ height: `${Math.max(4, (d.tickets / max) * 100)}%`, transitionDelay: `${i * 25}ms` }}
-          />
-        ))}
-      </div>
-      <div className="flex justify-between text-[10px] text-muted-foreground mt-1.5">
-        <span>{label(days[0].day)}</span>
-        <span>today</span>
-      </div>
     </div>
   );
 };
