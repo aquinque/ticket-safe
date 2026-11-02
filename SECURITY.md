@@ -28,7 +28,7 @@ This document is the single source of truth for what we do to protect them. The 
 | Session storage | `sessionStorage` for tab-scoped secrets (encryption key for `secureStore`), `localStorage` for Supabase session (refreshable JWT). Both are wiped on logout. |
 | Encryption at rest (client) | Anything written via `secureStore()` in [src/lib/security.ts](src/lib/security.ts) is AES-GCM-encrypted with a 256-bit key generated per session and held in `sessionStorage`. Closing the tab makes prior writes unrecoverable. |
 | PKCE for OAuth | Supabase client is configured with `flowType: 'pkce'` ([src/integrations/supabase/client.ts](src/integrations/supabase/client.ts)). |
-| Open-redirect protection | `?next=` parameters on `/auth` and `/auth/confirm` are validated to start with `/` and not `//`. |
+| Open-redirect protection | `?next=` parameters on `/auth` and `/auth/confirm` go through [`src/lib/returnTo.ts`](src/lib/returnTo.ts): internal paths only (single leading `/`, no `//`, no backslash, no scheme or control characters, not `/auth` itself), otherwise the home `/`. |
 | Clickjacking | `X-Frame-Options: DENY` and `frame-ancestors 'none'` in CSP ([public/_headers](public/_headers)). |
 
 ## V4. Access Control

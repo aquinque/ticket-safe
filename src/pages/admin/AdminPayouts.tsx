@@ -9,6 +9,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { CURRENCIES, formatMoney, toCurrency, type Currency } from "@/lib/money";
+import { authPathHere } from "@/lib/returnTo";
 
 interface PendingPayout {
   id: string;
@@ -50,7 +51,7 @@ const AdminPayouts = () => {
   const [revolutConfigError, setRevolutConfigError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!authLoading && !user) navigate("/auth", { replace: true });
+    if (!authLoading && !user) navigate(authPathHere(), { replace: true });
   }, [user, authLoading, navigate]);
 
   useEffect(() => {

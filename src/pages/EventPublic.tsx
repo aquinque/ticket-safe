@@ -41,6 +41,7 @@ import { readPromoterRef, trackPromoterVisit } from "@/lib/promoterLinks";
 import { eventEnd, eventPhase, eventStart, isPastEvent, type EventTimeFields } from "@/lib/eventTime";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { authPathHere } from "@/lib/returnTo";
 
 interface PublicEvent {
   id: string;
@@ -382,7 +383,7 @@ const EventPublic = () => {
   const handleToggleFollow = async () => {
     const orgId = event?.organizer?.id;
     if (!user) {
-      navigate(`/auth?next=/e/${slug}`);
+      navigate(authPathHere());
       return;
     }
     if (!orgId) return;

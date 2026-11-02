@@ -38,6 +38,7 @@ import { PromoVideo } from "@/components/PromoVideo";
 import EventPreviewCard from "@/components/studio/EventPreviewCard";
 import { BuyerPaysHint } from "@/components/studio/BuyerPaysHint";
 import { relativeTime } from "@/lib/studioFormat";
+import { authPathHere } from "@/lib/returnTo";
 import {
   type EventDraft,
   type TierDraft,
@@ -310,7 +311,7 @@ const StudioEventNew = () => {
   };
 
   useEffect(() => {
-    if (!authLoading && !user) navigate("/auth?next=/studio/events/new");
+    if (!authLoading && !user) navigate(authPathHere(), { replace: true });
   }, [user, authLoading, navigate]);
 
   useEffect(() => {

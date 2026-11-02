@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Loader2, ShieldCheck, AlertTriangle, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { authRedirect } from "@/lib/siteUrl";
+import { authPath, emailConfirmLanding, returnPathOr } from "@/lib/returnTo";
 import { authErrorMessage, isResendTooSoon, isValidEmail } from "@/lib/authRules";
 
 /**
@@ -48,11 +49,8 @@ function normalizeType(raw: string | null): OtpType | null {
   }
 }
 
-const safeNext = (raw: string | null): string => {
-  if (!raw) return "/profile";
-  if (!raw.startsWith("/") || raw.startsWith("//")) return "/profile";
-  return raw;
-};
+/** Internal paths only (lib/returnTo); the home when missing or unsafe. */
+const safeNext = (raw: string | null): string => returnPathOr(raw);
 
 const AuthConfirm = () => {
   useThemeMode("night");
@@ -147,7 +145,7 @@ const AuthConfirm = () => {
         const { error } = await supabase.auth.resend({
           type: "signup",
           email,
-          options: { emailRedirectTo: authRedirect("/profile") },
+          options: { emailRedirectTo: authRedirect(emailConfirmLanding(params.get("next"))) },
         });
         if (error) throw error;
       }
@@ -218,7 +216,7 @@ const AuthConfirm = () => {
                   </Button>
                 </div>
               )}
-              <Button onClick={() => navigate("/auth")} variant={canResendByEmail ? "ghost" : "default"} className="w-full">
+              <Button onClick={() => navigate(authPath(params.get("next")))} variant={canResendByEmail ? "ghost" : "default"} className="w-full">
                 Sign in
               </Button>
             </CardContent>

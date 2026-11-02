@@ -59,6 +59,7 @@ import { PromoterLinksPanel } from "@/components/studio/PromoterLinksPanel";
 import { PromoCodesPanel } from "@/components/studio/PromoCodesPanel";
 import { GuestlistsPanel } from "@/components/studio/GuestlistsPanel";
 import { FinancialStatementCard } from "@/components/studio/FinancialStatementCard";
+import { authPathHere } from "@/lib/returnTo";
 
 interface EventRow {
   id: string;
@@ -266,7 +267,7 @@ const StudioEventEdit = () => {
 
   useEffect(() => {
     if (!authLoading && !user) {
-      navigate(`/auth?next=${encodeURIComponent(window.location.pathname)}`);
+      navigate(authPathHere(), { replace: true });
     }
   }, [user, authLoading, navigate]);
 

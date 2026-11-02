@@ -8,6 +8,7 @@ import { useOrganizer } from "@/hooks/useOrganizer";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { authPathHere } from "@/lib/returnTo";
 
 /**
  * Settings. The top of the page is the organizer's public identity as
@@ -57,7 +58,7 @@ const StudioProfile = () => {
   const aboutRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    if (!authLoading && !user) navigate("/auth?next=/studio/profile");
+    if (!authLoading && !user) navigate(authPathHere(), { replace: true });
   }, [user, authLoading, navigate]);
 
   const resetFromOrganizer = () => {

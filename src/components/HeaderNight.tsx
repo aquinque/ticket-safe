@@ -8,6 +8,7 @@ import { useI18n } from "@/contexts/I18nContext";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrganizer } from "@/hooks/useOrganizer";
 import { useIsPromoter } from "@/hooks/useIsPromoter";
+import { authPath, currentReturnPath } from "@/lib/returnTo";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -104,7 +105,7 @@ const HeaderNight = () => {
   const close = () => setMenuOpen(false);
   // Promoters open their space; anyone else signed in lands on its empty state, which explains the invitations;
   // signed out, the sign-in page brings them back there.
-  const promoterHref = user ? "/promoter" : "/auth?next=/promoter";
+  const promoterHref = user ? "/promoter" : authPath("/promoter");
   const organizersLink = navLinks.find((link) => link.key === "organizers");
 
   return (
@@ -199,12 +200,12 @@ const HeaderNight = () => {
             ) : (
               <>
                 <Button variant="ghost" size="sm" asChild>
-                  <Link to="/auth" className="text-foreground">
+                  <Link to={authPath(currentReturnPath(location))} className="text-foreground">
                     {t("nav.login")}
                   </Link>
                 </Button>
                 <Button variant="primary" size="sm" asChild>
-                  <Link to="/auth?mode=signup">{t("nav.signUp")}</Link>
+                  <Link to={authPath(currentReturnPath(location), { signup: true })}>{t("nav.signUp")}</Link>
                 </Button>
               </>
             )}
@@ -333,10 +334,10 @@ const HeaderNight = () => {
             ) : (
               <div className="grid grid-cols-2 gap-2">
                 <Button variant="primary" asChild onClick={close}>
-                  <Link to="/auth?mode=signup">Sign up</Link>
+                  <Link to={authPath(currentReturnPath(location), { signup: true })}>Sign up</Link>
                 </Button>
                 <Button variant="outline" asChild onClick={close}>
-                  <Link to="/auth">Log in</Link>
+                  <Link to={authPath(currentReturnPath(location))}>Log in</Link>
                 </Button>
               </div>
             )}

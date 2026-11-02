@@ -18,6 +18,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { SEOHead } from "@/components/SEOHead";
+import { authPathHere } from "@/lib/returnTo";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -58,7 +59,7 @@ const PrivacyData = () => {
 
   useEffect(() => {
     if (!authLoading && !user) {
-      navigate("/auth", { replace: true });
+      navigate(authPathHere(), { replace: true });
     }
   }, [user, authLoading, navigate]);
 

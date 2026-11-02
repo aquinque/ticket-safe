@@ -26,6 +26,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { SellerTrust } from "@/components/SellerTrust";
 import { calcBreakdown, buyerFeeRateFor } from "@/lib/fees";
+import { authPathHere } from "@/lib/returnTo";
 
 interface ListingData {
   id: string;
@@ -224,7 +225,7 @@ const Checkout = () => {
         const token = sessionData.session?.access_token;
         if (!token) {
           toast.error("Session expired. Please log in again.");
-          navigate(`/auth?next=${encodeURIComponent(`/checkout${window.location.search}`)}`);
+          navigate(authPathHere());
           return;
         }
         headers.Authorization = `Bearer ${token}`;

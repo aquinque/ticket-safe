@@ -46,6 +46,7 @@ import { toast as sonnerToast } from "sonner";
 import { generatePayoutReceiptPDF } from "@/lib/payoutReceiptPdf";
 import { RESALE_BUYER_FEE_COPY } from "@/lib/fees";
 import { Chip, WalletOverview } from "@/components/wallet/WalletOverview";
+import { authPathHere } from "@/lib/returnTo";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -193,7 +194,7 @@ const MyListings = () => {
   // Redirect if not authenticated
   useEffect(() => {
     if (!authLoading && !user) {
-      navigate("/auth", { replace: true });
+      navigate(authPathHere(), { replace: true });
     }
   }, [user, authLoading, navigate]);
 

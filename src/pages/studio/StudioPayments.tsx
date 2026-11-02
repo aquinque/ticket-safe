@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { STUDIO_FEE_RULE } from "@/lib/studioFee";
 import { CURRENCIES, formatMoney, toCurrency, type Currency } from "@/lib/money";
 import { eventEnd } from "@/lib/eventTime";
+import { authPathHere } from "@/lib/returnTo";
 
 /**
  * Studio "Payments" — Stripe Connect (Express) onboarding + where the money is.
@@ -384,7 +385,7 @@ const StudioPayments = () => {
   }, [callFn, goToStripe]);
 
   useEffect(() => {
-    if (!authLoading && !user) navigate("/auth?next=/studio/payments");
+    if (!authLoading && !user) navigate(authPathHere(), { replace: true });
   }, [user, authLoading, navigate]);
 
   useEffect(() => {
