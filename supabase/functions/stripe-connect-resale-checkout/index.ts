@@ -26,6 +26,8 @@ function json(body: unknown, status = 200) {
 }
 
 const SITE_URL = Deno.env.get("SITE_URL") ?? "https://ticket-safe.eu";
+/** Buyer service fee on a resale, on top of the listing price (src/lib/fees.ts BUYER_FEE_RATE). */
+const BUYER_FEE_PERCENT = 5;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
@@ -79,6 +81,7 @@ serve(async (req) => {
   if (!reservedRows || reservedRows.length === 0) return json({ error: "This ticket was just taken." }, 409);
 
   const priceCents = Math.round(Number(listing.selling_price) * 100);
+  const buyerFeeCents = Math.round((priceCents * BUYER_FEE_PERCENT) / 100);
   const { data: commissionResult } = await supabase.rpc("get_resale_commission_cents", { p_price_cents: priceCents });
   const commissionCents = Number(commissionResult ?? 0);
 
@@ -87,7 +90,7 @@ serve(async (req) => {
     seller_id: listing.seller_id,
     ticket_id: listingId,
     amount: priceCents / 100,
-    fee_amount: 0, // buyer pays listing price only — commission comes out of the seller's eventual payout
+    fee_amount: buyerFeeCents / 100, // 5 % on top, paid by the buyer; the seller's 5 % comes out of their payout
     commission_cents: commissionCents,
     status: "pending",
   }).select("id").single();
@@ -114,6 +117,13 @@ serve(async (req) => {
           currency: "eur",
           unit_amount: priceCents,
           product_data: { name: `Resale ticket — ${ev?.title ?? "Ticket Safe"}` },
+        },
+        quantity: 1,
+      }, {
+        price_data: {
+          currency: "eur",
+          unit_amount: buyerFeeCents,
+          product_data: { name: `Service fee (${BUYER_FEE_PERCENT}%)` },
         },
         quantity: 1,
       }],

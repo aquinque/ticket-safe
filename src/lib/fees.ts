@@ -2,9 +2,9 @@
  * Centralized fee logic for TicketSafe — RESALE marketplace.
  *
  * Model (resale):
- *  - Buyer pays 6% on top of the listing price  (BUYER_FEE_RATE), 7% when the unit
- *    price is €50 or more                        (BUYER_FEE_RATE_HIGH)
- *  - Seller pays 5% deducted at withdrawal       (SELLER_COMMISSION_RATE)
+ *  - Buyer pays 5% on top of the listing price  (BUYER_FEE_RATE), whatever the price
+ *  - Seller gets the listing price minus 5%      (SELLER_COMMISSION_RATE), paid out
+ *    after the event
  *
  * (Studio primary sales use their own model instead: a per-ticket service fee
  * paid by the buyer, computed only in the database function
@@ -13,9 +13,9 @@
  * All monetary calculations use integer cents to avoid floating-point drift.
  */
 
-export const BUYER_FEE_RATE = 0.06;
-/** Higher buyer fee for higher-value tickets (unit price >= threshold). */
-export const BUYER_FEE_RATE_HIGH = 0.07;
+export const BUYER_FEE_RATE = 0.05;
+/** Kept equal to BUYER_FEE_RATE: the resale fee no longer steps up for pricier tickets. */
+export const BUYER_FEE_RATE_HIGH = 0.05;
 /** Unit price (per ticket, EUR) at/above which the higher buyer fee applies. */
 export const HIGH_VALUE_THRESHOLD_EUR = 50;
 export const SELLER_COMMISSION_RATE = 0.05;
@@ -31,10 +31,10 @@ const percent = (rate: number) => Math.round(rate * 100);
  * comes from buyerFeeRateFor() on the checkout page and from the same tiers in revolut-resale-checkout.
  * Studio sales have their own wording in studioFee.ts.
  */
-export const RESALE_BUYER_FEE_COPY = `${percent(BUYER_FEE_RATE)}% (${percent(BUYER_FEE_RATE_HIGH)}% for tickets of €${HIGH_VALUE_THRESHOLD_EUR} or more)`;
+export const RESALE_BUYER_FEE_COPY = `${percent(BUYER_FEE_RATE)}%`;
 
 /** The same words for a sentence that already has brackets: "6%, or 7% for tickets of €50 or more". */
-export const RESALE_BUYER_FEE_PHRASE = `${percent(BUYER_FEE_RATE)}%, or ${percent(BUYER_FEE_RATE_HIGH)}% for tickets of €${HIGH_VALUE_THRESHOLD_EUR} or more`;
+export const RESALE_BUYER_FEE_PHRASE = `${percent(BUYER_FEE_RATE)}%`;
 
 /** Convert euros (possibly fractional) to integer cents, rounding half-up. */
 export const toCents = (euros: number): number => Math.round(euros * 100);

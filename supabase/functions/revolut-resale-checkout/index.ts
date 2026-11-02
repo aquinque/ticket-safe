@@ -19,8 +19,8 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
-const BUYER_FEE_PERCENT = 6;
-const BUYER_FEE_PERCENT_HIGH = 7;
+const BUYER_FEE_PERCENT = 5;
+const BUYER_FEE_PERCENT_HIGH = 5;
 const HIGH_VALUE_THRESHOLD_EUR = 50;
 const RESERVATION_TTL_MS = 30 * 60 * 1000;
 const MAX_UNIT_PRICE_EUR = 5000;

@@ -3,7 +3,7 @@ import Footer from "@/components/Footer";
 import { BackButton } from "@/components/BackButton";
 import { SEOHead } from "@/components/SEOHead";
 import { Link } from "react-router-dom";
-import { HIGH_VALUE_THRESHOLD_EUR, RESALE_BUYER_FEE_COPY, buyerFeeRateFor, calcBreakdown } from "@/lib/fees";
+import { RESALE_BUYER_FEE_COPY, buyerFeeRateFor, calcBreakdown } from "@/lib/fees";
 import {
   ArrowRight,
   Search,
@@ -93,7 +93,7 @@ const faqs = [
   },
   {
     q: "What are the fees?",
-    a: `Buyers pay ${RESALE_BUYER_FEE_COPY} on top of the ticket price; sellers have 5% deducted when they withdraw. The fee covers payment processing, ticket authentication and buyer protection.`,
+    a: `Buyers pay ${RESALE_BUYER_FEE_COPY} on top of the ticket price; sellers receive the price minus 5%, paid to their bank after the event. The fee covers payment processing, ticket authentication and buyer protection.`,
   },
   {
     q: "What if the event is cancelled?",
@@ -308,7 +308,7 @@ const HowItWorks = () => {
                 <div className="p-4 md:p-5 text-center">
                   <div className="text-xl md:text-2xl font-black text-primary mb-0.5">{exampleBuyerFeePercent}%</div>
                   <div className="text-[10px] md:text-xs text-muted-foreground leading-tight">
-                    Buyer fee, {Math.round(buyerFeeRateFor(HIGH_VALUE_THRESHOLD_EUR) * 100)}% from €{HIGH_VALUE_THRESHOLD_EUR}
+                    Buyer fee
                   </div>
                 </div>
                 <div className="p-4 md:p-5 text-center">
