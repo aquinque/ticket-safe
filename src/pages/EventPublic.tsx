@@ -607,7 +607,7 @@ const EventPublic = () => {
   // Time, attendance, atmosphere.
   const clock = countdown(event, nowTs);
   const interestedLabel = interested >= 5
-    ? `${interested >= 1000 ? `${(interested / 1000).toFixed(interested >= 10_000 ? 0 : 1).replace(/\.0$/, "")}k` : interested} interested`
+    ? `${interested >= 1000 ? `${(interested / 1000).toFixed(interested >= 10_000 ? 0 : 1).replace(/\.0$/, "")}k` : interested}+ interested`
     : null;
   const startDate = new Date(event.date);
   const reduceMotion = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
