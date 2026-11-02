@@ -143,7 +143,7 @@ describe("the three slides", () => {
     expect(HERO_SLIDES.map((s) => s.subline)).toEqual([
       "Create it in Ticket Studio, sell in minutes, withdraw your money whenever you want.",
       "Galas, parties, trips, conferences. One link, one ticket, zero fraud.",
-      "Resale happens on TicketSafe, at a capped price. The buyer gets a real ticket, the seller gets paid, the organizer stays in control.",
+      "Resale happens on TicketSafe, with every ticket checked first. The buyer gets a real ticket, the seller gets paid, the organizer stays in control.",
     ]);
   });
 
