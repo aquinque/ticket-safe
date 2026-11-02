@@ -9,24 +9,13 @@ verify_jwt = false
 [functions.verify-qr]
 verify_jwt = false
 
-[functions.stripe-create-checkout]
-verify_jwt = false
-
 # Send Email Hook — called by Supabase Auth itself with Standard Webhooks
 # signature. JWT verification must be disabled because the hook is unauthenticated.
 [functions.send-auth-email]
 verify_jwt = false
 
-# Studio primary-sale checkout — authenticated buyer creates a Stripe
-# Checkout Session with destination charges to the organizer's Connect account.
-# Internally uses service-role client + getUser(token), so gateway JWT
-# verification is redundant.
-[functions.studio-create-checkout]
-verify_jwt = false
-
-# Studio primary-sale checkout via Revolut Merchant — the function EventPublic.tsx
-# actually calls (Revolut is the live payment provider; studio-create-checkout/
-# Stripe above stays deployed as a dormant fallback). Same internal auth pattern.
+# Studio primary-sale checkout via Revolut Merchant — what EventPublic.tsx calls for
+# events whose payment_provider is not "stripe". Same internal auth pattern.
 [functions.revolut-create-checkout]
 verify_jwt = false
 
@@ -40,10 +29,6 @@ verify_jwt = false
 # Organizer notification emails. Authenticated; auth-handled inside the
 # function (owner for new_application, admin for approve/reject).
 [functions.organizer-notify]
-verify_jwt = false
-
-# Stripe Express dashboard login link. Authenticated; internal auth via getUser.
-[functions.stripe-express-dashboard]
 verify_jwt = false
 
 # Event ticket QR generator. Authenticated; serves the QR SVG only to the
@@ -81,12 +66,6 @@ verify_jwt = false
 # no shared secret needed), so gateway JWT verification only risks
 # rejecting genuine Revolut deliveries before they're ever checked.
 [functions.revolut-webhook]
-verify_jwt = false
-
-# Same reasoning — Stripe's webhook signs its own payload; it carries no
-# Supabase JWT either. Dormant fallback today, but should never gateway-401
-# if Stripe is ever reactivated.
-[functions.stripe-webhook]
 verify_jwt = false
 
 # Guest ticket page (/t/:token). Public by design: the token in the request is the

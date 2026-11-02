@@ -1,0 +1,15 @@
+{
+  "slug": "studio-create-checkout",
+  "last_live_version": 37,
+  "verify_jwt": false,
+  "entrypoint": "index.ts",
+  "files": [
+    "index.ts",
+    "_shared/eventTime.ts"
+  ],
+  "identical_to_repo": {
+    "index.ts": true,
+    "_shared/eventTime.ts": true
+  },
+  "retired_at": "2026-11-02"
+}

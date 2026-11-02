@@ -26,7 +26,7 @@ serve(async (req) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const resendKey = Deno.env.get("RESEND_API_KEY");
-  const replaySecret = Deno.env.get("REPLAY_ADMIN_SECRET") ?? "ts-replay-secret-2026";
+  const replaySecret = Deno.env.get("REPLAY_ADMIN_SECRET") ?? "";
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   let body: { transaction_id?: string; admin_secret?: string; provider?: string };
@@ -38,7 +38,8 @@ serve(async (req) => {
   if (!tx) return json({ error: "Transaction not found" }, 404);
   if (tx.status !== "completed") return json({ error: "This transaction has not completed." }, 400);
 
-  const isAdminCall = !!body.admin_secret && body.admin_secret === replaySecret;
+  // No default: with REPLAY_ADMIN_SECRET unset, the secret path is closed.
+  const isAdminCall = !!replaySecret && !!body.admin_secret && body.admin_secret === replaySecret;
   if (!isAdminCall) {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) return json({ error: "Unauthorized" }, 401);

@@ -1,0 +1,14 @@
+{
+  "slug": "setup-admins",
+  "last_live_version": 34,
+  "verify_jwt": false,
+  "entrypoint": "index.ts",
+  "files": [
+    "index.ts"
+  ],
+  "identical_to_repo": {
+    "index.ts": null
+  },
+  "retired_at": "2026-11-02",
+  "note": "live-only function; public and unauthenticated, returned every user's email. Neutralized 2026-11-02 16:13 UTC."
+}

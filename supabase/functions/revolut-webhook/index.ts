@@ -57,7 +57,7 @@ serve(async (req) => {
   const revolutSecret = Deno.env.get("REVOLUT_MERCHANT_SECRET_KEY");
   const revolutBase = (Deno.env.get("REVOLUT_MERCHANT_BASE") ?? "https://merchant.revolut.com/api").replace(/\/+$/, "");
   const revolutApiVersion = Deno.env.get("REVOLUT_API_VERSION") ?? "2024-09-01";
-  const replaySecret = Deno.env.get("REPLAY_ADMIN_SECRET") ?? "ts-replay-secret-2026";
+  const replaySecret = Deno.env.get("REPLAY_ADMIN_SECRET") ?? "";
   const resendKey = Deno.env.get("RESEND_API_KEY");
   const supabase = createClient(supabaseUrl, supabaseKey);
 

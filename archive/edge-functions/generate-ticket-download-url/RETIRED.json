@@ -1,0 +1,11 @@
+{
+  "slug": "generate-ticket-download-url",
+  "last_live_version": 11,
+  "verify_jwt": true,
+  "entrypoint": "index.ts",
+  "files": [
+    "index.ts"
+  ],
+  "identical_to_repo": true,
+  "retired_at": "2026-11-02"
+}

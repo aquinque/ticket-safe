@@ -1,0 +1,14 @@
+{
+  "slug": "resend-resale-emails",
+  "last_live_version": 11,
+  "verify_jwt": false,
+  "entrypoint": "index.ts",
+  "files": [
+    "index.ts"
+  ],
+  "identical_to_repo": {
+    "index.ts": null
+  },
+  "retired_at": "2026-11-02",
+  "note": "live-only function (never in the repo); code copied from the production deployment"
+}
