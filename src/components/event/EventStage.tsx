@@ -36,9 +36,9 @@ const pad = (n: number) => n.toString().padStart(2, "0");
 /** One unit of the countdown. The digits re-key on change, so each new value drops in. */
 function Unit({ value, label }: { value: string; label: string }) {
   return (
-    <span className="inline-flex flex-col items-center min-w-[2.4ch]">
-      <span key={value} className="ts-digit ts-mono text-2xl sm:text-[1.75rem] font-semibold leading-none tabular-nums text-foreground">{value}</span>
-      <span className="mt-1 text-[9px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">{label}</span>
+    <span className="inline-flex flex-col items-center min-w-[2ch]">
+      <span key={value} className="ts-digit text-lg sm:text-xl font-semibold leading-none tabular-nums text-foreground">{value}</span>
+      <span className="mt-0.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">{label}</span>
     </span>
   );
 }
@@ -72,10 +72,10 @@ export function DoorsStub({
         <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-primary">
           {start.toLocaleDateString("en-GB", { weekday: "short" })}
         </div>
-        <div className="font-display text-2xl sm:text-[1.75rem] font-semibold leading-none text-foreground mt-1 whitespace-nowrap">
+        <div className="text-xl sm:text-2xl font-semibold leading-none text-foreground mt-1 whitespace-nowrap">
           {start.getDate()} {start.toLocaleDateString("en-GB", { month: "short" })}
         </div>
-        <div className="ts-mono text-xs text-muted-foreground mt-1.5">
+        <div className="text-xs text-muted-foreground mt-1.5 tabular-nums">
           {start.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
         </div>
       </div>
@@ -87,10 +87,10 @@ export function DoorsStub({
               <span className="absolute inset-0 rounded-full bg-emerald-400 motion-safe:animate-ping opacity-70" />
               <span className="relative w-2.5 h-2.5 rounded-full bg-emerald-400" />
             </span>
-            <span className="font-display text-xl font-semibold text-emerald-300">Happening now</span>
+            <span className="text-lg font-semibold text-emerald-300">Happening now</span>
           </div>
         ) : phase === "past" ? (
-          <span className="font-display text-xl font-semibold text-muted-foreground">This event has ended</span>
+          <span className="text-lg font-semibold text-muted-foreground">This event has ended</span>
         ) : (
           <>
             <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground mb-1.5">Starts in</span>
@@ -114,7 +114,7 @@ export function DoorsStub({
         >
           <span className="text-left">
             <span className="block text-[10px] font-semibold uppercase tracking-[0.18em] text-primary">Tickets</span>
-            <span className="block font-display text-lg font-semibold text-foreground whitespace-nowrap">{priceLabel}</span>
+            <span className="block text-lg font-semibold text-foreground whitespace-nowrap">{priceLabel}</span>
           </span>
           <ArrowRight className="w-4 h-4 text-primary transition-transform group-hover:translate-x-0.5" />
         </button>
@@ -123,7 +123,7 @@ export function DoorsStub({
   );
 }
 
-const Colon = () => <span aria-hidden className="ts-mono text-xl leading-none text-muted-foreground/60 pt-0.5">:</span>;
+const Colon = () => <span aria-hidden className="text-base leading-none text-muted-foreground/60">:</span>;
 
 /** Fades a section up the first time it scrolls into view. Visible at once without motion or observers. */
 export function Reveal({ children, delay = 0, className = "" }: { children: ReactNode; delay?: number; className?: string }) {
@@ -146,7 +146,6 @@ export function Reveal({ children, delay = 0, className = "" }: { children: Reac
 
 /** Keyframes and the ticket-notch mask. Motion stops for people who asked for less. */
 export const eventStageStyles = `
-  .ts-mono { font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace; }
   .ts-glow { filter: blur(56px) saturate(1.5); transform: scale(1.25); opacity: .7; animation: ts-breathe 14s ease-in-out infinite alternate; }
   @keyframes ts-breathe { from { transform: scale(1.25) translateY(0); opacity: .6; } to { transform: scale(1.4) translateY(-2%); opacity: .85; } }
   .ts-poster { animation: ts-poster-in 900ms cubic-bezier(.2,.7,.2,1) both; }
@@ -154,7 +153,7 @@ export const eventStageStyles = `
   .ts-stub { animation: ts-stub-in 700ms 250ms cubic-bezier(.2,.7,.2,1) both; }
   @keyframes ts-stub-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
   .ts-digit { animation: ts-drop 380ms cubic-bezier(.2,.7,.2,1); }
-  @keyframes ts-drop { from { opacity: 0; transform: translateY(-40%); } to { opacity: 1; transform: none; } }
+  @keyframes ts-drop { from { transform: translateY(-35%); } to { transform: none; } }
   .ts-reveal { opacity: 0; transform: translateY(18px); transition: opacity 600ms ease, transform 600ms cubic-bezier(.2,.7,.2,1); }
   .ts-reveal.is-in { opacity: 1; transform: none; }
   /* A ticket: two half-circle notches cut where the price tears off. */
