@@ -44,7 +44,7 @@ interface FormError {
 }
 
 const RESEND_COOLDOWN_MS = 60_000;
-const INVALID_EMAIL = "Cette adresse email n'est pas valide. Vérifie qu'il n'y a pas de faute de frappe.";
+const INVALID_EMAIL = "This email address isn't valid. Check it for typos.";
 
 const FIELD_IDS: Record<SignupField, string> = {
   email: "email",
@@ -143,7 +143,7 @@ const Auth = () => {
       if (error) throw error;
       startCooldown();
       setPending({ ...pending, emailSent: true, notice: null });
-      toast.success("Email renvoyé. Regarde ta boîte mail.");
+      toast.success("Email sent again. Check your inbox.");
     } catch (err) {
       console.error("[Auth] resend failed:", err);
       // Supabase allows one email per minute per person: keep the button on hold.
@@ -175,7 +175,7 @@ const Auth = () => {
         kind: "reset",
         email: email.trim(),
         emailSent: true,
-        notice: error ? "Un email t'a déjà été envoyé il y a moins d'une minute." : null,
+        notice: error ? "We sent you an email less than a minute ago." : null,
       });
       setShowForgotPassword(false);
     } catch (error) {
@@ -193,7 +193,7 @@ const Auth = () => {
     }
 
     if (!password) {
-      fail("Saisis ton mot de passe.", { field: "password" });
+      fail("Enter your password.", { field: "password" });
       return;
     }
 
@@ -208,7 +208,7 @@ const Auth = () => {
     } catch { /* guard unavailable — proceed */ }
 
     if (isLocked) {
-      fail("Compte bloqué 15 minutes après plusieurs essais ratés. Réessaie plus tard, ou choisis un nouveau mot de passe.", { offerReset: true });
+      fail("Account locked for 15 minutes after several failed attempts. Try again later, or choose a new password.", { offerReset: true });
       return;
     }
 
@@ -221,7 +221,7 @@ const Auth = () => {
       if (isEmailNotConfirmed(error)) {
         // Sign-in is refused until the link in the email is clicked. The
         // confirmation screen offers to resend it.
-        setPending({ kind: "confirm", email: email.trim(), emailSent: true, notice: "Ton compte n'est pas encore activé." });
+        setPending({ kind: "confirm", email: email.trim(), emailSent: true, notice: "Your account isn't activated yet." });
         return;
       }
       if (!isInvalidCredentials(error)) {
@@ -236,7 +236,7 @@ const Auth = () => {
           body: { action: "fail", email: email.trim() },
         });
       } catch { /* ignore */ }
-      fail("Email ou mot de passe incorrect.", { offerReset: true });
+      fail("Incorrect email or password.", { offerReset: true });
       return;
     }
 
@@ -247,7 +247,7 @@ const Auth = () => {
       // for an unverified account.
       if (!data.user.email_confirmed_at) {
         await supabase.auth.signOut();
-        setPending({ kind: "confirm", email: email.trim(), emailSent: true, notice: "Ton compte n'est pas encore activé." });
+        setPending({ kind: "confirm", email: email.trim(), emailSent: true, notice: "Your account isn't activated yet." });
         return;
       }
 
@@ -258,7 +258,7 @@ const Auth = () => {
         });
       } catch { /* ignore */ }
 
-      toast.success("Content de te revoir !");
+      toast.success("Welcome back!");
       // Navigation handled by the useEffect watching user state
     }
   };
@@ -292,7 +292,7 @@ const Auth = () => {
         setPending({ kind: "existing", email: outcome.email, emailSent: outcome.emailSent, notice: outcome.notice });
         return;
       case "signed_in":
-        toast.success("Compte créé !");
+        toast.success("Account created!");
         // Navigation handled by the useEffect watching user state
         return;
     }
@@ -329,13 +329,13 @@ const Auth = () => {
       </p>
       {formError.offerReset && (
         <p className="text-xs text-foreground/80 pl-6">
-          Tu as acheté un billet sans créer de compte ? Ton compte existe déjà.{" "}
+          Bought a ticket without creating an account? Your account already exists.{" "}
           <button
             type="button"
             onClick={() => { setFormError(null); setShowForgotPassword(true); }}
             className="text-primary font-semibold hover:underline"
           >
-            Choisir un nouveau mot de passe
+            Choose a new password
           </button>
         </p>
       )}
@@ -351,12 +351,12 @@ const Auth = () => {
         <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold text-center">
-            {isLogin ? "Connexion" : "Créer un compte"}
+            {isLogin ? "Sign in" : "Create an account"}
           </CardTitle>
           <CardDescription className="text-center">
             {isLogin
-              ? "Connecte-toi pour retrouver tes billets"
-              : "Retrouve tes billets et tes achats au même endroit"}
+              ? "Sign in to find your tickets"
+              : "Your tickets and purchases, all in one place"}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -367,41 +367,41 @@ const Auth = () => {
               </div>
               <div className="space-y-2">
                 <p className="text-base font-semibold">
-                  {pending.kind === "existing" ? "Tu as déjà un compte" : "Vérifie ta boîte mail"}
+                  {pending.kind === "existing" ? "You already have an account" : "Check your inbox"}
                 </p>
                 {pending.kind === "confirm" && (
                   <p className="text-sm text-muted-foreground">
-                    On t'a envoyé un email à <strong className="break-all">{pending.email}</strong>.
-                    Clique sur le lien pour activer ton compte.
+                    We've sent an email to <strong className="break-all">{pending.email}</strong>.
+                    Click the link to activate your account.
                   </p>
                 )}
                 {pending.kind === "existing" && (
                   <p className="text-sm text-muted-foreground">
-                    L'adresse <strong className="break-all">{pending.email}</strong> a déjà un compte.
-                    Si tu as acheté un billet sans créer de compte, il a été créé automatiquement à ce moment-là.{" "}
+                    The address <strong className="break-all">{pending.email}</strong> already has an account.
+                    If you bought a ticket without creating an account, one was created for you automatically at that point.{" "}
                     {pending.emailSent
-                      ? "On vient de t'envoyer un email : clique sur le lien pour choisir ton mot de passe et retrouver tes billets."
-                      : "Demande un email ci-dessous pour choisir ton mot de passe."}
+                      ? "We've just sent you an email: click the link to choose your password and find your tickets."
+                      : "Request an email below to choose your password."}
                   </p>
                 )}
                 {pending.kind === "reset" && (
                   <p className="text-sm text-muted-foreground">
-                    Si un compte existe pour <strong className="break-all">{pending.email}</strong>, on vient
-                    d'envoyer un email. Clique sur le lien pour choisir un nouveau mot de passe.
+                    If an account exists for <strong className="break-all">{pending.email}</strong>, we've just
+                    sent an email. Click the link to choose a new password.
                   </p>
                 )}
                 {pending.notice && (
                   <p role="alert" className="text-sm font-medium text-foreground">{pending.notice}</p>
                 )}
                 <p className="text-xs text-muted-foreground">
-                  Tu ne le vois pas ? Regarde dans tes spams. L'email vient de noreply@ticket-safe.eu.
+                  Can't see it? Check your spam folder. The email comes from noreply@ticket-safe.eu.
                 </p>
               </div>
               <Button onClick={handleResend} variant="outline" className="w-full" disabled={loading || resendSecondsLeft > 0}>
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {resendSecondsLeft > 0
-                  ? `Renvoyer dans ${resendSecondsLeft}s`
-                  : pending.emailSent ? "Renvoyer l'email" : "Envoyer l'email"}
+                  ? `Resend in ${resendSecondsLeft}s`
+                  : pending.emailSent ? "Resend the email" : "Send the email"}
               </Button>
               <div className="flex flex-col gap-2">
                 {pending.kind !== "reset" && (
@@ -410,7 +410,7 @@ const Auth = () => {
                     onClick={() => { setPending(null); setIsLogin(false); }}
                     className="text-sm text-primary hover:underline"
                   >
-                    Mauvaise adresse ? Modifier
+                    Wrong address? Change it
                   </button>
                 )}
                 <button
@@ -418,25 +418,25 @@ const Auth = () => {
                   onClick={() => switchMode(true)}
                   className="text-sm text-primary hover:underline"
                 >
-                  {pending.kind === "existing" ? "J'ai déjà mon mot de passe : me connecter" : "Retour à la connexion"}
+                  {pending.kind === "existing" ? "I already have my password: sign in" : "Back to sign in"}
                 </button>
               </div>
             </div>
           ) : showForgotPassword ? (
             <form onSubmit={handleForgotPassword} className="space-y-4" noValidate>
               <p className="text-sm text-muted-foreground">
-                Indique ton adresse email : on t'envoie un lien pour choisir un nouveau mot de passe.
+                Enter your email address and we'll send you a link to choose a new password.
               </p>
               <div className="space-y-2">
                 <Label htmlFor="reset-email">
                   <Mail className="w-4 h-4 inline mr-2" />
-                  Adresse email
+                  Email address
                 </Label>
                 <Input
                   id="reset-email"
                   type="email"
                   autoComplete="email"
-                  placeholder="toi@exemple.com"
+                  placeholder="you@example.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -445,7 +445,7 @@ const Auth = () => {
               {errorBox}
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Recevoir le lien
+                Send me the link
               </Button>
               <div className="text-center">
                 <button
@@ -453,7 +453,7 @@ const Auth = () => {
                   onClick={() => { setShowForgotPassword(false); setFormError(null); }}
                   className="text-sm text-primary hover:underline"
                 >
-                  Retour à la connexion
+                  Back to sign in
                 </button>
               </div>
             </form>
@@ -465,7 +465,7 @@ const Auth = () => {
                   <div className="space-y-2">
                     <Label htmlFor="firstName">
                       <User className="w-4 h-4 inline mr-2" />
-                      Prénom
+                      First name
                     </Label>
                     <Input
                       id="firstName"
@@ -478,7 +478,7 @@ const Auth = () => {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="lastName">Nom</Label>
+                    <Label htmlFor="lastName">Last name</Label>
                     <Input
                       id="lastName"
                       type="text"
@@ -495,7 +495,7 @@ const Auth = () => {
             <div className="space-y-2">
               <Label htmlFor="email">
                 <Mail className="w-4 h-4 inline mr-2" />
-                Adresse email
+                Email address
               </Label>
               <Input
                 id="email"
@@ -505,7 +505,7 @@ const Auth = () => {
                 autoCapitalize="none"
                 autoCorrect="off"
                 spellCheck={false}
-                placeholder="toi@exemple.com"
+                placeholder="you@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -516,19 +516,19 @@ const Auth = () => {
                   onClick={() => setEmail(emailSuggestion)}
                   className="text-xs text-primary hover:underline text-left"
                 >
-                  Tu voulais dire {emailSuggestion} ?
+                  Did you mean {emailSuggestion}?
                 </button>
               )}
               {!isLogin && (
                 <p className="text-xs text-muted-foreground">
-                  Déjà acheté un billet ? Utilise la même adresse pour le retrouver.
+                  Already bought a ticket? Use the same address to find it.
                 </p>
               )}
             </div>
             {!isLogin && (
               <div className="space-y-2">
                 <Label>
-                  Genre <span className="font-normal text-muted-foreground">(facultatif)</span>
+                  Gender <span className="font-normal text-muted-foreground">(optional)</span>
                 </Label>
                 <div className="grid grid-cols-3 gap-2">
                   {GENDER_CHOICES.map((option) => (
@@ -552,7 +552,7 @@ const Auth = () => {
             <div className="space-y-2">
               <Label htmlFor="password">
                 <Lock className="w-4 h-4 inline mr-2" />
-                Mot de passe
+                Password
               </Label>
               <div className="relative">
                 <Input
@@ -570,7 +570,7 @@ const Auth = () => {
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                  aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
                   tabIndex={-1}
                 >
                   {showPassword ? (
@@ -590,7 +590,7 @@ const Auth = () => {
             {errorBox}
             <Button type="submit" className="w-full" disabled={loading}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isLogin ? "Se connecter" : "Créer mon compte"}
+              {isLogin ? "Sign in" : "Create my account"}
             </Button>
           </form>
           )}
@@ -604,7 +604,7 @@ const Auth = () => {
                     onClick={() => { setFormError(null); setShowForgotPassword(true); }}
                     className="text-sm text-primary hover:underline"
                   >
-                    Mot de passe oublié ?
+                    Forgot your password?
                   </button>
                 </div>
               )}
@@ -615,16 +615,16 @@ const Auth = () => {
                   className="text-primary hover:underline"
                 >
                   {isLogin
-                    ? "Pas encore de compte ? Créer un compte"
-                    : "Déjà un compte ? Se connecter"}
+                    ? "No account yet? Create one"
+                    : "Already have an account? Sign in"}
                 </button>
               </div>
               {!isLogin && (
                 <p className="mt-4 text-xs text-center text-muted-foreground">
-                  En créant un compte, tu acceptes nos{' '}
-                  <a href="/terms" className="text-primary hover:underline">conditions d'utilisation</a>
-                  {' '}et notre{' '}
-                  <a href="/privacy" className="text-primary hover:underline">politique de confidentialité</a>.
+                  By creating an account, you agree to our{' '}
+                  <a href="/terms" className="text-primary hover:underline">Terms of Use</a>
+                  {' '}and our{' '}
+                  <a href="/privacy" className="text-primary hover:underline">Privacy Policy</a>.
                 </p>
               )}
             </>

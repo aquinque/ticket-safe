@@ -50,7 +50,7 @@ const ResetPassword = () => {
       if (cancelled) return;
       setIsValidToken(valid);
       if (!valid) {
-        toast.error("Ce lien a expiré ou n'est plus valide. Demande-en un nouveau.");
+        toast.error("This link has expired or is no longer valid. Request a new one.");
         setTimeout(() => navigate("/auth"), 3000);
       }
     };
@@ -99,7 +99,7 @@ const ResetPassword = () => {
       return;
     }
     if (newPassword !== confirmPassword) {
-      setSubmitError("Les deux mots de passe ne sont pas identiques.");
+      setSubmitError("The two passwords don't match.");
       return;
     }
 
@@ -109,7 +109,7 @@ const ResetPassword = () => {
       const { data: sessionData } = await supabase.auth.getSession();
       if (!sessionData.session) {
         console.error("[reset-password] no active session at submit time");
-        setSubmitError("Ta session a expiré. Demande un nouveau lien depuis « Mot de passe oublié ».");
+        setSubmitError("Your session has expired. Request a new link from “Forgot your password?”.");
         setTimeout(() => navigate("/auth"), 3000);
         return;
       }
@@ -124,7 +124,7 @@ const ResetPassword = () => {
         throw error;
       }
 
-      toast.success(isActivation ? "Compte activé !" : "Mot de passe mis à jour !");
+      toast.success(isActivation ? "Account activated!" : "Password updated!");
       setSuccess(true);
     } catch (error) {
       console.error("[reset-password] caught error:", error);
@@ -144,7 +144,7 @@ const ResetPassword = () => {
         <Card className="w-full max-w-md">
           <CardContent className="flex flex-col items-center justify-center py-12 gap-3">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <p className="text-sm text-muted-foreground">Vérification du lien…</p>
+            <p className="text-sm text-muted-foreground">Checking the link…</p>
           </CardContent>
         </Card>
       </div>
@@ -161,14 +161,14 @@ const ResetPassword = () => {
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle className="text-2xl font-bold text-center text-destructive">
-              Lien non valide
+              Invalid link
             </CardTitle>
             <CardDescription className="text-center">
-              Ce lien a expiré ou a déjà été utilisé. Demande-en un nouveau depuis « Mot de passe oublié ».
+              This link has expired or has already been used. Request a new one from “Forgot your password?”.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex justify-center">
-            <Button onClick={() => navigate("/auth")}>Retour à la connexion</Button>
+            <Button onClick={() => navigate("/auth")}>Back to sign in</Button>
           </CardContent>
         </Card>
       </div>
@@ -185,17 +185,17 @@ const ResetPassword = () => {
               <ShieldCheck className="w-7 h-7 text-green-600" />
             </div>
             <CardTitle className="text-2xl font-bold text-center text-green-700">
-              {isActivation ? "Compte activé" : "Mot de passe mis à jour"}
+              {isActivation ? "Account activated" : "Password updated"}
             </CardTitle>
             <CardDescription className="text-center">
-              {isActivation ? "Ton compte est prêt, tes billets t'attendent." : "Ton nouveau mot de passe est actif."}{" "}
-              Redirection vers ton profil dans{" "}
+              {isActivation ? "Your account is ready and your tickets are waiting." : "Your new password is active."}{" "}
+              Taking you to your profile in{" "}
               <span className="font-bold text-foreground">{redirectCountdown}</span>…
             </CardDescription>
           </CardHeader>
           <CardContent className="flex justify-center pb-8">
             <Button onClick={() => navigate("/profile", { replace: true })}>
-              Aller sur mon profil
+              Go to my profile
             </Button>
           </CardContent>
         </Card>
@@ -212,12 +212,12 @@ const ResetPassword = () => {
       <Card className="w-full max-w-md">
         <CardHeader className="space-y-1">
           <CardTitle className="text-2xl font-bold text-center">
-            {isActivation ? "Active ton compte" : "Nouveau mot de passe"}
+            {isActivation ? "Activate your account" : "New password"}
           </CardTitle>
           <CardDescription className="text-center">
             {isActivation
-              ? "Choisis ton mot de passe pour activer ton compte et retrouver tes billets."
-              : "Choisis ton nouveau mot de passe."}
+              ? "Choose your password to activate your account and find your tickets."
+              : "Choose your new password."}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -226,7 +226,7 @@ const ResetPassword = () => {
             <div className="space-y-2">
               <Label htmlFor="newPassword">
                 <Lock className="w-4 h-4 inline mr-2" />
-                Mot de passe
+                Password
               </Label>
               <div className="relative">
                 <Input
@@ -246,7 +246,7 @@ const ResetPassword = () => {
                 <button
                   type="button"
                   tabIndex={-1}
-                  aria-label={showNewPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+                  aria-label={showNewPassword ? "Hide password" : "Show password"}
                   onClick={() => setShowNewPassword(!showNewPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
@@ -263,7 +263,7 @@ const ResetPassword = () => {
             <div className="space-y-2">
               <Label htmlFor="confirmPassword">
                 <Lock className="w-4 h-4 inline mr-2" />
-                Confirme le mot de passe
+                Confirm password
               </Label>
               <div className="relative">
                 <Input
@@ -283,7 +283,7 @@ const ResetPassword = () => {
                 <button
                   type="button"
                   tabIndex={-1}
-                  aria-label={showConfirmPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+                  aria-label={showConfirmPassword ? "Hide password" : "Show password"}
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
@@ -295,11 +295,11 @@ const ResetPassword = () => {
                 </button>
               </div>
               {confirmPassword && confirmPassword !== newPassword && (
-                <p className="text-xs text-red-500">Les deux mots de passe ne sont pas identiques.</p>
+                <p className="text-xs text-red-500">The two passwords don't match.</p>
               )}
               {confirmPassword && confirmPassword === newPassword && passwordLongEnough && (
                 <p className="text-xs text-green-600 flex items-center gap-1">
-                  <CheckCircle2 className="w-3 h-3" /> Identiques
+                  <CheckCircle2 className="w-3 h-3" /> Passwords match
                 </p>
               )}
             </div>
@@ -313,7 +313,7 @@ const ResetPassword = () => {
 
             <Button type="submit" className="w-full" disabled={loading}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {loading ? "Enregistrement…" : isActivation ? "Activer mon compte" : "Enregistrer le mot de passe"}
+              {loading ? "Saving…" : isActivation ? "Activate my account" : "Save password"}
             </Button>
 
             <div className="text-center">
@@ -322,7 +322,7 @@ const ResetPassword = () => {
                 onClick={() => navigate("/auth")}
                 className="text-sm text-primary hover:underline"
               >
-                Retour à la connexion
+                Back to sign in
               </button>
             </div>
           </form>

@@ -209,7 +209,7 @@ const Footer = () => {
             <div className="text-xs text-muted-foreground text-center md:text-left">
               <p className="mb-1">{t('footer.copyright', { year: currentYear })}</p>
               <p className="text-[10px]">
-                Ticket Safe SAS · Capital social 1 000 € · RCS Paris 105 533 632 · TVA non applicable, art. 293 B du CGI · Siège : 2 rue Wilhem, 75016 Paris
+                Ticket Safe SAS · Share capital €1,000 · RCS Paris 105 533 632 · VAT not applicable, art. 293 B of the French Tax Code (CGI) · Registered office: 2 rue Wilhem, 75016 Paris
               </p>
             </div>
             <div className="flex flex-wrap items-center justify-center gap-3 text-xs">
@@ -253,7 +253,7 @@ const Footer = () => {
                 to="/mentions-legales"
                 className="text-muted-foreground hover:text-primary transition-all duration-300 hover:underline underline-offset-4"
               >
-                Legal Notice (Mentions légales)
+                Legal Notice
               </Link>
             </div>
           </div>

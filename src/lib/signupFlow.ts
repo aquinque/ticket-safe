@@ -47,7 +47,7 @@ async function existingAccount(auth: SignupAuthClient, email: string, setPasswor
     const { error } = await auth.resetPasswordForEmail(email, { redirectTo: setPasswordUrl });
     if (!error) return { kind: "existing", email, emailSent: true, notice: null };
     if (isResendTooSoon(error)) {
-      return { kind: "existing", email, emailSent: true, notice: "Un email t'a déjà été envoyé il y a moins d'une minute." };
+      return { kind: "existing", email, emailSent: true, notice: "We sent you an email less than a minute ago." };
     }
     return { kind: "existing", email, emailSent: false, notice: authErrorMessage(error) };
   } catch (error) {
@@ -68,10 +68,10 @@ export async function signUpWithEmail(
   const firstName = input.firstName.trim();
   const lastName = input.lastName.trim();
 
-  if (!firstName) return { kind: "invalid", field: "firstName", message: "Indique ton prénom." };
-  if (!lastName) return { kind: "invalid", field: "lastName", message: "Indique ton nom." };
+  if (!firstName) return { kind: "invalid", field: "firstName", message: "Enter your first name." };
+  if (!lastName) return { kind: "invalid", field: "lastName", message: "Enter your last name." };
   if (!isValidEmail(email)) {
-    return { kind: "invalid", field: "email", message: "Cette adresse email n'est pas valide. Vérifie qu'il n'y a pas de faute de frappe." };
+    return { kind: "invalid", field: "email", message: "This email address isn't valid. Check it for typos." };
   }
   const passwordProblem = passwordError(input.password);
   if (passwordProblem) return { kind: "invalid", field: "password", message: passwordProblem };
