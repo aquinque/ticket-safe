@@ -45,6 +45,7 @@ import {
 import { toast as sonnerToast } from "sonner";
 import { generatePayoutReceiptPDF } from "@/lib/payoutReceiptPdf";
 import { RESALE_BUYER_FEE_COPY } from "@/lib/fees";
+import { SellerPayoutsCard } from "@/components/resale/SellerPayoutsCard";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -410,10 +411,13 @@ const MyListings = () => {
             </Button>
           </div>
 
-          {/* ===== Wallet — your resale earnings (Vinted-style). Always shown so
-              you see your balance even before your first sale. The balance is
-              the price of every completed resale (the buyer fee was already
-              taken at checkout); Ticket Safe takes 5% when you withdraw. ===== */}
+          {/* Resales paid through Stripe: paid to the seller's bank after the event. */}
+          {user && <SellerPayoutsCard userId={user.id} />}
+
+          {/* ===== Wallet — sales made before Stripe resale, withdrawn by IBAN.
+              Only shown while a seller still has such a balance or a withdrawal
+              in progress; Stripe sales never land here (seller_earnings). ===== */}
+          {earnings && (earnings.available_cents > 0 || earnings.claimed_cents > 0) && (
           <section className="mb-6">
             <div className="rounded-2xl border border-success/30 bg-success/10 p-5 md:p-6">
               <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -460,6 +464,7 @@ const MyListings = () => {
               </p>
             </div>
           </section>
+          )}
 
           {/* Stats strip */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
