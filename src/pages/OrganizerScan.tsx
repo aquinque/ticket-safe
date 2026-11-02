@@ -590,14 +590,14 @@ const OrganizerScan = () => {
                     <SelectContent>
                       {events.map((ev) => (
                         <SelectItem key={ev.id} value={ev.id}>
-                          {ev.title} — {new Date(ev.date).toLocaleDateString("fr-FR")}
+                          {ev.title} — {new Date(ev.date).toLocaleDateString("en-GB")}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                   {selectedEvent && (
                     <p className="text-xs text-muted-foreground mt-2">
-                      {new Date(selectedEvent.date).toLocaleDateString("fr-FR", {
+                      {new Date(selectedEvent.date).toLocaleDateString("en-GB", {
                         weekday: "long", day: "numeric", month: "long", year: "numeric",
                       })}
                       {selectedEvent.location && ` · ${selectedEvent.location}`}
@@ -984,7 +984,7 @@ const OrganizerScan = () => {
                           <div className="flex-1 min-w-0">
                             <p className="font-medium truncate">{s.result.replace(/_/g, " ")}</p>
                             <p className="text-xs text-muted-foreground">
-                              {new Date(s.scanned_at).toLocaleTimeString("fr-FR")}
+                              {new Date(s.scanned_at).toLocaleTimeString("en-GB")}
                             </p>
                           </div>
                         </div>

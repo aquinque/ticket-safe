@@ -92,7 +92,7 @@ describe("sign-up: the address already has an account (bought without an account
     });
     const out = await signUpWithEmail(auth, input(), URLS);
     expect(out).toMatchObject({ kind: "existing", emailSent: true });
-    expect((out as { notice: string }).notice).toContain("moins d'une minute");
+    expect((out as { notice: string }).notice).toContain("less than a minute");
   });
 
   it("says so when the link could not be sent", async () => {
@@ -102,7 +102,7 @@ describe("sign-up: the address already has an account (bought without an account
     });
     const out = await signUpWithEmail(auth, input(), URLS);
     expect(out).toMatchObject({ kind: "existing", emailSent: false });
-    expect((out as { notice: string }).notice).toContain("réseau");
+    expect((out as { notice: string }).notice).toContain("network");
   });
 });
 
@@ -111,7 +111,7 @@ describe("sign-up: refused before or by the server", () => {
     const auth = fakeAuth();
     const out = await signUpWithEmail(auth, input({ password: "court" }), URLS);
     expect(out).toMatchObject({ kind: "invalid", field: "password" });
-    expect((out as { message: string }).message).toContain(`${PASSWORD_MIN_LENGTH} caractères`);
+    expect((out as { message: string }).message).toContain(`${PASSWORD_MIN_LENGTH} characters`);
     expect(auth.signUp).not.toHaveBeenCalled();
   });
 
@@ -134,7 +134,7 @@ describe("sign-up: refused before or by the server", () => {
     const auth = fakeAuth({ signUp: vi.fn().mockRejectedValue(new TypeError("Load failed")) });
     const out = await signUpWithEmail(auth, input(), URLS);
     expect(out).toMatchObject({ kind: "error" });
-    expect((out as { message: string }).message).toContain("réseau");
+    expect((out as { message: string }).message).toContain("network");
   });
 });
 
@@ -155,7 +155,7 @@ describe("sign-up: session edge cases", () => {
 describe("auth rules", () => {
   it("accepts 8 characters with no other constraint", () => {
     expect(passwordError("abcdefgh")).toBeNull();
-    expect(passwordError("abcdefg")).toContain("8 caractères");
+    expect(passwordError("abcdefg")).toContain("8 characters");
     expect(passwordError("x".repeat(73))).toContain("72");
   });
 
@@ -179,11 +179,11 @@ describe("auth rules", () => {
     expect(suggestEmailFix("lea@edu.escp.eu")).toBeNull();
   });
 
-  it("explains rate limits and weak passwords in French", () => {
-    expect(authErrorMessage({ code: "over_email_send_rate_limit", status: 429, message: "For security purposes, you can only request this after 30 seconds." })).toContain("une minute");
-    expect(authErrorMessage({ code: "over_email_send_rate_limit", status: 429, message: "email rate limit exceeded" })).toContain("Trop d'emails");
-    expect(authErrorMessage({ code: "weak_password", message: "Password should be at least 6 characters." })).toContain("8 caractères");
-    expect(authErrorMessage(null)).toContain("Une erreur est survenue");
+  it("explains rate limits and weak passwords in English", () => {
+    expect(authErrorMessage({ code: "over_email_send_rate_limit", status: 429, message: "For security purposes, you can only request this after 30 seconds." })).toContain("a minute");
+    expect(authErrorMessage({ code: "over_email_send_rate_limit", status: 429, message: "email rate limit exceeded" })).toContain("Too many emails");
+    expect(authErrorMessage({ code: "weak_password", message: "Password should be at least 6 characters." })).toContain("8 characters");
+    expect(authErrorMessage(null)).toContain("Something went wrong");
   });
 });
 

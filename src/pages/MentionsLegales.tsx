@@ -8,6 +8,8 @@ import { Separator } from "@/components/ui/separator";
 import { SEOHead } from "@/components/SEOHead";
 import { Scale } from "lucide-react";
 import { LEGAL_UPDATED, formatLegalDate } from "@/lib/legalDates";
+import { useI18n } from "@/contexts/I18nContext";
+import { LegalNoticeBodyFr } from "./MentionsLegales.fr";
 
 /**
  * /mentions-legales — French statutory legal notice page (LCEN Art. 19 +
@@ -23,13 +25,14 @@ import { LEGAL_UPDATED, formatLegalDate } from "@/lib/legalDates";
  *   7. Cookies (renvoi vers la Cookie Policy)
  *   8. Médiation de la consommation (obligation pour le e-commerce B2C)
  *
- * The page is published in French because the law itself targets a French
- * audience and the wording carries legal weight. A short English summary
- * sits at the top for non-French speakers, then the binding French text
- * follows below.
+ * The binding French text (MentionsLegales.fr.tsx) is shown when the visitor
+ * has chosen French. Every other language gets the English translation below,
+ * which says that the French version is the binding one.
  */
 const MentionsLegales = () => {
   const location = useLocation();
+  const { language } = useI18n();
+  const isFrench = language === "fr";
 
   useEffect(() => {
     if (location.hash) {
@@ -43,8 +46,12 @@ const MentionsLegales = () => {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <SEOHead
-        titleKey="Mentions légales - Ticket Safe"
-        descriptionKey="Mentions légales de Ticket Safe SAS — éditeur, hébergeur, directeur de publication, RCS, TVA et coordonnées."
+        title={isFrench ? "Mentions légales - Ticket Safe" : "Legal Notice - Ticket Safe"}
+        description={
+          isFrench
+            ? "Mentions légales de Ticket Safe SAS — éditeur, hébergeur, directeur de publication, RCS, TVA et coordonnées."
+            : "Legal notice of Ticket Safe SAS — publisher, host, publication director, company registration, VAT and contact details."
+        }
       />
       <Header />
 
@@ -55,86 +62,84 @@ const MentionsLegales = () => {
           <div className="mt-6 mb-8">
             <div className="flex items-center gap-3 mb-4">
               <Scale className="h-8 w-8 text-primary" />
-              <h1 className="text-4xl font-bold">Mentions légales</h1>
+              <h1 className="text-4xl font-bold">{isFrench ? "Mentions légales" : "Legal Notice"}</h1>
             </div>
             <p className="text-muted-foreground">
-              Dernière mise à jour : {formatLegalDate(LEGAL_UPDATED.legalNotice, "fr-FR")}
+              {isFrench
+                ? `Dernière mise à jour : ${formatLegalDate(LEGAL_UPDATED.legalNotice, "fr-FR")}`
+                : `Last updated: ${formatLegalDate(LEGAL_UPDATED.legalNotice)}`}
             </p>
-            <p className="text-sm text-muted-foreground italic mt-3 pt-3 border-t border-border/60">
-              <span className="font-semibold not-italic">English summary —</span>{" "}
-              This page is the statutory legal notice of Ticket Safe SAS under
-              French law (LCEN Art. 19). The legally binding text below is in
-              French. Users in the United Kingdom are also covered by the UK
-              GDPR and the Data Protection Act 2018, and may complain to the
-              Information Commissioner's Office (ico.org.uk). For information
-              on personal data, see the{" "}
-              <Link to="/privacy" className="text-primary hover:underline">
-                Privacy Policy
-              </Link>
-              ; for cookies see the{" "}
-              <Link to="/cookie-policy" className="text-primary hover:underline">
-                Cookie Policy
-              </Link>
-              .
-            </p>
+            {!isFrench && (
+              <p className="text-sm text-muted-foreground italic mt-3 pt-3 border-t border-border/60">
+                This page is the statutory legal notice of Ticket Safe SAS under
+                French law (LCEN Art. 19). It is an English translation provided
+                for convenience; the French version, shown when the site
+                language is set to French, is the legally binding text. Users in
+                the United Kingdom are also covered by the UK GDPR and the Data
+                Protection Act 2018, and may complain to the Information
+                Commissioner's Office (ico.org.uk). For information on personal
+                data, see the{" "}
+                <Link to="/privacy" className="text-primary hover:underline">
+                  Privacy Policy
+                </Link>
+                ; for cookies see the{" "}
+                <Link to="/cookie-policy" className="text-primary hover:underline">
+                  Cookie Policy
+                </Link>
+                .
+              </p>
+            )}
           </div>
 
+          {isFrench ? (
+            <LegalNoticeBodyFr />
+          ) : (
           <Card>
             <CardContent className="p-6 md:p-10 space-y-8">
-              {/* 1 — Éditeur */}
+              {/* 1 — Publisher */}
               <section>
-                <h2 className="text-2xl font-semibold mb-4">
-                  1. Éditeur du site
-                </h2>
+                <h2 className="text-2xl font-semibold mb-4">1. Website publisher</h2>
                 <div className="space-y-2 text-muted-foreground">
                   <p>
-                    Le site{" "}
+                    The website{" "}
                     <strong className="text-foreground">ticket-safe.eu</strong>{" "}
-                    (ci-après le « Site ») est édité par :
+                    (the "Site") is published by:
                   </p>
                   <div className="bg-muted/50 p-4 rounded-lg space-y-1 text-sm">
                     <p>
-                      <strong className="text-foreground">
-                        Ticket Safe SAS
-                      </strong>{" "}
-                      — Société par actions simplifiée
+                      <strong className="text-foreground">Ticket Safe SAS</strong>{" "}
+                      — French simplified joint-stock company (SAS)
                     </p>
-                    <p>Capital social : 1 000 €</p>
-                    <p>Siège social : 2 rue Wilhem, 75016 Paris, France</p>
+                    <p>Share capital: €1,000</p>
+                    <p>Registered office: 2 rue Wilhem, 75016 Paris, France</p>
                     <p>
-                      Immatriculée au RCS de Paris sous le numéro{" "}
+                      Registered with the Paris Trade and Companies Register (RCS) under number{" "}
                       <strong className="text-foreground">105 533 632</strong>
                     </p>
-                    <p>Numéro de gestion : 2026B27032</p>
+                    <p>Management number: 2026B27032</p>
                     <p>
-                      TVA :{" "}
+                      VAT:{" "}
                       <strong className="text-foreground">
-                        non applicable, article 293 B du Code général des impôts
+                        not applicable, article 293 B of the French General Tax Code
                       </strong>
                     </p>
-                    <p>Numéro d'identification européen (EUID) : FR7501.105533632</p>
+                    <p>European Unique Identifier (EUID): FR7501.105533632</p>
                   </div>
                 </div>
               </section>
 
               <Separator />
 
-              {/* 2 — Direction */}
+              {/* 2 — Publication */}
               <section>
-                <h2 className="text-2xl font-semibold mb-4">
-                  2. Direction de la publication
-                </h2>
+                <h2 className="text-2xl font-semibold mb-4">2. Publication director</h2>
                 <div className="space-y-2 text-muted-foreground">
                   <p>
-                    <strong className="text-foreground">
-                      Directeur de la publication :
-                    </strong>{" "}
-                    Adrien Menard, Président de Ticket Safe SAS.
+                    <strong className="text-foreground">Publication director:</strong>{" "}
+                    Adrien Menard, President of Ticket Safe SAS.
                   </p>
                   <p>
-                    <strong className="text-foreground">
-                      Directeur général :
-                    </strong>{" "}
+                    <strong className="text-foreground">Managing director:</strong>{" "}
                     Achille Quinquenel.
                   </p>
                 </div>
@@ -142,20 +147,20 @@ const MentionsLegales = () => {
 
               <Separator />
 
-              {/* 3 — Hébergeur */}
+              {/* 3 — Host */}
               <section>
-                <h2 className="text-2xl font-semibold mb-4">3. Hébergeur</h2>
+                <h2 className="text-2xl font-semibold mb-4">3. Hosting provider</h2>
                 <div className="space-y-2 text-muted-foreground">
                   <p>
-                    Le Site est hébergé par GitHub Pages :
+                    The Site is hosted by GitHub Pages:
                   </p>
                   <div className="bg-muted/50 p-4 rounded-lg space-y-1 text-sm">
                     <p>
                       <strong className="text-foreground">GitHub, Inc.</strong>
                     </p>
-                    <p>88 Colin P. Kelly Jr. Street, San Francisco, CA 94107, États-Unis</p>
+                    <p>88 Colin P. Kelly Jr. Street, San Francisco, CA 94107, United States</p>
                     <p>
-                      Site web :{" "}
+                      Website:{" "}
                       <a
                         href="https://github.com"
                         target="_blank"
@@ -167,15 +172,12 @@ const MentionsLegales = () => {
                     </p>
                   </div>
                   <p className="text-sm">
-                    La base de données et les fonctions serveur sont opérées par
-                    Supabase Inc. (US — région UE de Francfort pour les données
-                    de Ticket Safe). La liste complète des sous-traitants et
-                    leurs garanties contractuelles figure dans la{" "}
-                    <Link
-                      to="/privacy"
-                      className="text-primary hover:underline"
-                    >
-                      Politique de confidentialité, section 4.2
+                    The database and server functions are operated by Supabase
+                    Inc. (US — EU Frankfurt region for Ticket Safe's data). The
+                    full list of sub-processors and their contractual safeguards
+                    is in the{" "}
+                    <Link to="/privacy" className="text-primary hover:underline">
+                      Privacy Policy, section 4.2
                     </Link>
                     .
                   </p>
@@ -188,129 +190,93 @@ const MentionsLegales = () => {
               <section>
                 <h2 className="text-2xl font-semibold mb-4">4. Contact</h2>
                 <div className="space-y-2 text-muted-foreground">
-                  <p>
-                    Pour toute question relative au Site ou aux services
-                    fournis :
-                  </p>
+                  <p>For any question about the Site or the services provided:</p>
                   <div className="bg-muted/50 p-4 rounded-lg space-y-1 text-sm">
                     <p>
-                      Support général :{" "}
-                      <a
-                        href="mailto:ticketsafe.friendly@gmail.com"
-                        className="text-primary hover:underline"
-                      >
+                      General support:{" "}
+                      <a href="mailto:ticketsafe.friendly@gmail.com" className="text-primary hover:underline">
                         ticketsafe.friendly@gmail.com
                       </a>
                     </p>
                     <p>
-                      Données personnelles (DPO) :{" "}
-                      <a
-                        href="mailto:dpo@ticket-safe.eu"
-                        className="text-primary hover:underline"
-                      >
+                      Personal data (DPO):{" "}
+                      <a href="mailto:dpo@ticket-safe.eu" className="text-primary hover:underline">
                         dpo@ticket-safe.eu
                       </a>
                     </p>
-                    <p>Adresse postale : 2 rue Wilhem, 75016 Paris, France</p>
+                    <p>Postal address: 2 rue Wilhem, 75016 Paris, France</p>
                   </div>
                 </div>
               </section>
 
               <Separator />
 
-              {/* 5 — Propriété intellectuelle */}
+              {/* 5 — Intellectual property */}
               <section>
-                <h2 className="text-2xl font-semibold mb-4">
-                  5. Propriété intellectuelle
-                </h2>
+                <h2 className="text-2xl font-semibold mb-4">5. Intellectual property</h2>
                 <div className="space-y-3 text-muted-foreground">
                   <p>
-                    L'ensemble des contenus présents sur le Site (textes,
-                    graphismes, logos, icônes, images, vidéos, code source,
-                    structure de la base de données) est la propriété exclusive
-                    de Ticket Safe SAS ou de ses concédants, et est protégé par
-                    les législations françaises et internationales relatives au
-                    droit d'auteur et à la propriété intellectuelle.
+                    All content on the Site (text, graphics, logos, icons,
+                    images, videos, source code, database structure) is the
+                    exclusive property of Ticket Safe SAS or its licensors, and
+                    is protected by French and international copyright and
+                    intellectual property law.
                   </p>
                   <p>
-                    Toute reproduction, représentation, modification,
-                    publication, transmission, dénaturation, totale ou
-                    partielle, du Site ou de son contenu, par quelque procédé
-                    que ce soit, et sur quelque support que ce soit, est
-                    interdite sans autorisation écrite préalable de Ticket Safe
-                    SAS, sous peine de constituer une contrefaçon sanctionnée
-                    par les articles L335-2 et suivants du Code de la propriété
-                    intellectuelle.
+                    Any reproduction, representation, modification, publication,
+                    transmission or distortion of all or part of the Site or its
+                    content, by any means and on any medium, is prohibited
+                    without the prior written consent of Ticket Safe SAS, and
+                    constitutes an infringement punishable under articles L335-2
+                    et seq. of the French Intellectual Property Code.
                   </p>
                   <p>
-                    La marque « Ticket Safe » ainsi que le logo associé sont la
-                    propriété de Ticket Safe SAS.
+                    The "Ticket Safe" trade mark and its logo are the property of
+                    Ticket Safe SAS.
                   </p>
                 </div>
               </section>
 
               <Separator />
 
-              {/* 6 — Données personnelles */}
+              {/* 6 — Personal data */}
               <section>
-                <h2 className="text-2xl font-semibold mb-4">
-                  6. Données personnelles
-                </h2>
+                <h2 className="text-2xl font-semibold mb-4">6. Personal data</h2>
                 <div className="space-y-2 text-muted-foreground">
                   <p>
-                    Le traitement des données personnelles des utilisateurs du
-                    Site est régi par notre{" "}
-                    <Link
-                      to="/privacy"
-                      className="text-primary hover:underline font-medium"
-                    >
-                      Politique de confidentialité
+                    The processing of Site users' personal data is governed by
+                    our{" "}
+                    <Link to="/privacy" className="text-primary hover:underline font-medium">
+                      Privacy Policy
                     </Link>
-                    , conformément au Règlement (UE) 2016/679 du 27 avril 2016
-                    (RGPD) et à la loi française n° 78-17 du 6 janvier 1978
-                    modifiée. Pour les utilisateurs situés au Royaume-Uni, ce
-                    traitement est également soumis au UK GDPR et au Data
+                    , in accordance with Regulation (EU) 2016/679 of 27 April
+                    2016 (GDPR) and the amended French Data Protection Act No.
+                    78-17 of 6 January 1978. For users in the United Kingdom,
+                    this processing is also subject to the UK GDPR and the Data
                     Protection Act 2018.
                   </p>
                   <p>
-                    Conformément aux articles 15 à 22 du RGPD, vous disposez
-                    d'un droit d'accès, de rectification, d'effacement, de
-                    portabilité et d'opposition concernant vos données. Vous
-                    pouvez exercer ces droits depuis votre espace{" "}
-                    <Link
-                      to="/settings/privacy"
-                      className="text-primary hover:underline"
-                    >
+                    Under articles 15 to 22 of the GDPR, you have the right to
+                    access, rectify, erase and port your data, and to object to
+                    its processing. You can exercise these rights from{" "}
+                    <Link to="/settings/privacy" className="text-primary hover:underline">
                       Settings → My Data &amp; Privacy
                     </Link>
-                    , ou en écrivant à{" "}
-                    <a
-                      href="mailto:dpo@ticket-safe.eu"
-                      className="text-primary hover:underline"
-                    >
+                    , or by writing to{" "}
+                    <a href="mailto:dpo@ticket-safe.eu" className="text-primary hover:underline">
                       dpo@ticket-safe.eu
                     </a>
                     .
                   </p>
                   <p>
-                    Vous disposez également du droit de saisir la CNIL (
-                    <a
-                      href="https://www.cnil.fr"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary hover:underline"
-                    >
+                    You may also complain to the CNIL, the French data
+                    protection authority (
+                    <a href="https://www.cnil.fr" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
                       cnil.fr
                     </a>
-                    ) en cas de désaccord persistant. Les utilisateurs situés au
-                    Royaume-Uni peuvent saisir l'Information Commissioner's
-                    Office (
-                    <a
-                      href="https://ico.org.uk"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary hover:underline"
-                    >
+                    ), if a disagreement persists. Users in the United Kingdom
+                    may complain to the Information Commissioner's Office (
+                    <a href="https://ico.org.uk" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
                       ico.org.uk
                     </a>
                     ).
@@ -325,65 +291,46 @@ const MentionsLegales = () => {
                 <h2 className="text-2xl font-semibold mb-4">7. Cookies</h2>
                 <div className="space-y-2 text-muted-foreground">
                   <p>
-                    L'utilisation des cookies sur le Site est détaillée dans
-                    notre{" "}
-                    <Link
-                      to="/cookie-policy"
-                      className="text-primary hover:underline font-medium"
-                    >
-                      Politique relative aux cookies
+                    The use of cookies on the Site is described in our{" "}
+                    <Link to="/cookie-policy" className="text-primary hover:underline font-medium">
+                      Cookie Policy
                     </Link>
-                    . Vous pouvez à tout moment modifier vos préférences depuis
-                    le lien « Gérer mes cookies » présent en bas de page.
+                    . You can change your preferences at any time from the
+                    "Manage cookies" link at the bottom of the page.
                   </p>
                 </div>
               </section>
 
               <Separator />
 
-              {/* 8 — Médiation de la consommation */}
+              {/* 8 — Consumer mediation */}
               <section>
-                <h2 className="text-2xl font-semibold mb-4">
-                  8. Médiation de la consommation
-                </h2>
+                <h2 className="text-2xl font-semibold mb-4">8. Consumer mediation</h2>
                 <div className="space-y-2 text-muted-foreground">
                   <p>
-                    Conformément aux articles L611-1 et suivants du Code de la
-                    consommation, en cas de litige avec un consommateur n'ayant
-                    pu être réglé par notre service client, l'utilisateur peut
-                    recourir gratuitement à un médiateur de la consommation.
+                    Under articles L611-1 et seq. of the French Consumer Code,
+                    if a dispute with a consumer cannot be settled by our
+                    customer service, the user may use a consumer mediator free
+                    of charge.
                   </p>
-                  <p>
-                    Ticket Safe SAS adhère au service de médiation suivant :
-                  </p>
+                  <p>Ticket Safe SAS is a member of the following mediation service:</p>
                   <div className="bg-muted/50 p-4 rounded-lg space-y-1 text-sm">
                     <p>
                       <strong className="text-foreground">
-                        CMAP – Centre de Médiation et d'Arbitrage de Paris
+                        CMAP – Paris Mediation and Arbitration Centre
                       </strong>
                     </p>
-                    <p>39, avenue Franklin D. Roosevelt, 75008 Paris</p>
+                    <p>39 avenue Franklin D. Roosevelt, 75008 Paris</p>
                     <p>
-                      <a
-                        href="https://www.cmap.fr"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-primary hover:underline"
-                      >
+                      <a href="https://www.cmap.fr" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
                         cmap.fr
                       </a>
                     </p>
                   </div>
                   <p className="text-sm">
-                    L'utilisateur consommateur peut également recourir à la
-                    plateforme européenne de Règlement en Ligne des Litiges
-                    (RLL) :{" "}
-                    <a
-                      href="https://ec.europa.eu/consumers/odr"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary hover:underline"
-                    >
+                    Consumers may also use the European Online Dispute
+                    Resolution (ODR) platform:{" "}
+                    <a href="https://ec.europa.eu/consumers/odr" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
                       ec.europa.eu/consumers/odr
                     </a>
                     .
@@ -393,27 +340,25 @@ const MentionsLegales = () => {
 
               <Separator />
 
-              {/* 9 — Droit applicable */}
+              {/* 9 — Governing law */}
               <section>
-                <h2 className="text-2xl font-semibold mb-4">
-                  9. Droit applicable et juridiction
-                </h2>
+                <h2 className="text-2xl font-semibold mb-4">9. Governing law and jurisdiction</h2>
                 <div className="space-y-2 text-muted-foreground">
                   <p>
-                    Les présentes mentions légales sont régies par le droit
-                    français. En cas de litige, et après tentative de
-                    résolution amiable, les tribunaux français seront seuls
-                    compétents, sous réserve des règles impératives de
-                    compétence applicables aux consommateurs. Les consommateurs
-                    résidant au Royaume-Uni conservent la protection des
-                    dispositions impératives du droit britannique de la
-                    consommation et peuvent saisir les juridictions de la partie
-                    du Royaume-Uni où ils résident.
+                    This legal notice is governed by French law. In the event of
+                    a dispute, and after an attempt at amicable resolution, the
+                    French courts alone have jurisdiction, subject to the
+                    mandatory jurisdiction rules that apply to consumers.
+                    Consumers living in the United Kingdom keep the protection
+                    of the mandatory provisions of UK consumer law and may bring
+                    proceedings in the courts of the part of the United Kingdom
+                    where they live.
                   </p>
                 </div>
               </section>
             </CardContent>
           </Card>
+          )}
         </div>
       </main>
 
