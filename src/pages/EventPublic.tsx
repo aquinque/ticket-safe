@@ -175,6 +175,7 @@ const EventPublic = () => {
   const [promoCode, setPromoCode] = useState("");
   const [showPromoInput, setShowPromoInput] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [interested, setInterested] = useState(0);
   const nowTs = useNow(30_000);
   // Keep the attendees array sized to the current quantity. When quantity grows,
   // we add empty slots; when it shrinks, we trim. The first slot auto-fills from
@@ -285,6 +286,23 @@ const EventPublic = () => {
     countedVisit.current = key;
     trackPromoterVisit(event.slug, promoterRef);
   }, [event?.slug, promoterRef]);
+
+  // "N interested": everyone who opened the event. This visit counts once per browser session; the
+  // flag says only that this event was counted, nothing about who the visitor is.
+  useEffect(() => {
+    if (!event?.slug) return;
+    const key = `ts.interest.${event.slug}`;
+    let seen = false;
+    try {
+      seen = sessionStorage.getItem(key) === "1";
+      sessionStorage.setItem(key, "1");
+    } catch { /* storage blocked: count this load */ }
+    let active = true;
+    supabase.rpc("event_interest", { p_slug: event.slug, p_count: !seen }).then(({ data }) => {
+      if (active && typeof data === "number") setInterested(data);
+    });
+    return () => { active = false; };
+  }, [event?.slug]);
 
   // Realtime tier availability. A crowd watching the same event means every
   // sale pings every viewer at the same moment. Before, each ping reloaded the
@@ -588,8 +606,9 @@ const EventPublic = () => {
 
   // Time, attendance, atmosphere.
   const clock = countdown(event, nowTs);
-  const soldTotal = tiers.reduce((n, t) => n + Math.max(0, t.total_qty - t.available_qty), 0);
-  const goingLabel = soldTotal >= 10 ? `${Math.floor(soldTotal / 10) * 10}+ going` : null;
+  const interestedLabel = interested >= 5
+    ? `${interested >= 1000 ? `${(interested / 1000).toFixed(interested >= 10_000 ? 0 : 1).replace(/\.0$/, "")}k` : interested} interested`
+    : null;
   const startDate = new Date(event.date);
   const reduceMotion = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
   // The organizer's design as CSS variables (see src/lib/eventTheme.ts): the page's `bg-primary`,
@@ -1076,7 +1095,7 @@ const EventPublic = () => {
                 <span className="max-w-[180px] truncate">{event.location}</span>
               </InfoChip>
             )}
-            {goingLabel && !clock.over && <InfoChip icon={Users}>{goingLabel}</InfoChip>}
+            {interestedLabel && !clock.over && <InfoChip icon={Users}>{interestedLabel}</InfoChip>}
           </div>
         </div>
       </section>
@@ -1200,7 +1219,7 @@ const EventPublic = () => {
                         {event.organizer.name}
                         <BadgeCheck className="w-4 h-4 text-primary" strokeWidth={1.75} aria-label="Verified organiser" />
                       </div>
-                      <div className="text-xs text-muted-foreground">Verified organiser{goingLabel ? ` · ${goingLabel} to this event` : ""}</div>
+                      <div className="text-xs text-muted-foreground">Verified organiser{interestedLabel ? ` · ${interestedLabel} in this event` : ""}</div>
                       {event.organizer.website && (
                         <a href={event.organizer.website} target="_blank" rel="noopener noreferrer" className="block truncate text-xs text-primary hover:underline">{event.organizer.website.replace(/^https?:\/\/(www\.)?/, "").replace(/\?.*$/, "")}</a>
                       )}
