@@ -45,9 +45,10 @@ const categories: { id: Category; label: string }[] = [
 
 // ── Near you ────────────────────────────────────────────────────────────────
 // Events carry a city (events.campus, derived from the organiser when it is
-// not set). The page sorts the viewer's city first: from the phone's
-// position when they allow it, else from their profile, else from a city
-// they pick. Nothing is filtered out; far events just come after.
+// not set). The page shows the viewer's city only: from the phone's position
+// when they allow it, else from their profile, else from a city they pick.
+// "All cities" lifts the filter, and that choice is remembered so the page
+// doesn't put them back in a city on its own.
 
 const CITIES = [
   { id: "paris", label: "Paris", lat: 48.8566, lng: 2.3522 },
@@ -58,6 +59,8 @@ const CITIES = [
 ] as const;
 type CityId = (typeof CITIES)[number]["id"];
 const NEAR_KEY = "ts.nearCity";
+/** Saved under NEAR_KEY when the viewer picked "All cities". */
+const ALL_CITIES = "all";
 
 function nearestCity(lat: number, lng: number): CityId {
   const d2 = (a: { lat: number; lng: number }) => {
@@ -78,10 +81,13 @@ function useNearCity(userId: string | undefined) {
       return null;
     }
   });
+  const [allChosen, setAllChosen] = useState<boolean>(() => {
+    try { return localStorage.getItem(NEAR_KEY) === ALL_CITIES; } catch { return false; }
+  });
   const [source, setSource] = useState<"gps" | "profile" | "manual" | null>(city ? "manual" : null);
   const [locating, setLocating] = useState(false);
 
-  const remember = (id: CityId) => {
+  const remember = (id: CityId | typeof ALL_CITIES) => {
     try { localStorage.setItem(NEAR_KEY, id); } catch { /* private mode */ }
   };
 
@@ -93,6 +99,7 @@ function useNearCity(userId: string | undefined) {
         const id = nearestCity(pos.coords.latitude, pos.coords.longitude);
         setCity(id);
         setSource("gps");
+        setAllChosen(false);
         remember(id);
         setLocating(false);
       },
@@ -104,27 +111,30 @@ function useNearCity(userId: string | undefined) {
   // If the browser already allowed location on an earlier visit, use it
   // without asking again. Never pops the permission prompt on its own.
   useEffect(() => {
-    if (typeof navigator === "undefined" || !navigator.permissions?.query) return;
+    if (allChosen || typeof navigator === "undefined" || !navigator.permissions?.query) return;
     navigator.permissions.query({ name: "geolocation" as PermissionName })
       .then((p) => { if (p.state === "granted") locate(); })
       .catch(() => undefined);
+    // Only on arrival: a later "All cities" must not be undone by this.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locate]);
 
   // Signed in and nothing known yet: their profile campus is a fine guess.
   useEffect(() => {
-    if (city || !userId) return;
+    if (city || allChosen || !userId) return;
     supabase.from("profiles").select("campus").eq("id", userId).maybeSingle().then(({ data }) => {
       const match = CITIES.find((c) => c.label.toLowerCase() === ((data?.campus as string | null) ?? "").toLowerCase());
       if (match) { setCity(match.id); setSource("profile"); }
     });
-  }, [userId, city]);
+  }, [userId, city, allChosen]);
 
-  const choose = (id: CityId) => { setCity(id); setSource("manual"); remember(id); };
-  return { city, source, locating, locate, choose };
+  const choose = (id: CityId) => { setCity(id); setSource("manual"); setAllChosen(false); remember(id); };
+  const showAll = () => { setCity(null); setSource("manual"); setAllChosen(true); remember(ALL_CITIES); };
+  return { city, source, locating, locate, choose, showAll };
 }
 
-// Every event is listed exactly once, in the one grid below: closest city first, then soonest
-// first, so what is happening soon is at the top without a rail of its own repeating it.
+// Every event is listed exactly once, in the one grid below, soonest first, so what is happening
+// soon is at the top without a rail of its own repeating it. A chosen city keeps only its events.
 const Tickets = () => {
   useThemeMode("night");
   const navigate = useNavigate();
@@ -178,22 +188,29 @@ const Tickets = () => {
 
   const isNear = useCallback((e: PublishedEvent) => !!nearCity && e.campus === nearCity.id, [nearCity]);
 
-  const filteredEvents = useMemo(() => {
+  // Organization, category and search, before the city: what the empty state offers in other cities.
+  const matchingEvents = useMemo(() => {
     const q = query.trim().toLowerCase();
     return allEvents
       .filter((e) => (selectedOrg ? e.organizerId === selectedOrg : true))
       .filter((e) => (category === "all" ? true : e.category === category))
       .filter((e) => (q ? (e.title + e.organizer + e.venue).toLowerCase().includes(q) : true))
-      .sort((a, b) => {
-        const na = isNear(a) ? 0 : 1;
-        const nb = isNear(b) ? 0 : 1;
-        if (na !== nb) return na - nb;
-        return new Date(a.date).getTime() - new Date(b.date).getTime();
-      });
-  }, [allEvents, selectedOrg, category, query, isNear]);
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }, [allEvents, selectedOrg, category, query]);
 
-  const nearCount = useMemo(() => filteredEvents.filter(isNear).length, [filteredEvents, isNear]);
-  const firstFar = useMemo(() => filteredEvents.findIndex((e) => !isNear(e)), [filteredEvents, isNear]);
+  const filteredEvents = useMemo(
+    () => (nearCity ? matchingEvents.filter(isNear) : matchingEvents),
+    [matchingEvents, nearCity, isNear],
+  );
+
+  // Cities that do have matching events, offered when the chosen one has none.
+  const otherCities = useMemo(
+    () =>
+      CITIES.map((c) => ({ ...c, count: matchingEvents.filter((e) => e.campus === c.id).length })).filter(
+        (c) => c.count > 0 && c.id !== nearCity?.id,
+      ),
+    [matchingEvents, nearCity],
+  );
 
   const chip = "shrink-0 inline-flex items-center gap-1.5 px-3.5 min-h-[40px] text-xs font-semibold border transition-colors";
 
@@ -229,7 +246,7 @@ const Tickets = () => {
                   <DropdownMenuTrigger asChild>
                     <button type="button" className="inline-flex items-center gap-2 pl-3 pr-2.5 min-h-[44px] font-semibold text-sm bg-card/80 backdrop-blur border border-border hover:border-primary/50 transition-colors">
                       {near.locating ? <Loader2 className="w-4 h-4 animate-spin text-primary" /> : <MapPin className="w-4 h-4 text-primary" />}
-                      {nearCity ? `Near ${nearCity.label}` : "Sort by my location"}
+                      {nearCity ? nearCity.label : "All cities"}
                       <ChevronDown className="w-4 h-4 text-muted-foreground" />
                     </button>
                   </DropdownMenuTrigger>
@@ -238,6 +255,10 @@ const Tickets = () => {
                       <LocateFixed className="w-4 h-4 text-primary" /> Use my location
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
+                    <DropdownMenuItem className="gap-2 py-2" onSelect={near.showAll}>
+                      <span className="flex-1">All cities</span>
+                      <Check className={`w-4 h-4 text-primary ${near.city === null ? "opacity-100" : "opacity-0"}`} />
+                    </DropdownMenuItem>
                     {CITIES.map((c) => (
                       <DropdownMenuItem key={c.id} className="gap-2 py-2" onSelect={() => near.choose(c.id)}>
                         <span className="flex-1">{c.label}</span>
@@ -327,19 +348,25 @@ const Tickets = () => {
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-5">
                 {[0, 1, 2, 3, 4, 5].map((i) => <SharedEventCardSkeleton key={i} />)}
               </div>
+            ) : filteredEvents.length === 0 && nearCity && matchingEvents.length > 0 ? (
+              <CityEmptyState city={nearCity.label} otherCities={otherCities} onChoose={near.choose} onShowAll={near.showAll} />
             ) : filteredEvents.length === 0 ? (
               <EmptyState query={query} category={category} hasAnyEvent={allEvents.length > 0} />
             ) : (
               <>
                 <div className="flex items-center gap-3 mb-4">
                   <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-foreground/70">
-                    {nearCity && nearCount > 0 ? `Near ${nearCity.label} · ${nearCount}` : `All events · ${filteredEvents.length}`}
+                    {nearCity ? `${nearCity.label} · ${filteredEvents.length}` : `All cities · ${filteredEvents.length}`}
                     {query.trim() ? ` · “${query.trim()}”` : ""}
                   </div>
                   <div className="flex-1 h-px bg-border" />
-                  {!nearCity && (
+                  {nearCity ? (
+                    <button type="button" onClick={near.showAll} className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline">
+                      See all cities
+                    </button>
+                  ) : (
                     <button type="button" onClick={near.locate} className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline">
-                      <LocateFixed className="w-3.5 h-3.5" /> Sort by my location
+                      <LocateFixed className="w-3.5 h-3.5" /> Events near me
                     </button>
                   )}
                 </div>
@@ -347,12 +374,6 @@ const Tickets = () => {
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-5">
                   {filteredEvents.map((e, i) => (
                     <Fragment key={e.id}>
-                      {nearCity && nearCount > 0 && i === firstFar && (
-                        <div className="col-span-2 md:col-span-3 lg:col-span-4 flex items-center gap-3 mt-2">
-                          <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-foreground/70">Elsewhere · {filteredEvents.length - nearCount}</div>
-                          <div className="flex-1 h-px bg-border" />
-                        </div>
-                      )}
                       <div className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both" style={{ animationDelay: `${Math.min(i, 12) * 40}ms` }}>
                         <div className="rounded-lg transition-transform duration-300 hover:-translate-y-1 hover:shadow-[0_24px_50px_-20px_hsl(var(--primary)/0.7)]">
                           <EventCardShared event={toEventData(e)} onClick={() => navigate(`/e/${e.slug}`)} />
@@ -473,6 +494,48 @@ const EmptyState = ({ query, category, hasAnyEvent }: { query: string; category:
         <ArrowRight className="w-4 h-4" />
       </Link>
     )}
+  </div>
+);
+
+/** The chosen city has nothing (for the current category / search): say so, and point to where there is. */
+const CityEmptyState = ({
+  city,
+  otherCities,
+  onChoose,
+  onShowAll,
+}: {
+  city: string;
+  otherCities: { id: CityId; label: string; count: number }[];
+  onChoose: (id: CityId) => void;
+  onShowAll: () => void;
+}) => (
+  <div className="max-w-lg mx-auto my-8 md:my-12 rounded-2xl border border-border bg-card px-6 py-12 text-center">
+    <div className="inline-flex w-16 h-16 rounded-2xl bg-primary/15 items-center justify-center mb-4">
+      <MapPin className="w-7 h-7 text-primary" />
+    </div>
+    <h3 className="text-xl font-bold text-foreground mb-2">No events in {city} yet</h3>
+    <p className="text-sm text-muted-foreground mb-5 max-w-sm mx-auto">
+      {otherCities.length > 0 ? "There are events in other cities:" : "Check back soon."}
+    </p>
+    <div className="flex flex-wrap justify-center gap-2">
+      {otherCities.map((c) => (
+        <button
+          key={c.id}
+          type="button"
+          onClick={() => onChoose(c.id)}
+          className="inline-flex items-center gap-1.5 px-4 min-h-[44px] rounded-lg text-sm font-semibold border border-border hover:border-primary/50 transition-colors"
+        >
+          {c.label} · {c.count}
+        </button>
+      ))}
+      <button
+        type="button"
+        onClick={onShowAll}
+        className="inline-flex items-center gap-2 px-5 min-h-[44px] rounded-lg font-bold text-sm bg-primary text-primary-foreground hover:bg-primary-hover transition-colors"
+      >
+        See all cities
+      </button>
+    </div>
   </div>
 );
 
