@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Archive, Check, Copy, Loader2, Megaphone, Plus, RefreshCw } from "lucide-react";
+import { Archive, ArchiveRestore, Check, ChevronDown, Copy, Loader2, Megaphone, Plus, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { eur, plural, relativeTime } from "@/lib/studioFormat";
 import {
@@ -137,6 +137,7 @@ export const PromoterLinksPanel = ({ eventId, slug, userId }: { eventId: string;
   const [creating, setCreating] = useState(false);
   const [newId, setNewId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
   const [tokens, setTokens] = useState<Record<string, PromoterInviteState>>({});
   const [copiedReportId, setCopiedReportId] = useState<string | null>(null);
 
@@ -177,6 +178,7 @@ export const PromoterLinksPanel = ({ eventId, slug, userId }: { eventId: string;
 
   const ordered = useMemo(() => (stats ? orderPromoterLinks(stats.links, newId) : []), [stats, newId]);
   const active = ordered.filter((l) => !l.archivedAt);
+  const archived = ordered.filter((l) => l.archivedAt);
   const share = stats ? promoterShare(stats) : null;
   const atLimit = active.length >= PROMOTER_LINKS_MAX;
 
@@ -218,7 +220,7 @@ export const PromoterLinksPanel = ({ eventId, slug, userId }: { eventId: string;
     try {
       await setPromoterLinkArchived(link.id, archive);
       await load();
-      toast.success(archive ? "Link archived. It no longer counts visits or sales." : "Link restored.");
+      toast.success(archive ? "Link archived. It no longer counts; its numbers stay here." : "Link restored.");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not update the link.");
     } finally {
@@ -319,6 +321,42 @@ export const PromoterLinksPanel = ({ eventId, slug, userId }: { eventId: string;
             </ul>
           )}
 
+          {archived.length > 0 && (
+            <div className="border-t border-border">
+              <button
+                type="button"
+                onClick={() => setShowArchived((v) => !v)}
+                aria-expanded={showArchived}
+                className="w-full flex items-center justify-between gap-2 px-4 md:px-5 py-3 text-[13px] font-semibold text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Archived links ({archived.length})
+                <ChevronDown className={`w-4 h-4 transition-transform ${showArchived ? "rotate-180" : ""}`} />
+              </button>
+              {showArchived && (
+                <ul className="divide-y divide-border border-t border-border">
+                  {archived.map((link) => (
+                    <li key={link.id} className="flex items-center gap-3 px-4 md:px-5 py-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="font-semibold text-sm truncate">{link.name}</div>
+                        <div className="text-xs text-muted-foreground tabular-nums">
+                          {plural(link.visits, "visit")} · {plural(link.tickets, "ticket")} · {money(link.revenueCents)}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setArchived(link, false)}
+                        disabled={busyId === link.id}
+                        className="shrink-0 inline-flex items-center gap-1.5 px-3 min-h-[40px] text-xs font-bold bg-card border border-border hover:bg-muted transition-colors disabled:opacity-60"
+                      >
+                        {busyId === link.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ArchiveRestore className="w-3.5 h-3.5" />}
+                        Restore
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
         </>
       )}
     </section>
