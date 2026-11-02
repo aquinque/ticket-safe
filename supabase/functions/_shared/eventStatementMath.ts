@@ -510,6 +510,13 @@ export function statementFingerprint(input: {
 const ZERO_DECIMAL = new Set(["bif", "clp", "djf", "gnf", "jpy", "kmf", "krw", "mga", "pyg", "rwf", "ugx", "vnd", "vuv", "xaf", "xof", "xpf"]);
 
 /** "€12.50", "-€3.00", "¥1,200": the currency's own symbol, English digits. */
+/**
+ * Printed at the foot of every statement page. TicketSafe is VAT-exempt on its service fees
+ * (franchise en base, art. 293 B CGI); the VAT regime of the ticket revenue is the organizer's.
+ */
+export const STATEMENT_VAT_LINE =
+  "VAT: not applicable on TicketSafe service fees (art. 293 B CGI). VAT treatment of ticket revenue is the organizer's responsibility.";
+
 export function formatMoney(cents: number, currency: string): string {
   const code = currency.toUpperCase();
   const digits = ZERO_DECIMAL.has(currency.toLowerCase()) ? 0 : 2;
