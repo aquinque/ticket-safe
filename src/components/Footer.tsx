@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { useI18n } from "@/contexts/I18nContext";
 import { useTicketsSoldCount } from "@/hooks/useTicketsSoldCount";
 import { TrustItem } from "@/components/common/TrustItem";
+import { OPEN_COOKIE_SETTINGS_EVENT } from "@/components/CookieConsent";
 
 const Footer = () => {
   const { t } = useI18n();
@@ -232,6 +233,14 @@ const Footer = () => {
               >
                 Cookie Policy
               </Link>
+              <span className="text-muted-foreground/50">•</span>
+              <button
+                type="button"
+                onClick={() => window.dispatchEvent(new Event(OPEN_COOKIE_SETTINGS_EVENT))}
+                className="text-muted-foreground hover:text-primary transition-all duration-300 hover:underline underline-offset-4"
+              >
+                Cookie settings
+              </button>
               <span className="text-muted-foreground/50 hidden sm:inline">•</span>
               <Link
                 to="/refund-policy"
