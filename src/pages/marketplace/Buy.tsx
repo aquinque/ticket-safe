@@ -1,23 +1,24 @@
 /**
- * Resale marketplace, kept simple for buyers.
+ * Resale marketplace: makes the case for selling here, then lets buyers browse.
  *
  * Top-down anatomy:
- *   1. A short intro: one headline, one line of reassurance, a search field
- *      and a Filters button (price, school and campus live behind it).
- *   2. Sticky category chips (All / Parties / Galas / ...).
+ *   1. ResaleHero: why sell here instead of a group chat, with "Sell my
+ *      ticket" and "Browse tickets" (src/components/resale/ResalePitch.tsx).
+ *   2. Browse: a search field and a Filters button (price, school and campus
+ *      live behind it), then sticky category chips.
  *   3. Result count and sort.
  *   4. One uniform grid of event cards: photo, title, date and place, the
  *      cheapest price and a "View tickets" button. The tickets of an event
  *      open inside its card.
+ *   5. Group chat vs TicketSafe, and the three selling steps.
  *
  * Same .theme-night tokens as the rest of the public site: navy surfaces,
  * brand-blue actions, the light blue only for urgency tags.
  */
 
 import { useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import HeaderNight from "@/components/HeaderNight";
-import { BackButton } from "@/components/BackButton";
 import Footer from "@/components/Footer";
 import { Input } from "@/components/ui/input";
 import {
@@ -45,6 +46,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { getOrCreateConversation } from "@/hooks/useChat";
 import { calcBreakdown } from "@/lib/fees";
+import { ResaleHero, GroupChatVsUs, HowSellingWorks, resalePitchStyles } from "@/components/resale/ResalePitch";
 import { toast } from "sonner";
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -225,6 +227,9 @@ const Buy = () => {
     });
   }, [filteredListings, sortBy]);
 
+  // Nothing listed at all: search, chips and sort have nothing to act on, so they step aside.
+  const noListings = !isLoading && listings.length === 0;
+
   // Filters behind the button (what the chip row and the search box don't show).
   const panelFilterCount =
     (activePriceBucket ? 1 : 0) + activeUniversities.size + activeCampuses.size;
@@ -262,19 +267,21 @@ const Buy = () => {
       />
       <HeaderNight />
 
-      {/* =================== INTRO =================== */}
-      <section className="pt-16 md:pt-20">
-        <div className="container mx-auto max-w-6xl px-4 md:px-6 pt-6 md:pt-10 pb-6 md:pb-8">
-          <BackButton className="mb-4" />
-          <h1 className="text-3xl md:text-5xl font-bold tracking-tight text-foreground">
-            Tickets, student to student.
-          </h1>
-          <p className="mt-2 md:mt-3 text-base md:text-lg text-muted-foreground max-w-xl">
-            Buy from other students. Your payment is protected.
+      <ResaleHero listedCount={listings.reduce((n, l) => n + l.quantity, 0)} />
+
+      {/* =================== BROWSE =================== */}
+      <section id="marketplace-grid" className="scroll-mt-20 border-t border-border">
+        <div className="container mx-auto max-w-6xl px-4 md:px-6 pt-10 md:pt-14 pb-6 md:pb-8">
+          <h2 className="font-display text-3xl md:text-[2.75rem] font-bold tracking-[-0.03em] text-foreground leading-[1.02]">
+            Tickets on sale now
+          </h2>
+          <p className="mt-2 text-sm md:text-base text-muted-foreground">
+            From other students, at no more than 1.5× face value.
           </p>
 
           {/* Search + Filters */}
-          <div className="mt-5 md:mt-7 flex items-center gap-2 max-w-2xl">
+          {!noListings && (<>
+          <div className="mt-5 md:mt-6 flex items-center gap-2 max-w-2xl">
             <div className="relative flex-1 min-w-0">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
               <Input
@@ -348,20 +355,12 @@ const Buy = () => {
               )}
             </div>
           )}
-
-          <p className="mt-4 text-sm text-muted-foreground">
-            Got a ticket to sell?{" "}
-            <Link
-              to="/marketplace/sell"
-              className="font-semibold text-foreground underline underline-offset-4 decoration-border hover:decoration-primary transition-colors"
-            >
-              Sell yours
-            </Link>
-          </p>
+          </>)}
         </div>
       </section>
 
       {/* =================== CATEGORIES (sticky) =================== */}
+      {!noListings && (
       <div className="sticky top-16 md:top-20 z-30 bg-background border-y border-border">
         <div className="container mx-auto max-w-6xl px-4 md:px-6 py-2.5">
           <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide -mx-1 px-1">
@@ -380,9 +379,11 @@ const Buy = () => {
           </div>
         </div>
       </div>
+      )}
 
       {/* =================== RESULT BAR =================== */}
-      <div id="marketplace-grid" className="container mx-auto max-w-6xl px-4 md:px-6 pt-5 md:pt-7">
+      {!noListings && (
+      <div className="container mx-auto max-w-6xl px-4 md:px-6 pt-5 md:pt-7">
         <div className="flex items-center justify-between gap-3 mb-4 md:mb-5">
           <p className="text-sm text-muted-foreground flex items-center gap-3 min-w-0">
             <span>
@@ -412,6 +413,7 @@ const Buy = () => {
           </Select>
         </div>
       </div>
+      )}
 
       {/* =================== GRID =================== */}
       <main className="flex-1">
@@ -442,6 +444,9 @@ const Buy = () => {
         </div>
       </main>
 
+      <GroupChatVsUs />
+      <HowSellingWorks />
+
       <Footer />
 
       <style>{`
@@ -455,6 +460,7 @@ const Buy = () => {
         @media (prefers-reduced-motion: reduce) {
           .ts-fade-up { animation: none; }
         }
+        ${resalePitchStyles}
       `}</style>
     </div>
   );
@@ -694,17 +700,17 @@ function EmptyState({
   onSell: () => void;
 }) {
   return (
-    <div className="text-center py-16 md:py-24 max-w-md mx-auto">
+    <div className={`text-center max-w-md mx-auto ${hasAnyListing ? "py-16 md:py-24" : "py-6 md:py-8"}`}>
       <div className="inline-flex w-16 h-16 rounded-2xl bg-primary/10 items-center justify-center mb-5">
         <Ticket className="w-8 h-8 text-primary/70" strokeWidth={1.5} />
       </div>
       <h3 className="text-2xl font-bold text-foreground mb-2">
-        {hasAnyListing ? "No tickets match" : "No tickets yet"}
+        {hasAnyListing ? "No tickets match" : "Nothing listed right now"}
       </h3>
       <p className="text-sm text-muted-foreground mb-6">
         {hasAnyListing
           ? "Try resetting your filters or searching for another event."
-          : "Be the first to list a ticket for sale."}
+          : "Got a ticket you can't use? List it and it's the first one buyers see."}
       </p>
       <div className="flex flex-wrap justify-center gap-3">
         {hasAnyListing ? (
