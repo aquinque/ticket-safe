@@ -3,8 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Menu, X, Globe, User, Ticket, Banknote, LayoutDashboard, Megaphone, LogOut, ArrowRight } from "lucide-react";
 import Logo from "@/components/Logo";
 import WalletBalanceButton from "@/components/WalletBalanceButton";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { fetchPublishedEvents, type PublishedEvent } from "@/lib/publishedEvents";
+import { Button } from "@/components/ui/button";
 import { useI18n } from "@/contexts/I18nContext";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrganizer } from "@/hooks/useOrganizer";
@@ -44,23 +43,6 @@ const LANGUAGES: { code: "fr" | "en" | "es"; label: string }[] = [
 /** The mobile menu's items rise in one after the other, 40 ms apart (see .menu-rise in index.css). */
 const rise = (i: number): React.CSSProperties => ({ animationDelay: `${i * 40}ms` });
 
-/** "Fri 6 Nov · 23:01" for the next-up card. */
-const nextUpWhen = (event: PublishedEvent) => {
-  const date = new Date(event.date);
-  if (Number.isNaN(date.getTime())) return event.venue;
-  const day = date.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
-  return [day, event.time, event.venue].filter(Boolean).join(" · ");
-};
-
-// The next event, read once per page load when the menu first opens.
-let nextEventCache: Promise<PublishedEvent | null> | null = null;
-const loadNextEvent = () => {
-  nextEventCache ??= fetchPublishedEvents()
-    .then((events) => events.find((e) => !!e.slug) ?? null)
-    .catch(() => null);
-  return nextEventCache;
-};
-
 const HeaderNight = () => {
   const { t, language, setLanguage } = useI18n();
   const location = useLocation();
@@ -71,7 +53,6 @@ const HeaderNight = () => {
   const isPromoter = useIsPromoter();
   const [isScrolled, setIsScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [nextEvent, setNextEvent] = useState<PublishedEvent | null>(null);
 
   const firstName = (() => {
     const fn = (user?.user_metadata as { full_name?: string } | undefined)?.full_name;
@@ -96,18 +77,6 @@ const HeaderNight = () => {
     document.body.style.overflow = menuOpen ? "hidden" : "";
     return () => {
       document.body.style.overflow = "";
-    };
-  }, [menuOpen]);
-
-  // The next-up card: fetched the first time the menu opens.
-  useEffect(() => {
-    if (!menuOpen) return;
-    let live = true;
-    loadNextEvent().then((e) => {
-      if (live) setNextEvent(e);
-    });
-    return () => {
-      live = false;
     };
   }, [menuOpen]);
 
@@ -249,8 +218,8 @@ const HeaderNight = () => {
         </div>
       </header>
 
-      {/* Full-screen mobile menu: the two main doors in large type, the next event, the Studio card, and the
-          account and language at the bottom. Items rise in one after the other (none of it with reduced motion). */}
+      {/* Full-screen mobile menu: the two main doors in large type, the Studio card, and the account and language
+          at the bottom. Items rise in one after the other (none of it with reduced motion). */}
       {menuOpen && (
         <div
           data-mobile-menu
@@ -297,49 +266,30 @@ const HeaderNight = () => {
                   </li>
                 );
               })}
+              {organizersLink && (
+                <li className="menu-rise mt-1" style={rise(exploreLinks.length)}>
+                  <Link
+                    to={organizersLink.to}
+                    onClick={close}
+                    aria-current={isActive(organizersLink.to) ? "page" : undefined}
+                    className="group relative block overflow-hidden border border-brand-200/25 bg-background bg-[radial-gradient(130%_100%_at_100%_0%,hsl(var(--brand-500)/0.28),transparent_62%)] p-6 transition-[transform,opacity] duration-150 active:scale-[0.98] active:opacity-90"
+                  >
+                    <span className="block text-[11px] font-bold uppercase tracking-[0.18em] text-brand-200">For organizers</span>
+                    <span className="mt-3 block font-display text-[28px] font-bold leading-[1.05] tracking-[-0.02em] text-foreground">Sell your event</span>
+                    <span className="mt-6 flex items-end justify-between gap-4">
+                      <span className="inline-flex items-center h-7 px-3 rounded-full border border-border text-[12px] font-semibold text-muted-foreground">0% commission</span>
+                      <span className="inline-flex items-center justify-center w-11 h-11 rounded-full border border-brand-200/40 text-foreground transition-transform group-hover:translate-x-0.5" aria-hidden="true">
+                        <ArrowRight className="w-5 h-5" strokeWidth={1.5} />
+                      </span>
+                    </span>
+                  </Link>
+                </li>
+              )}
             </ul>
 
-            {nextEvent && (
-              <Link
-                to={`/e/${nextEvent.slug}`}
-                onClick={close}
-                className="menu-rise group relative mt-8 block overflow-hidden border border-border bg-card"
-                style={rise(exploreLinks.length)}
-                aria-label={`Next up: ${nextEvent.title}, get tickets`}
-              >
-                {nextEvent.bannerUrl && (
-                  <img src={nextEvent.bannerUrl} alt="" className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]" />
-                )}
-                <div className="absolute inset-0 bg-gradient-to-t from-background via-background/75 to-background/25" aria-hidden="true" />
-                <div className="relative flex min-h-[176px] flex-col justify-end p-4">
-                  <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-brand-200">Next up</p>
-                  <p className="mt-1.5 font-display text-[22px] font-bold leading-tight text-foreground line-clamp-2">{nextEvent.title}</p>
-                  <div className="mt-3 flex items-center justify-between gap-3">
-                    <p className="text-[13px] font-medium text-foreground/85 truncate">{nextUpWhen(nextEvent)}</p>
-                    <span className={buttonVariants({ variant: "buy", size: "sm", className: "shrink-0 pointer-events-none" })}>Get tickets</span>
-                  </div>
-                </div>
-              </Link>
-            )}
-
-            {organizersLink && (
-              <Link
-                to={organizersLink.to}
-                onClick={close}
-                aria-current={isActive(organizersLink.to) ? "page" : undefined}
-                className="menu-rise group mt-4 flex items-center gap-4 min-h-[72px] border border-border bg-gradient-to-br from-primary/25 via-primary/10 to-transparent px-4 py-3 transition-colors hover:border-brand-200/40"
-                style={rise(exploreLinks.length + 1)}
-              >
-                <span className="flex-1 min-w-0">
-                  <span className="block font-display text-[18px] font-bold leading-tight text-foreground">TicketSafe Studio</span>
-                  <span className="block text-[13px] mt-0.5 text-muted-foreground">0% commission for organizers</span>
-                </span>
-                <ArrowRight className="w-5 h-5 shrink-0 text-foreground transition-transform group-hover:translate-x-1" strokeWidth={1.5} aria-hidden="true" />
-              </Link>
-            )}
           </nav>
 
-          <div className="menu-rise shrink-0 border-t border-border px-5 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]" style={rise(exploreLinks.length + 2)}>
+          <div className="menu-rise shrink-0 border-t border-border px-5 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]" style={rise(exploreLinks.length + 1)}>
             {user ? (
               <div className="flex flex-col">
                 {[
