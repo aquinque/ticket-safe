@@ -129,7 +129,6 @@ const TermsConditions = () => {
                     </p>
                     <ul className="list-disc pl-6 space-y-2">
                       <li>List counterfeit, fake, or invalid tickets</li>
-                      <li>Engage in price gouging or excessive markup (above 150% of face value)</li>
                       <li>Use bots, scrapers, or automated tools to access the platform</li>
                       <li>Manipulate prices, ratings, or reviews</li>
                       <li>Harass, abuse, or threaten other users</li>
@@ -202,7 +201,7 @@ const TermsConditions = () => {
 
                     <h3 className="font-semibold text-foreground text-lg mt-4">5.2 Pricing Guidelines</h3>
                     <ul className="list-disc pl-6 space-y-2">
-                      <li>Tickets must be priced fairly (maximum 150% of face value)</li>
+                      <li>Sellers set their own price</li>
                       <li>Clearly state the original purchase price if available</li>
                       <li>Do not engage in price manipulation or artificial inflation</li>
                       <li>For events in the United Kingdom, include the information required by the Consumer Rights Act 2015, section 90 (see section 3.1)</li>

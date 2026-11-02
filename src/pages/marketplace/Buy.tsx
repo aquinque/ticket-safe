@@ -276,7 +276,7 @@ const Buy = () => {
             Tickets on sale now
           </h2>
           <p className="mt-2 text-sm md:text-base text-muted-foreground">
-            From other students, at no more than 1.5× face value.
+            From other students, checked before they go on sale.
           </p>
 
           {/* Search + Filters */}
