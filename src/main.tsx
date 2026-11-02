@@ -8,6 +8,7 @@ import { TicketListingsProvider } from "@/contexts/TicketListingsContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { installBackGuard } from "@/lib/backToHomeRuntime";
 import App from "./App.tsx";
+import "./fonts";
 import "./index.css";
 
 const sentryDsn = import.meta.env.VITE_SENTRY_DSN;

@@ -414,8 +414,8 @@ export default function Privacy() {
                           <td className="py-3">Technical error context (stack traces, browser, anonymous user id). No payment data, no message content. Only triggered when something breaks.</td>
                         </tr>
                         <tr className="border-b border-border/50">
-                          <td className="py-3 pr-3 font-medium text-foreground">Vercel Inc.</td>
-                          <td className="py-3 pr-3">USA / EU edge network</td>
+                          <td className="py-3 pr-3 font-medium text-foreground">GitHub, Inc. (GitHub Pages)</td>
+                          <td className="py-3 pr-3">USA</td>
                           <td className="py-3 pr-3">Frontend hosting and CDN</td>
                           <td className="py-3">Standard HTTP request metadata (IP, user agent) for caching and DDoS protection. No application data is stored.</td>
                         </tr>

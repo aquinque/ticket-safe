@@ -147,24 +147,22 @@ const MentionsLegales = () => {
                 <h2 className="text-2xl font-semibold mb-4">3. Hébergeur</h2>
                 <div className="space-y-2 text-muted-foreground">
                   <p>
-                    Le Site est hébergé sur l'infrastructure mondiale de Vercel,
-                    avec des nœuds situés dans l'Union européenne pour servir le
-                    public français :
+                    Le Site est hébergé par GitHub Pages :
                   </p>
                   <div className="bg-muted/50 p-4 rounded-lg space-y-1 text-sm">
                     <p>
-                      <strong className="text-foreground">Vercel Inc.</strong>
+                      <strong className="text-foreground">GitHub, Inc.</strong>
                     </p>
-                    <p>440 N Barranca Ave #4133, Covina, CA 91723, États-Unis</p>
+                    <p>88 Colin P. Kelly Jr. Street, San Francisco, CA 94107, États-Unis</p>
                     <p>
                       Site web :{" "}
                       <a
-                        href="https://vercel.com"
+                        href="https://github.com"
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-primary hover:underline"
                       >
-                        vercel.com
+                        github.com
                       </a>
                     </p>
                   </div>

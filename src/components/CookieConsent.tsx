@@ -21,6 +21,7 @@ interface CookiePreferences {
 
 const COOKIE_CONSENT_KEY = 'ticketsafe_cookie_consent';
 const COOKIE_PREFERENCES_KEY = 'ticketsafe_cookie_preferences';
+export const OPEN_COOKIE_SETTINGS_EVENT = 'ticketsafe:open-cookie-settings';
 
 export const CookieConsent = () => {
   const [showBanner, setShowBanner] = useState(false);
@@ -31,6 +32,13 @@ export const CookieConsent = () => {
     analytics: false,
     marketing: false,
   });
+
+  // Footer "Cookie settings" link reopens the choices at any time.
+  useEffect(() => {
+    const open = () => { setShowBanner(true); setShowSettings(true); };
+    window.addEventListener(OPEN_COOKIE_SETTINGS_EVENT, open);
+    return () => window.removeEventListener(OPEN_COOKIE_SETTINGS_EVENT, open);
+  }, []);
 
   useEffect(() => {
     // Check if user has already made a choice
