@@ -136,36 +136,39 @@ describe("which media may load", () => {
 describe("the three slides", () => {
   it("say exactly what was asked, in English", () => {
     expect(HERO_SLIDES.map((s) => s.headline)).toEqual([
+      "Organizing an event?",
       "The event platform for students",
       "Can't make it? Resell it safely.",
-      "Organizing an event?",
     ]);
     expect(HERO_SLIDES.map((s) => s.subline)).toEqual([
+      "Create it in Ticket Studio, sell in minutes, withdraw your money whenever you want.",
       "Galas, parties, trips, conferences. One link, one ticket, zero fraud.",
       "Resale happens on TicketSafe, at a capped price. The buyer gets a real ticket, the seller gets paid, the organizer stays in control.",
-      "Create it in Ticket Studio, sell in minutes, withdraw your money whenever you want.",
     ]);
   });
 
-  it("have a button on the first and the last slide, and none on the resale slide", () => {
-    expect(HERO_SLIDES[0].cta).toEqual({ label: "Browse events", target: "events" });
-    expect(HERO_SLIDES[1].cta).toBeUndefined();
-    expect(HERO_SLIDES[2].cta).toEqual({ label: "Open Ticket Studio", target: "studio" });
+  it("have a button each: Ticket Studio, the events, the resale", () => {
+    expect(HERO_SLIDES[0].cta).toEqual({ label: "Open Ticket Studio", target: "studio" });
+    expect(HERO_SLIDES[1].cta).toEqual({ label: "Browse events", target: "events" });
+    expect(HERO_SLIDES[2].cta).toEqual({ label: "Go to resale", target: "resale" });
   });
 
   it("point their buttons at routes that exist", () => {
     const app = read("src/App.tsx");
-    for (const path of [HOME_LINKS.events, HOME_LINKS.studio, HOME_LINKS.studioOpen]) expect(app, path).toContain(`path="${path}"`);
+    for (const path of [HOME_LINKS.events, HOME_LINKS.studio, HOME_LINKS.studioOpen, HOME_LINKS.resale]) expect(app, path).toContain(`path="${path}"`);
+    // /resale only redirects to the resale marketplace, so the button goes straight there.
+    expect(app).toContain('path="/resale" element={<Navigate to="/marketplace/buy"');
+    expect(HOME_LINKS.resale).toBe("/marketplace/buy");
     // /events itself only redirects to the events list, so the button goes straight there.
     expect(app).toContain('path="/events" element={<Navigate to="/tickets"');
     expect(HOME_LINKS.events).toBe("/tickets");
   });
 
-  it("use slide-1, slide-2 and slide-3 pictures in /media/home, none of them with a video yet", () => {
+  it("keep their own pictures in /media/home (organizers slide-3, platform slide-1, resale slide-2), none with a video yet", () => {
     expect(HERO_SLIDES.map((s) => s.media.image.src)).toEqual([
+      "/media/home/slide-3.jpg",
       "/media/home/slide-1.jpg",
       "/media/home/slide-2.jpg",
-      "/media/home/slide-3.jpg",
     ]);
     // A listed video that is not there would only cost a failed request: list one when its files are dropped in.
     for (const slide of HERO_SLIDES) if (slide.media.video) expect(slide.media.video.mp4).toMatch(/^\/media\/home\/slide-\d\.mp4$/);

@@ -23,7 +23,7 @@ const Home = () => {
 
   // An approved organizer goes straight into Ticket Studio, like the "Organizers" link of the header.
   const studioHref = organizer?.status === "approved" ? HOME_LINKS.studioOpen : HOME_LINKS.studio;
-  const hrefFor = (cta: Cta) => (cta.target === "events" ? HOME_LINKS.events : studioHref);
+  const hrefFor = (cta: Cta) => (cta.target === "events" ? HOME_LINKS.events : cta.target === "resale" ? HOME_LINKS.resale : studioHref);
 
   // The events are fetched when their block is within a screen and a half, not on arrival: the first screen has
   // the whole connection to itself.
