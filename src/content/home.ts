@@ -17,9 +17,11 @@ export const HOME_LINKS = {
   studio: "/organizers",
   /** Ticket Studio itself, for a signed-in organizer whose account is approved. */
   studioOpen: "/studio",
+  /** The resale marketplace (/resale redirects here). */
+  resale: "/marketplace/buy",
 } as const;
 
-export type CtaTarget = "events" | "studio";
+export type CtaTarget = "events" | "studio" | "resale";
 
 export interface Cta {
   label: string;
@@ -64,6 +66,13 @@ const picture = (name: string): HomeImage => ({ src: `/media/home/${name}.jpg`, 
  */
 export const HERO_SLIDES: HeroSlide[] = [
   {
+    id: "organizers",
+    headline: "Organizing an event?",
+    subline: "Create it in Ticket Studio, sell in minutes, withdraw your money whenever you want.",
+    cta: { label: "Open Ticket Studio", target: "studio" },
+    media: { image: picture("slide-3"), tone: "club" },
+  },
+  {
     id: "platform",
     headline: "The event platform for students",
     subline: "Galas, parties, trips, conferences. One link, one ticket, zero fraud.",
@@ -75,14 +84,8 @@ export const HERO_SLIDES: HeroSlide[] = [
     headline: "Can't make it? Resell it safely.",
     subline:
       "Resale happens on TicketSafe, at a capped price. The buyer gets a real ticket, the seller gets paid, the organizer stays in control.",
+    cta: { label: "Go to resale", target: "resale" },
     media: { image: picture("slide-2"), tone: "ink" },
-  },
-  {
-    id: "organizers",
-    headline: "Organizing an event?",
-    subline: "Create it in Ticket Studio, sell in minutes, withdraw your money whenever you want.",
-    cta: { label: "Open Ticket Studio", target: "studio" },
-    media: { image: picture("slide-3"), tone: "club" },
   },
 ];
 

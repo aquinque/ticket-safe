@@ -5,9 +5,9 @@ behind one sentence. Drop the files in this folder, **with exactly these names**
 
 | Slide | Picture (required) | Video (optional) |
 |---|---|---|
-| 1. Platform: "The event platform for students" | `slide-1.jpg` | `slide-1.mp4` + `slide-1.webm` |
-| 2. Secure resale: "Can't make it? Resell it safely." | `slide-2.jpg` | `slide-2.mp4` + `slide-2.webm` |
-| 3. Organizers: "Organizing an event?" | `slide-3.jpg` | `slide-3.mp4` + `slide-3.webm` |
+| 1. Organizers: "Organizing an event?" | `slide-3.jpg` | `slide-3.mp4` + `slide-3.webm` |
+| 2. Platform: "The event platform for students" | `slide-1.jpg` | `slide-1.mp4` + `slide-1.webm` |
+| 3. Secure resale: "Can't make it? Resell it safely." | `slide-2.jpg` | `slide-2.mp4` + `slide-2.webm` |
 
 Until a file is here, its slide shows a gradient in the site's colours. Nothing breaks and no image is ever shown broken.
 
