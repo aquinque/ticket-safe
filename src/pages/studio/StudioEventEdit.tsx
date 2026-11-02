@@ -681,12 +681,6 @@ const StudioEventEdit = () => {
             );
           })()}
 
-          {/* Promoter links — their own card, right under the main link: one link per promoter
-              to the same page, with the visits and sales each one brought. */}
-          {!readOnly && event.status === "published" && event.slug && (
-            <PromoterLinksPanel eventId={event.id} slug={event.slug} userId={user?.id ?? null} />
-          )}
-
           <GroupLabel>Performance</GroupLabel>
 
           {/* Highlights — 4 KPI cards at a glance */}
@@ -776,6 +770,12 @@ const StudioEventEdit = () => {
               </div>
             )}
           </section>
+
+          {/* Promoter links — right under Performance: one link per promoter to the
+              same page, with the visits and sales each one brought. */}
+          {!readOnly && event.status === "published" && event.slug && (
+            <PromoterLinksPanel eventId={event.id} slug={event.slug} userId={user?.id ?? null} />
+          )}
 
           {/* Financial statement from Stripe, once the event is over */}
           <FinancialStatementCard eventId={event.id} eventDate={event.date} eventEndsAt={event.ends_at} paymentProvider={event.payment_provider ?? null} />
