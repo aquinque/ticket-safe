@@ -32,6 +32,9 @@ export const fmtTime = (iso: string) => new Date(iso).toLocaleTimeString("en-GB"
 
 export type Phase = "today" | "upcoming" | "past";
 
+/** Calendar-day phase, for wording only ("Tonight at 19:50", the "Today" eyebrow).
+ *  Whether an event is upcoming, live or past is decided from its instants by
+ *  eventPhase / isPastEvent in src/lib/eventTime.ts, never from this. */
 export function phaseOf(iso: string, now = new Date()): Phase {
   const day = startOfDay(new Date(iso)).getTime();
   const today = startOfDay(now).getTime();

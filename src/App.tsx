@@ -60,6 +60,7 @@ const StudioEventAttendees = lazy(() => import("./pages/studio/StudioEventAttend
 const StudioProfile = lazy(() => import("./pages/studio/StudioProfile"));
 const StudioPayments = lazy(() => import("./pages/studio/StudioPayments"));
 const StudioSales = lazy(() => import("./pages/studio/StudioSales"));
+const StudioSaleDetail = lazy(() => import("./pages/studio/StudioSaleDetail"));
 const StudioTeam = lazy(() => import("./pages/studio/StudioTeam"));
 const StudioPayouts = lazy(() => import("./pages/studio/StudioPayouts"));
 const StudioEvents = lazy(() => import("./pages/studio/StudioEvents"));
@@ -142,6 +143,7 @@ const App = () => (
         <Route path="/organizers/apply" element={<OrganizerApply />} />
         <Route path="/studio" element={<StudioAccessGate><StudioDashboard /></StudioAccessGate>} />
         <Route path="/studio/sales" element={<StudioAccessGate><StudioSales /></StudioAccessGate>} />
+        <Route path="/studio/sales/:id" element={<StudioAccessGate><StudioSaleDetail /></StudioAccessGate>} />
         <Route path="/studio/team" element={<StudioAccessGate><StudioTeam /></StudioAccessGate>} />
         <Route path="/studio/payouts" element={<StudioAccessGate><StudioPayouts /></StudioAccessGate>} />
         <Route path="/studio/profile" element={<StudioAccessGate><StudioProfile /></StudioAccessGate>} />

@@ -39,6 +39,8 @@ import { SEOHead } from "@/components/SEOHead";
 import { QRScanner } from "@/components/QRScanner";
 import { GuestList, type Guest } from "@/components/scan/GuestList";
 import { decodeQRFromFile } from "@/lib/qrValidator";
+import { doorStillOpen } from "@/lib/eventTime";
+import { DAY_MS } from "@/lib/studioFormat";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -48,6 +50,7 @@ interface Event {
   id: string;
   title: string;
   date: string;
+  ends_at: string | null;
   location: string | null;
 }
 
@@ -171,13 +174,16 @@ const OrganizerScan = () => {
     if (!authLoading && !user) navigate("/auth?next=/organizer/scan");
   }, [user, authLoading, navigate]);
 
-  // Load upcoming events the user can scan tickets for:
+  // Load the events the user can still scan tickets for (coming up, on, or
+  // just ended: the door stays open until the end plus the door tolerance,
+  // the same rule check-ticket-entry applies server-side):
   //  - Studio events they organize (events.organizer_id → organizer_profiles.user_id)
   //  - Plus any active resale-catalog event so the resale flow keeps working.
   useEffect(() => {
     if (!user) return;
     (async () => {
-      const cutoffISO = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
+      // Coarse window in SQL (two days back); the exact door rule is applied below.
+      const cutoffISO = new Date(Date.now() - 2 * DAY_MS).toISOString();
 
       // Studio events owned by the current user (their organizer profile)
       const { data: studioOrg } = await supabase
@@ -189,7 +195,7 @@ const OrganizerScan = () => {
       const studioPromise = studioOrg?.id
         ? supabase
             .from("events")
-            .select("id, title, date, location")
+            .select("id, title, date, ends_at, location")
             .eq("organizer_id", studioOrg.id)
             .in("status", ["published", "sold_out"])
             .gte("date", cutoffISO)
@@ -199,7 +205,7 @@ const OrganizerScan = () => {
       // Catalog / resale events (legacy path)
       const catalogPromise = supabase
         .from("events")
-        .select("id, title, date, location")
+        .select("id, title, date, ends_at, location")
         .eq("is_active", true)
         .gte("date", cutoffISO)
         .order("date", { ascending: true });
@@ -209,9 +215,12 @@ const OrganizerScan = () => {
         ...((studioRes.data as Event[]) ?? []),
         ...((catalogRes.data as Event[]) ?? []),
       ];
-      // Dedup by id, preserve first occurrence (Studio wins for organizers)
+      // Dedup by id, preserve first occurrence (Studio wins for organizers),
+      // then keep only the events whose door is still open.
       const seen = new Set<string>();
-      const deduped = merged.filter((e) => (seen.has(e.id) ? false : (seen.add(e.id), true)));
+      const deduped = merged
+        .filter((e) => (seen.has(e.id) ? false : (seen.add(e.id), true)))
+        .filter((e) => doorStillOpen(e));
 
       setEvents(deduped);
       // Respect the event_id from the URL if it's a valid choice;

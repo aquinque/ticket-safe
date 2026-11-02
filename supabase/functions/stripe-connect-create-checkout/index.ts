@@ -33,6 +33,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getOrCreateGuestAccount } from "../_shared/getOrCreateGuestAccount.ts";
 import { newAccessToken, hashAccessToken } from "../_shared/guestAccess.ts";
 import { getStripeClient } from "../_shared/stripeConnect.ts";
+import { isEventOver } from "../_shared/eventTime.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -253,7 +254,7 @@ serve(async (req) => {
     const { data: tier, error: tierErr } = await supabase
       .from("event_tiers")
       .select(`id, event_id, name, price_cents, currency, total_qty, sold_qty, reserved_qty, is_active,
-               event:events!inner(id, title, slug, status, organizer_id, max_tickets_per_buyer, commission_override_cents, payment_provider,
+               event:events!inner(id, title, slug, status, date, ends_at, organizer_id, max_tickets_per_buyer, commission_override_cents, payment_provider,
                  organizer:organizer_profiles!events_organizer_id_fkey(id, user_id, name, status))`)
       .eq("id", tierId).maybeSingle();
     if (tierErr || !tier) return json({ error: "Tier not found" }, 404);
@@ -262,6 +263,7 @@ serve(async (req) => {
     const ev = Array.isArray(evRaw) ? evRaw[0] : evRaw;
     if (!ev) return json({ error: "Event not found" }, 404);
     if (ev.status !== "published") return json({ error: "Event is not available for sale." }, 400);
+    if (isEventOver(ev)) return json({ error: "This event has ended." }, 400);
     const orgRaw = ev.organizer;
     const org = Array.isArray(orgRaw) ? orgRaw[0] : orgRaw;
     if (!org || org.status !== "approved") return json({ error: "Organizer not active." }, 400);

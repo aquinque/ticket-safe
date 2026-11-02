@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { detectCampus } from "@/lib/campus";
+import { eventStart, isPastEvent } from "@/lib/eventTime";
 import type { EventData } from "@/data/eventsData";
 
 export type Campus = "paris" | "madrid" | "turin" | "berlin" | "london";
@@ -15,6 +16,8 @@ export interface PublishedEvent {
   organizerLogo: string | null;
   organizerColor: string;
   date: string;
+  /** When the organizer set an end; without one the event ends 8 h after its start (see @/lib/eventTime). */
+  ends_at: string | null;
   time: string;
   venue: string;
   campus: Campus;
@@ -27,6 +30,37 @@ export interface PublishedEvent {
   sold: number;
   bannerUrl: string | null;
   logoUrl: string | null;
+}
+
+/** The columns the selection reads; the rest of a row travels through untouched. */
+export interface PublishedEventRow {
+  id: string;
+  slug: string | null;
+  date: string;
+  ends_at?: string | null;
+}
+
+/**
+ * Which rows of the events query are listed, and in which order: a row without a slug has no
+ * public page and is dropped; an event that has ended is dropped (isPastEvent: ends_at, or 8 h
+ * after the start, the product's one rule); a row that comes twice is kept once, the first
+ * occurrence; what remains is sorted by start, soonest first (a start that cannot be read goes
+ * last). Pure, so it is unit tested.
+ */
+export function selectPublishedEvents<T extends PublishedEventRow>(rows: T[], now: Date = new Date()): (T & { slug: string })[] {
+  const seen = new Set<string>();
+  const kept: (T & { slug: string })[] = [];
+  for (const row of rows) {
+    if (!row.slug || seen.has(row.id) || isPastEvent(row, now)) continue;
+    seen.add(row.id);
+    kept.push(row as T & { slug: string });
+  }
+  const startOf = (row: T) => eventStart(row)?.getTime() ?? Number.POSITIVE_INFINITY;
+  return kept.sort((a, b) => {
+    const ta = startOf(a);
+    const tb = startOf(b);
+    return ta === tb ? 0 : ta < tb ? -1 : 1;
+  });
 }
 
 /**
@@ -45,7 +79,7 @@ export async function fetchPublishedEvents(): Promise<PublishedEvent[]> {
   const { data: evRows, error } = await supabase
     .from("events")
     .select(
-      `id, title, slug, date, location, campus, category, primary_color, banner_url, logo_url, status,
+      `id, title, slug, date, ends_at, location, campus, category, primary_color, banner_url, logo_url, status,
        organizer:organizer_profiles!events_organizer_id_fkey(id, name, slug, primary_color, contact_email, about, logo_url)`,
     )
     .eq("status", "published")
@@ -62,6 +96,7 @@ export async function fetchPublishedEvents(): Promise<PublishedEvent[]> {
     title: string;
     slug: string | null;
     date: string;
+    ends_at: string | null;
     location: string | null;
     campus: string | null;
     category: string | null;
@@ -71,7 +106,9 @@ export async function fetchPublishedEvents(): Promise<PublishedEvent[]> {
     organizer: { id: string; name: string; slug: string; primary_color: string; contact_email: string; about: string | null; logo_url: string | null } | { id: string; name: string; slug: string; primary_color: string; contact_email: string; about: string | null; logo_url: string | null }[] | null;
   }>;
 
-  const ids = rows.map((e) => e.id);
+  // Past events and rows without a public page leave here, once, before their tiers are read.
+  const kept = selectPublishedEvents(rows);
+  const ids = kept.map((e) => e.id);
   let tierAgg: Record<string, { sold: number; total: number; minPriceCents: number; count: number; currency: string }> = {};
   if (ids.length) {
     const { data: tiers } = await supabase
@@ -93,9 +130,7 @@ export async function fetchPublishedEvents(): Promise<PublishedEvent[]> {
     );
   }
 
-  return rows
-    .filter((e) => e.slug)
-    .map((e) => {
+  return kept.map((e) => {
       const org = Array.isArray(e.organizer) ? e.organizer[0] : e.organizer;
       const derivedCampus =
         (e.campus as Campus | null) ??
@@ -113,13 +148,14 @@ export async function fetchPublishedEvents(): Promise<PublishedEvent[]> {
       const agg = tierAgg[e.id];
       return {
         id: e.id,
-        slug: e.slug!,
+        slug: e.slug,
         title: e.title,
         organizer: org?.name ?? "Organizer",
         organizerId: org?.id ?? e.id,
         organizerLogo: org?.logo_url ?? null,
         organizerColor: org?.primary_color ?? "#003399",
         date: e.date,
+        ends_at: e.ends_at ?? null,
         time: new Date(e.date).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
         venue: e.location ?? "",
         campus: derivedCampus as Campus,
@@ -132,10 +168,7 @@ export async function fetchPublishedEvents(): Promise<PublishedEvent[]> {
         bannerUrl: e.banner_url,
         logoUrl: e.logo_url ?? org?.logo_url ?? null,
       } satisfies PublishedEvent;
-    })
-    // Hide past events. 12h grace so an event happening tonight stays visible
-    // through the night and only drops off the next day.
-    .filter((e) => new Date(e.date).getTime() >= Date.now() - 12 * 60 * 60 * 1000);
+    });
 }
 
 /** Adapts `PublishedEvent` (tier aggregates, campus, capacity — none of

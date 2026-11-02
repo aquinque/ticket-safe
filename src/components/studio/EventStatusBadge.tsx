@@ -1,38 +1,23 @@
 import { cn } from "@/lib/utils";
+import { deriveEventStatusKind, type EventStatus, type EventStatusKind } from "@/lib/eventStatus";
 
-export type EventStatus = "draft" | "published" | "cancelled" | "sold_out" | null | undefined;
-
-type Kind = "live" | "draft" | "soldout" | "ended" | "cancelled";
+// The rule lives in src/lib/eventStatus.ts (pure, tested); re-exported here so
+// existing imports keep working.
+export { deriveEventStatusKind, type EventStatus, type EventStatusKind } from "@/lib/eventStatus";
 
 interface EventStatusBadgeProps {
   status: EventStatus;
-  /** Event start time (ISO). Used to derive "Live" vs "Ended". */
+  /** Event start time (ISO). With endsAt, decides "Live" vs "Ended". */
   date?: string | null;
+  /** Event end time (ISO) when the organizer set one; otherwise the start plus 8 h applies. */
+  endsAt?: string | null;
   /** Caller-computed: sold count has reached capacity. */
   soldOut?: boolean;
   size?: "sm" | "md";
   className?: string;
 }
 
-/**
- * Derives a friendly marketplace status from the raw event row + a couple of
- * computed flags. Keeps the organizer's mental model crisp: at a glance they
- * see Live / Draft / Sold out / Ended / Cancelled rather than a raw enum.
- */
-export function deriveEventStatusKind(
-  status: EventStatus,
-  date?: string | null,
-  soldOut?: boolean,
-): Kind {
-  const isPast = date ? new Date(date).getTime() < Date.now() : false;
-  if (status === "cancelled") return "cancelled";
-  if (status === "sold_out" || (status === "published" && soldOut)) return "soldout";
-  if (status === "published" && isPast) return "ended";
-  if (status === "published") return "live";
-  return "draft";
-}
-
-const CONFIG: Record<Kind, { label: string; classes: string; dot: string; pulse: boolean }> = {
+const CONFIG: Record<EventStatusKind, { label: string; classes: string; dot: string; pulse: boolean }> = {
   live: {
     label: "Live",
     classes: "bg-emerald-50 text-emerald-700 border-emerald-200",
@@ -65,8 +50,13 @@ const CONFIG: Record<Kind, { label: string; classes: string; dot: string; pulse:
   },
 };
 
-const EventStatusBadge = ({ status, date, soldOut, size = "md", className }: EventStatusBadgeProps) => {
-  const kind = deriveEventStatusKind(status, date, soldOut);
+/**
+ * Friendly marketplace status from the raw event row plus a couple of computed
+ * flags: at a glance the organizer sees Live / Draft / Sold out / Ended /
+ * Cancelled rather than a raw enum.
+ */
+const EventStatusBadge = ({ status, date, endsAt, soldOut, size = "md", className }: EventStatusBadgeProps) => {
+  const kind = deriveEventStatusKind(status, date, soldOut, endsAt);
   const c = CONFIG[kind];
   return (
     <span

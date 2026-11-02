@@ -27,7 +27,8 @@ import { useThemeMode } from "@/hooks/useThemeMode";
 import { useCountUp } from "@/hooks/useCountUp";
 import { supabase } from "@/integrations/supabase/client";
 import EventStatusBadge from "@/components/studio/EventStatusBadge";
-import { DAY_MS, startOfDay, eur, fmtMoney, plural, phaseOf, whenLabel, relativeTime, fmtDay, type Phase } from "@/lib/studioFormat";
+import { DAY_MS, startOfDay, eur, fmtMoney, plural, phaseOf, whenLabel, relativeTime, fmtDay } from "@/lib/studioFormat";
+import { eventPhase } from "@/lib/eventTime";
 import { CURRENCIES, toCurrency, type Currency } from "@/lib/money";
 
 /**
@@ -38,14 +39,17 @@ import { CURRENCIES, toCurrency, type Currency } from "@/lib/money";
  * checked in on the day) and the two or three actions that fit the moment
  * (share the page before, open the scanner on the day, see attendance
  * after). Below it: what happened this week, what still needs doing, and a
- * compact ledger of every event. Everything re-renders from Realtime, so a
- * sale shows up while the page is open.
+ * compact ledger of every current event. Past events (ended, by the
+ * product's end-of-event rule) have moved to Sales and are not here.
+ * Everything re-renders from Realtime, so a sale shows up while the page
+ * is open.
  */
 
 interface StudioEvent {
   id: string;
   title: string;
   date: string;
+  ends_at: string | null;
   location: string | null;
   status: "draft" | "published" | "cancelled" | "sold_out" | null;
   slug: string | null;
@@ -75,6 +79,8 @@ interface Earnings {
 type CentsByCurrency = Partial<Record<Currency, number>>;
 interface DaySales { day: string; cents: CentsByCurrency; tickets: number }
 interface Pace { sold7: number; lastSale: string | null }
+/** The hero's moment: its calendar day, on right now (started before today), or still to come. */
+type HeroPhase = "today" | "live" | "upcoming";
 
 // event_scan_staff is newer than the generated database types.
 const staffLinks = () =>
@@ -97,6 +103,7 @@ const StudioDashboard = () => {
   const [checkedIn, setCheckedIn] = useState<number | null>(null);
   const [pace, setPace] = useState<Pace | null>(null);
   const [linkedEvents, setLinkedEvents] = useState<Set<string>>(new Set());
+  const [pastCount, setPastCount] = useState(0);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   useEffect(() => {
@@ -131,12 +138,17 @@ const StudioDashboard = () => {
       // are not surfaced here.
       const { data: evRows } = await supabase
         .from("events")
-        .select("id, title, date, location, status, slug, banner_url, primary_color")
+        .select("id, title, date, ends_at, location, status, slug, banner_url, primary_color")
         .eq("organizer_id", organizer.id)
         .neq("status", "cancelled")
         .order("date", { ascending: false });
 
-      const ids = (evRows ?? []).map((e: { id: string }) => e.id);
+      // Past events have moved to Sales: the dashboard is about what is current.
+      type Loaded = Omit<StudioEvent, "currency" | "sold_count" | "total_capacity" | "revenue_cents" | "price_from_cents">;
+      const now = new Date();
+      const currentRows = ((evRows ?? []) as Loaded[]).filter((e) => eventPhase(e, now) !== "past");
+      setPastCount((evRows ?? []).length - currentRows.length);
+      const ids = currentRows.map((e) => e.id);
       // The event's currency comes from its tiers (event_tiers.currency always
       // equals the event's); an event with no tier yet counts as euros.
       type Agg = { sold: number; total: number; revenue: number; minPrice: number | null; currency: string };
@@ -161,8 +173,8 @@ const StudioDashboard = () => {
       }
 
       setEvents(
-        (evRows ?? []).map((e) => ({
-          ...(e as Omit<StudioEvent, "currency" | "sold_count" | "total_capacity" | "revenue_cents" | "price_from_cents">),
+        currentRows.map((e) => ({
+          ...e,
           currency: tierAgg[e.id]?.currency ?? "EUR",
           sold_count: tierAgg[e.id]?.sold ?? 0,
           total_capacity: tierAgg[e.id]?.total ?? 0,
@@ -251,16 +263,18 @@ const StudioDashboard = () => {
   }, [organizer]);
 
   // ── Derived: the event the page is about ──
+  // The soonest current event (on right now, or still to come). No fallback
+  // to a past event: those have moved to Sales.
   const now = new Date();
-  const next = useMemo(() => {
-    const today = startOfDay(now).getTime();
-    const upcoming = events
-      .filter((e) => startOfDay(new Date(e.date)).getTime() >= today)
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    return upcoming[0] ?? events[0] ?? null;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [events]);
-  const phase: Phase | null = next ? phaseOf(next.date, now) : null;
+  const next = useMemo(
+    () => [...events].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())[0] ?? null,
+    [events],
+  );
+  // Its moment: its calendar day (wording and door actions), on right now by
+  // the end-of-event rule although it started before today, or still to come.
+  const phase: HeroPhase | null = next
+    ? phaseOf(next.date, now) === "today" ? "today" : eventPhase(next, now) === "live" ? "live" : "upcoming"
+    : null;
 
   // Door count for the hero, only when it matters (the event's day, or just after).
   useEffect(() => {
@@ -412,7 +426,8 @@ const StudioDashboard = () => {
     todos.push({ key: "payout", icon: Banknote, text: `${eur(earnings.available_cents, 2)} from earlier events is ready to withdraw`, to: "/studio/payouts", tone: "money" });
   }
 
-  const liveCount = events.filter((e) => e.status === "published" && phaseOf(e.date, now) !== "past").length;
+  // Every event here is current already, so "on sale" is simply "published".
+  const liveCount = events.filter((e) => e.status === "published").length;
 
   return (
     <StudioLayout active="dashboard" organizer={{ name: organizer.name, logo_url: organizer.logo_url }}>
@@ -423,7 +438,7 @@ const StudioDashboard = () => {
           <div className="min-w-0">
             <h1 className="text-xl md:text-2xl font-bold text-foreground">Dashboard</h1>
             <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-2">
-              {liveCount > 0 ? `${plural(liveCount, "event")} on sale` : events.length > 0 ? "Nothing on sale right now" : "No events yet"}
+              {liveCount > 0 ? `${plural(liveCount, "event")} on sale` : events.length > 0 ? "Nothing on sale right now" : pastCount > 0 ? "Nothing coming up" : "No events yet"}
               {lastUpdated && (
                 <span className="inline-flex items-center gap-1.5">
                   <span className="relative flex h-1.5 w-1.5">
@@ -447,12 +462,12 @@ const StudioDashboard = () => {
         {loadingEvents ? (
           <div className="h-64 bg-muted animate-pulse mb-4" />
         ) : !next ? (
-          <EmptyEvents />
+          pastCount > 0 ? <NothingComingUp /> : <EmptyEvents />
         ) : (
           <NextUp event={next} phase={phase ?? "upcoming"} pace={pace} checkedIn={checkedIn} />
         )}
 
-        {events.length > 0 && (
+        {(events.length > 0 || pastCount > 0) && (
           <div className="grid gap-4 md:grid-cols-5 mb-6">
             {/* This week */}
             <section className="bg-card border border-border p-4 md:p-5 md:col-span-3" aria-labelledby="week-heading">
@@ -522,6 +537,12 @@ const StudioDashboard = () => {
             </ul>
           </section>
         )}
+        {!loadingEvents && pastCount > 0 && (
+          <p className="mt-3 text-xs text-muted-foreground">
+            {plural(pastCount, "past event")} {pastCount === 1 ? "is" : "are"} in{" "}
+            <Link to="/studio/sales" className="font-semibold text-primary hover:underline">Sales</Link>
+          </p>
+        )}
       </div>
     </StudioLayout>
   );
@@ -529,7 +550,7 @@ const StudioDashboard = () => {
 
 /* ───────────────────────── Hero: the next event ───────────────────────── */
 
-const NextUp = ({ event, phase, pace, checkedIn }: { event: StudioEvent; phase: Phase; pace: Pace | null; checkedIn: number | null }) => {
+const NextUp = ({ event, phase, pace, checkedIn }: { event: StudioEvent; phase: HeroPhase; pace: Pace | null; checkedIn: number | null }) => {
   const sold = useCountUp(event.sold_count);
   const pct = event.total_capacity > 0 ? Math.min(100, Math.round((event.sold_count / event.total_capacity) * 100)) : 0;
   const soldOut = event.total_capacity > 0 && event.sold_count >= event.total_capacity;
@@ -550,12 +571,12 @@ const NextUp = ({ event, phase, pace, checkedIn }: { event: StudioEvent; phase: 
     prevSold.current = event.sold_count;
   }, [event.sold_count]);
 
-  const eyebrow = phase === "today" ? "Today" : phase === "upcoming" ? "Next up" : "Last event";
+  const eyebrow = phase === "today" ? "Today" : phase === "live" ? "On now" : "Next up";
   const dateLine = `${whenLabel(event.date)} · ${fmtDay(event.date)}`;
 
   // Where the sales are heading, in one sentence an organizer can act on.
   const paceLine = (() => {
-    if (!pace || phase === "past") return null;
+    if (!pace) return null;
     const left = event.total_capacity - event.sold_count;
     if (event.total_capacity > 0 && left <= 0) return "Sold out.";
     if (pace.sold7 === 0) return event.sold_count > 0 ? "No sales in the last 7 days." : "No sales yet. Share the page to get the first ones.";
@@ -602,7 +623,7 @@ const NextUp = ({ event, phase, pace, checkedIn }: { event: StudioEvent; phase: 
             </h2>
             {event.location && <p className="text-sm text-white/80 mt-1.5 truncate">{event.location}</p>}
           </div>
-          <EventStatusBadge status={event.status} date={event.date} soldOut={soldOut} size="sm" className="shrink-0" />
+          <EventStatusBadge status={event.status} date={event.date} endsAt={event.ends_at} soldOut={soldOut} size="sm" className="shrink-0" />
         </div>
 
         <div className="mt-6 grid gap-5 md:grid-cols-[1fr_auto] md:items-end">
@@ -637,12 +658,12 @@ const NextUp = ({ event, phase, pace, checkedIn }: { event: StudioEvent; phase: 
           </div>
 
           <div className="flex flex-wrap gap-2">
-            {phase === "today" ? (
+            {phase !== "upcoming" ? (
               <>
                 <Link to={`/organizer/scan?event_id=${event.id}`} className={btnPrimary}><QrCode className="w-4 h-4" /> Open scanner</Link>
                 <Link to={`/studio/events/${event.id}/attendees`} className={btnGhost}><Users className="w-4 h-4" /> Guest list</Link>
               </>
-            ) : phase === "upcoming" ? (
+            ) : (
               <>
                 {event.slug && event.status === "published" ? (
                   <button type="button" onClick={share} className={btnPrimary}><Share2 className="w-4 h-4" /> Share the page</button>
@@ -651,11 +672,6 @@ const NextUp = ({ event, phase, pace, checkedIn }: { event: StudioEvent; phase: 
                 )}
                 <Link to={`/studio/events/${event.id}`} className={btnGhost}><Ticket className="w-4 h-4" /> Tickets</Link>
                 <Link to={`/studio/events/${event.id}/attendees`} className={btnGhost}><Users className="w-4 h-4" /> Guests</Link>
-              </>
-            ) : (
-              <>
-                <Link to={`/studio/events/${event.id}/attendees`} className={btnPrimary}><Users className="w-4 h-4" /> Attendance</Link>
-                <Link to="/studio/payments" className={btnGhost}><Banknote className="w-4 h-4" /> Payout</Link>
               </>
             )}
           </div>
@@ -736,7 +752,7 @@ const EventLine = ({ event, current }: { event: StudioEvent; current: boolean })
             )}
           </div>
         </div>
-        <EventStatusBadge status={event.status} date={event.date} soldOut={soldOut} size="sm" className="justify-self-end" />
+        <EventStatusBadge status={event.status} date={event.date} endsAt={event.ends_at} soldOut={soldOut} size="sm" className="justify-self-end" />
         <div className="hidden md:flex items-center gap-2 w-40">
           <div className="h-1.5 flex-1 bg-muted overflow-hidden" aria-hidden>
             <div className="h-full bg-primary" style={{ width: `${pct}%` }} />
@@ -750,6 +766,34 @@ const EventLine = ({ event, current }: { event: StudioEvent; current: boolean })
     </li>
   );
 };
+
+/* ───────────────────────── Nothing coming up ───────────────────────── */
+
+/** No current event, but past ones: those live in Sales now. */
+const NothingComingUp = () => (
+  <section className="bg-card border border-border p-5 md:p-7 mb-4 motion-safe:animate-fade-in" aria-labelledby="nothing-heading">
+    <p className="text-[11px] uppercase tracking-wider font-bold text-muted-foreground">Nothing coming up</p>
+    <p id="nothing-heading" className="font-display text-2xl md:text-3xl font-bold leading-tight mt-1.5 text-balance max-w-xl">
+      Create your next event, or look back at what your past events sold.
+    </p>
+    <div className="mt-5 flex flex-wrap gap-2">
+      <Link
+        to="/studio/events/new"
+        className="inline-flex items-center justify-center gap-2 px-5 min-h-[44px] font-bold text-sm bg-primary text-primary-foreground hover:bg-primary-hover transition-colors"
+      >
+        <Plus className="w-4 h-4" />
+        Create event
+      </Link>
+      <Link
+        to="/studio/sales"
+        className="inline-flex items-center justify-center gap-2 px-5 min-h-[44px] font-bold text-sm border border-border hover:bg-muted transition-colors"
+      >
+        Sales
+        <ArrowRight className="w-4 h-4" />
+      </Link>
+    </div>
+  </section>
+);
 
 /* ───────────────────────── Empty state ───────────────────────── */
 

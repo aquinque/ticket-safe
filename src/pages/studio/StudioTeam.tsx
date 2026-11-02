@@ -8,12 +8,14 @@ import { useAuth } from "@/hooks/useAuth";
 import { useOrganizer } from "@/hooks/useOrganizer";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { supabase } from "@/integrations/supabase/client";
-import { plural, relativeTime, whenLabel, phaseOf, startOfDay } from "@/lib/studioFormat";
+import { plural, relativeTime, whenLabel, phaseOf } from "@/lib/studioFormat";
+import { eventPhase } from "@/lib/eventTime";
 
 interface EventOption {
   id: string;
   title: string;
   date: string;
+  ends_at: string | null;
 }
 
 // event_scan_staff is newer than the generated database types, so it is queried through a narrow typed wrapper.
@@ -68,18 +70,17 @@ const StudioTeam = () => {
     setLoading(true);
     const { data: eventData } = await supabase
       .from("events")
-      .select("id, title, date")
+      .select("id, title, date, ends_at")
       .eq("organizer_id", organizer.id)
       .neq("status", "cancelled")
       .order("date", { ascending: false });
-    const all = (eventData as EventOption[]) ?? [];
-    // Upcoming first (soonest at the top), then past, most recent first.
-    const today = startOfDay(new Date()).getTime();
-    const upcoming = all.filter((e) => startOfDay(new Date(e.date)).getTime() >= today).sort((a, b) => +new Date(a.date) - +new Date(b.date));
-    const past = all.filter((e) => startOfDay(new Date(e.date)).getTime() < today);
-    const evs = [...upcoming, ...past];
+    // Current events only (live or coming up, soonest at the top): a past
+    // event takes no more door staff. Its links stay in the database untouched.
+    const evs = ((eventData as EventOption[]) ?? [])
+      .filter((e) => eventPhase(e) !== "past")
+      .sort((a, b) => +new Date(a.date) - +new Date(b.date));
     setEvents(evs);
-    if (!selectedEvent && evs.length > 0) setSelectedEvent(evs[0].id);
+    if (evs.length > 0 && !evs.some((e) => e.id === selectedEvent)) setSelectedEvent(evs[0].id);
 
     if (evs.length === 0) {
       setRows([]);

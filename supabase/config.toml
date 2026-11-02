@@ -114,3 +114,9 @@ verify_jwt = false
 # EVENT_STATEMENT_WEBHOOK_SECRET.
 [functions.event-statement-webhook]
 verify_jwt = false
+
+# Sales export of an event as a CSV file (one line per ticket sold), for the Studio
+# sales archive. Authenticated; auth (owner or admin) is handled inside with getUser,
+# before any sales row is read.
+[functions.export-event-sales]
+verify_jwt = false

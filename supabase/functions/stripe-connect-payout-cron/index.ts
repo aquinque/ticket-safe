@@ -30,6 +30,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getStripeClient } from "../_shared/stripeConnect.ts";
+import { eventEnd } from "../_shared/eventTime.ts";
 import { renderEmail, ctaButton } from "../_shared/emailComponents.ts";
 import { emailTokens } from "../_shared/emailTokens.ts";
 
@@ -143,7 +144,9 @@ serve(async (req) => {
       .lt("date", new Date().toISOString());
 
     for (const ev of dueEvents ?? []) {
-      const endRef = ev.ends_at ?? ev.date;
+      // The end from the product's one rule (ends_at, else start + 8 h); without a readable date the event is not ended, so no job.
+      const end = eventEnd(ev);
+      if (!end) continue;
       // One chain of jobs per event: the first row is created here, follow-up
       // rows (for money still settling) by pass 2, so look for any row at all.
       const { data: existingJobs } = await supabase.from("stripe_connect_payout_jobs").select("id").eq("event_id", ev.id).eq("kind", "organizer_event_payout").limit(1);
@@ -152,7 +155,7 @@ serve(async (req) => {
       const { data: account } = await supabase.from("stripe_connect_accounts").select("id").eq("organizer_id", ev.organizer_id).maybeSingle();
       if (!account) continue;
 
-      const scheduledFor = new Date(new Date(endRef).getTime() + delayDays * 86_400_000).toISOString();
+      const scheduledFor = new Date(end.getTime() + delayDays * 86_400_000).toISOString();
       await supabase.from("stripe_connect_payout_jobs").insert({
         event_id: ev.id,
         stripe_connect_account_id: account.id,
