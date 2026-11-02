@@ -247,13 +247,13 @@ export default function Privacy() {
                     Welcome to TicketSafe. We are committed to protecting your personal data and respecting your privacy. This Privacy Policy explains how we collect, use, store, and protect your information when you use our platform.
                   </p>
                   <p>
-                    <strong className="text-foreground">Data Controller:</strong> Ticket Safe SAS, a French société par actions simplifiée (RCS Paris 105 533 632, share capital €1 000).<br/>
+                    <strong className="text-foreground">Data Controller:</strong> Ticket Safe SAS, a French simplified joint-stock company (SAS) (RCS Paris 105 533 632, share capital €1 000).<br/>
                     <strong className="text-foreground">Contact:</strong> ticketsafe.friendly@gmail.com<br/>
                     <strong className="text-foreground">Registered Address:</strong> 2 rue Wilhem, 75016 Paris, France<br/>
                     <strong className="text-foreground">VAT:</strong> not applicable, article 293 B of the French General Tax Code (CGI)
                   </p>
                   <p>
-                    <strong className="text-foreground">Applicable law:</strong> For users in the European Union, we process personal data under the EU General Data Protection Regulation (Regulation (EU) 2016/679, "EU GDPR") and the French Data Protection Act (loi n° 78-17 du 6 janvier 1978). For users in the United Kingdom, including buyers of tickets for London events, we also comply with the UK General Data Protection Regulation ("UK GDPR") and the Data Protection Act 2018. In this policy, "GDPR" means whichever of the two applies to you.
+                    <strong className="text-foreground">Applicable law:</strong> For users in the European Union, we process personal data under the EU General Data Protection Regulation (Regulation (EU) 2016/679, "EU GDPR") and the French Data Protection Act (Act No. 78-17 of 6 January 1978). For users in the United Kingdom, including buyers of tickets for London events, we also comply with the UK General Data Protection Regulation ("UK GDPR") and the Data Protection Act 2018. In this policy, "GDPR" means whichever of the two applies to you.
                   </p>
                   <p>
                     <strong className="text-foreground">UK representative (UK GDPR Article 27):</strong> Ticket Safe SAS is established in France and has no establishment in the United Kingdom. UK users and the Information Commissioner's Office may contact our UK representative at: [UK representative: to be appointed — name and address]. Until then, please write to us at the contact address above.
@@ -414,8 +414,8 @@ export default function Privacy() {
                           <td className="py-3">Technical error context (stack traces, browser, anonymous user id). No payment data, no message content. Only triggered when something breaks.</td>
                         </tr>
                         <tr className="border-b border-border/50">
-                          <td className="py-3 pr-3 font-medium text-foreground">Vercel Inc.</td>
-                          <td className="py-3 pr-3">USA / EU edge network</td>
+                          <td className="py-3 pr-3 font-medium text-foreground">GitHub, Inc. (GitHub Pages)</td>
+                          <td className="py-3 pr-3">USA</td>
                           <td className="py-3 pr-3">Frontend hosting and CDN</td>
                           <td className="py-3">Standard HTTP request metadata (IP, user agent) for caching and DDoS protection. No application data is stored.</td>
                         </tr>
@@ -517,7 +517,7 @@ export default function Privacy() {
                     If you are unhappy with how we handle your personal data, please contact us first at ticketsafe.friendly@gmail.com so we can try to resolve it. You also have the right to lodge a complaint with a data protection supervisory authority:
                   </p>
                   <ul className="list-disc pl-6 space-y-2">
-                    <li><strong>In France and the EU:</strong> the CNIL (Commission Nationale de l'Informatique et des Libertés), <a href="https://www.cnil.fr" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">cnil.fr</a>, or the supervisory authority of the EU country where you live or work</li>
+                    <li><strong>In France and the EU:</strong> the CNIL (the French data protection authority), <a href="https://www.cnil.fr" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">cnil.fr</a>, or the supervisory authority of the EU country where you live or work</li>
                     <li><strong>In the United Kingdom:</strong> the Information Commissioner's Office (ICO), <a href="https://ico.org.uk" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">ico.org.uk</a></li>
                   </ul>
                 </div>

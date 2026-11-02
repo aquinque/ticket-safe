@@ -49,7 +49,7 @@ export const ScanStaffPanel = ({ eventId }: { eventId: string }) => {
   const createLink = async () => {
     const trimmed = label.trim();
     if (!trimmed) {
-      toast.error("Give this link a name (e.g. \"Main entrance\", \"Léa — bénévole\").");
+      toast.error("Give this link a name (e.g. \"Main entrance\", \"Léa — volunteer\").");
       return;
     }
     setCreating(true);
@@ -131,7 +131,7 @@ export const ScanStaffPanel = ({ eventId }: { eventId: string }) => {
         <input
           value={label}
           onChange={(e) => setLabel(e.target.value)}
-          placeholder="e.g. Main entrance, Léa — bénévole"
+          placeholder="e.g. Main entrance, Léa — volunteer"
           maxLength={80}
           className="flex-1 min-w-0 px-3 py-2 rounded-lg border border-border bg-background text-sm"
           onKeyDown={(e) => e.key === "Enter" && createLink()}

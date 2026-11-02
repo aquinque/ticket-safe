@@ -26,6 +26,23 @@ const isLanguage = (v: string | null): v is Language => v === 'en' || v === 'fr'
 // on browser language. Visitors can still pick FR/ES themselves via the
 // language switcher (or a ?lang= URL param), and that explicit choice is
 // remembered in localStorage.
+const readStoredLanguage = (): Language | null => {
+  try {
+    const stored = localStorage.getItem('lang');
+    return isLanguage(stored) ? stored : null;
+  } catch {
+    return null; // storage blocked (private mode, sandboxed preview): stay on EN
+  }
+};
+
+const storeLanguage = (lang: Language) => {
+  try {
+    localStorage.setItem('lang', lang);
+  } catch {
+    /* storage blocked: the choice lasts for this visit only */
+  }
+};
+
 const getLanguageFromUrl = (): Language | null => {
   const params = new URLSearchParams(window.location.search);
   const urlLang = params.get('lang');
@@ -38,8 +55,8 @@ export const I18nProvider = ({ children }: { children: ReactNode }) => {
     const urlLang = getLanguageFromUrl();
     if (urlLang) return urlLang;
 
-    const storedLang = localStorage.getItem('lang');
-    if (isLanguage(storedLang)) return storedLang;
+    const storedLang = readStoredLanguage();
+    if (storedLang) return storedLang;
 
     return 'en';
   });
@@ -54,13 +71,13 @@ export const I18nProvider = ({ children }: { children: ReactNode }) => {
     const urlLang = getLanguageFromUrl();
     if (urlLang && urlLang !== language) {
       setLanguageState(urlLang);
-      localStorage.setItem('lang', urlLang);
+      storeLanguage(urlLang);
     }
   }, [language]);
 
   const setLanguage = (lang: Language) => {
     setLanguageState(lang);
-    localStorage.setItem('lang', lang);
+    storeLanguage(lang);
     document.documentElement.lang = lang;
   };
 

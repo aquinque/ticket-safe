@@ -45,7 +45,7 @@ import {
 import { toast as sonnerToast } from "sonner";
 import { generatePayoutReceiptPDF } from "@/lib/payoutReceiptPdf";
 import { RESALE_BUYER_FEE_COPY } from "@/lib/fees";
-import { SellerPayoutsCard } from "@/components/resale/SellerPayoutsCard";
+import { Chip, WalletOverview } from "@/components/wallet/WalletOverview";
 import { authPathHere } from "@/lib/returnTo";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -91,28 +91,9 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const StatusBadge = ({ status }: { status: string }) => {
-  if (status === "available") {
-    return (
-      <Badge className="bg-green-500/15 text-green-600 border-green-200 hover:bg-green-500/15">
-        <span className="w-1.5 h-1.5 rounded-full bg-green-500 mr-1.5 inline-block" />
-        Active
-      </Badge>
-    );
-  }
-  if (status === "sold") {
-    return (
-      <Badge className="bg-blue-500/15 text-blue-600 border-blue-200 hover:bg-blue-500/15">
-        <CheckCircle2 className="w-3 h-3 mr-1" />
-        Sold
-      </Badge>
-    );
-  }
-  return (
-    <Badge variant="outline" className="text-muted-foreground">
-      <XCircle className="w-3 h-3 mr-1" />
-      Cancelled
-    </Badge>
-  );
+  if (status === "available") return <Chip tone="good">Active</Chip>;
+  if (status === "sold") return <Chip tone="accent">Sold</Chip>;
+  return <Chip>Cancelled</Chip>;
 };
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -140,6 +121,8 @@ const MyListings = () => {
     completed_sales: number;
   } | null>(null);
   const [payoutModalOpen, setPayoutModalOpen] = useState(false);
+  // Bumped after a withdrawal request so the history and pending amount reload.
+  const [walletReload, setWalletReload] = useState(0);
 
   // The header's Withdraw button lands here with ?withdraw=1: open the payout
   // form once the user is known, then drop the param so a refresh won't reopen it.
@@ -263,6 +246,7 @@ const MyListings = () => {
       notes: r.notes,
       status: r.status ?? "available",
       created_at: r.created_at,
+      boosted_until: r.boosted_until ?? null,
       event: eventsMap[r.event_id] ?? null,
     }));
 
@@ -396,141 +380,55 @@ const MyListings = () => {
       <HeaderNight />
       <main className="flex-1 pt-20 pb-10 md:pt-24">
         <div className="container mx-auto px-4 max-w-5xl">
-          <div className="mb-6">
+          <div className="mb-8">
             <BackButton />
           </div>
 
-          {/* Page title */}
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h1 className="text-3xl font-bold">My Wallet</h1>
-              <p className="text-muted-foreground mt-1">Your resale listings, earnings, and withdrawals.</p>
-            </div>
-            <Button variant="hero" onClick={() => navigate("/marketplace/sell")} className="gap-2">
-              <Plus className="w-4 h-4" />
-              Sell a Ticket
-            </Button>
-          </div>
+          <WalletOverview
+            userId={user.id}
+            earnings={earnings}
+            reloadKey={walletReload}
+            onWithdraw={() => setPayoutModalOpen(true)}
+            onSell={() => navigate("/marketplace/sell")}
+          />
 
-          {/* Resales paid through Stripe: paid to the seller's bank after the event. */}
-          {user && <SellerPayoutsCard userId={user.id} />}
+          {/* ===== Listings: the tickets put up for resale ===== */}
+          <section aria-labelledby="listings-heading" className="mt-12 md:mt-14">
+          <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-brand-200">Listings</div>
+          <h2 id="listings-heading" className="mt-3 font-display text-[28px] font-bold tracking-[-0.02em] leading-tight">Your tickets for sale</h2>
 
-          {/* ===== Wallet — sales made before Stripe resale, withdrawn by IBAN.
-              Only shown while a seller still has such a balance or a withdrawal
-              in progress; Stripe sales never land here (seller_earnings). ===== */}
-          {earnings && (earnings.available_cents > 0 || earnings.claimed_cents > 0) && (
-          <section className="mb-6">
-            <div className="rounded-2xl border border-success/30 bg-success/10 p-5 md:p-6">
-              <div className="flex items-start justify-between gap-4 flex-wrap">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-success/15 flex items-center justify-center shrink-0">
-                    <Banknote className="w-6 h-6 text-success" />
-                  </div>
-                  <div>
-                    <div className="text-xs font-bold uppercase tracking-wider text-success/80">Your wallet</div>
-                    <div className="text-3xl font-black tabular-nums leading-tight text-success">
-                      €{((earnings?.available_cents ?? 0) / 100).toFixed(2)}
-                    </div>
-                    <div className="text-xs text-success/80">available to withdraw</div>
-                  </div>
-                </div>
-                <Button
-                  variant="default"
-                  onClick={() => setPayoutModalOpen(true)}
-                  disabled={!earnings || earnings.available_cents <= 0}
-                  className="inline-flex items-center gap-1.5 bg-success text-success-foreground hover:bg-success/90 disabled:opacity-50 shrink-0"
-                >
-                  <ArrowRight className="w-4 h-4" />
-                  Get paid
-                </Button>
+          <dl className="mt-5 mb-6 grid grid-cols-2 md:grid-cols-4 border border-brand-200/25">
+            {[
+              ["Active", String(stats.active)],
+              ["Sold", String(stats.sold)],
+              ["Cancelled", String(stats.cancelled)],
+              ["Sales value", `€${stats.earnings.toFixed(0)}`],
+            ].map(([k, v], i) => (
+              <div key={k} className={`p-4 ${i % 2 ? "border-l border-brand-200/25" : ""} ${i >= 2 ? "border-t md:border-t-0 border-brand-200/25" : ""} ${i === 2 ? "md:border-l" : ""}`}>
+                <dt className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">{k}</dt>
+                <dd className="mt-1 font-display text-2xl font-bold tabular-nums">{v}</dd>
               </div>
-              <div className="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-success/20">
-                <div>
-                  <div className="text-sm font-bold tabular-nums">€{((earnings?.net_earned_cents ?? 0) / 100).toFixed(2)}</div>
-                  <div className="text-[11px] text-muted-foreground">Total earned</div>
-                </div>
-                <div>
-                  <div className="text-sm font-bold tabular-nums">{earnings?.completed_sales ?? 0}</div>
-                  <div className="text-[11px] text-muted-foreground">Sales</div>
-                </div>
-                <div>
-                  <div className="text-sm font-bold tabular-nums">€{((earnings?.claimed_cents ?? 0) / 100).toFixed(2)}</div>
-                  <div className="text-[11px] text-muted-foreground">Withdrawn / pending</div>
-                </div>
-              </div>
-              <p className="text-[11px] text-muted-foreground mt-3">
-                {earnings && earnings.available_cents > 0
-                  ? "Tap “Get paid”, type your IBAN — we wire the SEPA within 2-3 business days. Ticket Safe takes 5% at withdrawal."
-                  : "Your earnings land here automatically when your resale listings sell. Ticket Safe takes 5% at withdrawal — no KYC."}
-              </p>
-            </div>
-          </section>
-          )}
-
-          {/* Stats strip */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <Card className="border-0 bg-success/10">
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-success/15 flex items-center justify-center flex-shrink-0">
-                  <Clock className="w-5 h-5 text-success" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-success">{stats.active}</p>
-                  <p className="text-xs text-muted-foreground">Active</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-0 bg-blue-500/10">
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-blue-500/15 flex items-center justify-center flex-shrink-0">
-                  <CheckCircle2 className="w-5 h-5 text-blue-400" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-blue-400">{stats.sold}</p>
-                  <p className="text-xs text-muted-foreground">Sold</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-0 bg-muted/50">
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center flex-shrink-0">
-                  <XCircle className="w-5 h-5 text-muted-foreground" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold">{stats.cancelled}</p>
-                  <p className="text-xs text-muted-foreground">Cancelled</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-0 bg-primary/8">
-              <CardContent className="p-4 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-primary/15 flex items-center justify-center flex-shrink-0">
-                  <TrendingUp className="w-5 h-5 text-primary" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold text-primary">€{stats.earnings.toFixed(0)}</p>
-                  <p className="text-xs text-muted-foreground">Earnings</p>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+            ))}
+          </dl>
 
           {/* Controls */}
-          <div className="flex flex-col sm:flex-row gap-3 mb-6">
+          <div className="flex flex-col md:flex-row gap-3 mb-6">
             {/* Status tabs */}
-            <div className="flex gap-1 bg-muted/50 rounded-lg p-1 flex-wrap">
+            <div className="flex gap-2 overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0" role="tablist" aria-label="Filter listings">
               {(["all", "available", "sold", "reserved"] as StatusFilter[]).map((s) => (
                 <button
                   key={s}
+                  role="tab"
+                  aria-selected={statusFilter === s}
                   onClick={() => setStatusFilter(s)}
-                  className={`px-3 py-1.5 text-sm rounded-md font-medium transition-all ${
+                  className={`shrink-0 inline-flex items-center gap-1.5 h-11 md:h-9 px-4 rounded-full border text-[13px] font-semibold transition-colors ${
                     statusFilter === s
-                      ? "bg-background shadow text-foreground"
-                      : "text-muted-foreground hover:text-foreground"
+                      ? "border-brand-200/60 text-foreground bg-brand-200/10"
+                      : "border-border text-muted-foreground hover:text-foreground"
                   }`}
                 >
                   {s === "all" ? "All" : STATUS_LABELS[s]}
-                  <span className="ml-1.5 text-xs opacity-60">
+                  <span className="tabular-nums opacity-70">
                     {s === "all"
                       ? listings.length
                       : listings.filter((l) => l.status === s).length}
@@ -539,22 +437,24 @@ const MyListings = () => {
               ))}
             </div>
 
-            <div className="flex gap-2 ml-auto">
+            <div className="flex gap-2 md:ml-auto">
               {/* Search */}
-              <div className="relative">
+              <div className="relative flex-1 md:flex-none">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   placeholder="Search listings…"
+                  aria-label="Search listings"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="pl-9 w-52"
+                  className="pl-9 h-11 md:h-10 w-full md:w-52"
                 />
               </div>
               {/* Sort */}
               <select
                 value={sort}
+                aria-label="Sort listings"
                 onChange={(e) => setSort(e.target.value as SortOption)}
-                className="h-10 rounded-md border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                className="h-11 md:h-10 w-36 md:w-auto rounded-md border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               >
                 <option value="newest">Newest first</option>
                 <option value="oldest">Oldest first</option>
@@ -567,29 +467,26 @@ const MyListings = () => {
 
           {/* Empty state */}
           {displayed.length === 0 && (
-            <div className="text-center py-20">
-              <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
-                <Ticket className="w-8 h-8 text-muted-foreground" />
-              </div>
-              <h3 className="text-xl font-semibold mb-2">
+            <div className="border border-dashed border-border px-6 py-12 text-center">
+              <p className="font-display text-lg font-bold">
                 {listings.length === 0 ? "No listings yet" : "No results"}
-              </h3>
-              <p className="text-muted-foreground mb-6">
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
                 {listings.length === 0
                   ? "You haven't listed any tickets yet. Start by selling a ticket!"
                   : "Try adjusting your filters or search."}
               </p>
               {listings.length === 0 && (
-                <Button variant="hero" onClick={() => navigate("/marketplace/sell")} className="gap-2">
+                <Button variant="outline" onClick={() => navigate("/marketplace/sell")} className="mt-5 gap-2">
                   <Plus className="w-4 h-4" />
-                  Sell a Ticket
+                  Sell a ticket
                 </Button>
               )}
             </div>
           )}
 
           {/* Listings */}
-          <div className="space-y-3">
+          <ul className="space-y-3">
             {displayed.map((listing) => {
               const eventDate = listing.event?.date
                 ? new Date(listing.event.date).toLocaleDateString(dateLocale, {
@@ -605,129 +502,99 @@ const MyListings = () => {
                 year: "numeric",
               });
               const isActive = listing.status === "available";
+              const boosted = !!listing.boosted_until && new Date(listing.boosted_until) > new Date();
 
               return (
-                <Card
+                <li
                   key={listing.id}
-                  className={`overflow-hidden transition-all duration-200 ${
-                    isActive ? "hover:shadow-md" : "opacity-70"
-                  }`}
+                  className={`border border-brand-200/25 bg-background p-5 ${isActive ? "" : "opacity-75"}`}
                 >
-                  <CardContent className="p-0">
-                    <div className="flex flex-col sm:flex-row">
-                      {/* Left color strip based on status */}
-                      <div
-                        className={`w-full sm:w-1.5 h-1.5 sm:h-auto flex-shrink-0 ${
-                          listing.status === "available"
-                            ? "bg-green-500"
-                            : listing.status === "sold"
-                            ? "bg-blue-500"
-                            : "bg-muted-foreground/30"
-                        }`}
-                      />
-
-                      {/* Main content */}
-                      <div className="flex-1 p-5">
-                        <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-                          {/* Event info */}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1 flex-wrap">
-                              <StatusBadge status={listing.status} />
-                              {listing.event?.category && (
-                                <Badge variant="outline" className="text-xs">
-                                  {listing.event.category}
-                                </Badge>
-                              )}
-                              {listing.qr_verified && (
-                                <Badge className="bg-green-600 text-white text-xs">Verified</Badge>
-                              )}
-                            </div>
-                            <h3 className="font-semibold text-base leading-tight mb-2 line-clamp-1">
-                              {listing.event?.title ?? "Unknown Event"}
-                            </h3>
-                            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                              <span className="flex items-center gap-1">
-                                <Calendar className="w-3 h-3" />
-                                {eventDate}
-                              </span>
-                              {listing.event?.location && (
-                                <span className="flex items-center gap-1">
-                                  <MapPin className="w-3 h-3" />
-                                  {listing.event.location}
-                                </span>
-                              )}
-                              <span className="flex items-center gap-1">
-                                <Ticket className="w-3 h-3" />
-                                {listing.quantity} ticket{listing.quantity !== 1 ? "s" : ""}
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <Clock className="w-3 h-3" />
-                                Listed {listedDate}
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Price + actions */}
-                          <div className="flex sm:flex-col items-center sm:items-end gap-3 sm:gap-2 flex-shrink-0">
-                            <div className="text-right">
-                              <p className="text-2xl font-bold text-primary tabular-nums">
-                                €{(listing.selling_price ?? 0).toFixed(2)}
-                              </p>
-                              <p className="text-xs text-muted-foreground">per ticket</p>
-                            </div>
-
-                            {isActive && (
-                              <div className="flex flex-wrap gap-2 justify-end">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="gap-1.5 text-xs h-8"
-                                  onClick={() => openEdit(listing)}
-                                >
-                                  <PencilLine className="w-3.5 h-3.5" />
-                                  Edit Price
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="gap-1.5 text-xs h-8 text-destructive border-destructive/30 hover:bg-destructive/5"
-                                  onClick={() => setCancelId(listing.id)}
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                  Cancel
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="gap-1.5 text-xs h-8 text-amber-400 border-amber-500/30 hover:bg-amber-500/10"
-                                  onClick={() => {
-                                    setBoostListingId(listing.id);
-                                    setBoostDays(7);
-                                  }}
-                                >
-                                  <Sparkles className="w-3.5 h-3.5" />
-                                  {listing.boosted_until && new Date(listing.boosted_until) > new Date()
-                                    ? "Boosted"
-                                    : "Boost"}
-                                </Button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Notes preview */}
-                        {listing.notes && (
-                          <p className="mt-3 text-xs text-muted-foreground bg-muted/30 rounded-md px-3 py-2 line-clamp-1">
-                            "{listing.notes}"
-                          </p>
+                  <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+                    {/* Event info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-2 flex-wrap">
+                        <StatusBadge status={listing.status} />
+                        {listing.event?.category && <Chip>{listing.event.category}</Chip>}
+                        {listing.qr_verified && <Chip tone="good">Verified</Chip>}
+                        {boosted && <Chip tone="accent">Featured</Chip>}
+                      </div>
+                      <h3 className="font-display text-lg font-bold tracking-[-0.01em] leading-tight mb-2 line-clamp-1">
+                        {listing.event?.title ?? "Unknown Event"}
+                      </h3>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <Calendar className="w-3.5 h-3.5" />
+                          {eventDate}
+                        </span>
+                        {listing.event?.location && (
+                          <span className="flex items-center gap-1">
+                            <MapPin className="w-3.5 h-3.5" />
+                            {listing.event.location}
+                          </span>
                         )}
+                        <span className="flex items-center gap-1">
+                          <Ticket className="w-3.5 h-3.5" />
+                          {listing.quantity} ticket{listing.quantity !== 1 ? "s" : ""}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3.5 h-3.5" />
+                          Listed {listedDate}
+                        </span>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
+
+                    {/* Price + actions */}
+                    <div className="flex flex-col sm:items-end gap-3 flex-shrink-0">
+                      <div className="sm:text-right">
+                        <p className="font-display text-2xl font-bold tabular-nums">
+                          €{(listing.selling_price ?? 0).toFixed(2)}
+                        </p>
+                        <p className="text-xs text-muted-foreground">per ticket</p>
+                      </div>
+
+                      {isActive && (
+                        <div className="flex flex-wrap gap-2 sm:justify-end">
+                          <Button size="sm" variant="outline" className="gap-1.5 text-[13px]" onClick={() => openEdit(listing)}>
+                            <PencilLine className="w-3.5 h-3.5" />
+                            Edit price
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1.5 text-[13px]"
+                            onClick={() => {
+                              setBoostListingId(listing.id);
+                              setBoostDays(7);
+                            }}
+                          >
+                            <Sparkles className="w-3.5 h-3.5" />
+                            {boosted ? "Boosted" : "Boost"}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="gap-1.5 text-[13px] text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => setCancelId(listing.id)}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            Cancel
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Notes preview */}
+                  {listing.notes && (
+                    <p className="mt-3 text-[13px] text-muted-foreground border-l border-brand-200/40 pl-3 line-clamp-1">
+                      "{listing.notes}"
+                    </p>
+                  )}
+                </li>
               );
             })}
-          </div>
+          </ul>
+          </section>
         </div>
       </main>
 
@@ -863,6 +730,7 @@ const MyListings = () => {
           onSubmitted={() => {
             setPayoutModalOpen(false);
             loadEarnings();
+            setWalletReload((n) => n + 1);
             sonnerToast.success("Payout requested. SEPA transfer within 2-3 business days.");
           }}
         />

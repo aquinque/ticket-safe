@@ -62,7 +62,7 @@ const TermsConditions = () => {
                       By accessing or using TicketSafe, you agree to be bound by these Terms. If you do not agree to these Terms, you may not use our Service.
                     </p>
                     <p className="font-medium text-foreground">
-                      Ticket Safe is operated by Ticket Safe SAS, a société par actions simplifiée registered in France with a share capital of €1 000. Registered office: 2 rue Wilhem, 75016 Paris. RCS Paris 105 533 632. VAT: not applicable, article 293 B of the French General Tax Code (CGI). President and Director of Publication: Adrien Menard. Managing Director: Achille Quinquenel.
+                      Ticket Safe is operated by Ticket Safe SAS, a simplified joint-stock company (SAS) registered in France with a share capital of €1 000. Registered office: 2 rue Wilhem, 75016 Paris. RCS Paris 105 533 632. VAT: not applicable, article 293 B of the French General Tax Code (CGI). President and Director of Publication: Adrien Menard. Managing Director: Achille Quinquenel.
                     </p>
                   </div>
                 </section>
@@ -286,8 +286,7 @@ const TermsConditions = () => {
                     <p className="pt-2">
                       <strong className="text-foreground">No right of withdrawal.</strong> Tickets sold on TicketSafe
                       (whether sold directly by an organiser or resold between users) are leisure services supplied on
-                      a specific date. In accordance with article L221-28, 12° of the French Consumer Code
-                      (<em>Code de la consommation</em>), the right of withdrawal does not apply to the supply of
+                      a specific date. In accordance with article L221-28, 12° of the French Consumer Code, the right of withdrawal does not apply to the supply of
                       accommodation, transport, catering, or leisure services which must be provided on a specific
                       date or at a specific frequency. Purchases are therefore final once confirmed, subject only to
                       the refund cases listed above.

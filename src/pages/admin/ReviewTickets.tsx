@@ -231,7 +231,7 @@ const ReviewTickets = () => {
                           {ticket.event?.date && (
                             <span className="flex items-center gap-1">
                               <Calendar className="w-3.5 h-3.5" />
-                              {new Date(ticket.event.date).toLocaleDateString("fr-FR", {
+                              {new Date(ticket.event.date).toLocaleDateString("en-GB", {
                                 weekday: "short", day: "numeric", month: "long", year: "numeric",
                               })}
                             </span>
@@ -296,7 +296,7 @@ const ReviewTickets = () => {
 
                     {/* Submitted */}
                     <p className="text-xs text-muted-foreground">
-                      Submitted {new Date(ticket.created_at).toLocaleString("fr-FR")}
+                      Submitted {new Date(ticket.created_at).toLocaleString("en-GB")}
                     </p>
 
                     {/* Reject form */}

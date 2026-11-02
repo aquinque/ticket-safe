@@ -1,5 +1,5 @@
 /**
- * GalaESCP — Dedicated landing page for the Gala de l'ESCP 2026
+ * GalaESCP — Dedicated landing page for the ESCP Gala 2026
  *
  * Route: /gala-escp
  *
@@ -166,7 +166,7 @@ const GalaESCP = () => {
         {/* Background image */}
         <img
           src={galaBanner}
-          alt="Gala de l'ESCP 2026"
+          alt="ESCP Gala 2026"
           className="absolute inset-0 w-full h-full object-cover object-center"
         />
 
@@ -191,15 +191,15 @@ const GalaESCP = () => {
 
           {/* Title */}
           <h1 className="text-5xl sm:text-7xl font-bold text-white leading-tight max-w-2xl">
-            Gala de{" "}
-            <span className="italic font-light text-amber-300">l'ESCP</span>
+            The ESCP{" "}
+            <span className="italic font-light text-amber-300">Gala</span>
           </h1>
 
           {/* Subtitle */}
           <p className="text-white/75 text-lg sm:text-xl max-w-md">
-            Samedi 25 Avril 2026 · 19h00
+            Saturday 25 April 2026 · 7pm
             <br />
-            Palais Cambon – Capucines, Paris 1er
+            Palais Cambon – Capucines, Paris 1st
           </p>
 
           {/* CTAs */}
@@ -210,7 +210,7 @@ const GalaESCP = () => {
               onClick={scrollToTickets}
             >
               <Ticket className="w-5 h-5 mr-2" />
-              Voir les billets disponibles
+              See available tickets
             </Button>
             <Button
               size="lg"
@@ -218,7 +218,7 @@ const GalaESCP = () => {
               className="border-white/40 text-white hover:bg-white/10 px-8"
               onClick={() => navigate("/marketplace/sell")}
             >
-              Vendre mon billet
+              Sell my ticket
             </Button>
           </div>
 
@@ -240,16 +240,16 @@ const GalaESCP = () => {
         <section className="bg-slate-900 py-10">
           <div className="container mx-auto px-4 text-center">
             <p className="text-white/50 text-xs uppercase tracking-widest mb-6">
-              La soirée commence dans
+              The evening starts in
             </p>
             <div className="flex items-end justify-center gap-3 sm:gap-5">
-              <CountdownBox value={timeLeft.days} label="Jours" />
+              <CountdownBox value={timeLeft.days} label="Days" />
               <span className="text-white/40 text-3xl font-light mb-5">:</span>
-              <CountdownBox value={timeLeft.hours} label="Heures" />
+              <CountdownBox value={timeLeft.hours} label="Hours" />
               <span className="text-white/40 text-3xl font-light mb-5">:</span>
               <CountdownBox value={timeLeft.minutes} label="Minutes" />
               <span className="text-white/40 text-3xl font-light mb-5">:</span>
-              <CountdownBox value={timeLeft.seconds} label="Secondes" />
+              <CountdownBox value={timeLeft.seconds} label="Seconds" />
             </div>
           </div>
         </section>
@@ -263,73 +263,71 @@ const GalaESCP = () => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
             {/* Left: detail grid */}
             <div>
-              <h2 className="text-3xl font-bold mb-8">Informations</h2>
+              <h2 className="text-3xl font-bold mb-8">Details</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <DetailRow
                   icon={Calendar}
                   label="Date"
-                  value="Samedi 25 Avril 2026"
+                  value="Saturday 25 April 2026"
                 />
                 <DetailRow
                   icon={Clock}
-                  label="Heure"
-                  value="19h00 – 03h00"
+                  label="Time"
+                  value="7pm – 3am"
                 />
                 <DetailRow
                   icon={MapPin}
-                  label="Lieu"
-                  value="Palais Cambon – Capucines, Paris 1er"
+                  label="Venue"
+                  value="Palais Cambon – Capucines, Paris 1st"
                 />
                 <DetailRow
                   icon={Users}
-                  label="Organisé par"
+                  label="Organised by"
                   value="BDE ESCP Paris"
                 />
                 <DetailRow
                   icon={Shirt}
                   label="Dress code"
-                  value="Black Tie · Tenue de soirée"
+                  value="Black tie · Evening wear"
                 />
                 <DetailRow
                   icon={Euro}
-                  label="Prix indicatif"
-                  value="À partir de €90"
+                  label="Guide price"
+                  value="From €90"
                 />
               </div>
             </div>
 
             {/* Right: description */}
             <div>
-              <h2 className="text-3xl font-bold mb-8">La soirée</h2>
+              <h2 className="text-3xl font-bold mb-8">The evening</h2>
               <div className="space-y-4 text-muted-foreground leading-relaxed">
                 <p>
-                  Le Gala de l'ESCP est l'événement incontournable de l'année
-                  estudiantine. Une soirée d'exception réunissant étudiants,
-                  alumni et invités dans l'un des plus beaux palais de Paris.
+                  The ESCP Gala is the must-attend event of the student year:
+                  an exceptional evening bringing together students, alumni
+                  and guests in one of the most beautiful palaces in Paris.
                 </p>
                 <p>
-                  La soirée commence par un dîner de gala servi à table, suivi
-                  d'un spectacle de remise de prix et d'une soirée dansante
-                  animée par des artistes invités. Un moment unique à partager
-                  entre camarades.
+                  The evening opens with a seated gala dinner, followed by an
+                  awards show and a dance party with guest artists. A unique
+                  moment to share with your classmates.
                 </p>
                 <p>
-                  Les billets étant en nombre limité, le marché de revente
-                  permet aux étudiants de trouver une place si la billetterie
-                  officielle est épuisée — ou de céder leur billet en toute
-                  sécurité.
+                  Tickets are limited, so the resale marketplace lets students
+                  find a place if the official box office has sold out — or
+                  pass on their ticket safely.
                 </p>
               </div>
 
               {/* Highlights */}
               <div className="mt-8 flex flex-wrap gap-2">
                 {[
-                  "Dîner assis",
-                  "Soirée dansante",
-                  "Artistes invités",
-                  "Bar inclus",
+                  "Seated dinner",
+                  "Dance party",
+                  "Guest artists",
+                  "Bar included",
                   "Photo booth",
-                  "Black Tie",
+                  "Black tie",
                 ].map((tag) => (
                   <Badge
                     key={tag}
@@ -354,9 +352,9 @@ const GalaESCP = () => {
         <div className="container mx-auto px-4 max-w-5xl">
           <div className="flex items-end justify-between mb-8 flex-wrap gap-4">
             <div>
-              <h2 className="text-3xl font-bold">Billets disponibles</h2>
+              <h2 className="text-3xl font-bold">Available tickets</h2>
               <p className="text-muted-foreground mt-1">
-                Achetez un billet revendu par un étudiant ESCP vérifié
+                Buy a ticket resold by a verified ESCP student
               </p>
             </div>
             <Button
@@ -365,7 +363,7 @@ const GalaESCP = () => {
               onClick={() => navigate("/marketplace/sell")}
               className="gap-2"
             >
-              Vendre le mien
+              Sell mine
               <ArrowRight className="w-4 h-4" />
             </Button>
           </div>
@@ -374,7 +372,7 @@ const GalaESCP = () => {
           {isLoading && (
             <div className="flex items-center justify-center py-16 gap-3 text-muted-foreground">
               <Loader2 className="w-6 h-6 animate-spin" />
-              <span>Chargement des billets…</span>
+              <span>Loading tickets…</span>
             </div>
           )}
 
@@ -386,17 +384,17 @@ const GalaESCP = () => {
                   <Ticket className="w-8 h-8 text-amber-600" />
                 </div>
                 <h3 className="text-xl font-semibold mb-2">
-                  Aucun billet disponible pour l'instant
+                  No tickets available yet
                 </h3>
                 <p className="text-muted-foreground max-w-sm mx-auto mb-6">
-                  Revenez ici dès qu'un étudiant mettra son billet en vente.
-                  Activez les notifications ou revenez régulièrement.
+                  Check back as soon as a student puts their ticket up for sale.
+                  Turn on notifications or come back regularly.
                 </p>
                 <Button
                   variant="hero"
                   onClick={() => navigate("/marketplace/sell")}
                 >
-                  Mettre mon billet en vente
+                  Put my ticket up for sale
                 </Button>
               </CardContent>
             </Card>
@@ -423,12 +421,12 @@ const GalaESCP = () => {
                             </span>
                             <Badge variant="outline" className="text-xs">
                               {ticket.quantity}{" "}
-                              {ticket.quantity > 1 ? "billets" : "billet"}
+                              {ticket.quantity > 1 ? "tickets" : "ticket"}
                             </Badge>
                             {ticket.verified && (
                               <Badge className="bg-green-100 text-green-800 border-green-200 text-xs">
                                 <ShieldCheck className="w-3 h-3 mr-1" />
-                                Vérifié
+                                Verified
                               </Badge>
                             )}
                           </div>
@@ -438,7 +436,7 @@ const GalaESCP = () => {
                             </p>
                           )}
                           <p className="text-xs text-muted-foreground mt-1">
-                            Vendu par{" "}
+                            Sold by{" "}
                             <span className="font-medium">
                               {ticket.sellerName}
                             </span>
@@ -454,7 +452,7 @@ const GalaESCP = () => {
                             )
                           }
                         >
-                          Acheter
+                          Buy
                         </Button>
                       </div>
                     </div>
@@ -463,9 +461,8 @@ const GalaESCP = () => {
               ))}
 
               <p className="text-xs text-center text-muted-foreground pt-2">
-                {galaTickets.length} offre
-                {galaTickets.length > 1 ? "s" : ""} disponible
-                {galaTickets.length > 1 ? "s" : ""} · Paiement sécurisé
+                {galaTickets.length} offer
+                {galaTickets.length > 1 ? "s" : ""} available · Secure payment
               </p>
             </div>
           )}
@@ -478,11 +475,11 @@ const GalaESCP = () => {
       <section className="py-16 bg-slate-900">
         <div className="container mx-auto px-4 max-w-3xl text-center">
           <h2 className="text-3xl font-bold text-white mb-4">
-            Tu ne peux plus y aller ?
+            Can't make it any more?
           </h2>
           <p className="text-white/65 mb-8 text-lg max-w-xl mx-auto">
-            Revends ton billet en toute sécurité à un autre étudiant ESCP.
-            Scanne ton QR code, fixe ton prix, et c'est parti.
+            Resell your ticket safely to another ESCP student.
+            Scan your QR code, set your price, and you're done.
           </p>
           <Button
             size="lg"
@@ -490,10 +487,10 @@ const GalaESCP = () => {
             onClick={() => navigate("/marketplace/sell")}
           >
             <Ticket className="w-5 h-5 mr-2" />
-            Vendre mon billet
+            Sell my ticket
           </Button>
           <p className="text-white/40 text-xs mt-4">
-            Commission plateforme : 5% · Paiement sécurisé
+            Platform fee: 5% · Secure payment
           </p>
         </div>
       </section>

@@ -263,7 +263,7 @@ const Profile = () => {
               return {
                 id: row.id,
                 orderId: row.order_id,
-                eventTitle: event?.title || "Événement",
+                eventTitle: event?.title || "",
                 eventDate: event?.date ?? null,
                 eventEndsAt: event?.ends_at ?? null,
                 location: event?.location ?? null,
@@ -572,7 +572,7 @@ const Profile = () => {
                       </span>
                     )}
                   </div>
-                  <p className="text-2xl md:text-3xl font-bold leading-tight text-foreground text-balance">{nextTicket.eventTitle}</p>
+                  <p className="text-2xl md:text-3xl font-bold leading-tight text-foreground text-balance">{nextTicket.eventTitle || (fr ? "Événement" : "Event")}</p>
                   <p className="text-sm text-muted-foreground mt-1.5">
                     {nextTicket.eventDate ? `${formatDay(nextTicket.eventDate)} · ${formatTime(nextTicket.eventDate)}` : fr ? "Date à venir" : "Date to come"}
                     {nextTicket.location ? ` · ${nextTicket.location}` : ""}
@@ -595,7 +595,7 @@ const Profile = () => {
                         <li key={tk.id} className="flex items-center gap-3 py-2.5">
                           <span className="w-2 h-2 rounded-full shrink-0 bg-primary" aria-hidden />
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold truncate">{tk.eventTitle}</p>
+                            <p className="text-sm font-semibold truncate">{tk.eventTitle || (fr ? "Événement" : "Event")}</p>
                             <p className="text-xs text-muted-foreground truncate">{tk.eventDate ? formatDay(tk.eventDate) : ""}{tk.tierName ? ` · ${tk.tierName}` : ""}{tk.holderName ? ` · ${tk.holderName}` : ""}</p>
                           </div>
                           <button type="button" onClick={() => navigate(`/my-tickets/${tk.orderId}`)} className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline shrink-0">
@@ -735,7 +735,7 @@ const Profile = () => {
                       editGender === option.value ? "border-primary bg-primary text-primary-foreground" : "border-border text-muted-foreground hover:text-foreground"
                     }`}
                   >
-                    {option.label}
+                    {fr ? option.labelFr : option.label}
                   </button>
                 ))}
               </div>

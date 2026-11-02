@@ -1217,7 +1217,7 @@ const Sell = () => {
                                     <p className="font-medium text-sm leading-none mb-1">{ev.title}</p>
                                     <p className="text-xs text-muted-foreground">
                                       {ev.date &&
-                                        new Date(ev.date).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
+                                        new Date(ev.date).toLocaleDateString(dateLocale, { day: "numeric", month: "long", year: "numeric" })}
                                       {ev.location && ` · ${ev.location}`}
                                       {` · ${count} ticket${count > 1 ? "s" : ""}`}
                                     </p>
@@ -1249,7 +1249,7 @@ const Sell = () => {
                                   {ev.title}
                                 </p>
                                 <p className="text-xs text-muted-foreground">
-                                  {new Date(ev.date).toLocaleDateString("fr-FR", {
+                                  {new Date(ev.date).toLocaleDateString(dateLocale, {
                                     day: "numeric",
                                     month: "long",
                                     year: "numeric",

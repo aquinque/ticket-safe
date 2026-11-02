@@ -420,7 +420,7 @@ const OrganizerApply = () => {
             <div className="w-16 h-16 rounded-2xl mx-auto flex items-center justify-center mb-6 bg-primary/10">
               <Mail className="w-8 h-8 text-primary" />
             </div>
-            <h1 className="text-2xl md:text-3xl font-black text-foreground mb-4">Vérifie ta boîte mail</h1>
+            <h1 className="text-2xl md:text-3xl font-black text-foreground mb-4">Check your inbox</h1>
             <p className="text-muted-foreground mb-6 leading-relaxed">
               We sent a confirmation link to <span className="text-foreground font-semibold">{pendingConfirmEmail}</span>. Click it to activate your account. Your Studio application is then reviewed by our team.
             </p>
@@ -590,16 +590,16 @@ const OrganizerApply = () => {
                     <input type="text" value={form.accountLastName} onChange={(e) => update("accountLastName", e.target.value)} className="ts-input" maxLength={60} autoComplete="family-name" />
                   </Field>
                 </div>
-                <Field label="Adresse email" required>
+                <Field label="Email address" required>
                   <input type="email" value={form.accountEmail} onChange={(e) => update("accountEmail", e.target.value)} placeholder="you@organization.com" className="ts-input" autoComplete="email" />
                 </Field>
-                <Field label="Confirmer l'adresse email" required>
+                <Field label="Confirm email address" required>
                   <input type="email" value={form.accountConfirmEmail} onChange={(e) => update("accountConfirmEmail", e.target.value)} className="ts-input" autoComplete="off" />
                   {form.accountConfirmEmail && form.accountConfirmEmail.trim().toLowerCase() !== form.accountEmail.trim().toLowerCase() && (
-                    <span className="block text-xs text-red-500 mt-1.5">Les adresses email ne correspondent pas.</span>
+                    <span className="block text-xs text-red-500 mt-1.5">The email addresses don't match.</span>
                   )}
                 </Field>
-                <Field label="Mot de passe" required>
+                <Field label="Password" required>
                   <div className="relative">
                     <input
                       type={showPassword ? "text" : "password"}
