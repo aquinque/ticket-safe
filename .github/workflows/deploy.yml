@@ -5,6 +5,11 @@ on:
     branches:
       - main
   workflow_dispatch:
+  # Event link previews are written into the site at build time (scripts/prerender-event-pages.mjs). Every 10 minutes
+  # the `changes` job compares the published events with the list the live site was built from, and the site is only
+  # rebuilt when an event was published or edited, so a link shared soon after shows the event's preview.
+  schedule:
+    - cron: "*/10 * * * *"
 
 permissions:
   contents: read
@@ -16,7 +21,32 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      build: ${{ steps.check.outputs.build }}
+    steps:
+      - name: Did a published event change since the last build?
+        id: check
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL || 'https://lgmnatfvdzzjzyxlenry.supabase.co' }}
+          SUPABASE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxnbW5hdGZ2ZHp6anp5eGxlbnJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2MjE2ODUsImV4cCI6MjA4ODE5NzY4NX0.u3ZbqKzuO2vXkck3BvyEgE0Cn9SVez89AYB2XPHE3LY' }}
+        run: |
+          if [ "$EVENT_NAME" != "schedule" ]; then echo "build=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          # Same request as scripts/prerender-event-pages.mjs (EVENTS_QUERY), hashed the same way.
+          query="/rest/v1/events?select=slug,title,description,seo_description,og_image_url,banner_url,date,location,currency&status=eq.published&slug=not.is.null&order=slug.asc&limit=2000"
+          live=$(curl -sf "${SUPABASE_URL%/}$query" -H "apikey: $SUPABASE_KEY" -H "Authorization: Bearer $SUPABASE_KEY" | sha256sum | cut -d' ' -f1) || live=""
+          built=$(curl -sf "https://ticket-safe.eu/og/events-hash.txt?t=$(date +%s)" | tr -d '[:space:]') || built=""
+          if [ -n "$live" ] && [ "$live" = "$built" ]; then
+            echo "Events unchanged since the last build."; echo "build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Events changed (live ${live:-?}, built ${built:-none}): rebuilding."; echo "build=true" >> "$GITHUB_OUTPUT"
+          fi
+
   build:
+    needs: changes
+    if: needs.changes.outputs.build == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -77,6 +107,8 @@ jobs:
   # Per-function settings (e.g. verify_jwt=false for stripe-webhook) come from
   # supabase/config.toml, which `functions deploy` honours.
   deploy-functions:
+    # Never on the 10-minute schedule, which only refreshes the site's event pages.
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
