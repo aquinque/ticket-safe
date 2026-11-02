@@ -21,10 +21,10 @@ This directory is outside `supabase/functions/`, so nothing here is deployed.
 | `stripe-connect-request-payout` | 5 | true | Organizer payout request; cash-outs go through `stripe-connect-onboard-organizer`. Production only. |
 | `claim-free-ticket` | 23 | true | Beta flow for free tickets (the checkout handles free tiers). Production only. |
 | `resend-resale-emails` | 11 | false | One-off admin tool to resend resale emails. Production only. |
-| `generate-secure-ticket` | see RETIRED.json | | Old signed ticket tokens. |
-| `validate-scan` | see RETIRED.json | | Old door scan validation. |
-| `generate-ticket-download-url` | see RETIRED.json | | Old signed download links for ticket files. |
-| `validate-ticket-submission` | see RETIRED.json | | Old resale ticket submission check. |
+| `generate-secure-ticket` | 11 | true | Old signed ticket tokens. |
+| `validate-scan` | 11 | true | Old door scan validation. |
+| `generate-ticket-download-url` | 11 | true | Old signed download links for ticket files. |
+| `validate-ticket-submission` | 32 | true | Old resale ticket submission check. |
 
 `stripe-npm-probe` (a one-off test of the Stripe SDK import, created and retired the same day) is not
 archived.

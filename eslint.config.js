@@ -9,7 +9,7 @@ export default tseslint.config(
   // (supabase/functions) and Node build scripts run on different runtimes with
   // their own globals/parsers, so they're linted by their own toolchains, not
   // this browser-oriented config.
-  { ignores: ["dist", "supabase/functions/**", "scripts/**"] },
+  { ignores: ["dist", "supabase/functions/**", "scripts/**", "archive/**"] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],
