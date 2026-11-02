@@ -2781,6 +2781,10 @@ export type Database = {
         Args: { p_date: string; p_ends_at: string }
         Returns: string
       }
+      event_interest: {
+        Args: { p_count?: boolean; p_slug: string }
+        Returns: number
+      }
       external_cancel_rows: { Args: { p_row_ids: string[] }; Returns: number }
       finalize_billing_document: {
         Args: {
