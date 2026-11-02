@@ -83,7 +83,7 @@ export const HERO_SLIDES: HeroSlide[] = [
     id: "resale",
     headline: "Can't make it? Resell it safely.",
     subline:
-      "Resale happens on TicketSafe, at a capped price. The buyer gets a real ticket, the seller gets paid, the organizer stays in control.",
+      "Resale happens on TicketSafe, with every ticket checked first. The buyer gets a real ticket, the seller gets paid, the organizer stays in control.",
     cta: { label: "Go to resale", target: "resale" },
     media: { image: picture("slide-2"), tone: "ink" },
   },
