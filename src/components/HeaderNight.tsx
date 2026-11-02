@@ -102,6 +102,9 @@ const HeaderNight = () => {
 
   const exploreLinks = navLinks.filter((link) => link.key !== "organizers");
   const close = () => setMenuOpen(false);
+  // Promoters open their space; anyone else signed in lands on its empty state, which explains the invitations;
+  // signed out, the sign-in page brings them back there.
+  const promoterHref = user ? "/promoter" : "/auth?next=/promoter";
   const organizersLink = navLinks.find((link) => link.key === "organizers");
 
   return (
@@ -285,17 +288,33 @@ const HeaderNight = () => {
                   </Link>
                 </li>
               )}
+              <li className="menu-rise mt-3" style={rise(exploreLinks.length + 1)}>
+                <Link
+                  to={promoterHref}
+                  onClick={close}
+                  aria-current={isActive("/promoter") ? "page" : undefined}
+                  className="group block border border-brand-200/25 bg-background px-6 py-5 transition-[transform,opacity] duration-150 active:scale-[0.98] active:opacity-90"
+                >
+                  <span className="block text-[11px] font-bold uppercase tracking-[0.18em] text-brand-200">For promoters</span>
+                  <span className="mt-2.5 block font-display text-[23px] font-bold leading-[1.05] tracking-[-0.02em] text-foreground">Promote &amp; earn</span>
+                  <span className="mt-4 flex items-end justify-between gap-4">
+                    <span className="inline-flex items-center h-7 px-3 rounded-full border border-border text-[12px] font-semibold text-muted-foreground">Track your link &amp; sales</span>
+                    <span className="inline-flex items-center justify-center w-10 h-10 rounded-full border border-brand-200/40 text-foreground transition-transform group-hover:translate-x-0.5" aria-hidden="true">
+                      <ArrowRight className="w-[18px] h-[18px]" strokeWidth={1.5} />
+                    </span>
+                  </span>
+                </Link>
+              </li>
             </ul>
 
           </nav>
 
-          <div className="menu-rise shrink-0 border-t border-border px-5 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]" style={rise(exploreLinks.length + 1)}>
+          <div className="menu-rise shrink-0 border-t border-border px-5 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]" style={rise(exploreLinks.length + 2)}>
             {user ? (
               <div className="flex flex-col">
                 {[
                   { to: "/my-tickets", label: "My tickets", icon: Ticket },
                   { to: "/settings/listings", label: "My wallet", icon: Banknote },
-                  ...(isPromoter ? [{ to: "/promoter", label: "Promoter space", icon: Megaphone }] : []),
                 ].map((item) => (
                   <Link
                     key={item.to}
