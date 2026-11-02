@@ -13,7 +13,7 @@
  * The orders in our database are read for two things only: how many tickets a payment covers when Stripe's
  * metadata does not say, and the reconciliation flag for the admins.
  */
-import type Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
+import type Stripe from "npm:stripe@14.21.0";
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
   chargesOfEvent,

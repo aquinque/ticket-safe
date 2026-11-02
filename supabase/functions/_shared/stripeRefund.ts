@@ -12,7 +12,7 @@
  * Also valid for the legacy platform charges from before Connect: those have
  * no transfer and no application fee, so neither option is sent.
  */
-import Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
+import Stripe from "npm:stripe@14.21.0";
 
 export interface PlatformRefundArgs {
   paymentIntentId: string;
