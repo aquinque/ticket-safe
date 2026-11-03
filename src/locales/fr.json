@@ -426,7 +426,11 @@
       "upcoming": "{count} à venir",
       "purchases": "Historique d'achats",
       "messages": "Messages",
-      "nextUp": "Prochain"
+      "nextUp": "Prochain",
+      "tonight": "Ce soir",
+      "today": "Aujourd'hui",
+      "tomorrow": "Demain",
+      "inDays": "Dans {count} jours"
     },
     "personal": {
       "title": "Informations personnelles",
@@ -446,7 +450,8 @@
       "editLastName": "Modifier le nom",
       "editGender": "Modifier le genre",
       "editSchool": "Modifier l'école ou l'organisation",
-      "editCampus": "Modifier le campus"
+      "editCampus": "Modifier le campus",
+      "description": "Ce qui apparaît sur vos billets."
     },
     "security": {
       "title": "Connexion et sécurité",
@@ -464,7 +469,8 @@
       "signOutAllHint": "Ferme toutes les sessions, y compris celle-ci.",
       "signOutAllTitle": "Se déconnecter partout ?",
       "signOutAllBody": "Vous serez déconnecté de cet appareil et de tous les autres. Vos billets restent dans votre compte.",
-      "signOutAllConfirm": "Se déconnecter partout"
+      "signOutAllConfirm": "Se déconnecter partout",
+      "description": "Comment vous vous connectez, et où vous êtes connecté."
     },
     "password": {
       "current": "Mot de passe actuel",
@@ -496,7 +502,8 @@
       "wallet": "Mon portefeuille",
       "walletHint": "{amount} disponibles",
       "studio": "Versements des événements",
-      "studioHint": "Versés via Stripe, dans Ticket Studio"
+      "studioHint": "Versés via Stripe, dans Ticket Studio",
+      "description": "Où va l'argent de vos reventes."
     },
     "preferences": {
       "title": "Préférences",
@@ -517,7 +524,9 @@
       "deleteBody": "Action irréversible. Votre compte et vos données personnelles sont supprimés ; les billets des événements à venir sont perdus.",
       "deleteType": "Tapez {email} pour confirmer",
       "deleteMismatch": "L'email ne correspond pas. Tapez-le exactement.",
-      "deleteConfirm": "Supprimer mon compte"
+      "deleteConfirm": "Supprimer mon compte",
+      "description": "Vos données, votre choix.",
+      "deleteHint": "Définitif. Une confirmation vous est demandée."
     },
     "errors": {
       "firstNameRequired": "Indiquez votre prénom.",
@@ -551,6 +560,14 @@
       "anonymizeFailed": "Anonymisation impossible. Réessayez.",
       "deleted": "Votre compte a été supprimé",
       "deleteFailed": "Suppression impossible. Réessayez."
+    },
+    "stats": {
+      "events": "Événements",
+      "tickets": "Billets",
+      "spent": "Dépensé",
+      "resales": "Reventes",
+      "upcoming": "À venir",
+      "empty": "Votre premier événement vous attend"
     }
   }
 }

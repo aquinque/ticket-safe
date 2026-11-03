@@ -1,6 +1,28 @@
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Loader2 } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import {
+  ArrowRight,
+  CircleUser,
+  Download,
+  EyeOff,
+  Globe,
+  GraduationCap,
+  Landmark,
+  LayoutDashboard,
+  Loader2,
+  LogOut,
+  Mail,
+  MapPin,
+  MessageCircle,
+  QrCode,
+  Receipt,
+  ShieldCheck,
+  Ticket,
+  Trash2,
+  User,
+  UserRound,
+  Wallet,
+} from "lucide-react";
 import { toast } from "sonner";
 import HeaderNight from "@/components/HeaderNight";
 import Footer from "@/components/Footer";
@@ -29,7 +51,7 @@ import { isPastEvent } from "@/lib/eventTime";
 import { authPathHere } from "@/lib/returnTo";
 import { authRedirect } from "@/lib/siteUrl";
 import { ibanLast4 } from "@/components/wallet/walletModel";
-import { Chip, ChoiceEditRow, LinkRow, Row, RowAction, Section, TextEditRow, eyebrow } from "@/components/profile/ProfileUI";
+import { Chip, ChoiceEditRow, LinkRow, Row, RowAction, RowIcon, Section, TextEditRow, eyebrow } from "@/components/profile/ProfileUI";
 import { PasswordChangeRow } from "@/components/profile/PasswordChangeRow";
 import {
   NAME_MAX_LENGTH,
@@ -88,6 +110,9 @@ interface NextTicket {
   date: string | null;
   location: string | null;
   tier: string | null;
+  banner: string | null;
+  /** How many tickets the person holds for this order (a group of friends shows "2 tickets"). */
+  count: number;
 }
 
 interface Recap {
@@ -138,7 +163,7 @@ const Profile = () => {
       supabase.from("transactions").select("id, amount, quantity, status, ticket:tickets(event_id)").eq("buyer_id", user.id),
       supabase
         .from("event_tickets")
-        .select("id, order_id, event:events(title, date, ends_at, location), tier:event_tiers(name)")
+        .select("id, order_id, event:events(title, date, ends_at, location, banner_url), tier:event_tiers(name)")
         .eq("buyer_id", user.id)
         .eq("status", "valid"),
       RESALE_ENABLED ? supabase.from("tickets").select("id, status").eq("seller_id", user.id).eq("status", "sold") : Promise.resolve({ data: [] as { id: string }[] }),
@@ -165,15 +190,16 @@ const Profile = () => {
 
     // Upcoming tickets, soonest first: an event stays upcoming until it has ended (lib/eventTime).
     const tickets = (ticketsRes.data ?? []).map((row) => {
-      const ev = one(row.event as { title: string | null; date: string | null; ends_at: string | null; location: string | null } | null);
+      const ev = one(row.event as { title: string | null; date: string | null; ends_at: string | null; location: string | null; banner_url: string | null } | null);
       const tier = one(row.tier as { name: string | null } | null);
-      return { orderId: row.order_id as string, title: ev?.title ?? "", date: ev?.date ?? null, endsAt: ev?.ends_at ?? null, location: ev?.location ?? null, tier: tier?.name ?? null };
+      return { orderId: row.order_id as string, title: ev?.title ?? "", date: ev?.date ?? null, endsAt: ev?.ends_at ?? null, location: ev?.location ?? null, tier: tier?.name ?? null, banner: ev?.banner_url ?? null, count: 1 };
     });
     const upcoming = tickets
       .filter((tk) => !tk.date || !isPastEvent({ date: tk.date, ends_at: tk.endsAt }))
       .sort((a, b) => new Date(a.date ?? 0).getTime() - new Date(b.date ?? 0).getTime());
     setUpcomingCount(upcoming.length);
-    setNextTicket(upcoming[0] ?? null);
+    const first = upcoming[0];
+    setNextTicket(first ? { ...first, count: upcoming.filter((tk) => tk.orderId === first.orderId).length } : null);
 
     // Recap: events attended or booked, tickets bought, money spent per currency, resales sold.
     const orders = ordersRes.data ?? [];
@@ -368,6 +394,29 @@ const Profile = () => {
   ];
   const campusOptions = [...CAMPUSES.map((c) => ({ value: c, label: c })), { value: "", label: t("account.personal.none") }];
 
+  const money = (a: { value: number; currency: string }) =>
+    new Intl.NumberFormat(locale, { style: "currency", currency: a.currency, maximumFractionDigits: a.value % 1 === 0 ? 0 : 2 }).format(a.value);
+  const stats = [
+    { key: "events", label: t("account.stats.events"), value: String(recap.events) },
+    { key: "tickets", label: t("account.stats.tickets"), value: String(recap.tickets) },
+    { key: "spent", label: t("account.stats.spent"), value: recap.spent.length ? recap.spent.map(money).join(" · ") : money({ value: 0, currency: "EUR" }) },
+    RESALE_ENABLED && recap.resales > 0
+      ? { key: "resales", label: t("account.stats.resales"), value: String(recap.resales) }
+      : { key: "upcoming", label: t("account.stats.upcoming"), value: String(upcomingCount) },
+  ];
+  /** "Tonight", "Tomorrow", "In 6 days" for the next event. */
+  const countdown = (iso: string) => {
+    const start = new Date(iso);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const day = new Date(start);
+    day.setHours(0, 0, 0, 0);
+    const days = Math.round((day.getTime() - today.getTime()) / 86_400_000);
+    if (days <= 0) return start.getHours() >= 17 ? t("account.tickets.tonight") : t("account.tickets.today");
+    if (days === 1) return t("account.tickets.tomorrow");
+    return t("account.tickets.inDays", { count: days });
+  };
+
   const payoutChip =
     payout.state === "ready" ? <Chip tone="good">{t("account.payments.connected")}</Chip>
       : payout.state === "pending" ? <Chip tone="accent">{t("account.payments.actionNeeded")}</Chip>
@@ -382,56 +431,165 @@ const Profile = () => {
       <SEOHead titleKey="nav.profile" descriptionKey="settings.description" />
       <HeaderNight />
       <main className="flex-1 pt-24 md:pt-28 pb-[max(4rem,calc(env(safe-area-inset-bottom)+2rem))]">
-        <div className="mx-auto w-full max-w-[720px] px-4 space-y-5">
-          {/* Who you are */}
-          <header className="menu-rise pb-4" style={{ animationDelay: "0ms" }}>
-            <p className={eyebrow}>{t("account.eyebrow")}</p>
-            <div className="mt-4 flex items-center gap-4 sm:gap-5">
-              <div
-                className="w-16 h-16 sm:w-20 sm:h-20 shrink-0 rounded-full border border-brand-200/40 inline-flex items-center justify-center font-display text-[22px] sm:text-[28px] font-bold text-brand-200"
-                aria-hidden="true"
-              >
-                {initialsOf(profile.fullName || firstName, email)}
+        <div className="mx-auto w-full max-w-[720px] px-4 space-y-4">
+          {/* Who you are: a member pass, with a ticket's perforation above the numbers */}
+          <section aria-labelledby="profile-name" className="menu-rise relative overflow-hidden border border-brand-200/25 bg-background" style={{ animationDelay: "0ms" }}>
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 bg-[radial-gradient(110%_80%_at_100%_0%,hsl(var(--brand-500)/0.38),transparent_62%),radial-gradient(70%_70%_at_0%_100%,hsl(var(--brand-200)/0.10),transparent_65%)]"
+            />
+            <div className="relative p-6 sm:p-8">
+              <div className="flex items-center justify-between gap-3">
+                <p className={eyebrow}>{t("account.eyebrow")}</p>
+                {profile.memberSince && (
+                  <span className="text-[12px] font-semibold text-muted-foreground">
+                    {t("account.memberSince", { date: new Date(profile.memberSince).toLocaleDateString(locale, { month: "short", year: "numeric" }) })}
+                  </span>
+                )}
               </div>
-              <div className="min-w-0">
-                <h1 className="font-display font-bold tracking-[-0.02em] leading-[1.02] text-[40px] sm:text-[56px] break-words">{firstName}</h1>
-                <p className="mt-1.5 text-[15px] text-muted-foreground truncate">{email}</p>
+              <div className="mt-6 sm:mt-8 flex items-center gap-4 sm:gap-6">
+                <div
+                  aria-hidden="true"
+                  className="w-[76px] h-[76px] sm:w-24 sm:h-24 shrink-0 rounded-full p-[2px] bg-[conic-gradient(from_210deg,hsl(var(--brand-200)),hsl(var(--brand-500)),hsl(var(--brand-200)/0.15),hsl(var(--brand-200)))]"
+                >
+                  <div className="w-full h-full rounded-full bg-[linear-gradient(145deg,hsl(var(--brand-500)),hsl(var(--brand-700)))] inline-flex items-center justify-center font-display text-[28px] sm:text-[36px] font-bold tracking-[-0.02em] text-white">
+                    {initialsOf(profile.fullName || firstName, email)}
+                  </div>
+                </div>
+                <div className="min-w-0">
+                  <h1 id="profile-name" className="font-display font-bold tracking-[-0.03em] leading-[0.98] text-[42px] sm:text-[64px] break-words">
+                    {firstName}
+                  </h1>
+                  <p className="mt-2 text-[15px] text-muted-foreground truncate">{email}</p>
+                </div>
               </div>
-            </div>
-            <div className="mt-5 flex flex-wrap gap-2">
-              {profile.school && <Chip>{profile.school}</Chip>}
-              {profile.campus && <Chip>{profile.campus}</Chip>}
-              {profile.memberSince && (
-                <Chip>{t("account.memberSince", { date: new Date(profile.memberSince).toLocaleDateString(locale, { month: "long", year: "numeric" }) })}</Chip>
+              {(profile.school || profile.campus) && (
+                <div className="mt-6 flex flex-wrap gap-2">
+                  {profile.school && (
+                    <Chip>
+                      <GraduationCap className="w-3.5 h-3.5" strokeWidth={1.75} aria-hidden="true" />
+                      {profile.school}
+                    </Chip>
+                  )}
+                  {profile.campus && (
+                    <Chip>
+                      <MapPin className="w-3.5 h-3.5" strokeWidth={1.75} aria-hidden="true" />
+                      {profile.campus}
+                    </Chip>
+                  )}
+                </div>
               )}
             </div>
-            {recapText && <p className="mt-5 text-[15px] text-foreground/90 tabular-nums">{recapText}</p>}
-          </header>
 
-          {/* Your tickets */}
-          <Section id="profile-tickets" title={t("account.tickets.title")} delay={40}>
-            {nextTicket ? (
-              <LinkRow
-                to={`/my-tickets/${nextTicket.orderId}`}
-                label={nextTicket.title || t("account.tickets.event")}
-                detail={
-                  <>
-                    {[nextTicket.date ? formatDay(nextTicket.date) : null, nextTicket.location, nextTicket.tier].filter(Boolean).join(" · ")}
-                    <span className="mt-1 block font-semibold text-brand-200">{t("account.tickets.nextUp")} · {t("account.tickets.showQr")}</span>
-                  </>
-                }
-              />
+            <div className="relative" aria-hidden="true">
+              <div className="mx-6 border-t border-dashed border-brand-200/30" />
+              <span className="absolute -left-3 -top-3 w-6 h-6 rounded-full bg-background border border-brand-200/25" />
+              <span className="absolute -right-3 -top-3 w-6 h-6 rounded-full bg-background border border-brand-200/25" />
+            </div>
+
+            {recapText ? (
+              <dl className="relative grid grid-cols-2 sm:grid-cols-4" aria-label={recapText}>
+                {stats.map((st, i) => (
+                  <div
+                    key={st.key}
+                    className={`px-6 py-5 sm:py-6 border-brand-200/15 ${i % 2 ? "border-l" : ""} ${i >= 2 ? "border-t sm:border-t-0" : ""} ${i === 2 ? "sm:border-l" : ""}`}
+                  >
+                    <dt className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">{st.label}</dt>
+                    <dd className="mt-1.5 font-display text-[26px] sm:text-[30px] font-bold tabular-nums leading-none tracking-[-0.02em]">{st.value}</dd>
+                  </div>
+                ))}
+              </dl>
             ) : (
-              <LinkRow to="/tickets" label={t("account.tickets.nothing")} detail={t("account.tickets.browse")} />
+              <Link to="/tickets" className="group relative flex items-center justify-between gap-4 px-6 py-5 min-h-[72px]">
+                <span>
+                  <span className="block font-semibold">{t("account.stats.empty")}</span>
+                  <span className="block text-[13px] text-muted-foreground">{t("account.tickets.browse")}</span>
+                </span>
+                <ArrowRight className="w-5 h-5 text-brand-200 transition-transform group-hover:translate-x-0.5" strokeWidth={1.5} aria-hidden="true" />
+              </Link>
             )}
-            <LinkRow to="/my-tickets" label={t("account.tickets.all")} detail={upcomingCount > 0 ? t("account.tickets.upcoming", { count: upcomingCount }) : undefined} />
-            <LinkRow to="/settings/purchases" label={t("account.tickets.purchases")} />
-            <LinkRow to="/messages" label={t("account.tickets.messages")} />
-          </Section>
+          </section>
+
+          {/* Your next event, on its own picture */}
+          {nextTicket && (
+            <Link
+              to={`/my-tickets/${nextTicket.orderId}`}
+              aria-label={`${t("account.tickets.nextUp")}: ${nextTicket.title} — ${t("account.tickets.showQr")}`}
+              className="menu-rise group relative block overflow-hidden border border-brand-200/25 bg-card transition-[transform,opacity] active:scale-[0.99] active:opacity-90"
+              style={{ animationDelay: "40ms" }}
+            >
+              {nextTicket.banner ? (
+                <img src={nextTicket.banner} alt="" loading="lazy" className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.03]" />
+              ) : (
+                <div aria-hidden="true" className="absolute inset-0 bg-[radial-gradient(120%_90%_at_80%_0%,hsl(var(--brand-500)/0.55),transparent_60%)]" />
+              )}
+              <div aria-hidden="true" className="absolute inset-0 bg-[linear-gradient(180deg,hsl(var(--background)/0.20)_0%,hsl(var(--background)/0.72)_48%,hsl(var(--background)/0.97)_100%)]" />
+              <div className="relative flex min-h-[240px] sm:min-h-[260px] flex-col justify-between p-5 sm:p-6">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="inline-flex items-center h-7 px-3 rounded-full bg-background/70 backdrop-blur text-[11px] font-bold uppercase tracking-[0.16em] text-brand-200">
+                    {t("account.tickets.nextUp")}
+                  </span>
+                  {nextTicket.date && (
+                    <span className="inline-flex items-center h-7 px-3 rounded-full bg-background/70 backdrop-blur text-[12px] font-semibold text-foreground">
+                      {countdown(nextTicket.date)}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-end gap-4">
+                  {nextTicket.date && (
+                    <div className="shrink-0 w-[60px] border border-brand-200/40 bg-background/80 backdrop-blur text-center py-2" aria-hidden="true">
+                      <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-brand-200">
+                        {new Date(nextTicket.date).toLocaleDateString(locale, { month: "short" }).replace(".", "")}
+                      </div>
+                      <div className="font-display text-[26px] font-bold leading-none mt-0.5">{new Date(nextTicket.date).getDate()}</div>
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="font-display text-[24px] sm:text-[28px] font-bold leading-[1.05] tracking-[-0.02em] break-words">{nextTicket.title || t("account.tickets.event")}</p>
+                    <p className="mt-1.5 text-[13px] text-foreground/80 leading-snug">
+                      {[nextTicket.date ? formatDay(nextTicket.date) : null, nextTicket.location].filter(Boolean).join(" · ")}
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-4 flex items-center justify-between gap-3">
+                  <span className="text-[13px] text-muted-foreground">
+                    {[nextTicket.tier, t(nextTicket.count === 1 ? "account.recap.ticketOne" : "account.recap.ticketOther", { count: nextTicket.count })].filter(Boolean).join(" · ")}
+                  </span>
+                  <span className="inline-flex items-center gap-2 min-h-[44px] px-4 rounded-full border border-brand-200/50 bg-background/60 backdrop-blur text-[14px] font-semibold transition-colors group-hover:border-brand-200">
+                    <QrCode className="w-4 h-4" strokeWidth={1.75} aria-hidden="true" />
+                    {t("account.tickets.showQr")}
+                  </span>
+                </div>
+              </div>
+            </Link>
+          )}
+
+          {/* Shortcuts */}
+          <nav aria-label={t("account.tickets.title")} className="menu-rise grid grid-cols-3 gap-2 sm:gap-3" style={{ animationDelay: "80ms" }}>
+            {[
+              { to: "/my-tickets", icon: Ticket, label: t("account.tickets.all"), detail: upcomingCount > 0 ? t("account.tickets.upcoming", { count: upcomingCount }) : null },
+              { to: "/settings/purchases", icon: Receipt, label: t("account.tickets.purchases"), detail: null },
+              { to: "/messages", icon: MessageCircle, label: t("account.tickets.messages"), detail: null },
+            ].map((tile) => (
+              <Link
+                key={tile.to}
+                to={tile.to}
+                className="group flex flex-col justify-between gap-4 min-h-[104px] border border-brand-200/20 bg-card/30 p-3.5 sm:p-4 transition-[border-color,transform] hover:border-brand-200/50 active:scale-[0.98]"
+              >
+                <tile.icon className="w-5 h-5 text-brand-200" strokeWidth={1.6} aria-hidden="true" />
+                <span>
+                  <span className="block text-[14px] sm:text-[15px] font-semibold leading-tight">{tile.label}</span>
+                  {tile.detail && <span className="mt-0.5 block text-[12px] text-muted-foreground">{tile.detail}</span>}
+                </span>
+              </Link>
+            ))}
+          </nav>
 
           {/* Personal info */}
-          <Section id="profile-personal" title={t("account.personal.title")} delay={80}>
+          <div className="h-6" aria-hidden="true" />
+          <Section id="profile-personal" index="01" title={t("account.personal.title")} description={t("account.personal.description")} delay={120}>
             <TextEditRow
+              icon={User}
               label={t("account.personal.firstName")}
               value={profile.firstName}
               editing={editing === "first"}
@@ -444,6 +602,7 @@ const Profile = () => {
               labels={{ ...L, editLabel: t("account.personal.editFirstName") }}
             />
             <TextEditRow
+              icon={UserRound}
               label={t("account.personal.lastName")}
               value={profile.lastName}
               editing={editing === "last"}
@@ -456,6 +615,7 @@ const Profile = () => {
               labels={{ ...L, editLabel: t("account.personal.editLastName") }}
             />
             <ChoiceEditRow
+              icon={CircleUser}
               label={t("account.personal.gender")}
               value={profile.gender}
               options={genderOptions}
@@ -466,6 +626,7 @@ const Profile = () => {
               labels={{ edit: L.edit, cancel: L.cancel, editLabel: t("account.personal.editGender"), none: t("account.personal.genderNone") }}
             />
             <TextEditRow
+              icon={GraduationCap}
               label={t("account.personal.school")}
               value={profile.school}
               display={profile.school || <span className="font-normal text-muted-foreground">{t("account.personal.optional")}</span>}
@@ -483,6 +644,7 @@ const Profile = () => {
               labels={{ ...L, editLabel: t("account.personal.editSchool") }}
             />
             <ChoiceEditRow
+              icon={MapPin}
               label={t("account.personal.campus")}
               value={profile.campus}
               options={campusOptions}
@@ -495,8 +657,10 @@ const Profile = () => {
           </Section>
 
           {/* Sign-in & security */}
-          <Section id="profile-security" title={t("account.security.title")} delay={120}>
+          <div className="h-4" aria-hidden="true" />
+          <Section id="profile-security" index="02" title={t("account.security.title")} description={t("account.security.description")} delay={160}>
             <TextEditRow
+              icon={Mail}
               label={t("account.security.email")}
               value={email}
               hint={pendingEmail ? t("account.security.emailPending", { email: pendingEmail }) : undefined}
@@ -512,6 +676,7 @@ const Profile = () => {
             />
             <PasswordChangeRow email={email} editing={editing === "password"} onEdit={() => setEditing("password")} onClose={close} />
             <Row
+              icon={ShieldCheck}
               label={t("account.security.methods")}
               value={
                 <span className="flex flex-wrap gap-2 pt-1">
@@ -521,12 +686,14 @@ const Profile = () => {
                 </span>
               }
             />
-            <LinkRow onClick={() => setDialog("signout")} label={t("account.security.signOutAll")} detail={t("account.security.signOutAllHint")} />
+            <LinkRow icon={LogOut} onClick={() => setDialog("signout")} label={t("account.security.signOutAll")} detail={t("account.security.signOutAllHint")} />
           </Section>
 
           {/* Payments */}
-          <Section id="profile-payments" title={t("account.payments.title")} delay={160}>
+          <div className="h-4" aria-hidden="true" />
+          <Section id="profile-payments" index="03" title={t("account.payments.title")} description={t("account.payments.description")} delay={200}>
             <Row
+              icon={Landmark}
               label={t("account.payments.payoutAccount")}
               value={
                 <span className="flex flex-wrap items-center gap-2">
@@ -548,19 +715,22 @@ const Profile = () => {
               }
             />
             <LinkRow
+              icon={Wallet}
               to="/settings/listings"
               label={t("account.payments.wallet")}
               detail={t("account.payments.walletHint", {
                 amount: new Intl.NumberFormat(locale, { style: "currency", currency: "EUR" }).format(payout.availableCents / 100),
               })}
             />
-            {isOrganizer && <LinkRow to="/studio" label={t("account.payments.studio")} detail={t("account.payments.studioHint")} />}
+            {isOrganizer && <LinkRow icon={LayoutDashboard} to="/studio" label={t("account.payments.studio")} detail={t("account.payments.studioHint")} />}
           </Section>
 
           {/* Preferences */}
-          <Section id="profile-preferences" title={t("account.preferences.title")} delay={200}>
-            <div className="flex items-center justify-between gap-3 py-3 min-h-[64px]">
-              <div className="min-w-0">
+          <div className="h-4" aria-hidden="true" />
+          <Section id="profile-preferences" index="04" title={t("account.preferences.title")} delay={240}>
+            <div className="flex items-center gap-3.5 py-3.5 min-h-[72px]">
+              <RowIcon icon={Globe} />
+              <div className="min-w-0 flex-1">
                 <div className="text-[13px] text-muted-foreground">{t("account.preferences.language")}</div>
                 <div className="mt-0.5 font-semibold">{LANGUAGES.find((l) => l.code === language)?.label}</div>
               </div>
@@ -586,21 +756,20 @@ const Profile = () => {
           </Section>
 
           {/* Privacy */}
-          <Section id="profile-privacy" title={t("account.privacy.title")} delay={240}>
-            <LinkRow onClick={downloadData} busy={exporting} label={exporting ? t("account.privacy.preparing") : t("account.privacy.download")} detail={t("account.privacy.downloadHint")} />
-            <LinkRow onClick={() => setDialog("anonymize")} label={t("account.privacy.anonymize")} detail={t("account.privacy.anonymizeHint")} />
-            <div className="py-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setDeleteEmail("");
-                  setDialog("delete");
-                }}
-                className="-ml-0.5 min-h-[44px] text-[14px] font-semibold text-destructive hover:underline underline-offset-4"
-              >
-                {t("account.privacy.delete")}
-              </button>
-            </div>
+          <div className="h-4" aria-hidden="true" />
+          <Section id="profile-privacy" index="05" title={t("account.privacy.title")} description={t("account.privacy.description")} delay={280}>
+            <LinkRow icon={Download} onClick={downloadData} busy={exporting} label={exporting ? t("account.privacy.preparing") : t("account.privacy.download")} detail={t("account.privacy.downloadHint")} />
+            <LinkRow icon={EyeOff} onClick={() => setDialog("anonymize")} label={t("account.privacy.anonymize")} detail={t("account.privacy.anonymizeHint")} />
+            <LinkRow
+              icon={Trash2}
+              tone="danger"
+              onClick={() => {
+                setDeleteEmail("");
+                setDialog("delete");
+              }}
+              label={t("account.privacy.delete")}
+              detail={t("account.privacy.deleteHint")}
+            />
           </Section>
         </div>
       </main>

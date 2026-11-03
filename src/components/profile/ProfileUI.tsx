@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowRight, Loader2 } from "lucide-react";
+import { ArrowRight, Loader2, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -24,25 +24,51 @@ export const Chip = ({ tone = "neutral", children }: { tone?: keyof typeof CHIP_
   </span>
 );
 
-/** A card with its eyebrow; `id` names the region for screen readers. */
+/**
+ * A numbered section: "01" and its title in display type above a card of rows. The card sits one
+ * step above the page (card surface at low opacity) so the rows read as one group.
+ */
 export const Section = ({
   id,
+  index,
   title,
+  description,
   delay = 0,
   children,
 }: {
   id: string;
+  index?: string;
   title: string;
+  description?: string;
   delay?: number;
   children: React.ReactNode;
 }) => (
-  <section aria-labelledby={id} className="menu-rise border border-brand-200/25 bg-background px-5 sm:px-6 pt-5 pb-2" style={{ animationDelay: `${delay}ms` }}>
-    {/* The night theme gives headings a display font and tight tracking; the eyebrow keeps its own. */}
-    <h2 id={id} className={`${eyebrow} !font-sans !tracking-[0.18em]`}>
-      {title}
-    </h2>
-    <div className="mt-2 divide-y divide-border/60">{children}</div>
+  <section aria-labelledby={id} className="menu-rise" style={{ animationDelay: `${delay}ms` }}>
+    <div className="mb-3 flex items-baseline gap-3">
+      {index && (
+        <span className="font-display text-[13px] font-bold tabular-nums text-brand-200" aria-hidden="true">
+          {index}
+        </span>
+      )}
+      <h2 id={id} className="font-display text-[22px] sm:text-[24px] font-bold tracking-[-0.02em] leading-tight">
+        {title}
+      </h2>
+    </div>
+    {description && <p className="-mt-1.5 mb-3 text-[14px] leading-snug text-muted-foreground">{description}</p>}
+    <div className="border border-brand-200/20 bg-card/30 px-4 sm:px-5 divide-y divide-border/50">{children}</div>
   </section>
+);
+
+/** The thin-circled icon at the start of a row. */
+export const RowIcon = ({ icon: Icon, tone = "default" }: { icon: LucideIcon; tone?: "default" | "danger" }) => (
+  <span
+    className={`w-10 h-10 shrink-0 rounded-full border inline-flex items-center justify-center ${
+      tone === "danger" ? "border-destructive/40 text-destructive" : "border-brand-200/25 text-brand-200"
+    }`}
+    aria-hidden="true"
+  >
+    <Icon className="w-[18px] h-[18px]" strokeWidth={1.6} />
+  </span>
 );
 
 /** The quiet text action at the end of a row ("Edit", "Change"). */
@@ -74,13 +100,16 @@ export const Row = ({
   value,
   hint,
   action,
+  icon,
 }: {
   label: string;
   value: React.ReactNode;
   hint?: React.ReactNode;
   action?: React.ReactNode;
+  icon?: LucideIcon;
 }) => (
-  <div className="flex items-center gap-3 py-3 min-h-[64px]">
+  <div className="flex items-center gap-3.5 py-3.5 min-h-[72px]">
+    {icon && <RowIcon icon={icon} />}
     <div className="min-w-0 flex-1">
       <div className="text-[13px] text-muted-foreground">{label}</div>
       <div className="mt-0.5 font-semibold leading-snug break-words">{value}</div>
@@ -98,6 +127,7 @@ export const LinkRow = ({
   detail,
   busy,
   tone = "default",
+  icon,
 }: {
   to?: string;
   onClick?: () => void;
@@ -105,22 +135,24 @@ export const LinkRow = ({
   detail?: React.ReactNode;
   busy?: boolean;
   tone?: "default" | "danger";
+  icon?: LucideIcon;
 }) => {
   const body = (
     <>
+      {icon && <RowIcon icon={icon} tone={tone} />}
       <span className="min-w-0 flex-1">
         <span className={`block font-semibold leading-snug ${tone === "danger" ? "text-destructive" : ""}`}>{label}</span>
         {detail && <span className="mt-0.5 block text-[13px] leading-snug text-muted-foreground">{detail}</span>}
       </span>
       {tone === "danger" ? null : (
-        <span className="w-10 h-10 shrink-0 rounded-full border border-brand-200/40 inline-flex items-center justify-center text-foreground transition-transform group-hover:translate-x-0.5" aria-hidden="true">
+        <span className="shrink-0 inline-flex items-center justify-center w-8 h-8 text-muted-foreground transition-[transform,color] group-hover:translate-x-0.5 group-hover:text-foreground" aria-hidden="true">
           {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-[18px] h-[18px]" strokeWidth={1.5} />}
         </span>
       )}
     </>
   );
   const cls =
-    "group w-full flex items-center gap-3 py-3 min-h-[64px] text-left transition-[opacity,transform] active:scale-[0.99] active:opacity-90 disabled:opacity-60";
+    "group w-full flex items-center gap-3.5 py-3.5 min-h-[72px] text-left transition-[opacity,transform] active:scale-[0.99] active:opacity-90 disabled:opacity-60";
   if (to) {
     return (
       <Link to={to} className={cls}>
@@ -173,7 +205,9 @@ export const TextEditRow = ({
   placeholder,
   formHint,
   labels,
+  icon,
 }: {
+  icon?: LucideIcon;
   label: string;
   value: string;
   display?: React.ReactNode;
@@ -206,7 +240,7 @@ export const TextEditRow = ({
   }, [editing]);
 
   if (!editing) {
-    return <Row label={label} value={display ?? (value || "—")} hint={hint} action={<RowAction onClick={onEdit} label={labels.editLabel}>{labels.edit}</RowAction>} />;
+    return <Row icon={icon} label={label} value={display ?? (value || "—")} hint={hint} action={<RowAction onClick={onEdit} label={labels.editLabel}>{labels.edit}</RowAction>} />;
   }
 
   const submit = async (e: React.FormEvent) => {
@@ -222,7 +256,7 @@ export const TextEditRow = ({
   };
 
   return (
-    <form onSubmit={submit} noValidate className="py-4">
+    <form onSubmit={submit} noValidate className="py-5">
       <label htmlFor={inputId} className="text-[13px] text-muted-foreground">
         {label}
       </label>
@@ -260,7 +294,9 @@ export const ChoiceEditRow = ({
   onCancel,
   onSave,
   labels,
+  icon,
 }: {
+  icon?: LucideIcon;
   label: string;
   value: string;
   options: { value: string; label: string }[];
@@ -280,7 +316,7 @@ export const ChoiceEditRow = ({
   }, [editing]);
 
   if (!editing) {
-    return <Row label={label} value={current} action={<RowAction onClick={onEdit} label={labels.editLabel}>{labels.edit}</RowAction>} />;
+    return <Row icon={icon} label={label} value={current} action={<RowAction onClick={onEdit} label={labels.editLabel}>{labels.edit}</RowAction>} />;
   }
 
   const pick = async (choice: string) => {
@@ -292,7 +328,7 @@ export const ChoiceEditRow = ({
   };
 
   return (
-    <div className="py-4" role="group" aria-label={label} aria-describedby={error ? errorId : undefined}>
+    <div className="py-5" role="group" aria-label={label} aria-describedby={error ? errorId : undefined}>
       <div className="flex items-center justify-between gap-3">
         <span className="text-[13px] text-muted-foreground">{label}</span>
         <RowAction onClick={onCancel}>{labels.cancel}</RowAction>
