@@ -67,7 +67,15 @@ describe("event link previews", () => {
     expect(query).toBe(EVENTS_QUERY);
     expect(workflow).toContain('cron: "*/10 * * * *"');
     expect(workflow).toContain("if: needs.changes.outputs.build == 'true'");
-    expect(workflow).toContain("if: github.event_name != 'schedule'");
+  });
+
+  it("never deploy Edge Functions from the site workflow, nor payment functions automatically", () => {
+    expect(read(".github/workflows/deploy.yml")).not.toContain("functions deploy");
+    const functions = read(".github/workflows/deploy-edge-functions.yml");
+    expect(functions).not.toContain("schedule");
+    const list = functions.match(/for fn in ([^;]+); do/)?.[1].trim().split(/\s+/);
+    expect(list).toEqual(["ticket-access", "export-event-sales"]);
+    for (const fn of list ?? []) expect(fn).not.toMatch(/checkout|webhook|payout|refund|stripe|revolut|payment/);
   });
 
   it("are not blocked for link-preview crawlers", () => {
