@@ -21,7 +21,7 @@ const paths = [
   {
     icon: Ticket,
     title: "Buy event tickets",
-    body: "Galas, parties, sports, conferences — sold directly by the organizers and associations behind them. Your QR ticket is emailed the moment your payment clears.",
+    body: "Parties, galas, concerts, conferences, festivals: tickets sold directly by the people organizing them. Pay with Apple Pay or card, and your ticket is on your phone right away.",
     to: "/tickets",
     cta: "Browse events",
     gradient: "var(--gradient-hero)",
@@ -29,7 +29,7 @@ const paths = [
   {
     icon: Repeat2,
     title: "Resale marketplace",
-    body: "Sold out? Find a ticket from another student. Got an extra? List it in two minutes. Bank-to-bank, escrow-protected.",
+    body: "Can't go? List your ticket in two minutes. The buyer gets a new ticket in their name, your old QR code stops working, and you are paid to your bank after the event.",
     to: "/resale",
     cta: "Go to resale",
     gradient: "linear-gradient(135deg, hsl(220 100% 30%), hsl(210 100% 45%))",
@@ -39,37 +39,37 @@ const paths = [
 const values = [
   {
     icon: Building2,
-    title: "Centralized, not scattered",
-    body: "Every campus event in one feed — no more hunting through stories, WhatsApp groups or DMs.",
+    title: "Everything in one place",
+    body: "Buying, reselling and getting in at the door all happen on TicketSafe, not across stories, group chats and screenshots.",
   },
   {
     icon: ShieldCheck,
-    title: "Real protection, not promises",
-    body: "Escrow on resale, direct-to-organizer for primary sales, automatic QR delivery. The platform handles the moving parts.",
+    title: "One QR code, scanned once",
+    body: "Every ticket has its own QR code. It is checked at the door and works only once. On a resale, the old code is switched off.",
   },
   {
     icon: Users,
-    title: "Students only",
-    body: "University email verification at sign-up. No scalpers, no bots — only the people on your campus.",
+    title: "0% for organizers",
+    body: "Organizers keep the full ticket price. The small service fee is paid by the buyer at checkout.",
   },
   {
     icon: Lock,
     title: "Bank-grade payments",
-    body: "Card data never touches our servers. Payouts are direct to your bank.",
+    body: "Payments go through Stripe. Your card details never reach our servers, and payouts go straight to your bank.",
   },
 ];
 
 const roadmap = [
   {
     phase: "Phase 1",
-    title: "ESCP",
-    body: "5 campuses live — Paris, Madrid, Turin, Berlin, London.",
+    title: "Live today",
+    body: "Events selling on TicketSafe in Paris, Madrid, London and more.",
     active: true,
   },
   {
     phase: "Phase 2",
-    title: "Top business schools",
-    body: "HEC, ESSEC, EM Lyon, EDHEC, Mines and more.",
+    title: "Every kind of event",
+    body: "Concerts, festivals, conferences and company events, in more cities.",
     active: false,
   },
 ];
@@ -79,7 +79,7 @@ const About = () => {
     <div className="min-h-screen bg-background flex flex-col">
       <SEOHead
         title="About — Ticket Safe"
-        description="Ticket Safe centralizes student event tickets — buy direct from organizers, or trade safely on the resale marketplace."
+        description="TicketSafe is online ticketing for every kind of event: organizers sell with 0% commission, buyers pay a small service fee, and anyone who can no longer go can resell their ticket."
       />
       <Header />
 
@@ -107,10 +107,10 @@ const About = () => {
               About Ticket Safe
             </div>
             <h1 className="text-3xl md:text-5xl lg:text-6xl font-black tracking-tight leading-[1.05] mb-4 md:mb-5 max-w-3xl">
-              The ticket platform built for student events.
+              Online ticketing for every kind of event.
             </h1>
             <p className="text-sm md:text-lg text-white/80 max-w-2xl leading-relaxed">
-              One place for everything campus — from the official BDE gala to the seat someone needs to resell at 3 a.m. before the event.
+              Sell tickets with 0% commission, buy in a few taps, and resell a ticket you can no longer use.
             </p>
           </div>
         </section>
@@ -127,7 +127,7 @@ const About = () => {
                 One platform, two paths
               </h2>
               <p className="text-sm md:text-base text-muted-foreground max-w-xl mx-auto">
-                Whether you are buying for the first time or chasing a sold-out event — Ticket Safe covers both.
+                Buy tickets straight from the organizer, or resell one you can no longer use.
               </p>
             </div>
 
@@ -173,13 +173,13 @@ const About = () => {
                   Our mission
                 </div>
                 <h2 className="text-2xl md:text-4xl font-black mb-4 md:mb-5 leading-tight">
-                  Stop chasing tickets across five apps.
+                  Ticketing that is simple for everyone.
                 </h2>
                 <p className="text-sm md:text-base text-muted-foreground leading-relaxed mb-4">
-                  Campus tickets live everywhere — Instagram stories, BDE bot, WhatsApp groups, screenshots of QR codes you cannot verify. We are bringing them all into one place.
+                  Organizers create their event in TicketSafe Studio, sell tickets, follow sales live, scan tickets at the door and withdraw their money when they want.
                 </p>
                 <p className="text-sm md:text-base text-muted-foreground leading-relaxed">
-                  Organizers sell directly, students resell safely, and the whole campus stops worrying about whether a transfer is real.
+                  Buyers pay with Apple Pay or card and keep their ticket on their phone. If they can no longer go, they resell it on TicketSafe and the new owner gets a fresh ticket.
                 </p>
               </div>
 
@@ -213,10 +213,10 @@ const About = () => {
                 Where we are going
               </div>
               <h2 className="text-2xl md:text-4xl font-black mb-2 md:mb-3">
-                Starting at ESCP, scaling out
+                Where TicketSafe is going
               </h2>
               <p className="text-sm md:text-base text-muted-foreground">
-                We are starting with one school we know inside and out, then opening up.
+                We started with student events. TicketSafe is now open to any organizer.
               </p>
             </div>
 
@@ -285,7 +285,7 @@ const About = () => {
                     Buying tickets
                   </div>
                   <div className="text-xs md:text-sm text-muted-foreground">
-                    Direct from your campus organizers.
+                    Straight from the organizer.
                   </div>
                 </div>
                 <ArrowRight className="w-5 h-5 text-primary group-hover:translate-x-1 transition-transform shrink-0" />
@@ -306,7 +306,7 @@ const About = () => {
                     Resale marketplace
                   </div>
                   <div className="text-xs md:text-sm text-muted-foreground">
-                    Buy or list between students, escrow-protected.
+                    Resell a ticket, or buy one someone else can't use.
                   </div>
                 </div>
                 <ArrowRight className="w-5 h-5 text-primary group-hover:translate-x-1 transition-transform shrink-0" />
@@ -332,7 +332,7 @@ const About = () => {
                     Find your next event in one place.
                   </h3>
                   <p className="text-white/85 text-sm md:text-base max-w-lg leading-relaxed">
-                    Verified students from your school, real organizers, automatic QR delivery.
+                    Tickets straight from the organizer, on your phone, with a QR code scanned once at the door.
                   </p>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-2.5">
