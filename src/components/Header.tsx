@@ -183,6 +183,15 @@ const Header = ({ minimal = false }: HeaderProps) => {
                 TicketSafe Studio
               </Link>
             )}
+            {isAdmin && (
+              <Link
+                to="/admin/events"
+                className="hidden md:inline-flex items-center gap-1.5 h-9 px-3 rounded-md text-xs font-bold bg-primary/10 text-primary border border-primary/30 hover:bg-primary/15 transition-colors"
+              >
+                <Shield className="w-4 h-4" />
+                Admin
+              </Link>
+            )}
             {user && <WalletBalanceButton />}
             {user ? (
               <DropdownMenu>
@@ -223,6 +232,10 @@ const Header = ({ minimal = false }: HeaderProps) => {
                   {isAdmin && (
                     <>
                       <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => navigate("/admin/events")} className="font-semibold">
+                        <Shield className="h-4 w-4 mr-2" />
+                        Admin · All events
+                      </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => navigate("/admin/review")}>
                         <Shield className="h-4 w-4 mr-2" />
                         Admin · Review tickets

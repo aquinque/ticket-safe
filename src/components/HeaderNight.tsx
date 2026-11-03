@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Menu, X, Globe, User, Ticket, Banknote, LayoutDashboard, Megaphone, LogOut, ArrowRight } from "lucide-react";
+import { Menu, X, Globe, User, Ticket, Banknote, LayoutDashboard, Megaphone, LogOut, ArrowRight, ShieldCheck } from "lucide-react";
 import Logo from "@/components/Logo";
 import WalletBalanceButton from "@/components/WalletBalanceButton";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { useI18n } from "@/contexts/I18nContext";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrganizer } from "@/hooks/useOrganizer";
 import { useIsPromoter } from "@/hooks/useIsPromoter";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { authPath, currentReturnPath } from "@/lib/returnTo";
 import {
   DropdownMenu,
@@ -52,6 +53,7 @@ const HeaderNight = () => {
   const { organizer } = useOrganizer();
   const isStudioOrganizer = !!user && organizer?.status === "approved";
   const isPromoter = useIsPromoter();
+  const isAdmin = useIsAdmin();
   const [isScrolled, setIsScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -154,6 +156,15 @@ const HeaderNight = () => {
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
+            {isAdmin && (
+              <Link
+                to="/admin/events"
+                className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md text-xs font-bold bg-brand-200/15 text-brand-200 border border-brand-200/40 hover:bg-brand-200/25 transition-colors"
+              >
+                <ShieldCheck className="w-4 h-4" />
+                Admin
+              </Link>
+            )}
             <WalletBalanceButton />
             {user ? (
               <DropdownMenu>
@@ -314,6 +325,7 @@ const HeaderNight = () => {
             {user ? (
               <div className="flex flex-col">
                 {[
+                  ...(isAdmin ? [{ to: "/admin/events", label: "Admin · All events", icon: ShieldCheck }] : []),
                   { to: "/my-tickets", label: "My tickets", icon: Ticket },
                   { to: "/settings/listings", label: "My wallet", icon: Banknote },
                 ].map((item) => (

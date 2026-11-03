@@ -70,6 +70,9 @@ const EventPublic = lazy(() => import("./pages/EventPublic"));
 const MyTickets = lazy(() => import("./pages/MyTickets"));
 const MyTicketsHub = lazy(() => import("./pages/MyTicketsHub"));
 const AdminOrganizers = lazy(() => import("./pages/admin/AdminOrganizers"));
+const AdminEvents = lazy(() => import("./pages/admin/AdminEvents"));
+// The admin events page with sample numbers, for local development only: not in production builds.
+const AdminEventsDemo = import.meta.env.DEV ? lazy(() => import("./pages/admin/AdminEventsDemo")) : null;
 const AdminPayouts = lazy(() => import("./pages/admin/AdminPayouts"));
 const AdminStripeConnectPayouts = lazy(() => import("./pages/admin/AdminStripeConnectPayouts"));
 const AdminDebug = lazy(() => import("./pages/admin/AdminDebug"));
@@ -160,6 +163,8 @@ const App = () => (
         <Route path="/promoter" element={<PromoterDashboard />} />
         <Route path="/my-tickets" element={<MyTicketsHub />} />
         <Route path="/my-tickets/:orderId" element={<MyTickets />} />
+        <Route path="/admin/events" element={<ProtectedAdminRoute><AdminEvents /></ProtectedAdminRoute>} />
+        {AdminEventsDemo && <Route path="/admin/events/demo" element={<AdminEventsDemo />} />}
         <Route path="/admin/organizers" element={<ProtectedAdminRoute><AdminOrganizers /></ProtectedAdminRoute>} />
         <Route path="/admin/payouts" element={<ProtectedAdminRoute><AdminPayouts /></ProtectedAdminRoute>} />
         <Route path="/admin/stripe-connect-payouts" element={<ProtectedAdminRoute><AdminStripeConnectPayouts /></ProtectedAdminRoute>} />
