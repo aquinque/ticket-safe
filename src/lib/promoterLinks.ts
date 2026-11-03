@@ -13,6 +13,8 @@ export const PROMOTER_CODE_PATTERN = /^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$/;
 export const PROMOTER_NAME_MAX = 60;
 export const PROMOTER_LINKS_MAX = 50;
 
+import { eventShareUrl } from "@/lib/shareUrl";
+
 const SITE = "https://ticket-safe.eu";
 
 export const isPromoterCode = (value: unknown): value is string =>
@@ -51,7 +53,7 @@ export function makePromoterCode(name: string, random: () => number = Math.rando
 }
 
 /** The link the promoter shares. */
-export const promoterLinkUrl = (eventSlug: string, code: string): string => `${SITE}/e/${eventSlug}?ref=${code}`;
+export const promoterLinkUrl = (eventSlug: string, code: string): string => eventShareUrl(eventSlug, code);
 
 // ── The organizer's numbers ───────────────────────────────────────────────
 

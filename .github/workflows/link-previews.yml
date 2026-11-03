@@ -15,6 +15,7 @@ on:
   pull_request:
     paths:
       - "scripts/check-link-previews.sh"
+      - "scripts/prerender-event-pages.mjs"
       - ".github/workflows/link-previews.yml"
 
 permissions:
@@ -38,4 +39,5 @@ jobs:
           SLUGS: ${{ github.event.inputs.slugs }}
         run: |
           if [ -n "${SLUGS:-}" ]; then scripts/check-link-previews.sh https://ticket-safe.eu $SLUGS
+          elif curl -fsS https://ticket-safe.eu/og/slugs.txt >/dev/null; then scripts/check-link-previews.sh https://ticket-safe.eu
           else scripts/check-link-previews.sh https://ticket-safe.eu ebs-halloween-ayala-120 les-riches-pyjama-party tournoipsg; fi

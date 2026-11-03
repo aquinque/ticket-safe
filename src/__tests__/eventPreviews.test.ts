@@ -2,7 +2,8 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 // @ts-expect-error -- plain ES module script, no type declarations
-import { DEFAULT_IMAGE, EVENTS_QUERY, escapeAttr, eventWhen, renderEventPage, shareMeta, truncate } from "../../scripts/prerender-event-pages.mjs";
+import { DEFAULT_IMAGE, EVENTS_QUERY, defaultCardSvg, escapeAttr, eventWhen, renderEventPage, shareMeta, truncate, wrapTitle } from "../../scripts/prerender-event-pages.mjs";
+import { eventShareUrl } from "@/lib/shareUrl";
 
 const read = (path: string) => readFileSync(resolve(process.cwd(), path), "utf8");
 
@@ -21,16 +22,21 @@ describe("event link previews", () => {
     const meta = shareMeta(halloween);
     expect(meta.title).toBe("EBS HALLOWEEN × AYALA 120");
     expect(meta.url).toBe("https://ticket-safe.eu/e/ebs-halloween-ayala-120");
-    expect(meta.description.startsWith("Sat, 7 Nov 2026, 00:01 · AYALA 120, Madrid — ESCP Bachelor Society")).toBe(true);
-    expect(eventWhen({ date: "2026-11-06T20:00:00Z", currency: "GBP" })).toBe("Fri, 6 Nov 2026, 20:00");
+    expect(meta.description).toBe("Sat 7 Nov · 00:01 · AYALA 120, Madrid — Get your ticket on TicketSafe");
+    expect(shareMeta({ ...halloween, date: "2026-11-11T21:00:00Z", location: "Pavillon Royal" }).description).toBe(
+      "Wed 11 Nov · 22:00 · Pavillon Royal — Get your ticket on TicketSafe",
+    );
+    expect(eventWhen({ date: "2026-11-06T20:00:00Z", currency: "GBP" })).toBe("Fri 6 Nov · 20:00");
+    expect(truncate("short", 200)).toBe("short");
   });
 
-  it("prefer the share description, and keep previews short", () => {
-    expect(shareMeta({ ...halloween, seo_description: "Costumes required." }).description).toBe("Sat, 7 Nov 2026, 00:01 · AYALA 120, Madrid — Costumes required.");
-    const long = shareMeta({ ...halloween, description: "word ".repeat(100) }).description;
-    expect(long.length).toBeLessThanOrEqual(200);
-    expect(long.endsWith("…")).toBe(true);
-    expect(truncate("short", 200)).toBe("short");
+  it("draw a card with the event's name and date when it has no picture", () => {
+    const svg = defaultCardSvg({ ...halloween, title: `Rock & "Roll" <script>x</script>` });
+    expect(svg).toContain('width="1200" height="630"');
+    expect(svg).toContain("Rock &amp; &quot;Roll&quot;");
+    expect(svg).not.toContain("<script>");
+    expect(svg).toContain("Sat 7 Nov · 00:01 · AYALA 120, Madrid");
+    expect(wrapTitle("word ".repeat(40), 20, 3)).toHaveLength(3);
   });
 
   it("use the absolute 1200x630 JPEG default picture when the event has none", () => {
@@ -67,6 +73,7 @@ describe("event link previews", () => {
     expect(query).toBe(EVENTS_QUERY);
     expect(workflow).toContain('cron: "*/10 * * * *"');
     expect(workflow).toContain("if: needs.changes.outputs.build == 'true'");
+    expect(workflow).toContain("types: [events-changed]");
   });
 
   it("never deploy Edge Functions from the site workflow, nor payment functions automatically", () => {
@@ -76,6 +83,19 @@ describe("event link previews", () => {
     const list = functions.match(/for fn in ([^;]+); do/)?.[1].trim().split(/\s+/);
     expect(list).toEqual(["ticket-access", "export-event-sales"]);
     for (const fn of list ?? []) expect(fn).not.toMatch(/checkout|webhook|payout|refund|stripe|revolut|payment/);
+  });
+
+  it("are the link every share button gives, ?ref= kept", () => {
+    expect(eventShareUrl("ebs-halloween-ayala-120")).toBe("https://ticket-safe.eu/e/ebs-halloween-ayala-120");
+    expect(eventShareUrl("ebs-halloween-ayala-120", "lea-k3x")).toBe("https://ticket-safe.eu/e/ebs-halloween-ayala-120?ref=lea-k3x");
+    expect(read("src/lib/promoterLinks.ts")).toContain("eventShareUrl(eventSlug, code)");
+    for (const page of ["src/pages/studio/StudioEventEdit.tsx", "src/pages/studio/StudioDashboard.tsx", "src/pages/EventPublic.tsx"]) {
+      expect(read(page), page).toContain("eventShareUrl(event.slug)");
+    }
+    // The preview is not an option any more: no per-event preview settings in Studio.
+    expect(read("src/pages/studio/StudioEventEdit.tsx")).not.toContain("SocialSharingControl");
+    const trigger = read("supabase/migrations/20261103120000_site_rebuild_on_event_change.sql");
+    expect(trigger).toContain("'events-changed'");
   });
 
   it("are not blocked for link-preview crawlers", () => {

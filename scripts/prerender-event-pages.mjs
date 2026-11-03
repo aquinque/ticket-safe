@@ -55,23 +55,31 @@ export function truncate(value, max) {
   return `${(space > max * 0.6 ? cut.slice(0, space) : cut).replace(/[\s,;:.–—-]+$/, "")}…`;
 }
 
-/** "Fri 6 Nov 2026, 23:01" in the event's time zone (London for events sold in pounds, Paris otherwise). */
-export function eventWhen(event) {
-  if (!event.date) return "";
+const zoneOf = (event) => (String(event.currency ?? "").toUpperCase() === "GBP" ? "Europe/London" : "Europe/Paris");
+
+/** ["Wed 11 Nov", "22:00"] in the event's time zone (London for events sold in pounds, Paris otherwise). */
+export function eventDayTime(event) {
+  if (!event.date) return [];
   const date = new Date(event.date);
-  if (Number.isNaN(date.getTime())) return "";
-  const timeZone = String(event.currency ?? "").toUpperCase() === "GBP" ? "Europe/London" : "Europe/Paris";
-  const day = date.toLocaleDateString("en-GB", { timeZone, weekday: "short", day: "numeric", month: "short", year: "numeric" });
+  if (Number.isNaN(date.getTime())) return [];
+  const timeZone = zoneOf(event);
+  const day = date.toLocaleDateString("en-GB", { timeZone, weekday: "short", day: "numeric", month: "short" }).replace(",", "");
   const time = date.toLocaleTimeString("en-GB", { timeZone, hour: "2-digit", minute: "2-digit" });
-  return `${day}, ${time}`;
+  return [day, time];
 }
 
-/** What the preview shows: the event's title, then when and where, then its own words. */
+/** "Wed 11 Nov · 22:00 · Pavillon Royal" */
+export function eventWhen(event) {
+  return [...eventDayTime(event), plainText(event.location)].filter(Boolean).join(" · ");
+}
+
+export const PREVIEW_CALL = "Get your ticket on TicketSafe";
+
+/** What the preview shows: the event's name, then "Wed 11 Nov · 22:00 · Pavillon Royal — Get your ticket on TicketSafe". */
 export function shareMeta(event, image = DEFAULT_IMAGE) {
   const title = plainText(event.title) || "Event";
-  const facts = [eventWhen(event), plainText(event.location)].filter(Boolean).join(" · ");
-  const words = plainText(event.seo_description || event.description);
-  const description = truncate([facts, words].filter(Boolean).join(" — ") || `Tickets for ${title} on TicketSafe.`, 200);
+  const facts = eventWhen(event);
+  const description = truncate(facts ? `${facts} — ${PREVIEW_CALL}` : PREVIEW_CALL, 200);
   return { title, description, url: `${SITE}/e/${event.slug}`, image };
 }
 
@@ -118,9 +126,73 @@ export function renderEventPage(indexHtml, meta) {
   return `${stripped.slice(0, at)}\n    ${headTags(meta)}\n${stripped.slice(at)}`;
 }
 
+const xml = (v) => String(v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+/** Splits a title into at most `maxLines` lines of about `width` characters, the last one cut with an ellipsis. */
+export function wrapTitle(title, width = 22, maxLines = 3) {
+  const words = plainText(title).split(" ").filter(Boolean);
+  const lines = [];
+  let line = "";
+  for (const w of words) {
+    const next = line ? `${line} ${w}` : w;
+    if (next.length > width && line) { lines.push(line); line = w; } else line = next;
+  }
+  if (line) lines.push(line);
+  if (lines.length > maxLines) {
+    const kept = lines.slice(0, maxLines);
+    kept[maxLines - 1] = truncate(`${kept[maxLines - 1]} ${lines.slice(maxLines).join(" ")}`, width);
+    return kept;
+  }
+  return lines.map((l) => (l.length > width + 6 ? truncate(l, width + 6) : l));
+}
+
+/** The 1200x630 card used when an event has no picture: TicketSafe navy, the event's name and date. */
+export function defaultCardSvg(event) {
+  // Bold sans glyphs average about 0.7 em: pick the largest size whose lines fit 1040 px.
+  let size = 96;
+  let lines = wrapTitle(event.title || "Event", Math.floor(1040 / (0.7 * size)), 3);
+  for (const s of [96, 84, 72, 64]) {
+    size = s;
+    lines = wrapTitle(event.title || "Event", Math.floor(1040 / (0.7 * s)), 3);
+    if (lines.length <= (s >= 84 ? 2 : 3)) break;
+  }
+  const lineHeight = size * 1.1;
+  const top = 190 + size;
+  const title = lines
+    .map((l, i) => `<text x="80" y="${Math.round(top + i * lineHeight)}" font-size="${size}" font-weight="700" fill="#eef2f8">${xml(l)}</text>`)
+    .join("");
+  const when = xml(eventWhen(event));
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${OG_WIDTH}" height="${OG_HEIGHT}" viewBox="0 0 ${OG_WIDTH} ${OG_HEIGHT}">
+  <defs><radialGradient id="g" cx="100%" cy="0%" r="90%"><stop offset="0" stop-color="#3a5fe6" stop-opacity="0.55"/><stop offset="1" stop-color="#1a2744" stop-opacity="0"/></radialGradient></defs>
+  <rect width="100%" height="100%" fill="#1a2744"/><rect width="100%" height="100%" fill="url(#g)"/>
+  <g font-family="DejaVu Sans, Liberation Sans, Arial, Helvetica, sans-serif">
+    <text x="80" y="110" font-size="30" font-weight="700" letter-spacing="6" fill="#aec6ff">TICKETSAFE</text>
+    ${title}
+    <text x="80" y="540" font-size="40" fill="#9fb0cc">${when}</text>
+  </g>
+</svg>`;
+}
+
+/** The default card for an event as a JPEG in dist/og/e/, or null if it cannot be drawn. */
+export async function defaultEventImage(event, distDir, { sharp }) {
+  try {
+    const jpeg = await sharp(Buffer.from(defaultCardSvg(event))).jpeg({ quality: 86, mozjpeg: true }).toBuffer();
+    const hash = createHash("sha256").update(jpeg).digest("hex").slice(0, 10);
+    const file = `og/e/${event.slug}-card-${hash}.jpg`;
+    await mkdir(path.join(distDir, "og/e"), { recursive: true });
+    await writeFile(path.join(distDir, file), jpeg);
+    return { url: `${SITE}/${file}`, width: OG_WIDTH, height: OG_HEIGHT };
+  } catch (err) {
+    console.warn(`[prerender] ${event.slug}: default card not drawn (${err instanceof Error ? err.message : err})`);
+    return null;
+  }
+}
+
 /** The event's picture as a 1200x630 JPEG, or null when there is none or it cannot be read. */
 export async function eventImage(event, distDir, { fetchImpl = fetch, sharp } = {}) {
-  const source = event.og_image_url || event.banner_url;
+  // The event's own picture (the banner shown on its page); a picture saved by the former
+  // "Social sharing" option is only used for events that have no banner.
+  const source = event.banner_url || event.og_image_url;
   const allowHttp = process.env.OG_ALLOW_HTTP === "1";
   if (!source || !(source.startsWith("https://") || (allowHttp && source.startsWith("http://")))) return null;
   try {
@@ -188,12 +260,15 @@ export async function main(distDir = "dist") {
   await mkdir(path.join(distDir, "og"), { recursive: true });
   let withPicture = 0;
   await mapLimit(events, 4, async (event) => {
-    const image = (await eventImage(event, distDir, { sharp })) ?? DEFAULT_IMAGE;
-    if (image !== DEFAULT_IMAGE) withPicture++;
+    const own = await eventImage(event, distDir, { sharp });
+    if (own) withPicture++;
+    const image = own ?? (await defaultEventImage(event, distDir, { sharp })) ?? DEFAULT_IMAGE;
     await writeFile(path.join(distDir, "e", `${event.slug}.html`), renderEventPage(indexHtml, shareMeta(event, image)));
   });
   await writeFile(path.join(distDir, "og/events-hash.txt"), `${createHash("sha256").update(loaded.text).digest("hex")}\n`);
-  console.log(`[prerender] ${events.length} event pages written (${withPicture} with their own picture, ${events.length - withPicture} with the default one)`);
+  // The list the crawler check (scripts/check-link-previews.sh) walks after each deploy.
+  await writeFile(path.join(distDir, "og/slugs.txt"), events.map((e) => e.slug).join("\n") + "\n");
+  console.log(`[prerender] ${events.length} event pages written (${withPicture} with their own picture, ${events.length - withPicture} with a TicketSafe card)`);
   return { pages: events.length };
 }
 
