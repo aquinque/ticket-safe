@@ -42,6 +42,7 @@ import { eventEnd, eventPhase, eventStart, isPastEvent, type EventTimeFields } f
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { authPathHere } from "@/lib/returnTo";
+import { eventShareUrl } from "@/lib/shareUrl";
 
 interface PublicEvent {
   id: string;
@@ -618,7 +619,7 @@ const EventPublic = () => {
   const accent = themeVars["--event-primary"];
   const organizerAccent = isHex(event.organizer?.primary_color) ? event.organizer.primary_color : accent;
   const shareEvent = async () => {
-    const url = `https://ticket-safe.eu/e/${event.slug}`;
+    const url = eventShareUrl(event.slug);
     try {
       if (navigator.share) { await navigator.share({ title: event.title, text: `${event.title} · ${startDate.toLocaleDateString("en-GB", { day: "numeric", month: "long" })}`, url }); return; }
       await navigator.clipboard.writeText(url);
