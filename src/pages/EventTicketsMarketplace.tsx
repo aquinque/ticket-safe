@@ -16,7 +16,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useI18n } from "@/contexts/I18nContext";
 import { getOrCreateConversation } from "@/hooks/useChat";
 import { toast } from "sonner";
-import { calcBreakdown } from "@/lib/fees";
+import { calcBreakdown, RESALE_BUYER_FEE_COPY } from "@/lib/fees";
 import { authPathHere } from "@/lib/returnTo";
 
 interface EventInfo {
@@ -389,12 +389,14 @@ const EventTicketsMarketplace = () => {
                             <p className="text-4xl font-bold text-primary">€{breakdown.buyerTotalEuros.toFixed(2)}</p>
                             <div className="mt-2 text-xs text-muted-foreground space-y-0.5">
                               <div className="flex items-center justify-center gap-1">
-                                <span>All-in price · fees included</span>
+                                <span>
+                                  €{breakdown.listPriceEuros.toFixed(2)} + €{breakdown.buyerFeeEuros.toFixed(2)} service fee ({RESALE_BUYER_FEE_COPY})
+                                </span>
                                 <a
                                   href="/how-it-works#pricing"
                                   className="inline-flex text-muted-foreground hover:text-primary"
                                   title="Why a fee?"
-                                  aria-label="Learn about the platform fee"
+                                  aria-label="Learn about the service fee"
                                   onClick={(e) => { e.stopPropagation(); }}
                                 >
                                   <HelpCircle className="w-3.5 h-3.5" />

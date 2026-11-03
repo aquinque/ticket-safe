@@ -21,8 +21,11 @@
  *         connected account, since the seller's account didn't exist at
  *         checkout time), THEN stripe.payouts.create on their account to
  *         push it on to their bank in the same pass.
+ *     A reseller job claims its sales (transactions.payout_job_id) before
+ *     the transfer, and only those still 'completed': a disputed sale
+ *     (status 'disputed', set in stripe-connect-webhook) is never paid.
  *     A cancelled event, or any job already 'blocked' (e.g. by an open
- *     dispute, set in stripe-connect-webhook), is never processed here.
+ *     dispute on a Studio order), is never processed here.
  *
  *  Reminder emails (3-day / 7-day) for resellers who haven't completed
  *  onboarding run in the same invocation as a third pass.
@@ -31,6 +34,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getStripeClient } from "../_shared/stripeConnect.ts";
 import { eventEnd } from "../_shared/eventTime.ts";
+import { sellerNetCents } from "../_shared/resaleDispute.ts";
 import { renderEmail, ctaButton } from "../_shared/emailComponents.ts";
 import { emailTokens } from "../_shared/emailTokens.ts";
 
@@ -127,10 +131,7 @@ async function maturedResaleSales(supabase: SupabaseClient, sellerId: string, de
     const end = ev ? eventEnd(ev) : null;
     return !!end && end.getTime() <= cutoff;
   });
-  const owedCents = rows.reduce(
-    (sum, t) => sum + Math.round(Number(t.amount) * 100) - Math.round(Number(t.fee_amount ?? 0) * 100) - (t.commission_cents ?? 0),
-    0,
-  );
+  const owedCents = rows.reduce((sum, t) => sum + sellerNetCents(t), 0);
   return { ids: rows.map((t) => t.id), owedCents };
 }
 
@@ -248,6 +249,9 @@ serve(async (req) => {
         continue;
       }
 
+      // Set when a reseller job has claimed sales but not transferred yet, so
+      // a failure before the transfer gives them back for the next run.
+      let releaseClaim: (() => Promise<unknown>) | null = null;
       try {
         const balance = await stripe.balance.retrieve(undefined, { stripeAccount: account.stripe_account_id });
         const availableRows = withMoney(balance.available as MoneyRow[]);
@@ -261,18 +265,32 @@ serve(async (req) => {
           // over (maturedResaleSales), minus the buyer fee and the 5 % seller fee.
           const { data: sellerRow } = await supabase.from("stripe_connect_accounts").select("user_id").eq("id", account.id).maybeSingle();
           if (!sellerRow?.user_id) throw new Error("Reseller account has no user_id");
-          const { ids: txIds, owedCents } = await maturedResaleSales(supabase, sellerRow.user_id, delayDays);
+          const { ids: txIds } = await maturedResaleSales(supabase, sellerRow.user_id, delayDays);
+          // Claim the sales BEFORE moving money, only while they are still
+          // 'completed' and unclaimed: a sale disputed in the meantime
+          // (stripe-connect-webhook sets 'disputed') is left out, and a
+          // dispute arriving after the claim sees payout_job_id and is
+          // reported as already paid out. The amount is what was claimed.
+          const { data: claimed } = txIds.length > 0
+            ? await supabase.from("transactions").update({ payout_job_id: job.id })
+              .in("id", txIds).eq("status", "completed").is("payout_job_id", null)
+              .select("id, amount, fee_amount, commission_cents")
+            : { data: [] };
+          const claimedRows = (claimed ?? []) as { id: string; amount: number | string; fee_amount: number | string | null; commission_cents: number | null }[];
+          const owedCents = claimedRows.reduce((sum, t) => sum + sellerNetCents(t), 0);
+          releaseClaim = async () => { await supabase.from("transactions").update({ payout_job_id: null }).eq("payout_job_id", job.id); };
           if (owedCents <= 0) {
+            await releaseClaim();
+            releaseClaim = null;
             await supabase.from("stripe_connect_payout_jobs").update({ status: "cancelled", blocked_reason: "Nothing owed" }).eq("id", job.id);
             continue;
           }
           await stripe.transfers.create({ amount: owedCents, currency: "eur", destination: account.stripe_account_id });
+          // The money has left the platform: these sales stay claimed even if
+          // the bank payout below fails (it then sits on their Stripe account).
+          releaseClaim = null;
           const payout = await stripe.payouts.create({ amount: owedCents, currency: "eur" }, { stripeAccount: account.stripe_account_id });
           await supabase.from("stripe_connect_payout_jobs").update({ status: "sent", stripe_payout_id: payout.id, amount_cents: owedCents, attempted_at: new Date().toISOString() }).eq("id", job.id);
-          // Mark these transactions as paid out so they aren't double-counted next run.
-          if (txIds.length > 0) {
-            await supabase.from("transactions").update({ payout_job_id: job.id }).in("id", txIds);
-          }
           sent++;
         } else {
           // organizer_event_payout: the money already sits on the connected
@@ -320,6 +338,7 @@ serve(async (req) => {
         }
       } catch (err) {
         console.error(`[stripe-connect-payout-cron] payout failed for job ${job.id}:`, err);
+        if (releaseClaim) await releaseClaim().catch((e) => console.error(`[stripe-connect-payout-cron] could not release claimed sales of job ${job.id}:`, e));
         await supabase.from("stripe_connect_payout_jobs").update({ status: "failed", blocked_reason: err instanceof Error ? err.message : String(err), attempted_at: new Date().toISOString() }).eq("id", job.id);
         failed++;
       }

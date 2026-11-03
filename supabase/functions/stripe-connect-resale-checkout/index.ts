@@ -14,7 +14,8 @@
  *
  * Same request and checks as the Revolut resale checkout it replaces:
  * verified listings only, the buyer's accepted offer price wins over the
- * listing price, stale reservations are released, guests can buy without an
+ * listing price, the final price per ticket must be at or under the resale
+ * cap (_shared/resalePriceCap.ts), stale reservations are released, guests can buy without an
  * account. Completion (mark sold, transfer the ticket, emails) is handled by
  * stripe-connect-webhook.
  */
@@ -22,6 +23,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getStripeClient } from "../_shared/stripeConnect.ts";
 import { getOrCreateGuestAccount } from "../_shared/getOrCreateGuestAccount.ts";
+import { checkResalePrice, parseResaleCap } from "../_shared/resalePriceCap.ts";
 
 const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type" };
 function json(body: unknown, status = 200) {
@@ -78,17 +80,11 @@ serve(async (req) => {
     // Only a listing an admin has verified can be paid for with real money.
     const { data: listing } = await supabase
       .from("tickets")
-      .select("id, seller_id, selling_price, quantity, events(id, title)")
+      .select("id, seller_id, event_id, studio_ticket_id, selling_price, quantity, events(id, title)")
       .eq("id", listingId).eq("status", "available").eq("verification_status", "verified")
       .maybeSingle();
     if (!listing) return json({ error: "This ticket is no longer available." }, 404);
     if (listing.seller_id === user.id) return json({ error: "You cannot purchase your own ticket." }, 400);
-
-    const { data: reserved } = await supabase
-      .from("tickets").update({ status: "reserved" })
-      .eq("id", listingId).eq("status", "available").eq("verification_status", "verified").select("id");
-    if (!reserved || reserved.length === 0) return json({ error: "This ticket was just purchased by someone else." }, 409);
-    reservedListingId = listingId;
 
     // A price the seller accepted in chat wins over the listing price.
     let negotiatedPrice: number | null = null;
@@ -108,6 +104,31 @@ serve(async (req) => {
     const qty = Math.min(Math.max(1, listing.quantity ?? 1), MAX_QUANTITY);
     const unitPrice = Math.min(Math.max(MIN_UNIT_PRICE_EUR, Number(negotiatedPrice ?? listing.selling_price) || 0), MAX_UNIT_PRICE_EUR);
     const unitCents = Math.round(unitPrice * 100);
+
+    // The final price per ticket must stay under the resale cap (organizer's
+    // maximum, else face value + the default markup). Checked before the
+    // ticket is reserved, so a refused price holds nothing.
+    {
+      let tierId: string | null = null;
+      if (listing.studio_ticket_id) {
+        const { data: studioTicket } = await supabase.from("event_tickets").select("tier_id").eq("id", listing.studio_ticket_id).maybeSingle();
+        tierId = (studioTicket as { tier_id?: string | null } | null)?.tier_id ?? null;
+      }
+      const eventId = listing.event_id ?? (listing.events as { id?: string } | null)?.id ?? null;
+      if (eventId) {
+        const { data: capRow, error: capErr } = await supabase.rpc("resale_price_cap", { p_event_id: eventId, p_tier_id: tierId });
+        if (capErr) throw new Error("Resale price cap lookup failed: " + capErr.message);
+        const check = checkResalePrice(unitCents, parseResaleCap(capRow), negotiatedPrice != null);
+        if (!check.ok) return json({ error: check.error, code: "PRICE_ABOVE_CAP" }, 422);
+      }
+    }
+
+    const { data: reserved } = await supabase
+      .from("tickets").update({ status: "reserved" })
+      .eq("id", listingId).eq("status", "available").eq("verification_status", "verified").select("id");
+    if (!reserved || reserved.length === 0) return json({ error: "This ticket was just purchased by someone else." }, 409);
+    reservedListingId = listingId;
+
     const subtotalCents = unitCents * qty;
     const buyerFeeCents = Math.round((subtotalCents * BUYER_FEE_PERCENT) / 100);
     const totalCents = subtotalCents + buyerFeeCents;

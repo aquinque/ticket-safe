@@ -1,8 +1,9 @@
 /**
  * revolut-resale-checkout — resale marketplace via Revolut Merchant (Deno).
  * Mirrors stripe-create-checkout but creates a Revolut order. Buyer pays the
- * accepted-offer price (or listing price) + a tiered fee (6%, or 7% when the
- * unit price is >= 50 EUR). Completion (mark sold, transfer ticket) is handled
+ * accepted-offer price (or listing price) + a 5% service fee (the old
+ * 6 % / 7 % tiers are kept as constants, both now at 5). Legacy: the site's
+ * checkout calls stripe-connect-resale-checkout. Completion (mark sold, transfer ticket) is handled
  * by revolut-webhook.
  *
  * Guest checkout: no Ticket Safe account required to buy. With a valid
@@ -14,6 +15,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getOrCreateGuestAccount } from "../_shared/getOrCreateGuestAccount.ts";
+import { checkResalePrice, parseResaleCap } from "../_shared/resalePriceCap.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -111,6 +113,27 @@ serve(async (req) => {
     const qty = Math.min(Math.max(1, listing.quantity ?? 1), MAX_QUANTITY);
     const rawUnitPrice = negotiatedPrice ?? listing.selling_price;
     const unitPrice = Math.min(Math.max(MIN_UNIT_PRICE_EUR, Number(rawUnitPrice) || 0), MAX_UNIT_PRICE_EUR);
+    // Same resale price cap as stripe-connect-resale-checkout. The ticket is
+    // already reserved here, so a refused price releases it.
+    {
+      let tierId: string | null = null;
+      if (listing.studio_ticket_id) {
+        const { data: studioTicket } = await supabase.from("event_tickets").select("tier_id").eq("id", listing.studio_ticket_id).maybeSingle();
+        tierId = (studioTicket as { tier_id?: string | null } | null)?.tier_id ?? null;
+      }
+      const eventId = listing.event_id ?? listing.events?.id ?? null;
+      if (eventId) {
+        const { data: capRow, error: capErr } = await supabase.rpc("resale_price_cap", { p_event_id: eventId, p_tier_id: tierId });
+        if (capErr) throw new Error("Resale price cap lookup failed: " + capErr.message);
+        const check = checkResalePrice(Math.round(unitPrice * 100), parseResaleCap(capRow), negotiatedPrice != null);
+        if (!check.ok) {
+          await supabase.from("tickets").update({ status: "available" }).eq("id", listingId).eq("status", "reserved");
+          reservedListingId = null;
+          return json({ error: check.error, code: "PRICE_ABOVE_CAP" }, 422);
+        }
+      }
+    }
+
     const subtotalCents = Math.round(unitPrice * 100) * qty;
     const buyerFeePercent = unitPrice >= HIGH_VALUE_THRESHOLD_EUR ? BUYER_FEE_PERCENT_HIGH : BUYER_FEE_PERCENT;
     const buyerFeeCents = Math.round(subtotalCents * (buyerFeePercent / 100));

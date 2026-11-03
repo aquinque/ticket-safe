@@ -8,10 +8,13 @@
  * same dual-secret pattern as the legacy stripe-webhook
  * (STRIPE_CONNECT_WEBHOOK_SECRET for the platform endpoint,
  * STRIPE_CONNECT_WEBHOOK_SECRET_CONNECTED for "events on connected accounts").
- * Studio sales are destination charges since 2026-10-06, so their
- * checkout.session.* / payment_intent.* / charge.* events arrive on the
- * PLATFORM endpoint; resale checkouts are still direct charges and arrive on
- * the connected-accounts endpoint, as do account.updated and payout.*.
+ * Studio sales are destination charges since 2026-10-06, and resale sales are
+ * charged on the platform account itself (stripe-connect-resale-checkout:
+ * separate charges and transfers, the seller is paid later by
+ * stripe-connect-payout-cron). So the checkout.session.* / payment_intent.* /
+ * charge.* events of both arrive on the PLATFORM endpoint. account.updated and
+ * payout.* (payouts made from connected accounts) arrive on the
+ * connected-accounts endpoint.
  *
  * Idempotency: reuses the existing stripe_webhook_events table (event_id
  * PK) — Stripe event ids are globally unique per account regardless of
@@ -33,7 +36,12 @@
  *    → release reservation, cancel order/transaction.
  *
  *  charge.refunded → mark refunded, re-list ticket if it was a resale.
- *  charge.dispute.created → flag + notify admin, block the event's payout job.
+ *  charge.dispute.created → notify admin; Studio order: block the event's
+ *    payout job; resale: transaction -> 'disputed', which keeps it out of the
+ *    seller's payout, or, if the seller was already paid, flags it so the
+ *    admin recovers the money (_shared/resaleDispute.ts).
+ *  charge.dispute.closed → a won resale dispute puts the sale back to
+ *    'completed' so the seller is paid; a lost one stays 'disputed'.
  *  account.updated → sync stripe_connect_accounts.
  *  payout.paid / payout.failed → update stripe_connect_payout_jobs, notify.
  */
@@ -46,6 +54,7 @@ import { sendResaleCompletionEmails } from "../_shared/sendResaleCompletionEmail
 import { renderEmail, ctaButton, ticketSummary } from "../_shared/emailComponents.ts";
 import { emailTokens } from "../_shared/emailTokens.ts";
 import { formatMinor } from "../_shared/money.ts";
+import { holdResaleOnDispute, releaseResaleDispute, resaleDisputeAlert } from "../_shared/resaleDispute.ts";
 
 async function sendEmail(resendKey: string, to: string, subject: string, html: string, text: string) {
   try {
@@ -241,23 +250,45 @@ serve(async (req) => {
         const dispute = event.data.object as Stripe.Dispute;
         const pi = typeof dispute.payment_intent === "string" ? dispute.payment_intent : dispute.payment_intent?.id;
         console.error(`[stripe-connect-webhook] DISPUTE opened: ${dispute.id} amount=${dispute.amount} pi=${pi}`);
-        if (resendKey) {
-          // In the charge's currency: pounds for a London event (Stripe sends it lowercase, e.g. "gbp").
-          const disputeAmount = formatMinor(dispute.amount, dispute.currency, "prefix");
-          const bodyHtml = `<p style="margin:0 0 4px">A Stripe dispute (chargeback) was just opened.</p>${ticketSummary([["Dispute amount", disputeAmount, emailTokens.danger], ["Payment intent", pi ?? "—"], ["Reason", dispute.reason ?? "—"]])}<p style="margin:16px 0 0;font-size:13px;color:${emailTokens.textMuted}">Respond in the Stripe Dashboard before the evidence deadline. Any payout tied to this order should be held until resolved.</p>`;
-          const text = `Dispute opened: ${disputeAmount}, payment_intent ${pi}, reason: ${dispute.reason}`;
-          const { html } = renderEmail({ eyebrow: "Stripe dispute", title: "A payment was disputed", bodyHtml, preheader: `Dispute opened for ${disputeAmount}`, text });
-          await sendEmail(resendKey, "ticketsafe.friendly@gmail.com", `[URGENT] Stripe dispute opened — ${disputeAmount}`, html, text);
-        }
-        // Block any pending payout job for the order tied to this payment_intent.
+
+        // Studio order: block any pending payout job for its event.
+        // Resale: hold the sale out of the seller's payout, or flag it if the
+        // seller was already paid.
+        let resale: ReturnType<typeof resaleDisputeAlert> = null;
         if (pi) {
           const { data: order } = await supabase.from("event_orders").select("id, event_id").eq("stripe_payment_intent_id", pi).maybeSingle();
           if (order) {
             await supabase.from("stripe_connect_payout_jobs")
               .update({ status: "blocked", blocked_reason: `Dispute ${dispute.id} on event ${order.event_id}` })
               .eq("event_id", order.event_id).eq("status", "scheduled");
+          } else {
+            const hold = await holdResaleOnDispute(supabase, { paymentIntentId: pi, disputeId: dispute.id });
+            console.log(`[stripe-connect-webhook] resale dispute ${dispute.id}: ${hold.kind}`);
+            resale = resaleDisputeAlert(hold);
           }
         }
+
+        if (resendKey) {
+          // In the charge's currency: pounds for a London event (Stripe sends it lowercase, e.g. "gbp").
+          const disputeAmount = formatMinor(dispute.amount, dispute.currency, "prefix");
+          const rows: [string, string, string?][] = [["Dispute amount", disputeAmount, emailTokens.danger], ["Payment intent", pi ?? "—"], ["Reason", dispute.reason ?? "—"]];
+          for (const [label, value] of resale?.rows ?? []) rows.push([label, value]);
+          const note = resale?.note ?? "Any payout tied to this order should be held until resolved.";
+          const bodyHtml = `<p style="margin:0 0 4px">A Stripe dispute (chargeback) was just opened.</p>${ticketSummary(rows)}<p style="margin:16px 0 0;font-size:13px;color:${emailTokens.textMuted}">Respond in the Stripe Dashboard before the evidence deadline. ${note}</p>`;
+          const text = `Dispute opened: ${disputeAmount}, payment_intent ${pi}, reason: ${dispute.reason}. ${(resale?.rows ?? []).map(([l, v]) => `${l}: ${v}`).join(". ")} ${note}`;
+          const subject = resale?.urgent
+            ? `[URGENT] Stripe dispute on a resale already paid out — ${disputeAmount}`
+            : `[URGENT] Stripe dispute opened — ${disputeAmount}`;
+          const { html } = renderEmail({ eyebrow: "Stripe dispute", title: "A payment was disputed", bodyHtml, preheader: `Dispute opened for ${disputeAmount}`, text });
+          await sendEmail(resendKey, "ticketsafe.friendly@gmail.com", subject, html, text);
+        }
+        break;
+      }
+
+      case "charge.dispute.closed": {
+        const dispute = event.data.object as Stripe.Dispute;
+        const result = await releaseResaleDispute(supabase, { disputeId: dispute.id, disputeStatus: dispute.status });
+        console.log(`[stripe-connect-webhook] dispute ${dispute.id} closed (${dispute.status}): ${result.kind}`);
         break;
       }
 

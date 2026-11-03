@@ -44,7 +44,7 @@ import {
 } from "lucide-react";
 import { toast as sonnerToast } from "sonner";
 import { generatePayoutReceiptPDF } from "@/lib/payoutReceiptPdf";
-import { RESALE_BUYER_FEE_COPY } from "@/lib/fees";
+import { RESALE_BUYER_FEE_COPY, RESALE_SELLER_COMMISSION_COPY, calcBreakdown } from "@/lib/fees";
 import { Chip, WalletOverview } from "@/components/wallet/WalletOverview";
 import { authPathHere } from "@/lib/returnTo";
 
@@ -667,7 +667,7 @@ const MyListings = () => {
             </div>
             {editPrice && parseFloat(editPrice) > 0 && (
               <p className="text-xs text-muted-foreground mt-2">
-                You will receive ~€{(parseFloat(editPrice) * 0.95).toFixed(2)} after the 5% platform fee.
+                You'll receive €{calcBreakdown(parseFloat(editPrice), 1).sellerPayoutEuros.toFixed(2)} ({RESALE_SELLER_COMMISSION_COPY} commission). The buyer pays a {RESALE_BUYER_FEE_COPY} service fee on top.
               </p>
             )}
           </div>

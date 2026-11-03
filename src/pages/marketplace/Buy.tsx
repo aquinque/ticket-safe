@@ -11,7 +11,7 @@
  *   4. One uniform grid of event cards: photo, title, date and place, the
  *      cheapest price and a "View tickets" button. The tickets of an event
  *      open inside its card.
- *   5. Group chat vs TicketSafe (where the 5% fee is stated).
+ *   5. Group chat vs TicketSafe (where the buyer service fee and seller commission are stated).
  *
  * Same .theme-night tokens as the rest of the public site: navy surfaces,
  * brand-blue actions, the light blue only for urgency tags.
@@ -46,7 +46,7 @@ import { useTicketListings, TicketListing } from "@/contexts/TicketListingsConte
 import { useAuth } from "@/hooks/useAuth";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { getOrCreateConversation } from "@/hooks/useChat";
-import { calcBreakdown } from "@/lib/fees";
+import { calcBreakdown, RESALE_BUYER_FEE_COPY } from "@/lib/fees";
 import { ResaleHero, GroupChatVsUs, HowItWorks, resalePitchStyles } from "@/components/resale/ResalePitch";
 import { toast } from "sonner";
 import { authPathHere } from "@/lib/returnTo";
@@ -619,14 +619,17 @@ function ExpandedTickets({
         Protected by TicketSafe · escrow payment
       </p>
       {group.tickets.map((t) => {
-        const allIn = calcBreakdown(t.sellingPrice, 1).buyerTotalEuros;
+        const bd = calcBreakdown(t.sellingPrice, 1);
+        const allIn = bd.buyerTotalEuros;
         return (
           <div key={t.id} className="p-3.5 rounded-xl bg-card border border-border">
             <div className="flex items-baseline gap-2">
               <span className="font-black text-xl text-foreground tabular-nums">
                 €{allIn.toFixed(2)}
               </span>
-              <span className="text-xs text-muted-foreground">all fees included</span>
+              <span className="text-xs text-muted-foreground">
+                incl. €{bd.buyerFeeEuros.toFixed(2)} service fee ({RESALE_BUYER_FEE_COPY})
+              </span>
             </div>
             <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-muted-foreground">
               <span>{t.quantity} left</span>
