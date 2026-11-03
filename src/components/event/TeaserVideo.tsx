@@ -29,7 +29,9 @@ export function useVideoShape(src: string | null | undefined): VideoShape {
 
 /**
  * The organizer's vertical promo video, under the tickets: plays muted on a loop like a
- * story, with a button to turn the sound on. Hidden if the file can't play.
+ * story, with a button to turn the sound on. Always shown whole (never cropped): where the
+ * column is wider than the video, the poster, blurred, fills the sides. Hidden if the file
+ * can't play.
  */
 export function TeaserVideo({ src, poster, title }: { src: string; poster?: string | null; title: string }) {
   const ref = useRef<HTMLVideoElement>(null);
@@ -56,11 +58,11 @@ export function TeaserVideo({ src, poster, title }: { src: string; poster?: stri
 
   return (
     <section className="relative overflow-hidden rounded-2xl border border-border bg-black" aria-label={`${title}: teaser video`}>
+      {poster && <img src={poster} alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover scale-125 blur-2xl opacity-60" />}
       <video
         ref={ref}
         src={src}
-        poster={poster ?? undefined}
-        className="block w-full aspect-[9/16] max-h-[640px] object-cover"
+        className="relative block w-full aspect-[9/16] max-h-[640px] object-contain"
         autoPlay
         muted
         loop
