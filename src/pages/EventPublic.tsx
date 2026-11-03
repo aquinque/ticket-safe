@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { SEOHead } from "@/components/SEOHead";
 import { PromoVideo } from "@/components/PromoVideo";
+import { TeaserVideo, useVideoShape } from "@/components/event/TeaserVideo";
 import { useServiceFeeForPrice, useTierServiceFee } from "@/hooks/useServiceFee";
 import { studioFeeRule } from "@/lib/studioFee";
 import { currencySymbol, formatMoney, toCurrency } from "@/lib/money";
@@ -163,6 +164,10 @@ const EventPublic = () => {
   const [promoCode, setPromoCode] = useState("");
   const [showPromoInput, setShowPromoInput] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
+  // In development, ?preview_video=<url> tries a promo video on the page before it is uploaded.
+  const previewVideo = import.meta.env.DEV ? new URLSearchParams(location.search).get("preview_video") : null;
+  const promoVideo = previewVideo ?? event?.video_url ?? null;
+  const videoShape = useVideoShape(promoVideo);
   const [interested, setInterested] = useState(0);
   const nowTs = useNow(30_000);
   // Keep the attendees array sized to the current quantity. When quantity grows,
@@ -546,6 +551,10 @@ const EventPublic = () => {
   // theme (including .theme-night below), so plain `text-primary` /
   // `bg-primary` utilities give the same guarantee without hardcoding a hex.
   const selected = tiers.find((t) => t.tier_id === selectedTier) ?? null;
+  // The promo video: a horizontal one plays in the poster frame, a vertical one under the tickets
+  // (the poster stays on top). Until its shape is known, the poster shows.
+  const heroVideo = videoShape === "landscape" ? promoVideo : null;
+  const teaserVideo = videoShape === "portrait" ? promoVideo : null;
   const totalCents = selected ? selected.price_cents * qty : 0;
   // Per-ticket service fee as the server computes it (database formula, or the
   // event's negotiated fee). The checkout charges the same amount. Free (€0)
@@ -1004,8 +1013,8 @@ const EventPublic = () => {
       <section className="pt-16 md:pt-20">
         <div className="sm:container sm:mx-auto sm:max-w-5xl sm:px-4 sm:pt-4">
           <div className="relative w-full aspect-[16/9] overflow-hidden sm:rounded-2xl" style={{ background: accent }}>
-            {event.video_url ? (
-              <PromoVideo src={event.video_url} poster={event.banner_url} className="absolute inset-0 w-full h-full object-cover" />
+            {heroVideo ? (
+              <PromoVideo src={heroVideo} poster={event.banner_url} className="absolute inset-0 w-full h-full object-cover" />
             ) : event.banner_url ? (
               <img
                 src={event.banner_url}
@@ -1117,6 +1126,7 @@ const EventPublic = () => {
                 </section>
               )}
               {selected && !eventSoldOut && !isPast && <div className="lg:sticky lg:top-24">{renderSummary(true)}</div>}
+              {teaserVideo && <TeaserVideo src={teaserVideo} poster={event.banner_url} title={event.title} />}
             </aside>
 
             {/* ===== RIGHT: the story (on a phone: tickets first, then the story) ===== */}
@@ -1142,6 +1152,7 @@ const EventPublic = () => {
                 </section>
               )}
               {selected && !eventSoldOut && !isPast && <div id="checkout" className="lg:hidden scroll-mt-20">{renderSummary(true)}</div>}
+              {teaserVideo && <div className="lg:hidden"><TeaserVideo src={teaserVideo} poster={event.banner_url} title={event.title} /></div>}
               {event.description && (
                 <section className="rounded-2xl border border-border bg-card/50 p-5">
                   <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground mb-3">About</h2>
