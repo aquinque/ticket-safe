@@ -426,7 +426,11 @@
       "upcoming": "{count} próximas",
       "purchases": "Historial de compras",
       "messages": "Mensajes",
-      "nextUp": "Próximo"
+      "nextUp": "Próximo",
+      "tonight": "Esta noche",
+      "today": "Hoy",
+      "tomorrow": "Mañana",
+      "inDays": "En {count} días"
     },
     "personal": {
       "title": "Datos personales",
@@ -446,7 +450,8 @@
       "editLastName": "Editar apellidos",
       "editGender": "Editar género",
       "editSchool": "Editar escuela u organización",
-      "editCampus": "Editar campus"
+      "editCampus": "Editar campus",
+      "description": "Cómo apareces en tus entradas."
     },
     "security": {
       "title": "Acceso y seguridad",
@@ -464,7 +469,8 @@
       "signOutAllHint": "Cierra todas las sesiones, incluida esta.",
       "signOutAllTitle": "¿Cerrar sesión en todas partes?",
       "signOutAllBody": "Se cerrará la sesión en este dispositivo y en todos los demás. Tus entradas siguen en tu cuenta.",
-      "signOutAllConfirm": "Cerrar sesión en todas partes"
+      "signOutAllConfirm": "Cerrar sesión en todas partes",
+      "description": "Cómo entras y dónde tienes la sesión abierta."
     },
     "password": {
       "current": "Contraseña actual",
@@ -496,7 +502,8 @@
       "wallet": "Mi monedero",
       "walletHint": "{amount} disponibles",
       "studio": "Pagos de eventos",
-      "studioHint": "Pagados a través de Stripe, en Ticket Studio"
+      "studioHint": "Pagados a través de Stripe, en Ticket Studio",
+      "description": "Adónde va el dinero de tus reventas."
     },
     "preferences": {
       "title": "Preferencias",
@@ -517,7 +524,9 @@
       "deleteBody": "No se puede deshacer. Se eliminan tu cuenta y tus datos personales; las entradas de próximos eventos se pierden.",
       "deleteType": "Escribe {email} para confirmar",
       "deleteMismatch": "El email no coincide. Escríbelo exactamente.",
-      "deleteConfirm": "Eliminar mi cuenta"
+      "deleteConfirm": "Eliminar mi cuenta",
+      "description": "Tus datos, tu decisión.",
+      "deleteHint": "Definitivo. Te pedimos confirmación antes."
     },
     "errors": {
       "firstNameRequired": "Indica tu nombre.",
@@ -551,6 +560,14 @@
       "anonymizeFailed": "No se pudo anonimizar tu cuenta. Inténtalo de nuevo.",
       "deleted": "Tu cuenta se ha eliminado",
       "deleteFailed": "No se pudo eliminar tu cuenta. Inténtalo de nuevo."
+    },
+    "stats": {
+      "events": "Eventos",
+      "tickets": "Entradas",
+      "spent": "Gastado",
+      "resales": "Reventas",
+      "upcoming": "Próximas",
+      "empty": "Tu primer evento te espera"
     }
   }
 }

@@ -426,7 +426,11 @@
       "upcoming": "{count} upcoming",
       "purchases": "Purchase history",
       "messages": "Messages",
-      "nextUp": "Next up"
+      "nextUp": "Next up",
+      "tonight": "Tonight",
+      "today": "Today",
+      "tomorrow": "Tomorrow",
+      "inDays": "In {count} days"
     },
     "personal": {
       "title": "Personal info",
@@ -446,7 +450,8 @@
       "editLastName": "Edit last name",
       "editGender": "Edit gender",
       "editSchool": "Edit school or organisation",
-      "editCampus": "Edit campus"
+      "editCampus": "Edit campus",
+      "description": "How you appear on your tickets."
     },
     "security": {
       "title": "Sign-in & security",
@@ -464,7 +469,8 @@
       "signOutAllHint": "Ends every session, this one included.",
       "signOutAllTitle": "Sign out everywhere?",
       "signOutAllBody": "You'll be signed out on this device and every other one. Your tickets stay safe in your account.",
-      "signOutAllConfirm": "Sign out everywhere"
+      "signOutAllConfirm": "Sign out everywhere",
+      "description": "How you sign in, and where you're signed in."
     },
     "password": {
       "current": "Current password",
@@ -496,7 +502,8 @@
       "wallet": "My wallet",
       "walletHint": "{amount} available",
       "studio": "Event payouts",
-      "studioHint": "Paid out through Stripe, in Ticket Studio"
+      "studioHint": "Paid out through Stripe, in Ticket Studio",
+      "description": "Where your resale money goes."
     },
     "preferences": {
       "title": "Preferences",
@@ -517,7 +524,9 @@
       "deleteBody": "This can't be undone. Your account and personal data are deleted; tickets for upcoming events are lost.",
       "deleteType": "Type {email} to confirm",
       "deleteMismatch": "The email doesn't match. Type it exactly.",
-      "deleteConfirm": "Delete my account"
+      "deleteConfirm": "Delete my account",
+      "description": "Your data, your call.",
+      "deleteHint": "Permanent. Asks you to confirm first."
     },
     "errors": {
       "firstNameRequired": "Enter your first name.",
@@ -551,6 +560,14 @@
       "anonymizeFailed": "Couldn't anonymize your account. Please try again.",
       "deleted": "Your account has been deleted",
       "deleteFailed": "Couldn't delete your account. Please try again."
+    },
+    "stats": {
+      "events": "Events",
+      "tickets": "Tickets",
+      "spent": "Spent",
+      "resales": "Resales",
+      "upcoming": "Upcoming",
+      "empty": "Your first event is waiting"
     }
   }
 }

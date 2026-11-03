@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { Check, Eye, EyeOff, Loader2 } from "lucide-react";
+import { Check, Eye, EyeOff, KeyRound, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
@@ -49,6 +49,7 @@ export const PasswordChangeRow = ({
   if (!editing) {
     return (
       <Row
+        icon={KeyRound}
         label={t("account.security.password")}
         value={<span aria-label={t("account.security.passwordHidden")}>••••••••••</span>}
         action={<RowAction onClick={onEdit}>{t("account.security.changePassword")}</RowAction>}
@@ -124,7 +125,7 @@ export const PasswordChangeRow = ({
   );
 
   return (
-    <form onSubmit={submit} noValidate className="py-4 space-y-4">
+    <form onSubmit={submit} noValidate className="py-5 space-y-4">
       {/* Lets password managers attach the new password to the right account. */}
       <input type="email" autoComplete="username" value={email} readOnly hidden />
       <div className="flex items-center justify-between gap-3">
