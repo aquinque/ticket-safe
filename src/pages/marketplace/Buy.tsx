@@ -2,15 +2,16 @@
  * Resale marketplace: makes the case for selling here, then lets buyers browse.
  *
  * Top-down anatomy:
- *   1. ResaleHero: why sell here instead of a group chat, with "Sell my
- *      ticket" and "Browse tickets" (src/components/resale/ResalePitch.tsx).
+ *   1. ResaleHero: "Can't go? Resell your ticket.", with "Sell my ticket" and
+ *      "Browse tickets", then the three steps of HowItWorks
+ *      (src/components/resale/ResalePitch.tsx).
  *   2. Browse: a search field and a Filters button (price, school and campus
  *      live behind it), then sticky category chips.
  *   3. Result count and sort.
  *   4. One uniform grid of event cards: photo, title, date and place, the
  *      cheapest price and a "View tickets" button. The tickets of an event
  *      open inside its card.
- *   5. Group chat vs TicketSafe, and the three selling steps.
+ *   5. Group chat vs TicketSafe (where the 5% fee is stated).
  *
  * Same .theme-night tokens as the rest of the public site: navy surfaces,
  * brand-blue actions, the light blue only for urgency tags.
@@ -46,7 +47,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { getOrCreateConversation } from "@/hooks/useChat";
 import { calcBreakdown } from "@/lib/fees";
-import { ResaleHero, GroupChatVsUs, HowSellingWorks, resalePitchStyles } from "@/components/resale/ResalePitch";
+import { ResaleHero, GroupChatVsUs, HowItWorks, resalePitchStyles } from "@/components/resale/ResalePitch";
 import { toast } from "sonner";
 import { authPathHere } from "@/lib/returnTo";
 
@@ -269,6 +270,7 @@ const Buy = () => {
       <HeaderNight />
 
       <ResaleHero listedCount={listings.reduce((n, l) => n + l.quantity, 0)} />
+      <HowItWorks />
 
       {/* =================== BROWSE =================== */}
       <section id="marketplace-grid" className="scroll-mt-20 border-t border-border">
@@ -277,7 +279,7 @@ const Buy = () => {
             Tickets on sale now
           </h2>
           <p className="mt-2 text-sm md:text-base text-muted-foreground">
-            From other students, checked before they go on sale.
+            Checked before they go on sale.
           </p>
 
           {/* Search + Filters */}
@@ -446,7 +448,6 @@ const Buy = () => {
       </main>
 
       <GroupChatVsUs />
-      <HowSellingWorks />
 
       <Footer />
 
