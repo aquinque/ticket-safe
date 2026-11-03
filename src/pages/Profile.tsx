@@ -1,443 +1,352 @@
-import { useState, useEffect } from "react";
-import { BackButton } from "@/components/BackButton";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import HeaderNight from "@/components/HeaderNight";
-import { useThemeMode } from "@/hooks/useThemeMode";
 import Footer from "@/components/Footer";
-import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
+import { SEOHead } from "@/components/SEOHead";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useI18n } from "@/contexts/I18nContext";
-import { toast } from "@/hooks/use-toast";
-import { SEOHead } from "@/components/SEOHead";
-import { RESALE_ENABLED } from "@/lib/featureFlags";
-import { GENDER_CHOICES, PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, genderToStore, passwordError, type GenderChoice } from "@/lib/authRules";
 import {
-  User,
-  Mail,
-  Lock,
-  Save,
-  AlertCircle,
-  ShieldCheck,
-  Building2,
-  MapPin,
-  Ticket,
-  Tag,
-  ArrowRight,
-  Banknote,
-  ShoppingBag,
-  ArrowDownLeft,
-  ArrowUpRight,
-  QrCode,
-  MessageCircle,
-  ShieldCheck as PrivacyIcon,
-  ChevronDown,
-  Check,
-  Sparkles,
-  Clock,
-} from "lucide-react";
-import { useCountUp } from "@/hooks/useCountUp";
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useThemeMode } from "@/hooks/useThemeMode";
+import { useAuth } from "@/hooks/useAuth";
+import { useOrganizer } from "@/hooks/useOrganizer";
+import { useI18n } from "@/contexts/I18nContext";
+import { supabase } from "@/integrations/supabase/client";
+import { RESALE_ENABLED } from "@/lib/featureFlags";
+import { GENDER_CHOICES, authErrorMessage, genderToStore } from "@/lib/authRules";
 import { CURRENCIES, toCurrency, type Currency } from "@/lib/money";
 import { isPastEvent } from "@/lib/eventTime";
 import { authPathHere } from "@/lib/returnTo";
+import { authRedirect } from "@/lib/siteUrl";
+import { ibanLast4 } from "@/components/wallet/walletModel";
+import { Chip, ChoiceEditRow, LinkRow, Row, RowAction, Section, TextEditRow, eyebrow } from "@/components/profile/ProfileUI";
+import { PasswordChangeRow } from "@/components/profile/PasswordChangeRow";
+import {
+  NAME_MAX_LENGTH,
+  SCHOOL_MAX_LENGTH,
+  initialsOf,
+  nameError,
+  newEmailError,
+  recapLine,
+  schoolError,
+  signInMethods,
+} from "@/components/profile/profileModel";
 
-/** The page's one colour: the site's own blue, for the cover, the chips and the buttons. */
-const ACCENT = "hsl(var(--primary))";
-const COVER = "linear-gradient(120deg, hsl(var(--primary)) 0%, hsl(var(--primary-hover)) 100%)";
+/**
+ * /profile — the account page, reached from the menu (Profile · My tickets · My wallet) and from the
+ * initials in the desktop header. Signing in never lands here (see lib/returnTo).
+ *
+ * Everything the old Profile, Settings and Personal information pages did lives here:
+ * - who you are: initials, first name, email, school, campus, member since, a one-line recap;
+ * - your tickets: the next event with its QR, all tickets, purchase history, messages;
+ * - personal info: first and last name (also on the account, for emails), gender, school, campus;
+ * - sign-in & security: email (changed after confirming a link), password (current + new + confirm),
+ *   sign-in methods, sign out of all devices;
+ * - payments: resale payout account on Stripe (status, last 4 of the withdrawal IBAN), wallet balance,
+ *   Ticket Studio payouts for organizers;
+ * - preferences: language;
+ * - privacy: download, anonymize or delete the account (privacy-request function).
+ * Each change saves on its own, inline, with a toast; nothing reloads the page.
+ */
 
-/** "In 27 days", "Tonight", "Tomorrow", "Today" for the next ticket. */
-function soonLabel(iso: string, fr: boolean): string {
-  const start = new Date(iso);
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  const day = new Date(start); day.setHours(0, 0, 0, 0);
-  const days = Math.round((day.getTime() - today.getTime()) / 86_400_000);
-  if (days <= 0) return start.getHours() >= 17 ? (fr ? "Ce soir" : "Tonight") : (fr ? "Aujourd'hui" : "Today");
-  if (days === 1) return fr ? "Demain" : "Tomorrow";
-  return fr ? `Dans ${days} jours` : `In ${days} days`;
-}
-
-const Figure = ({ label, value, locale }: { label: string; value: number; locale: string }) => {
-  const shown = useCountUp(Math.round(value));
-  return (
-    <div className="min-w-0">
-      <p className="text-[10px] font-bold uppercase tracking-wider text-foreground/60 truncate">{label}</p>
-      <p className="text-2xl md:text-3xl font-bold tabular-nums leading-tight mt-0.5 text-foreground">{shown.toLocaleString(locale)}</p>
-    </div>
-  );
-};
-
-/** One counted-up amount, in major units of `currency`. */
-const CountedMoney = ({ value, currency, locale }: { value: number; currency: Currency; locale: string }) => {
-  const shown = useCountUp(Math.round(value * 100));
-  return <>{new Intl.NumberFormat(locale, { style: "currency", currency, maximumFractionDigits: 0 }).format(shown / 100)}</>;
-};
-
-/** Money figure: one amount per currency (pounds are never added to euros). */
-const MoneyFigure = ({ label, amounts, locale }: { label: string; amounts: { value: number; currency: Currency }[]; locale: string }) => (
-  <div className="min-w-0">
-    <p className="text-[10px] font-bold uppercase tracking-wider text-foreground/60 truncate">{label}</p>
-    <p className={`${amounts.length > 1 ? "text-lg md:text-xl" : "text-2xl md:text-3xl"} font-bold tabular-nums leading-tight mt-0.5 text-foreground`}>
-      {amounts.map((a, i) => (
-        <span key={a.currency}>{i > 0 && " · "}<CountedMoney value={a.value} currency={a.currency} locale={locale} /></span>
-      ))}
-    </p>
-  </div>
-);
-
-/** A ticket the user holds for an event that has not happened yet. */
-interface UpcomingTicket {
-  id: string;
-  orderId: string;
-  eventTitle: string;
-  eventDate: string | null;
-  /** The end the organizer set, if any; without one the event ends 8 h after its start (see @/lib/eventTime). */
-  eventEndsAt: string | null;
-  location: string | null;
-  tierName: string | null;
-  holderName: string | null;
-}
-
-interface Purchase {
-  id: string;
-  /** Set for primary purchases: opens the tickets and their QR codes. */
-  orderId?: string;
-  eventTitle: string;
-  date: string;
-  price: number;
-  /** Resale is always euros; a primary order is in its event's currency. */
-  currency: Currency;
-  quantity: number;
-  status: string;
-  soldAt: string | null;
-}
-
-interface Sale {
-  id: string;
-  eventTitle: string;
-  date: string;
-  salePrice: number;
-  status: string;
-  soldAt: string | null;
-}
-
-/** One unified transaction row, in or out. */
-interface TxRow {
-  id: string;
-  kind: "purchase" | "sale";
-  title: string;
-  date: string; // ISO — when it happened (for sorting)
-  amount: number; // major units of `currency`
-  currency: Currency;
-  status: string;
-  orderId?: string;
-}
-
-/** Campuses where the school operates — used in the profile + at signup. */
+/** Campuses offered at sign-up. */
 const CAMPUSES = ["Paris", "London", "Madrid", "Berlin", "Turin"] as const;
+
+const LANGUAGES: { code: "fr" | "en" | "es"; label: string }[] = [
+  { code: "fr", label: "Français" },
+  { code: "en", label: "English" },
+  { code: "es", label: "Español" },
+];
+
+const LOCALE: Record<string, string> = { fr: "fr-FR", es: "es-ES", en: "en-GB" };
+
+interface ProfileData {
+  firstName: string;
+  lastName: string;
+  fullName: string;
+  gender: "" | "female" | "male";
+  school: string;
+  campus: string;
+  memberSince: string | null;
+  profileEmail: string | null;
+  payoutIban: string | null;
+}
+
+interface NextTicket {
+  orderId: string;
+  title: string;
+  date: string | null;
+  location: string | null;
+  tier: string | null;
+}
+
+interface Recap {
+  events: number;
+  tickets: number;
+  spent: { value: number; currency: Currency }[];
+  resales: number;
+}
+
+type Payout = { state: "none" | "pending" | "ready"; availableCents: number };
+
+type EditKey = "first" | "last" | "gender" | "school" | "campus" | "email" | "password";
+
+const one = <T,>(v: T | T[] | null | undefined): T | null => (Array.isArray(v) ? v[0] ?? null : v ?? null);
 
 const Profile = () => {
   useThemeMode("night");
-  const [userData, setUserData] = useState({ name: "", email: "", school: "", campus: "" });
-  const [purchases, setPurchases] = useState<Purchase[]>([]);
-  const [sales, setSales] = useState<Sale[]>([]);
-  const [upcomingTickets, setUpcomingTickets] = useState<UpcomingTicket[]>([]);
-  const [editFirstName, setEditFirstName] = useState("");
-  const [editLastName, setEditLastName] = useState("");
-  const [editGender, setEditGender] = useState<GenderChoice>("");
-  const [savingIdentity, setSavingIdentity] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [savingPassword, setSavingPassword] = useState(false);
-  const [savingCampus, setSavingCampus] = useState(false);
-  const [memberSince, setMemberSince] = useState<string | null>(null);
-  const [showPassword, setShowPassword] = useState(false);
-  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const { language, t } = useI18n();
-  const dateLocale = language === "fr" ? "fr-FR" : "en-GB";
-  const fr = language === "fr";
+  const { t, language, setLanguage } = useI18n();
+  const { user, loading: authLoading, signOut } = useAuth();
+  const { organizer } = useOrganizer();
+  const locale = LOCALE[language] ?? "en-GB";
 
-  // Redirect to auth if not logged in
+  const [profile, setProfile] = useState<ProfileData | null>(null);
+  const [nextTicket, setNextTicket] = useState<NextTicket | null>(null);
+  const [upcomingCount, setUpcomingCount] = useState(0);
+  const [recap, setRecap] = useState<Recap>({ events: 0, tickets: 0, spent: [], resales: 0 });
+  const [payout, setPayout] = useState<Payout>({ state: "none", availableCents: 0 });
+  const [editing, setEditing] = useState<EditKey | null>(null);
+  const [stripeBusy, setStripeBusy] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [dialog, setDialog] = useState<"signout" | "anonymize" | "delete" | null>(null);
+  const [dialogBusy, setDialogBusy] = useState(false);
+  const [deleteEmail, setDeleteEmail] = useState("");
+
+  const email = user?.email ?? "";
+  const pendingEmail = (user as { new_email?: string | null } | null)?.new_email ?? null;
+
   useEffect(() => {
-    if (!authLoading && !user) {
-      navigate(authPathHere(), { replace: true });
-    }
-  }, [user, authLoading, navigate]);
+    if (!authLoading && !user) navigate(authPathHere(), { replace: true });
+  }, [authLoading, user, navigate]);
 
-  useEffect(() => {
-    if (authLoading || !user) return;
-    let mounted = true;
-
-    const fetchUserData = async () => {
-      try {
-        setLoading(true);
-
-        const { data: profile, error: profileError } = await supabase
-          .from("profiles")
-          .select("*")
-          .eq("id", user.id)
-          .maybeSingle();
-
-        if (profileError && profileError.code !== "PGRST116") {
-          console.error("Error fetching profile:", profileError);
-        }
-
-        if (!profile) {
-          if (mounted) {
-            setUserData({
-              name: user.user_metadata?.full_name || user.email?.split("@")[0] || "User",
-              email: user.email || "",
-              school: (user.user_metadata?.university as string) || "",
-              campus: (user.user_metadata?.campus as string) || "",
-            });
-            setPurchases([]);
-            setSales([]);
-            setUpcomingTickets([]);
-            setLoading(false);
-          }
-          return;
-        }
-
-        // Resale purchases (transactions) + primary purchases (event_orders).
-        const { data: purchaseData } = await supabase
-          .from("transactions")
-          .select(`*, ticket:tickets(event:events(title, date))`)
-          .eq("buyer_id", user.id)
-          .order("created_at", { ascending: false });
-
-        const { data: orderData } = await supabase
-          .from("event_orders")
-          .select(`id, quantity, unit_price_cents, total_cents, currency, status, paid_at, created_at, event:events(title, date)`)
-          .eq("buyer_id", user.id)
-          .eq("status", "paid")
-          .order("paid_at", { ascending: false });
-
-        // The user's own resale listings are only read when resale is switched on.
-        const { data: saleData } = RESALE_ENABLED
-          ? await supabase
-              .from("tickets")
-              .select(`*, event:events(title, date)`)
-              .eq("seller_id", user.id)
-              .order("created_at", { ascending: false })
-          : { data: [] };
-
-        // Tickets the user holds. Purchases made without an account are owned by
-        // the same account (created at checkout for that email), so they are here too.
-        const { data: ticketData } = await supabase
-          .from("event_tickets")
-          .select(
-            `id, order_id, status, holder_first_name, holder_last_name,
-             event:events(title, date, ends_at, location),
-             tier:event_tiers(name)`,
-          )
-          .eq("buyer_id", user.id)
-          .eq("status", "valid");
-
-        if (!mounted) return;
-
-        setUserData({
-          name: profile.full_name || user.email?.split("@")[0] || "User",
-          email: profile.email || user.email || "",
-          school: profile.university || "",
-          campus: profile.campus || "",
-        });
-        setMemberSince((profile as { created_at?: string | null }).created_at ?? null);
-
-        // Accounts created at checkout only have a full name: split it for the form.
-        const nameParts = (profile.full_name || "").trim().split(/\s+/).filter(Boolean);
-        setEditFirstName(profile.first_name || nameParts[0] || "");
-        setEditLastName(profile.last_name || nameParts.slice(1).join(" ") || "");
-        setEditGender(profile.gender === "female" || profile.gender === "male" ? profile.gender : "");
-
-        const one = <T,>(value: T | T[] | null | undefined): T | null =>
-          Array.isArray(value) ? value[0] ?? null : value ?? null;
-        setUpcomingTickets(
-          (ticketData ?? [])
-            .map((row) => {
-              const event = one(row.event as { title: string | null; date: string | null; ends_at: string | null; location: string | null } | null);
-              const tier = one(row.tier as { name: string | null } | null);
-              return {
-                id: row.id,
-                orderId: row.order_id,
-                eventTitle: event?.title || "",
-                eventDate: event?.date ?? null,
-                eventEndsAt: event?.ends_at ?? null,
-                location: event?.location ?? null,
-                tierName: tier?.name ?? null,
-                holderName: [row.holder_first_name, row.holder_last_name].filter(Boolean).join(" ") || null,
-              };
-            })
-            // A ticket stays upcoming until its event has ended (ends_at, or 8 h after the start): the product's one rule.
-            .filter((tk) => !tk.eventDate || !isPastEvent({ date: tk.eventDate, ends_at: tk.eventEndsAt }))
-            .sort((a, b) => new Date(a.eventDate ?? 0).getTime() - new Date(b.eventDate ?? 0).getTime()),
-        );
-
-        const resalePurchases: Purchase[] = (purchaseData ?? []).map((p) => ({
-          id: p.id,
-          eventTitle: p.ticket?.event?.title || "Unknown Event",
-          date: p.ticket?.event?.date || p.created_at,
-          price: p.amount,
-          currency: "EUR" as const,
-          quantity: p.quantity ?? 1,
-          status: p.status === "completed" ? "confirmed" : p.status,
-          soldAt: p.created_at,
-        }));
-
-        const primaryPurchases: Purchase[] = (orderData ?? []).map((o) => ({
-          id: `order-${o.id}`,
-          orderId: o.id,
-          eventTitle: o.event?.title || "Unknown Event",
-          date: o.event?.date || o.paid_at || o.created_at,
-          price: (o.total_cents ?? (o.unit_price_cents ?? 0) * (o.quantity ?? 1)) / 100,
-          currency: toCurrency(o.currency),
-          quantity: o.quantity ?? 1,
-          status: "confirmed",
-          soldAt: o.paid_at || o.created_at,
-        }));
-
-        setPurchases([...primaryPurchases, ...resalePurchases]);
-
-        setSales(
-          (saleData ?? []).map((s) => ({
-            id: s.id,
-            eventTitle: s.event?.title || "Unknown Event",
-            date: s.event?.date || s.created_at,
-            salePrice: s.selling_price,
-            status: s.status,
-            soldAt: s.status === "sold" ? s.updated_at ?? null : null,
-          })),
-        );
-      } catch (error) {
-        console.error("Error fetching user data:", error);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    };
-
-    fetchUserData();
-    return () => {
-      mounted = false;
-    };
-  }, [user, authLoading]);
-
-  const handleSavePassword = async () => {
-    if (passwordError(newPassword)) {
-      toast({
-        title: fr ? "Mot de passe refusé" : "Password not accepted",
-        description: fr
-          ? `Entre ${PASSWORD_MIN_LENGTH} et ${PASSWORD_MAX_LENGTH} caractères.`
-          : `Between ${PASSWORD_MIN_LENGTH} and ${PASSWORD_MAX_LENGTH} characters.`,
-        variant: "destructive",
-      });
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      toast({
-        title: fr ? "Les mots de passe ne correspondent pas" : "Passwords do not match",
-        description: fr ? "Vérifiez la confirmation." : "Check the confirmation field.",
-        variant: "destructive",
-      });
-      return;
-    }
-    try {
-      setSavingPassword(true);
-      const { error } = await supabase.auth.updateUser({ password: newPassword });
-      if (error) throw error;
-      setNewPassword("");
-      setConfirmPassword("");
-      toast({
-        title: fr ? "Mot de passe mis à jour" : "Password updated",
-        description: fr ? "Votre mot de passe a été changé." : "Your password has been changed.",
-      });
-    } catch (error) {
-      toast({
-        title: t("toast.error"),
-        description: fr ? "Impossible de changer le mot de passe. Réessayez." : error instanceof Error ? error.message : "Failed to update password",
-        variant: "destructive",
-      });
-    } finally {
-      setSavingPassword(false);
-    }
-  };
-
-  const handleSaveIdentity = async () => {
+  const load = useCallback(async () => {
     if (!user) return;
-    const first = editFirstName.trim();
-    const last = editLastName.trim();
-    if (!first || !last) {
-      toast({
-        title: fr ? "Prénom et nom requis" : "First and last name required",
-        description: fr ? "Indiquez votre prénom et votre nom." : "Enter your first and last name.",
-        variant: "destructive",
-      });
+    const [profileRes, ordersRes, resaleBuysRes, ticketsRes, salesRes, accountRes, earningsRes] = await Promise.all([
+      supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
+      supabase.from("event_orders").select("id, event_id, quantity, unit_price_cents, total_cents, currency").eq("buyer_id", user.id).eq("status", "paid"),
+      supabase.from("transactions").select("id, amount, quantity, status, ticket:tickets(event_id)").eq("buyer_id", user.id),
+      supabase
+        .from("event_tickets")
+        .select("id, order_id, event:events(title, date, ends_at, location), tier:event_tiers(name)")
+        .eq("buyer_id", user.id)
+        .eq("status", "valid"),
+      RESALE_ENABLED ? supabase.from("tickets").select("id, status").eq("seller_id", user.id).eq("status", "sold") : Promise.resolve({ data: [] as { id: string }[] }),
+      supabase.from("stripe_connect_accounts").select("id, payouts_enabled").eq("user_id", user.id).eq("owner_type", "reseller").maybeSingle(),
+      supabase.from("seller_earnings").select("available_cents").eq("seller_id", user.id).maybeSingle(),
+    ]);
+
+    const p = profileRes.data as Record<string, unknown> | null;
+    const meta = (user.user_metadata ?? {}) as Record<string, unknown>;
+    const fullName = String(p?.full_name ?? meta.full_name ?? "").trim();
+    const parts = fullName.split(/\s+/).filter(Boolean);
+    const gender = p?.gender === "female" || p?.gender === "male" ? p.gender : "";
+    setProfile({
+      firstName: String(p?.first_name ?? meta.first_name ?? parts[0] ?? ""),
+      lastName: String(p?.last_name ?? meta.last_name ?? parts.slice(1).join(" ") ?? ""),
+      fullName,
+      gender,
+      school: String(p?.university ?? meta.university ?? ""),
+      campus: String(p?.campus ?? meta.campus ?? ""),
+      memberSince: (p?.created_at as string | null) ?? user.created_at ?? null,
+      profileEmail: (p?.email as string | null) ?? null,
+      payoutIban: (p?.payout_iban as string | null) ?? null,
+    });
+
+    // Upcoming tickets, soonest first: an event stays upcoming until it has ended (lib/eventTime).
+    const tickets = (ticketsRes.data ?? []).map((row) => {
+      const ev = one(row.event as { title: string | null; date: string | null; ends_at: string | null; location: string | null } | null);
+      const tier = one(row.tier as { name: string | null } | null);
+      return { orderId: row.order_id as string, title: ev?.title ?? "", date: ev?.date ?? null, endsAt: ev?.ends_at ?? null, location: ev?.location ?? null, tier: tier?.name ?? null };
+    });
+    const upcoming = tickets
+      .filter((tk) => !tk.date || !isPastEvent({ date: tk.date, ends_at: tk.endsAt }))
+      .sort((a, b) => new Date(a.date ?? 0).getTime() - new Date(b.date ?? 0).getTime());
+    setUpcomingCount(upcoming.length);
+    setNextTicket(upcoming[0] ?? null);
+
+    // Recap: events attended or booked, tickets bought, money spent per currency, resales sold.
+    const orders = ordersRes.data ?? [];
+    const resaleBuys = (resaleBuysRes.data ?? []).filter((x) => x.status === "completed");
+    const eventIds = new Set<string>([
+      ...orders.map((o) => o.event_id as string).filter(Boolean),
+      ...resaleBuys.map((x) => one(x.ticket as { event_id: string | null } | null)?.event_id ?? "").filter(Boolean),
+    ]);
+    const spent: Partial<Record<Currency, number>> = {};
+    for (const o of orders) {
+      const c = toCurrency(o.currency);
+      spent[c] = (spent[c] ?? 0) + (o.total_cents ?? (o.unit_price_cents ?? 0) * (o.quantity ?? 1)) / 100;
+    }
+    for (const x of resaleBuys) spent.EUR = (spent.EUR ?? 0) + Number(x.amount ?? 0);
+    setRecap({
+      events: eventIds.size,
+      tickets: orders.reduce((n, o) => n + (o.quantity ?? 1), 0) + resaleBuys.reduce((n, x) => n + (x.quantity ?? 1), 0),
+      spent: CURRENCIES.filter((c) => spent[c]).map((c) => ({ value: Math.round(spent[c]! * 100) / 100, currency: c })),
+      resales: (salesRes.data ?? []).length,
+    });
+
+    const account = accountRes.data as { payouts_enabled?: boolean } | null;
+    setPayout({
+      state: !account ? "none" : account.payouts_enabled ? "ready" : "pending",
+      availableCents: (earningsRes.data as { available_cents?: number } | null)?.available_cents ?? 0,
+    });
+  }, [user]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  // A confirmed email change is on the account first: copy it to the profile row the app reads.
+  useEffect(() => {
+    if (!user || !profile || !email || profile.profileEmail === email) return;
+    void supabase.from("profiles").update({ email }).eq("id", user.id).then(({ error }) => {
+      if (!error) setProfile((p) => (p ? { ...p, profileEmail: email } : p));
+    });
+  }, [user, profile, email]);
+
+  const L = {
+    edit: t("account.common.edit"),
+    save: t("account.common.save"),
+    saving: t("account.common.saving"),
+    cancel: t("account.common.cancel"),
+  };
+  const close = () => setEditing(null);
+  const saveFailed = (err: unknown) => {
+    console.error("[profile] save failed:", err);
+    toast.error(t("account.toast.saveFailed"));
+    return t("account.errors.saveFailed");
+  };
+
+  /** Saves the name on the profile row and on the account (used to greet the person in emails). */
+  const saveName = async (field: "first" | "last", draft: string): Promise<string | null> => {
+    if (!user || !profile) return null;
+    const problem = nameError(draft, field);
+    if (problem) return t(problem.key, problem.params);
+    const first = field === "first" ? draft.trim() : profile.firstName.trim();
+    const last = field === "last" ? draft.trim() : profile.lastName.trim();
+    const full = [first, last].filter(Boolean).join(" ");
+    const { error } = await supabase.from("profiles").update({ first_name: first, last_name: last, full_name: full }).eq("id", user.id);
+    if (error) return saveFailed(error);
+    await supabase.auth.updateUser({ data: { first_name: first, last_name: last, full_name: full } }).catch(() => undefined);
+    setProfile({ ...profile, firstName: first, lastName: last, fullName: full });
+    toast.success(t("account.toast.saved"), { description: full });
+    close();
+    return null;
+  };
+
+  const saveField = async (column: "university" | "campus" | "gender", value: string | null, key: keyof ProfileData, label: string): Promise<string | null> => {
+    if (!user || !profile) return null;
+    const { error } = await supabase.from("profiles").update({ [column]: value }).eq("id", user.id);
+    if (error) return saveFailed(error);
+    setProfile({ ...profile, [key]: value ?? "" });
+    toast.success(t("account.toast.saved"), { description: label });
+    close();
+    return null;
+  };
+
+  const saveEmail = async (draft: string): Promise<string | null> => {
+    const problem = newEmailError(draft, email);
+    if (problem) return t(problem.key, problem.params);
+    const next = draft.trim();
+    const { error } = await supabase.auth.updateUser({ email: next }, { emailRedirectTo: authRedirect("/profile") });
+    if (error) return authErrorMessage(error);
+    toast.success(t("account.toast.emailSent"), { description: t("account.toast.emailSentHint", { email: next }) });
+    close();
+    return null;
+  };
+
+  const openStripe = async (action: "onboard" | "dashboard") => {
+    setStripeBusy(true);
+    const { data, error } = await supabase.functions.invoke("stripe-connect-onboard-reseller", { body: { action } });
+    setStripeBusy(false);
+    if (error || !data?.url) {
+      toast.error(t("account.toast.stripeFailed"));
       return;
     }
-    const fullName = `${first} ${last}`;
+    window.location.href = data.url;
+  };
+
+  const chooseLanguage = (code: "fr" | "en" | "es") => {
+    if (code === language) return;
+    setLanguage(code);
+    toast.success(LANGUAGES.find((l) => l.code === code)!.label);
+  };
+
+  const privacyRequest = async (type: "EXPORT" | "ANONYMIZE" | "DELETE") => {
+    const { data, error } = await supabase.functions.invoke("privacy-request", { body: { request_type: type } });
+    if (error) throw new Error(error.message);
+    return data;
+  };
+
+  const downloadData = async () => {
+    setExporting(true);
     try {
-      setSavingIdentity(true);
-      const { error } = await supabase
-        .from("profiles")
-        .update({ first_name: first, last_name: last, full_name: fullName, gender: genderToStore(editGender) })
-        .eq("id", user.id);
-      if (error) throw error;
-      // Keep the account's own copy in step (used to greet the user in emails). Best effort.
-      await supabase.auth
-        .updateUser({ data: { first_name: first, last_name: last, full_name: fullName } })
-        .catch(() => undefined);
-      setUserData((d) => ({ ...d, name: fullName }));
-      toast({
-        title: fr ? "Informations enregistrées" : "Details saved",
-        description: fullName,
-      });
-    } catch (error) {
-      console.error("[profile] save identity failed:", error);
-      toast({
-        title: t("toast.error"),
-        description: fr ? "Impossible d'enregistrer. Réessayez." : "Could not save. Please try again.",
-        variant: "destructive",
-      });
+      const data = await privacyRequest("EXPORT");
+      const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `ticket-safe-data-${new Date().toISOString().split("T")[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success(t("account.toast.dataDownloaded"), { description: t("account.toast.dataDownloadedHint") });
+    } catch (err) {
+      console.error("[profile] export failed:", err);
+      toast.error(t("account.toast.dataFailed"));
     } finally {
-      setSavingIdentity(false);
+      setExporting(false);
     }
   };
 
-  const handleSaveCampus = async (campus: string) => {
-    if (!user || campus === userData.campus) return;
-    const previous = userData.campus;
-    setUserData((d) => ({ ...d, campus }));
+  const leave = async () => {
+    await signOut();
+    window.location.href = "/";
+  };
+
+  const confirmDialog = async () => {
+    if (dialogBusy) return;
+    setDialogBusy(true);
     try {
-      setSavingCampus(true);
-      const { error } = await supabase.from("profiles").update({ campus }).eq("id", user.id);
-      if (error) throw error;
-      toast({
-        title: fr ? "Campus mis à jour" : "Campus updated",
-        description: campus,
-      });
-    } catch (error) {
-      setUserData((d) => ({ ...d, campus: previous }));
-      toast({
-        title: t("toast.error"),
-        description: error instanceof Error ? error.message : "Failed to update campus",
-        variant: "destructive",
-      });
+      if (dialog === "signout") {
+        await leave();
+        return;
+      }
+      if (dialog === "delete" && deleteEmail.trim().toLowerCase() !== email.toLowerCase()) {
+        toast.error(t("account.privacy.deleteMismatch"));
+        return;
+      }
+      await privacyRequest(dialog === "delete" ? "DELETE" : "ANONYMIZE");
+      toast.success(dialog === "delete" ? t("account.toast.deleted") : t("account.toast.anonymized"));
+      setTimeout(() => void leave(), 1200);
+    } catch (err) {
+      console.error("[profile] privacy request failed:", err);
+      toast.error(dialog === "delete" ? t("account.toast.deleteFailed") : t("account.toast.anonymizeFailed"));
     } finally {
-      setSavingCampus(false);
+      setDialogBusy(false);
     }
   };
 
-  if (authLoading || loading) {
+  if (authLoading || !user || !profile) {
     return (
       <div className="theme-night min-h-screen bg-background flex flex-col">
         <HeaderNight />
-        <main className="pt-20 pb-16 md:pt-24 flex-1">
-          <div className="container mx-auto px-4 max-w-3xl space-y-4">
-            <div className="h-44 rounded-3xl bg-card animate-pulse" />
-            <div className="h-40 rounded-2xl bg-card animate-pulse" />
-            <div className="grid grid-cols-2 gap-3">{[0, 1, 2, 3].map((i) => <div key={i} className="h-24 rounded-2xl bg-card animate-pulse" />)}</div>
+        <main className="flex-1 pt-24 pb-16">
+          <div className="mx-auto w-full max-w-[720px] px-4 space-y-5" aria-busy="true" aria-label={t("account.loading")}>
+            <div className="h-28 bg-card/60 animate-pulse" />
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="h-48 border border-brand-200/15 bg-card/30 animate-pulse" />
+            ))}
           </div>
         </main>
         <Footer />
@@ -445,374 +354,297 @@ const Profile = () => {
     );
   }
 
-  if (!user) return null;
-
-  const initials =
-    (userData.name || "")
-      .split(" ")
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((n) => n[0]?.toUpperCase())
-      .join("") || "?";
-  const firstName = userData.name.split(" ")[0] || "";
-
-  // ── Unified transaction feed (purchases + sales), newest first ──────────────
-  const txRows: TxRow[] = [
-    ...purchases.map<TxRow>((p) => ({
-      id: `p-${p.id}`,
-      kind: "purchase",
-      title: p.eventTitle,
-      date: p.soldAt || p.date,
-      amount: p.price,
-      currency: p.currency,
-      status: p.status,
-      orderId: p.orderId,
-    })),
-    ...(RESALE_ENABLED ? sales : [])
-      .filter((s) => s.status === "sold")
-      .map<TxRow>((s) => ({
-        id: `s-${s.id}`,
-        kind: "sale",
-        title: s.eventTitle,
-        date: s.soldAt || s.date,
-        amount: s.salePrice,
-        currency: "EUR" as const, // resale is euro-only
-        status: s.status,
-      })),
-  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
-  // One total per currency, euros first; euros alone when nothing was bought.
-  const spentByCurrency = purchases.reduce(
-    (acc, p) => ({ ...acc, [p.currency]: (acc[p.currency] ?? 0) + (p.price || 0) }),
-    {} as Partial<Record<Currency, number>>,
-  );
-  const spent = CURRENCIES.filter((c) => spentByCurrency[c] != null).map((c) => ({ value: spentByCurrency[c]!, currency: c }));
-  const hasSpent = spent.some((a) => a.value > 0);
-  const totalSold = sales.filter((s) => s.status === "sold").length;
-  const activeListings = sales.filter((s) => s.status === "available").length;
-  const eventsCount = new Set(purchases.map((p) => p.eventTitle)).size;
-  const nextTicket = upcomingTickets[0] ?? null;
-  const otherTickets = upcomingTickets.slice(1);
-
-  const formatAmount = (n: number, currency: Currency) =>
-    new Intl.NumberFormat(dateLocale, {
-      style: "currency",
-      currency,
-      maximumFractionDigits: n % 1 === 0 ? 0 : 2,
-    }).format(n);
-  const formatDate = (s: string) =>
-    new Date(s).toLocaleDateString(dateLocale, { day: "numeric", month: "short", year: "numeric" });
-  const formatDay = (s: string) =>
-    new Date(s).toLocaleDateString(dateLocale, { weekday: "short", day: "numeric", month: "short" });
-  const formatTime = (s: string) => new Date(s).toLocaleTimeString(dateLocale, { hour: "2-digit", minute: "2-digit" });
-
-  const accent = ACCENT;
-  const cover = COVER;
-
-  // The things people come here to do. Each icon has its own quiet tint so
-  // the tiles can be told apart at a glance; the cards themselves stay alike.
-  const tiles = [
-    { to: "/tickets", icon: Sparkles, label: fr ? "Événements" : "Browse events", hint: fr ? "Trouver une soirée" : "Find a night out", chip: "bg-sky-400/15 text-sky-300", ring: "hover:border-sky-400/50" },
-    { to: "/settings/purchases", icon: Banknote, label: fr ? "Mes achats" : "Purchases", hint: hasSpent ? spent.map((a) => formatAmount(a.value, a.currency)).join(" · ") : fr ? "Rien encore" : "Nothing yet", chip: "bg-emerald-400/15 text-emerald-300", ring: "hover:border-emerald-400/50" },
-    ...(RESALE_ENABLED ? [{ to: "/settings/listings", icon: Tag, label: fr ? "Portefeuille" : "Wallet", hint: activeListings > 0 ? (fr ? `${activeListings} annonce${activeListings > 1 ? "s" : ""}` : `${activeListings} listed`) : fr ? "Revendre" : "Resell a ticket", chip: "bg-amber-400/15 text-amber-300", ring: "hover:border-amber-400/50" }] : []),
-    { to: "/messages", icon: MessageCircle, label: "Messages", hint: fr ? "Vos conversations" : "Your conversations", chip: "bg-violet-400/15 text-violet-300", ring: "hover:border-violet-400/50" },
-    { to: "/settings/privacy", icon: PrivacyIcon, label: fr ? "Données" : "Privacy & data", hint: fr ? "Exporter, supprimer" : "Export, delete", chip: "bg-rose-400/15 text-rose-300", ring: "hover:border-rose-400/50" },
+  const firstName = profile.firstName || profile.fullName.split(" ")[0] || email.split("@")[0];
+  const recapText = recapLine(recap, t, locale);
+  const methods = signInMethods(user.identities).map((m) => (m === "email" ? t("account.security.methodEmail") : m));
+  const isOrganizer = organizer?.status === "approved";
+  const formatDay = (iso: string) =>
+    new Date(iso).toLocaleDateString(locale, { weekday: "short", day: "numeric", month: "short" }) +
+    " · " +
+    new Date(iso).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
+  const genderOptions = [
+    ...GENDER_CHOICES.filter((g) => g.value !== "prefer_not").map((g) => ({ value: g.value, label: t(`account.personal.gender_${g.value}`) })),
+    { value: "", label: t("account.personal.genderNone") },
   ];
+  const campusOptions = [...CAMPUSES.map((c) => ({ value: c, label: c })), { value: "", label: t("account.personal.none") }];
+
+  const payoutChip =
+    payout.state === "ready" ? <Chip tone="good">{t("account.payments.connected")}</Chip>
+      : payout.state === "pending" ? <Chip tone="accent">{t("account.payments.actionNeeded")}</Chip>
+        : <Chip>{t("account.payments.notSetUp")}</Chip>;
+  const payoutHint =
+    payout.state === "ready" ? t("account.payments.readyHint")
+      : payout.state === "pending" ? t("account.payments.pendingHint")
+        : t("account.payments.noneHint");
 
   return (
     <div className="theme-night min-h-screen bg-background flex flex-col">
       <SEOHead titleKey="nav.profile" descriptionKey="settings.description" />
       <HeaderNight />
-      <main className="flex-1 pt-20 pb-16 md:pt-24">
-        <div className="container mx-auto px-4 max-w-3xl space-y-5">
-          {/* ===== Cover: your colour, your name ===== */}
-          <section className="relative overflow-hidden rounded-3xl motion-safe:animate-fade-in" style={{ background: cover }} aria-label={fr ? "Mon profil" : "My profile"}>
-            <div className="absolute -top-16 -right-10 w-64 h-64 rounded-full bg-white/15 blur-3xl pointer-events-none" aria-hidden />
-            <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/35 to-transparent pointer-events-none" aria-hidden />
-            <div className="relative p-5 md:p-7">
-              <div className="flex items-start justify-between gap-3">
-                <BackButton />
+      <main className="flex-1 pt-24 md:pt-28 pb-[max(4rem,calc(env(safe-area-inset-bottom)+2rem))]">
+        <div className="mx-auto w-full max-w-[720px] px-4 space-y-5">
+          {/* Who you are */}
+          <header className="menu-rise pb-4" style={{ animationDelay: "0ms" }}>
+            <p className={eyebrow}>{t("account.eyebrow")}</p>
+            <div className="mt-4 flex items-center gap-4 sm:gap-5">
+              <div
+                className="w-16 h-16 sm:w-20 sm:h-20 shrink-0 rounded-full border border-brand-200/40 inline-flex items-center justify-center font-display text-[22px] sm:text-[28px] font-bold text-brand-200"
+                aria-hidden="true"
+              >
+                {initialsOf(profile.fullName || firstName, email)}
               </div>
-              <div className="mt-8 md:mt-10 flex items-end gap-4">
-                <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-white text-primary text-3xl md:text-4xl font-bold flex items-center justify-center shrink-0 shadow-lg ring-4 ring-white/30" aria-hidden>
-                  {initials}
-                </div>
-                <div className="min-w-0 pb-1 text-white">
-                  <h1 className="text-3xl md:text-4xl font-bold leading-tight truncate drop-shadow">{firstName || userData.name}</h1>
-                  <p className="text-sm text-white/85 truncate">{userData.name}{userData.email ? ` · ${userData.email}` : ""}</p>
-                  <div className="flex flex-wrap gap-1.5 mt-2.5">
-                    {[userData.school, userData.campus].filter(Boolean).map((x) => (
-                      <span key={x} className="inline-flex items-center gap-1 rounded-full bg-white/20 backdrop-blur px-2.5 py-1 text-xs font-semibold text-white">
-                        {x === userData.campus ? <MapPin className="w-3 h-3" /> : <Building2 className="w-3 h-3" />}{x}
-                      </span>
-                    ))}
-                    {memberSince && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-white/20 backdrop-blur px-2.5 py-1 text-xs font-semibold text-white">
-                        <Sparkles className="w-3 h-3" />
-                        {fr ? "Membre depuis " : "Member since "}{new Date(memberSince).toLocaleDateString(dateLocale, { month: "short", year: "numeric" })}
-                      </span>
-                    )}
-                  </div>
-                </div>
+              <div className="min-w-0">
+                <h1 className="font-display font-bold tracking-[-0.02em] leading-[1.02] text-[40px] sm:text-[56px] break-words">{firstName}</h1>
+                <p className="mt-1.5 text-[15px] text-muted-foreground truncate">{email}</p>
               </div>
             </div>
-          </section>
+            <div className="mt-5 flex flex-wrap gap-2">
+              {profile.school && <Chip>{profile.school}</Chip>}
+              {profile.campus && <Chip>{profile.campus}</Chip>}
+              {profile.memberSince && (
+                <Chip>{t("account.memberSince", { date: new Date(profile.memberSince).toLocaleDateString(locale, { month: "long", year: "numeric" }) })}</Chip>
+              )}
+            </div>
+            {recapText && <p className="mt-5 text-[15px] text-foreground/90 tabular-nums">{recapText}</p>}
+          </header>
 
-          {/* ===== Next night out ===== */}
-          <section className="motion-safe:animate-fade-in" style={{ animationDelay: "60ms", animationFillMode: "both" }} aria-labelledby="next-heading">
+          {/* Your tickets */}
+          <Section id="profile-tickets" title={t("account.tickets.title")} delay={40}>
             {nextTicket ? (
-              <div className="relative overflow-hidden rounded-2xl relative isolate border border-[rgba(130,160,255,0.22)] bg-card bg-[linear-gradient(180deg,rgba(58,95,230,0.22)_0%,rgba(58,95,230,0.07)_55%,rgba(58,95,230,0)_100%)] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.14),0_14px_36px_-18px_rgba(58,95,230,0.55)] before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] before:pointer-events-none before:bg-[radial-gradient(110%_70%_at_18%_-12%,rgba(255,255,255,0.13),transparent_58%)]">
-                <div className="absolute inset-y-0 left-0 w-1.5 bg-primary" aria-hidden />
-                <div className="relative p-5 pl-6">
-                  <div className="flex items-center justify-between gap-3 mb-2">
-                    <h2 id="next-heading" className="text-[11px] font-bold uppercase tracking-[0.14em] text-foreground/70">{fr ? "Prochaine sortie" : "Next night out"}</h2>
-                    {nextTicket.eventDate && (
-                      <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-bold bg-primary/15 text-primary">
-                        <Clock className="w-3 h-3" />{soonLabel(nextTicket.eventDate, fr)}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-2xl md:text-3xl font-bold leading-tight text-foreground text-balance">{nextTicket.eventTitle || (fr ? "Événement" : "Event")}</p>
-                  <p className="text-sm text-muted-foreground mt-1.5">
-                    {nextTicket.eventDate ? `${formatDay(nextTicket.eventDate)} · ${formatTime(nextTicket.eventDate)}` : fr ? "Date à venir" : "Date to come"}
-                    {nextTicket.location ? ` · ${nextTicket.location}` : ""}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">{[nextTicket.tierName, nextTicket.holderName].filter(Boolean).join(" · ")}</p>
-                  <div className="mt-4 flex flex-col sm:flex-row sm:items-center gap-2.5">
-                    <Button onClick={() => navigate(`/my-tickets/${nextTicket.orderId}`)} className="h-12 w-full sm:w-auto gap-2 rounded-full px-6 text-base">
-                      <QrCode className="w-5 h-5" />{fr ? "Afficher mon QR" : "Show my QR"}
-                    </Button>
-                    <span className="text-xs text-muted-foreground sm:ml-1">{fr ? "À montrer à l'entrée. Aussi dans votre email." : "Show it at the door. It's in your email too."}</span>
-                    {RESALE_ENABLED && (
-                      <Button variant="outline" onClick={() => navigate("/marketplace/sell")} className="h-12 w-full sm:w-auto sm:ml-auto gap-1.5 rounded-full">
-                        <Tag className="w-4 h-4" />{fr ? "Revendre" : "Resell"}
-                      </Button>
-                    )}
-                  </div>
-                  {otherTickets.length > 0 && (
-                    <ul className="mt-4 pt-4 border-t border-border divide-y divide-white/10">
-                      {otherTickets.map((tk) => (
-                        <li key={tk.id} className="flex items-center gap-3 py-2.5">
-                          <span className="w-2 h-2 rounded-full shrink-0 bg-primary" aria-hidden />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold truncate">{tk.eventTitle || (fr ? "Événement" : "Event")}</p>
-                            <p className="text-xs text-muted-foreground truncate">{tk.eventDate ? formatDay(tk.eventDate) : ""}{tk.tierName ? ` · ${tk.tierName}` : ""}{tk.holderName ? ` · ${tk.holderName}` : ""}</p>
-                          </div>
-                          <button type="button" onClick={() => navigate(`/my-tickets/${tk.orderId}`)} className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline shrink-0">
-                            <QrCode className="w-3.5 h-3.5" /> QR
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              </div>
+              <LinkRow
+                to={`/my-tickets/${nextTicket.orderId}`}
+                label={nextTicket.title || t("account.tickets.event")}
+                detail={
+                  <>
+                    {[nextTicket.date ? formatDay(nextTicket.date) : null, nextTicket.location, nextTicket.tier].filter(Boolean).join(" · ")}
+                    <span className="mt-1 block font-semibold text-brand-200">{t("account.tickets.nextUp")} · {t("account.tickets.showQr")}</span>
+                  </>
+                }
+              />
             ) : (
-              <div className="rounded-2xl border border-dashed border-white/20 bg-card/70 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)] p-5 flex flex-col sm:flex-row sm:items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-primary/15 text-primary flex items-center justify-center shrink-0"><Sparkles className="w-6 h-6" /></div>
-                <div className="flex-1 min-w-0">
-                  <h2 id="next-heading" className="text-base font-bold">{fr ? "Rien de prévu pour l'instant" : "Nothing planned yet"}</h2>
-                  <p className="text-sm text-muted-foreground">{fr ? "Vos prochains billets apparaîtront ici, prêts à être scannés." : "Your next tickets will sit here, ready to scan at the door."}</p>
-                </div>
-                <Button variant="hero" onClick={() => navigate("/tickets")} className="gap-1.5 rounded-full shrink-0">
-                  <ShoppingBag className="w-4 h-4" />{t("profile.browseEvents")}
-                </Button>
-              </div>
+              <LinkRow to="/tickets" label={t("account.tickets.nothing")} detail={t("account.tickets.browse")} />
             )}
-          </section>
+            <LinkRow to="/my-tickets" label={t("account.tickets.all")} detail={upcomingCount > 0 ? t("account.tickets.upcoming", { count: upcomingCount }) : undefined} />
+            <LinkRow to="/settings/purchases" label={t("account.tickets.purchases")} />
+            <LinkRow to="/messages" label={t("account.tickets.messages")} />
+          </Section>
 
-          {/* ===== Numbers ===== */}
-          <section className="grid grid-cols-2 sm:grid-cols-4 gap-3 motion-safe:animate-fade-in" style={{ animationDelay: "120ms", animationFillMode: "both" }} aria-label={fr ? "Mes chiffres" : "My numbers"}>
-            <div className="rounded-2xl relative isolate border border-[rgba(130,160,255,0.22)] bg-card bg-[linear-gradient(180deg,rgba(58,95,230,0.22)_0%,rgba(58,95,230,0.07)_55%,rgba(58,95,230,0)_100%)] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.14),0_14px_36px_-18px_rgba(58,95,230,0.55)] before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] before:pointer-events-none before:bg-[radial-gradient(110%_70%_at_18%_-12%,rgba(255,255,255,0.13),transparent_58%)] p-4"><Figure label={fr ? "Billets à venir" : "Upcoming"} value={upcomingTickets.length} locale={dateLocale} /></div>
-            <div className="rounded-2xl relative isolate border border-[rgba(130,160,255,0.22)] bg-card bg-[linear-gradient(180deg,rgba(58,95,230,0.22)_0%,rgba(58,95,230,0.07)_55%,rgba(58,95,230,0)_100%)] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.14),0_14px_36px_-18px_rgba(58,95,230,0.55)] before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] before:pointer-events-none before:bg-[radial-gradient(110%_70%_at_18%_-12%,rgba(255,255,255,0.13),transparent_58%)] p-4"><Figure label={fr ? "Événements" : "Events"} value={eventsCount} locale={dateLocale} /></div>
-            <div className="rounded-2xl relative isolate border border-[rgba(130,160,255,0.22)] bg-card bg-[linear-gradient(180deg,rgba(58,95,230,0.22)_0%,rgba(58,95,230,0.07)_55%,rgba(58,95,230,0)_100%)] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.14),0_14px_36px_-18px_rgba(58,95,230,0.55)] before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] before:pointer-events-none before:bg-[radial-gradient(110%_70%_at_18%_-12%,rgba(255,255,255,0.13),transparent_58%)] p-4"><MoneyFigure label={fr ? "Dépensé" : "Spent"} amounts={spent.length ? spent : [{ value: 0, currency: "EUR" }]} locale={dateLocale} /></div>
-            {RESALE_ENABLED ? (
-              <div className="rounded-2xl relative isolate border border-[rgba(130,160,255,0.22)] bg-card bg-[linear-gradient(180deg,rgba(58,95,230,0.22)_0%,rgba(58,95,230,0.07)_55%,rgba(58,95,230,0)_100%)] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.14),0_14px_36px_-18px_rgba(58,95,230,0.55)] before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] before:pointer-events-none before:bg-[radial-gradient(110%_70%_at_18%_-12%,rgba(255,255,255,0.13),transparent_58%)] p-4"><Figure label={fr ? "Vendus" : "Sold"} value={totalSold} locale={dateLocale} /></div>
-            ) : (
-              <div className="rounded-2xl relative isolate border border-[rgba(130,160,255,0.22)] bg-card bg-[linear-gradient(180deg,rgba(58,95,230,0.22)_0%,rgba(58,95,230,0.07)_55%,rgba(58,95,230,0)_100%)] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.14),0_14px_36px_-18px_rgba(58,95,230,0.55)] before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] before:pointer-events-none before:bg-[radial-gradient(110%_70%_at_18%_-12%,rgba(255,255,255,0.13),transparent_58%)] p-4"><Figure label={fr ? "Achats" : "Purchases"} value={purchases.length} locale={dateLocale} /></div>
-            )}
-          </section>
+          {/* Personal info */}
+          <Section id="profile-personal" title={t("account.personal.title")} delay={80}>
+            <TextEditRow
+              label={t("account.personal.firstName")}
+              value={profile.firstName}
+              editing={editing === "first"}
+              onEdit={() => setEditing("first")}
+              onCancel={close}
+              onSave={(d) => saveName("first", d)}
+              autoComplete="given-name"
+              maxLength={NAME_MAX_LENGTH}
+              formHint={t("account.personal.nameHint")}
+              labels={{ ...L, editLabel: t("account.personal.editFirstName") }}
+            />
+            <TextEditRow
+              label={t("account.personal.lastName")}
+              value={profile.lastName}
+              editing={editing === "last"}
+              onEdit={() => setEditing("last")}
+              onCancel={close}
+              onSave={(d) => saveName("last", d)}
+              autoComplete="family-name"
+              maxLength={NAME_MAX_LENGTH}
+              formHint={t("account.personal.nameHint")}
+              labels={{ ...L, editLabel: t("account.personal.editLastName") }}
+            />
+            <ChoiceEditRow
+              label={t("account.personal.gender")}
+              value={profile.gender}
+              options={genderOptions}
+              editing={editing === "gender"}
+              onEdit={() => setEditing("gender")}
+              onCancel={close}
+              onSave={(v) => saveField("gender", genderToStore(v as "female" | "male" | ""), "gender", t("account.personal.gender"))}
+              labels={{ edit: L.edit, cancel: L.cancel, editLabel: t("account.personal.editGender"), none: t("account.personal.genderNone") }}
+            />
+            <TextEditRow
+              label={t("account.personal.school")}
+              value={profile.school}
+              display={profile.school || <span className="font-normal text-muted-foreground">{t("account.personal.optional")}</span>}
+              editing={editing === "school"}
+              onEdit={() => setEditing("school")}
+              onCancel={close}
+              onSave={async (d) => {
+                const problem = schoolError(d);
+                if (problem) return t(problem.key, problem.params);
+                return saveField("university", d.trim() || null, "school", d.trim() || t("account.personal.school"));
+              }}
+              autoComplete="organization"
+              maxLength={SCHOOL_MAX_LENGTH}
+              placeholder={t("account.personal.schoolPlaceholder")}
+              labels={{ ...L, editLabel: t("account.personal.editSchool") }}
+            />
+            <ChoiceEditRow
+              label={t("account.personal.campus")}
+              value={profile.campus}
+              options={campusOptions}
+              editing={editing === "campus"}
+              onEdit={() => setEditing("campus")}
+              onCancel={close}
+              onSave={(v) => saveField("campus", v || null, "campus", v || t("account.personal.campus"))}
+              labels={{ edit: L.edit, cancel: L.cancel, editLabel: t("account.personal.editCampus"), none: t("account.personal.none") }}
+            />
+          </Section>
 
-          {/* ===== Tiles ===== */}
-          <section className="grid grid-cols-2 sm:grid-cols-3 gap-3" aria-label={fr ? "Raccourcis" : "Shortcuts"}>
-            {/* The one tile that matters most: solid blue, the count on it */}
-            <button
-              type="button"
-              onClick={() => navigate("/my-tickets")}
-              className="group relative col-span-2 sm:col-span-1 sm:row-span-2 text-left rounded-2xl bg-primary text-primary-foreground p-4 min-h-[104px] overflow-hidden transition-all hover:-translate-y-0.5 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.25),0_16px_40px_-16px_rgba(58,95,230,0.9)] motion-safe:animate-fade-in"
-              style={{ animationDelay: "160ms", animationFillMode: "both" }}
-            >
-              <span className="absolute -right-6 -bottom-10 w-36 h-36 rounded-full bg-white/10 pointer-events-none" aria-hidden />
-              <span className="absolute right-2 -bottom-2 w-20 h-20 rounded-full bg-white/10 pointer-events-none" aria-hidden />
-              <span className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center mb-3"><Ticket className="w-5 h-5" /></span>
-              <p className="text-base font-bold">{t("profile.myTickets")}</p>
-              <p className="text-sm text-white/85 mt-0.5">
-                <span className="text-3xl font-bold tabular-nums leading-none align-baseline">{upcomingTickets.length}</span>{" "}
-                {fr ? "à venir" : "upcoming"}
-              </p>
-              <ArrowRight className="absolute right-4 top-4 w-5 h-5 text-white/80 transition-transform group-hover:translate-x-0.5" aria-hidden />
-            </button>
-            {tiles.map((tile, i) => {
-              const Icon = tile.icon;
-              return (
-                <button
-                  key={tile.to}
-                  type="button"
-                  onClick={() => navigate(tile.to)}
-                  className={`group text-left rounded-2xl ${tile.ring} relative isolate border border-[rgba(130,160,255,0.22)] bg-card bg-[linear-gradient(180deg,rgba(58,95,230,0.22)_0%,rgba(58,95,230,0.07)_55%,rgba(58,95,230,0)_100%)] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.14),0_14px_36px_-18px_rgba(58,95,230,0.55)] before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] before:pointer-events-none before:bg-[radial-gradient(110%_70%_at_18%_-12%,rgba(255,255,255,0.13),transparent_58%)] p-4 min-h-[104px] transition-all hover:-translate-y-0.5 motion-safe:animate-fade-in`}
-                  style={{ animationDelay: `${200 + i * 40}ms`, animationFillMode: "both" }}
-                >
-                  <span className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 ${tile.chip}`}><Icon className="w-5 h-5" /></span>
-                  <p className="text-sm font-bold text-foreground">{tile.label}</p>
-                  <p className="text-xs text-muted-foreground truncate">{tile.hint}</p>
-                  <ArrowRight className="absolute right-4 top-4 w-4 h-4 text-muted-foreground/60 transition-all group-hover:text-foreground group-hover:translate-x-0.5" aria-hidden />
-                </button>
-              );
-            })}
-          </section>
+          {/* Sign-in & security */}
+          <Section id="profile-security" title={t("account.security.title")} delay={120}>
+            <TextEditRow
+              label={t("account.security.email")}
+              value={email}
+              hint={pendingEmail ? t("account.security.emailPending", { email: pendingEmail }) : undefined}
+              editing={editing === "email"}
+              onEdit={() => setEditing("email")}
+              onCancel={close}
+              onSave={saveEmail}
+              inputType="email"
+              autoComplete="email"
+              placeholder="you@example.com"
+              formHint={t("account.security.emailHint")}
+              labels={{ ...L, save: t("account.security.emailSend"), saving: t("account.common.sending"), editLabel: t("account.security.editEmail") }}
+            />
+            <PasswordChangeRow email={email} editing={editing === "password"} onEdit={() => setEditing("password")} onClose={close} />
+            <Row
+              label={t("account.security.methods")}
+              value={
+                <span className="flex flex-wrap gap-2 pt-1">
+                  {methods.map((m) => (
+                    <Chip key={m}>{m}</Chip>
+                  ))}
+                </span>
+              }
+            />
+            <LinkRow onClick={() => setDialog("signout")} label={t("account.security.signOutAll")} detail={t("account.security.signOutAllHint")} />
+          </Section>
 
-          {/* ===== Recent activity ===== */}
-          {txRows.length > 0 && (
-            <section className="rounded-2xl relative isolate border border-[rgba(130,160,255,0.22)] bg-card bg-[linear-gradient(180deg,rgba(58,95,230,0.22)_0%,rgba(58,95,230,0.07)_55%,rgba(58,95,230,0)_100%)] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.14),0_14px_36px_-18px_rgba(58,95,230,0.55)] before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] before:pointer-events-none before:bg-[radial-gradient(110%_70%_at_18%_-12%,rgba(255,255,255,0.13),transparent_58%)] p-5" aria-labelledby="activity-heading">
-              <div className="flex items-baseline justify-between mb-2">
-                <h2 id="activity-heading" className="text-[11px] font-bold uppercase tracking-[0.14em] text-foreground/70">{fr ? "Activité récente" : "Recent activity"}</h2>
-                <button type="button" onClick={() => navigate("/settings/purchases")} className="text-xs font-semibold text-primary hover:underline inline-flex items-center gap-1">
-                  {fr ? "Tout voir" : "See all"} <ArrowRight className="w-3 h-3" />
-                </button>
-              </div>
-              <ul className="divide-y divide-white/10">
-                {txRows.slice(0, 5).map((tx) => {
-                  const isPurchase = tx.kind === "purchase";
-                  return (
-                    <li key={tx.id} className="flex items-center gap-3 py-3">
-                      <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-primary/15 text-primary">
-                        {isPurchase ? <ArrowDownLeft className="w-4 h-4" /> : <ArrowUpRight className="w-4 h-4" />}
-                      </span>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold truncate">{tx.title}</p>
-                        <p className="text-xs text-muted-foreground">{isPurchase ? (fr ? "Achat" : "Purchase") : (fr ? "Vente" : "Sale")} · {formatDate(tx.date)}</p>
-                      </div>
-                      <span className={`text-sm font-bold tabular-nums shrink-0 ${isPurchase ? "text-foreground" : "text-emerald-400"}`}>{isPurchase ? "−" : "+"}{formatAmount(tx.amount, tx.currency)}</span>
-                      {tx.orderId && (
-                        <button type="button" onClick={() => navigate(`/my-tickets/${tx.orderId}`)} className="text-xs font-semibold text-primary hover:underline shrink-0">{fr ? "Billet" : "Ticket"}</button>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            </section>
-          )}
+          {/* Payments */}
+          <Section id="profile-payments" title={t("account.payments.title")} delay={160}>
+            <Row
+              label={t("account.payments.payoutAccount")}
+              value={
+                <span className="flex flex-wrap items-center gap-2">
+                  {t("account.payments.stripe")} {payoutChip}
+                </span>
+              }
+              hint={
+                <>
+                  {payoutHint}
+                  {profile.payoutIban && <> {t("account.payments.iban", { last4: ibanLast4(profile.payoutIban) })}</>}
+                </>
+              }
+              action={
+                payout.state !== "none" ? (
+                  <RowAction onClick={() => openStripe(payout.state === "ready" ? "dashboard" : "onboard")} disabled={stripeBusy}>
+                    {stripeBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : payout.state === "ready" ? t("account.payments.manage") : t("account.payments.finish")}
+                  </RowAction>
+                ) : undefined
+              }
+            />
+            <LinkRow
+              to="/settings/listings"
+              label={t("account.payments.wallet")}
+              detail={t("account.payments.walletHint", {
+                amount: new Intl.NumberFormat(locale, { style: "currency", currency: "EUR" }).format(payout.availableCents / 100),
+              })}
+            />
+            {isOrganizer && <LinkRow to="/studio" label={t("account.payments.studio")} detail={t("account.payments.studioHint")} />}
+          </Section>
 
-          {/* ===== About you ===== */}
-          <section className="rounded-2xl relative isolate border border-[rgba(130,160,255,0.22)] bg-card bg-[linear-gradient(180deg,rgba(58,95,230,0.22)_0%,rgba(58,95,230,0.07)_55%,rgba(58,95,230,0)_100%)] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.14),0_14px_36px_-18px_rgba(58,95,230,0.55)] before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] before:pointer-events-none before:bg-[radial-gradient(110%_70%_at_18%_-12%,rgba(255,255,255,0.13),transparent_58%)] p-5 space-y-4" aria-labelledby="about-heading">
-            <div className="flex items-center gap-2">
-              <span className="w-8 h-8 rounded-xl bg-primary/15 text-primary flex items-center justify-center"><User className="w-4 h-4" /></span>
-              <div>
-                <h2 id="about-heading" className="text-sm font-bold">{fr ? "À propos de vous" : "About you"}</h2>
-                <p className="text-xs text-muted-foreground">{fr ? "Le nom qui apparaît sur vos billets" : "The name that goes on your tickets"}</p>
+          {/* Preferences */}
+          <Section id="profile-preferences" title={t("account.preferences.title")} delay={200}>
+            <div className="flex items-center justify-between gap-3 py-3 min-h-[64px]">
+              <div className="min-w-0">
+                <div className="text-[13px] text-muted-foreground">{t("account.preferences.language")}</div>
+                <div className="mt-0.5 font-semibold">{LANGUAGES.find((l) => l.code === language)?.label}</div>
               </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="profile-first-name" className="text-xs text-muted-foreground">{fr ? "Prénom" : "First name"}</Label>
-                <Input id="profile-first-name" autoComplete="given-name" maxLength={60} value={editFirstName} onChange={(e) => setEditFirstName(e.target.value)} className="rounded-xl h-11" />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="profile-last-name" className="text-xs text-muted-foreground">{fr ? "Nom" : "Last name"}</Label>
-                <Input id="profile-last-name" autoComplete="family-name" maxLength={60} value={editLastName} onChange={(e) => setEditLastName(e.target.value)} className="rounded-xl h-11" />
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs text-muted-foreground">{fr ? "Genre (facultatif)" : "Gender (optional)"}</Label>
-              <div className="grid grid-cols-3 gap-2">
-                {GENDER_CHOICES.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    aria-pressed={editGender === option.value}
-                    onClick={() => setEditGender(editGender === option.value ? "" : option.value)}
-                    className={`min-h-10 px-2 py-2 rounded-xl border text-xs sm:text-sm font-semibold leading-tight transition-colors ${
-                      editGender === option.value ? "border-primary bg-primary text-primary-foreground" : "border-border text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    {fr ? option.labelFr : option.label}
-                  </button>
+              <div role="group" aria-label={t("account.preferences.language")} className="-mr-2 flex items-center">
+                {LANGUAGES.map((l, i) => (
+                  <span key={l.code} className="flex items-center">
+                    {i > 0 && <span className="text-[11px] text-muted-foreground" aria-hidden="true">·</span>}
+                    <button
+                      type="button"
+                      onClick={() => chooseLanguage(l.code)}
+                      aria-pressed={language === l.code}
+                      aria-label={l.label}
+                      className={`min-w-[44px] min-h-[44px] px-2 text-[13px] font-semibold tracking-wide transition-colors ${
+                        language === l.code ? "text-foreground underline underline-offset-[5px]" : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      {l.code.toUpperCase()}
+                    </button>
+                  </span>
                 ))}
               </div>
             </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Campus</Label>
-                <Select value={userData.campus || undefined} onValueChange={handleSaveCampus} disabled={savingCampus}>
-                  <SelectTrigger className="h-11 rounded-xl bg-white/5 border-white/10">
-                    <span className="flex items-center gap-2">
-                      <MapPin className="w-4 h-4 text-muted-foreground shrink-0" />
-                      <SelectValue placeholder={fr ? "Choisissez votre campus" : "Choose your campus"} />
-                    </span>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CAMPUSES.map((c) => (<SelectItem key={c} value={c}>{c}</SelectItem>))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs text-muted-foreground">{fr ? "Email" : "Email"}</Label>
-                <div className="flex items-center gap-2 h-11 px-3 rounded-xl bg-white/5 border border-white/10">
-                  <Mail className="w-4 h-4 text-muted-foreground shrink-0" />
-                  <span className="text-sm font-medium truncate">{userData.email || "—"}</span>
-                  <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 ml-auto" aria-label={fr ? "Email verrouillé" : "Email locked"} />
-                </div>
-              </div>
-            </div>
-            <p className="text-[11px] text-muted-foreground">
-              {fr ? "Votre email sert à retrouver vos billets. Pour le changer, écrivez à " : "Your email is how we find your tickets. To change it, write to "}
-              <a href="mailto:support@ticket-safe.eu" className="text-primary font-medium hover:underline">support@ticket-safe.eu</a>.
-            </p>
-            <Button onClick={handleSaveIdentity} disabled={savingIdentity} className="w-full rounded-full h-11">
-              <Save className="w-4 h-4 mr-2" />
-              {savingIdentity ? (fr ? "Enregistrement…" : "Saving…") : (fr ? "Enregistrer" : "Save")}
-            </Button>
-          </section>
+          </Section>
 
-          {/* ===== Password, folded away ===== */}
-          <section className="rounded-2xl relative isolate border border-[rgba(130,160,255,0.22)] bg-card bg-[linear-gradient(180deg,rgba(58,95,230,0.22)_0%,rgba(58,95,230,0.07)_55%,rgba(58,95,230,0)_100%)] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.14),0_14px_36px_-18px_rgba(58,95,230,0.55)] before:absolute before:inset-0 before:-z-10 before:rounded-[inherit] before:pointer-events-none before:bg-[radial-gradient(110%_70%_at_18%_-12%,rgba(255,255,255,0.13),transparent_58%)]" aria-labelledby="password-heading">
-            <button type="button" onClick={() => setShowPassword((v) => !v)} aria-expanded={showPassword} className="w-full flex items-center gap-3 p-5 text-left">
-              <span className="w-8 h-8 rounded-xl bg-muted flex items-center justify-center text-foreground"><Lock className="w-4 h-4" /></span>
-              <div className="flex-1 min-w-0">
-                <h2 id="password-heading" className="text-sm font-bold">{fr ? "Mot de passe" : "Password"}</h2>
-                <p className="text-xs text-muted-foreground">{fr ? "Changez-le quand vous voulez" : "Change it whenever you like"}</p>
-              </div>
-              <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${showPassword ? "rotate-180" : ""}`} />
-            </button>
-            {showPassword && (
-              <div className="px-5 pb-5 space-y-3 motion-safe:animate-fade-in">
-                <div className="space-y-1.5">
-                  <Label htmlFor="new-password" className="text-xs text-muted-foreground">{fr ? "Nouveau mot de passe" : "New password"}</Label>
-                  <Input id="new-password" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} maxLength={PASSWORD_MAX_LENGTH} autoComplete="new-password" className="rounded-xl h-11" placeholder={fr ? `Au moins ${PASSWORD_MIN_LENGTH} caractères` : `At least ${PASSWORD_MIN_LENGTH} characters`} />
-                  {newPassword && (
-                    <span className={`inline-flex items-center gap-1 text-xs ${newPassword.length >= PASSWORD_MIN_LENGTH ? "text-emerald-400" : "text-muted-foreground"}`}>
-                      {newPassword.length >= PASSWORD_MIN_LENGTH ? <Check className="w-3 h-3" /> : null}
-                      {fr ? `Au moins ${PASSWORD_MIN_LENGTH} caractères` : `At least ${PASSWORD_MIN_LENGTH} characters`}
-                    </span>
-                  )}
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="confirm-password" className="text-xs text-muted-foreground">{fr ? "Confirmer" : "Confirm"}</Label>
-                  <Input id="confirm-password" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="rounded-xl h-11" placeholder={fr ? "Retapez le mot de passe" : "Re-enter the password"} />
-                </div>
-                {newPassword && confirmPassword && newPassword !== confirmPassword && (
-                  <div className="flex items-center gap-2 text-sm text-destructive"><AlertCircle className="w-4 h-4" />{fr ? "Les mots de passe ne correspondent pas" : "Passwords do not match"}</div>
-                )}
-                <Button onClick={handleSavePassword} disabled={savingPassword || !newPassword} className="w-full rounded-full h-11">
-                  <Save className="w-4 h-4 mr-2" />
-                  {savingPassword ? (fr ? "Enregistrement…" : "Saving…") : (fr ? "Mettre à jour" : "Update password")}
-                </Button>
-              </div>
-            )}
-          </section>
+          {/* Privacy */}
+          <Section id="profile-privacy" title={t("account.privacy.title")} delay={240}>
+            <LinkRow onClick={downloadData} busy={exporting} label={exporting ? t("account.privacy.preparing") : t("account.privacy.download")} detail={t("account.privacy.downloadHint")} />
+            <LinkRow onClick={() => setDialog("anonymize")} label={t("account.privacy.anonymize")} detail={t("account.privacy.anonymizeHint")} />
+            <div className="py-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setDeleteEmail("");
+                  setDialog("delete");
+                }}
+                className="-ml-0.5 min-h-[44px] text-[14px] font-semibold text-destructive hover:underline underline-offset-4"
+              >
+                {t("account.privacy.delete")}
+              </button>
+            </div>
+          </Section>
         </div>
       </main>
       <Footer />
+
+      <AlertDialog open={dialog !== null} onOpenChange={(open) => !open && !dialogBusy && setDialog(null)}>
+        <AlertDialogContent className="theme-night">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {dialog === "signout" ? t("account.security.signOutAllTitle") : dialog === "anonymize" ? t("account.privacy.anonymizeTitle") : t("account.privacy.deleteTitle")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {dialog === "signout" ? t("account.security.signOutAllBody") : dialog === "anonymize" ? t("account.privacy.anonymizeBody") : t("account.privacy.deleteBody")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {dialog === "delete" && (
+            <div>
+              <label htmlFor="delete-email" className="text-[13px] text-muted-foreground">
+                {t("account.privacy.deleteType", { email })}
+              </label>
+              <Input id="delete-email" type="email" autoComplete="off" value={deleteEmail} onChange={(e) => setDeleteEmail(e.target.value)} className="mt-1.5 h-12 text-base" />
+            </div>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={dialogBusy} className="min-h-[44px]">
+              {t("account.common.cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction asChild>
+              <Button
+                variant={dialog === "signout" ? "primary" : "destructive"}
+                className="min-h-[44px] gap-2"
+                disabled={dialogBusy || (dialog === "delete" && deleteEmail.trim().toLowerCase() !== email.toLowerCase())}
+                onClick={(e) => {
+                  e.preventDefault();
+                  void confirmDialog();
+                }}
+              >
+                {dialogBusy && <Loader2 className="w-4 h-4 animate-spin" />}
+                {dialog === "signout" ? t("account.security.signOutAllConfirm") : dialog === "anonymize" ? t("account.privacy.anonymizeConfirm") : t("account.privacy.deleteConfirm")}
+              </Button>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

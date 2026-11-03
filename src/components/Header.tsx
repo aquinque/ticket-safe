@@ -137,13 +137,22 @@ const Header = ({ minimal = false }: HeaderProps) => {
               {user ? (
                 <>
                   <Link
+                    to="/profile"
+                    className={`inline-flex items-center gap-1.5 text-sm font-bold transition-colors hover:text-primary ${
+                      isActive("/profile") ? "text-primary" : "text-foreground"
+                    }`}
+                  >
+                    <User className="w-4 h-4" />
+                    Profile
+                  </Link>
+                  <Link
                     to="/my-tickets"
                     className={`inline-flex items-center gap-1.5 text-sm font-bold transition-colors hover:text-primary ${
                       isActive("/my-tickets") ? "text-primary" : "text-foreground"
                     }`}
                   >
                     <TicketIcon className="w-4 h-4" />
-                    My Tickets
+                    My tickets
                   </Link>
                   <Link
                     to="/settings/listings"
@@ -152,7 +161,7 @@ const Header = ({ minimal = false }: HeaderProps) => {
                     }`}
                   >
                     <Banknote className="w-4 h-4" />
-                    My Wallet
+                    My wallet
                   </Link>
                 </>
               ) : (
@@ -224,10 +233,6 @@ const Header = ({ minimal = false }: HeaderProps) => {
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => navigate("/settings/purchases")}>
                     My Purchases
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate("/settings")}>
-                    <Settings className="h-4 w-4 mr-2" />
-                    {t('nav.settings')}
                   </DropdownMenuItem>
                   {isAdmin && (
                     <>
@@ -325,12 +330,20 @@ const Header = ({ minimal = false }: HeaderProps) => {
               {user && (
                 <div className="flex flex-col gap-2 mb-2 pb-4 border-b border-border">
                   <Link
+                    to="/profile"
+                    onClick={() => setIsMenuOpen(false)}
+                    className={`flex items-center gap-2.5 px-3 h-12 rounded-lg font-bold text-base transition-colors ${isActive("/profile") ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`}
+                  >
+                    <User className="w-5 h-5" />
+                    Profile
+                  </Link>
+                  <Link
                     to="/my-tickets"
                     onClick={() => setIsMenuOpen(false)}
                     className={`flex items-center gap-2.5 px-3 h-12 rounded-lg font-bold text-base transition-colors ${isActive("/my-tickets") ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`}
                   >
                     <TicketIcon className="w-5 h-5" />
-                    My Tickets
+                    My tickets
                   </Link>
                   <Link
                     to="/settings/listings"
@@ -338,7 +351,7 @@ const Header = ({ minimal = false }: HeaderProps) => {
                     className={`flex items-center gap-2.5 px-3 h-12 rounded-lg font-bold text-base transition-colors ${isActive("/settings/listings") ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`}
                   >
                     <Banknote className="w-5 h-5" />
-                    My Wallet
+                    My wallet
                   </Link>
                   {isPromoter && (
                     <Link
@@ -351,14 +364,6 @@ const Header = ({ minimal = false }: HeaderProps) => {
                     </Link>
                   )}
                   <Link
-                    to="/profile"
-                    onClick={() => setIsMenuOpen(false)}
-                    className={`flex items-center gap-2.5 px-3 h-12 rounded-lg font-bold text-base transition-colors ${isActive("/profile") ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`}
-                  >
-                    <User className="w-5 h-5" />
-                    My Profile
-                  </Link>
-                  <Link
                     to="/messages"
                     onClick={() => { setIsMenuOpen(false); markAllRead(); }}
                     className={`flex items-center gap-2.5 px-3 h-11 rounded-lg font-semibold text-sm transition-colors ${location.pathname.startsWith("/messages") ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`}
@@ -370,14 +375,6 @@ const Header = ({ minimal = false }: HeaderProps) => {
                         {unreadCount > 9 ? "9+" : unreadCount}
                       </span>
                     )}
-                  </Link>
-                  <Link
-                    to="/settings"
-                    onClick={() => setIsMenuOpen(false)}
-                    className={`flex items-center gap-2.5 px-3 h-11 rounded-lg font-semibold text-sm transition-colors ${isActive("/settings") ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"}`}
-                  >
-                    <Settings className="w-4 h-4" />
-                    {t('nav.settings')}
                   </Link>
                 </div>
               )}
