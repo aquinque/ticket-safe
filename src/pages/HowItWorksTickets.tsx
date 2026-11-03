@@ -3,6 +3,10 @@ import Footer from "@/components/Footer";
 import { BackButton } from "@/components/BackButton";
 import { SEOHead } from "@/components/SEOHead";
 import { Link } from "react-router-dom";
+import { RESALE_BUYER_FEE_COPY, SELLER_COMMISSION_RATE } from "@/lib/fees";
+import { STUDIO_FEE_RULE } from "@/lib/studioFee";
+
+const SELLER_FEE = `${Math.round(SELLER_COMMISSION_RATE * 100)}%`;
 import {
   ArrowRight,
   MousePointerClick,
@@ -22,7 +26,7 @@ const steps = [
     step: "01",
     icon: MousePointerClick,
     title: "Pick your event",
-    body: "Browse student events across Paris, Madrid, Turin, Berlin and London. Use filters to narrow by campus, category or date.",
+    body: "Browse parties, galas, concerts, conferences and more. Filter by category or date.",
   },
   {
     step: "02",
@@ -34,13 +38,13 @@ const steps = [
     step: "03",
     icon: CreditCard,
     title: "Pay securely",
-    body: "Secure card payment, no account needed. Ticket Safe never touches your card details.",
+    body: "Pay with Apple Pay, Google Pay or card, no account needed. Your card details never reach TicketSafe.",
   },
   {
     step: "04",
     icon: QrCode,
     title: "Ticket on the spot",
-    body: "Your QR ticket lands in your inbox the moment your payment clears. Scan it at the door — no waiting, no chasing anyone.",
+    body: "Your ticket arrives by email the moment you pay and stays on your phone. Show its QR code at the door.",
   },
 ];
 
@@ -48,40 +52,52 @@ const trust = [
   {
     icon: Building2,
     title: "Direct from the organizer",
-    body: "Every event is listed by a verified student society. No middlemen, no resellers, no markups.",
+    body: "Events are listed by organizers approved by TicketSafe. You buy straight from them, at the price they set.",
   },
   {
     icon: ShieldCheck,
     title: "Refund if the event is cancelled",
-    body: "If the organizer officially cancels the event, you get a full automatic refund — no support ticket needed.",
+    body: "If the organizer cancels the event, you are refunded automatically, fees included, with nothing to ask for.",
   },
   {
     icon: Mail,
     title: "QR delivered automatically",
-    body: "Tickets are emailed instantly after payment. Each QR is unique and validated at the door.",
+    body: "Tickets are emailed right after payment. Each QR code is unique and can be scanned only once at the door.",
   },
 ];
 
 const faqs = [
   {
-    q: "How do I know an event is real?",
-    a: "Only verified student societies (BDE, sports clubs, alumni associations) can list events. We check the organizer's identity and campus affiliation before they go live.",
+    q: "How do I buy a ticket?",
+    a: "Open the event, choose your ticket type and how many, then pay with Apple Pay, Google Pay or card. You don't need an account.",
   },
   {
-    q: "What payment methods are accepted?",
-    a: "All major cards — Visa, Mastercard, Amex.",
+    q: "Where is my ticket?",
+    a: "It is emailed to you right after payment, so it is on your phone. With an account, you also find it any time in My tickets.",
   },
   {
-    q: "Can I get a refund if I change my mind?",
-    a: "Refunds are decided by the organizer's policy, which is shown on the event page before you pay. Full refunds are automatic only if the organizer cancels the event.",
+    q: "Can I resell my ticket?",
+    a: `Yes. List it on TicketSafe in two minutes. When it sells, the buyer gets a new ticket, your QR code stops working, and you receive the price minus ${SELLER_FEE} on your bank account after the event.`,
   },
   {
-    q: "Where is my ticket delivered?",
-    a: "It is emailed to the address on your Ticket Safe account, right after payment. You can also find it any time under My Purchases.",
+    q: "How much does it cost to sell my event?",
+    a: "Nothing for the organizer: TicketSafe Studio takes 0% commission, so you keep the full ticket price.",
   },
   {
-    q: "What if the event is sold out?",
-    a: "Head to the resale marketplace — students often re-list tickets at face value. Payment is held in escrow until the QR is delivered.",
+    q: "Who pays the fees?",
+    a: `The buyer, at checkout: ${STUDIO_FEE_RULE}. Free tickets have no fee. On a resale, the buyer pays ${RESALE_BUYER_FEE_COPY} on top of the price.`,
+  },
+  {
+    q: "When do organizers get paid?",
+    a: "Ticket money reaches the organizer's Stripe account as tickets sell. Organizers can cash out what is available whenever they want, and the rest is sent to their bank automatically after the event.",
+  },
+  {
+    q: "How does the QR code work at the door?",
+    a: "Every ticket has its own QR code. Door staff scan it with the TicketSafe scanner, and it works only once, so the same ticket cannot get in twice.",
+  },
+  {
+    q: "What if the event is cancelled?",
+    a: "You are refunded automatically, fees included, to the card you paid with. It usually shows on your account within 3 to 10 business days.",
   },
 ];
 
@@ -90,7 +106,7 @@ const HowItWorksTickets = () => {
     <div className="min-h-screen bg-background flex flex-col">
       <SEOHead
         title="How buying tickets works — Ticket Safe"
-        description="How to buy student event tickets on Ticket Safe — direct from event organizers, paid securely, QR delivered instantly."
+        description="How to buy event tickets on TicketSafe: straight from the organizer, pay with Apple Pay or card, and keep your ticket on your phone."
       />
       <Header minimal />
 
@@ -123,7 +139,7 @@ const HowItWorksTickets = () => {
               <span className="text-white/85">straight to your inbox.</span>
             </h1>
             <p className="text-sm md:text-lg text-white/80 max-w-2xl leading-relaxed">
-              Four steps, no middlemen. Pay once and your QR ticket is delivered the moment your payment clears.
+              Four steps. Pay in a few taps and your ticket is on your phone straight away.
             </p>
           </div>
         </section>
@@ -174,10 +190,10 @@ const HowItWorksTickets = () => {
           <div className="container mx-auto px-4 max-w-5xl">
             <div className="text-center mb-8 md:mb-12">
               <h2 className="text-2xl md:text-4xl font-black mb-2 md:mb-3">
-                Why it is safe
+                What you can count on
               </h2>
               <p className="text-sm md:text-base text-muted-foreground max-w-xl mx-auto">
-                Direct sales mean fewer moving parts. Here is what protects you.
+                Here is how your ticket works, from payment to the door.
               </p>
             </div>
 
@@ -208,7 +224,7 @@ const HowItWorksTickets = () => {
                 Frequently asked
               </h2>
               <p className="text-sm md:text-base text-muted-foreground">
-                Quick answers about direct ticket purchases.
+                Quick answers for buyers and organizers.
               </p>
             </div>
 
@@ -248,7 +264,7 @@ const HowItWorksTickets = () => {
                   Event sold out?
                 </div>
                 <div className="text-xs md:text-sm text-muted-foreground">
-                  Students often re-list at face value on the resale marketplace.
+                  People who can no longer go resell their tickets on TicketSafe.
                 </div>
               </div>
               <Link
@@ -279,7 +295,7 @@ const HowItWorksTickets = () => {
                     Ready to find your next event?
                   </h3>
                   <p className="text-white/85 text-sm md:text-base max-w-lg leading-relaxed">
-                    Browse upcoming student events across all campuses.
+                    Browse upcoming events on TicketSafe.
                   </p>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-2.5">

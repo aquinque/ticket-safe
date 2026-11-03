@@ -48,7 +48,7 @@ const features = [
   {
     icon: QrCode,
     title: "Secure QR tickets",
-    desc: "Every ticket is signed and scannable. Anti-fraud by default, same standard as our resale marketplace.",
+    desc: "Every ticket has its own signed QR code that works once at the door, the same standard as our resale marketplace.",
   },
   {
     icon: TrendingUp,

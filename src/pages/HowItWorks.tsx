@@ -26,7 +26,7 @@ const buyerSteps = [
     step: "01",
     icon: Search,
     title: "Find a ticket",
-    body: "Browse the marketplace, filter by event and price. Every listing comes from a verified student at your school.",
+    body: "Browse the resale listings and filter by event and price. Every QR code is checked before the ticket goes on sale.",
   },
   {
     step: "02",
@@ -37,14 +37,14 @@ const buyerSteps = [
   {
     step: "03",
     icon: Lock,
-    title: "Payment held in escrow",
-    body: "Your money stays locked in escrow until the QR ticket reaches you. No upfront risk.",
+    title: "You pay TicketSafe",
+    body: "You pay by card through TicketSafe, never to a stranger. The seller is only paid after the event.",
   },
   {
     step: "04",
     icon: QrCode,
-    title: "Get the QR automatically",
-    body: "Once the seller releases the ticket through the platform, the QR lands in your inbox — verified, ready to scan.",
+    title: "Get a new ticket in your name",
+    body: "Right after payment you get a new ticket with a new QR code, in your name. The seller's old QR code stops working.",
   },
 ];
 
@@ -53,7 +53,7 @@ const sellerSteps = [
     step: "01",
     icon: Upload,
     title: "List in two minutes",
-    body: "Pick the event, set your price, upload your QR. The listing goes live as soon as we authenticate it.",
+    body: "Pick the event, set your price and add your ticket's QR code. The listing goes live once the QR code is checked.",
   },
   {
     step: "02",
@@ -65,40 +65,40 @@ const sellerSteps = [
     step: "03",
     icon: Send,
     title: "Automatic transfer",
-    body: "Once payment clears, Ticket Safe releases the QR to the buyer automatically. You do nothing.",
+    body: "When someone buys, TicketSafe issues them a new ticket and switches off your old QR code. You have nothing to send.",
   },
   {
     step: "04",
     icon: Banknote,
     title: "Get paid to your bank",
-    body: "Request a payout anytime from your balance. We send it by bank transfer (SEPA) — typically 2-3 business days. No invoices, no chasing.",
+    body: "After the event, the price minus 5% is sent to your bank account. Add your bank details once, on Stripe's secure page.",
   },
 ];
 
 const faqs = [
   {
-    q: "How are students verified?",
-    a: "Sign-up requires a university email. Only verified students from your school can list or buy on the resale marketplace.",
+    q: "Who can resell a ticket?",
+    a: "Anyone with a TicketSafe account who has a ticket for the event. Its QR code is checked before the listing goes live.",
   },
   {
-    q: "What if the QR turns out to be invalid?",
-    a: "Every QR is checked before it is released to the buyer. If a ticket fails at the door because of a seller-side issue, you get a full refund — price plus platform fee.",
+    q: "How does the QR code work after a resale?",
+    a: "The buyer gets a new ticket with a new QR code, and the seller's old QR code stops working. Each code can be scanned only once at the door.",
   },
   {
     q: "How long until the seller is paid?",
-    a: "Once your sale clears, you can request a payout to your bank account (SEPA transfer). It typically arrives within 2-3 business days.",
+    a: "After the event. The price minus 5% is sent to your bank account and usually arrives 2 to 3 working days later.",
   },
   {
     q: "Can I cancel my listing?",
-    a: "Yes, as long as no one has bought it yet. Once a sale is in progress, cancelling may incur a small penalty to protect the buyer.",
+    a: "Yes, as long as nobody has bought it yet: open My Wallet and cancel it. Once a ticket is sold, the sale is final.",
   },
   {
     q: "What are the fees?",
-    a: `Buyers pay ${RESALE_BUYER_FEE_COPY} on top of the ticket price; sellers receive the price minus 5%, paid to their bank after the event. The fee covers payment processing, ticket authentication and buyer protection.`,
+    a: `Buyers pay ${RESALE_BUYER_FEE_COPY} on top of the ticket price; sellers receive the price minus 5%, paid to their bank after the event. There is no other cost.`,
   },
   {
     q: "What if the event is cancelled?",
-    a: "If the organizer cancels, every buyer gets a full automatic refund — ticket price and platform fee.",
+    a: "If the organizer cancels the event, every buyer is refunded automatically, fees included, to the card they paid with.",
   },
 ];
 
@@ -113,7 +113,7 @@ const HowItWorks = () => {
     <div className="min-h-screen bg-background flex flex-col">
       <SEOHead
         title="How resale works — Ticket Safe"
-        description="How the Ticket Safe resale marketplace works for buyers and sellers — escrow payments, automatic QR delivery, bank transfer payouts."
+        description="How reselling a ticket on TicketSafe works: list it in two minutes, the buyer gets a new ticket with a new QR code, and the seller is paid to their bank after the event."
       />
       <Header />
 
@@ -144,7 +144,7 @@ const HowItWorks = () => {
               How resale works.
             </h1>
             <p className="text-sm md:text-lg text-white/80 max-w-2xl leading-relaxed">
-              Buy a ticket from another student, or list yours — bank-to-bank, escrow-protected, fully automatic.
+              Can't go? Resell your ticket. Looking for one? Buy it from someone who can't use theirs.
             </p>
           </div>
         </section>
@@ -161,7 +161,7 @@ const HowItWorks = () => {
                 Buy a ticket in 4 steps
               </h2>
               <p className="text-sm md:text-base text-muted-foreground max-w-xl mx-auto">
-                Your money stays locked until the QR ticket reaches you. No risk, no surprises.
+                You pay TicketSafe, you get a new ticket in your name, and the seller is paid after the event.
               </p>
             </div>
 
@@ -216,7 +216,7 @@ const HowItWorks = () => {
                 Sell a ticket in 4 steps
               </h2>
               <p className="text-sm md:text-base text-muted-foreground max-w-xl mx-auto">
-                List in two minutes. The platform handles delivery and payout — you just wait.
+                List in two minutes. TicketSafe issues the new ticket and pays you after the event.
               </p>
             </div>
 
@@ -319,9 +319,9 @@ const HowItWorks = () => {
                   </div>
                 </div>
                 <div className="p-4 md:p-5 text-center">
-                  <div className="text-xl md:text-2xl font-black text-primary mb-0.5">~24h</div>
+                  <div className="text-xl md:text-2xl font-black text-primary mb-0.5">After</div>
                   <div className="text-[10px] md:text-xs text-muted-foreground leading-tight">
-                    Seller payout
+                    the event: seller payout
                   </div>
                 </div>
               </div>
@@ -405,10 +405,10 @@ const HowItWorks = () => {
               <div className="relative flex flex-col md:flex-row md:items-center gap-5 md:gap-8">
                 <div className="flex-1">
                   <h3 className="text-xl md:text-3xl font-black mb-2 md:mb-3 leading-tight">
-                    Ready to buy or sell safely?
+                    Ready to buy or resell a ticket?
                   </h3>
                   <p className="text-white/85 text-sm md:text-base max-w-lg leading-relaxed">
-                    Join hundreds of students from your school already using the resale marketplace.
+                    Create a free account to resell a ticket or buy one someone else can't use.
                   </p>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-2.5">
