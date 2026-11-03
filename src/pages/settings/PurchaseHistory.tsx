@@ -165,7 +165,7 @@ const PurchaseHistory = () => {
       <main className="pt-20 pb-8 md:pt-24 md:pb-16 flex-1">
         <div className="container mx-auto px-4 max-w-3xl">
           <div className="mb-5">
-            <BackButton fallbackPath="/settings" />
+            <BackButton fallbackPath="/profile" />
           </div>
 
           <PageHeader

@@ -16,8 +16,9 @@ import {
   CheckCircle2,
   XCircle,
   AlertCircle,
-  ShieldCheck,
 } from "lucide-react";
+import { useI18n } from "@/contexts/I18nContext";
+import { requestNewResetLinkPath, takeResetReturn } from "@/lib/resetReturn";
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH, PASSWORD_RULE_TEXT, authErrorMessage, passwordError } from "@/lib/authRules";
 
 /**
@@ -37,10 +38,9 @@ const ResetPassword = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isValidToken, setIsValidToken] = useState<boolean | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
-  const [redirectCountdown, setRedirectCountdown] = useState(3);
   const [isActivation, setIsActivation] = useState(false);
   const navigate = useNavigate();
+  const { t } = useI18n();
 
   // ── Validate session on mount ────────────────────────────────────────────
   useEffect(() => {
@@ -49,10 +49,6 @@ const ResetPassword = () => {
     const resolve = (valid: boolean) => {
       if (cancelled) return;
       setIsValidToken(valid);
-      if (!valid) {
-        toast.error("This link has expired or is no longer valid. Request a new one.");
-        setTimeout(() => navigate("/auth"), 3000);
-      }
     };
 
     supabase.auth.getSession().then(({ data }) => {
@@ -73,18 +69,7 @@ const ResetPassword = () => {
       cancelled = true;
       subscription.unsubscribe();
     };
-  }, [navigate]);
-
-  // ── Auto-redirect after success ──────────────────────────────────────────
-  useEffect(() => {
-    if (!success) return;
-    if (redirectCountdown <= 0) {
-      navigate("/profile", { replace: true });
-      return;
-    }
-    const t = setTimeout(() => setRedirectCountdown((n) => n - 1), 1000);
-    return () => clearTimeout(t);
-  }, [success, redirectCountdown, navigate]);
+  }, []);
 
   const passwordLongEnough = newPassword.length >= PASSWORD_MIN_LENGTH;
 
@@ -110,7 +95,7 @@ const ResetPassword = () => {
       if (!sessionData.session) {
         console.error("[reset-password] no active session at submit time");
         setSubmitError("Your session has expired. Request a new link from “Forgot your password?”.");
-        setTimeout(() => navigate("/auth"), 3000);
+        setIsValidToken(false);
         return;
       }
 
@@ -124,8 +109,10 @@ const ResetPassword = () => {
         throw error;
       }
 
-      toast.success(isActivation ? "Account activated!" : "Password updated!");
-      setSuccess(true);
+      // Signed in with the new password: back to the page where "Log in" / "Forgot your password?" was
+      // clicked (remembered in this browser), else the home; a first activation goes to the tickets.
+      toast.success(isActivation ? t("auth.accountActivated") : t("auth.passwordUpdated"));
+      navigate(takeResetReturn(isActivation ? "/my-tickets" : "/"), { replace: true });
     } catch (error) {
       console.error("[reset-password] caught error:", error);
       setSubmitError(authErrorMessage(error));
@@ -167,36 +154,9 @@ const ResetPassword = () => {
               This link has expired or has already been used. Request a new one from “Forgot your password?”.
             </CardDescription>
           </CardHeader>
-          <CardContent className="flex justify-center">
-            <Button onClick={() => navigate("/auth")}>Back to sign in</Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  // ── Success ──────────────────────────────────────────────────────────────
-  if (success) {
-    return (
-      <div className="theme-night min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <div className="mx-auto mb-3 w-14 h-14 rounded-full bg-green-100 flex items-center justify-center">
-              <ShieldCheck className="w-7 h-7 text-green-600" />
-            </div>
-            <CardTitle className="text-2xl font-bold text-center text-green-700">
-              {isActivation ? "Account activated" : "Password updated"}
-            </CardTitle>
-            <CardDescription className="text-center">
-              {isActivation ? "Your account is ready and your tickets are waiting." : "Your new password is active."}{" "}
-              Taking you to your profile in{" "}
-              <span className="font-bold text-foreground">{redirectCountdown}</span>…
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex justify-center pb-8">
-            <Button onClick={() => navigate("/profile", { replace: true })}>
-              Go to my profile
-            </Button>
+          <CardContent className="flex flex-col gap-2">
+            <Button variant="primary" onClick={() => navigate(requestNewResetLinkPath())}>{t("auth.requestNewLink")}</Button>
+            <Button variant="ghost" onClick={() => navigate("/auth")}>Back to sign in</Button>
           </CardContent>
         </Card>
       </div>

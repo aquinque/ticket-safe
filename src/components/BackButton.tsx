@@ -15,7 +15,7 @@ interface BackButtonProps {
  * arrow meaningful — it goes one level up, to a real route, never to a 404.
  */
 function smartParent(pathname: string): string {
-  if (pathname.startsWith("/settings/")) return "/settings";
+  if (pathname.startsWith("/settings/")) return "/profile";
   if (pathname.startsWith("/studio/")) return "/studio";
   if (pathname.startsWith("/admin/")) return "/admin/organizers";
   if (pathname.startsWith("/my-tickets/")) return "/my-tickets";

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Menu, X, Globe, User, Ticket, Banknote, LayoutDashboard, Megaphone, LogOut, ArrowRight, ShieldCheck } from "lucide-react";
+import { Menu, X, Globe, User, Ticket, Banknote, LayoutDashboard, Megaphone, LogOut, ArrowRight, ShieldCheck, ChevronDown } from "lucide-react";
 import Logo from "@/components/Logo";
 import WalletBalanceButton from "@/components/WalletBalanceButton";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { useOrganizer } from "@/hooks/useOrganizer";
 import { useIsPromoter } from "@/hooks/useIsPromoter";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { authPath, currentReturnPath } from "@/lib/returnTo";
+import { initialsOf } from "@/components/profile/profileModel";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -62,6 +63,7 @@ const HeaderNight = () => {
     if (fn) return fn.split(" ")[0];
     return user?.email?.split("@")[0] ?? "";
   })();
+  const initials = initialsOf((user?.user_metadata as { full_name?: string } | undefined)?.full_name ?? "", user?.email ?? "");
 
   const handleSignOut = async () => {
     await signOut();
@@ -167,47 +169,61 @@ const HeaderNight = () => {
             )}
             <WalletBalanceButton />
             {user ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button className="inline-flex items-center gap-2 h-9 px-3 rounded-md font-semibold text-sm text-foreground border border-border hover:bg-secondary transition-colors">
-                    <User className="w-4 h-4" />
-                    {firstName && <span className="max-w-[8rem] truncate">{firstName}</span>}
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => navigate("/profile")}>
-                    <User className="w-4 h-4 mr-2" />
-                    {t("nav.profile")}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate("/my-tickets")}>
-                    <Ticket className="w-4 h-4 mr-2" />
-                    My Tickets
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate("/settings/listings")}>
-                    <Banknote className="w-4 h-4 mr-2" />
-                    My Wallet
-                  </DropdownMenuItem>
-                  {isStudioOrganizer && (
-                    <DropdownMenuItem onClick={() => navigate("/studio")}>
-                      <LayoutDashboard className="w-4 h-4 mr-2" />
-                      TicketSafe Studio
+              <div className="flex items-center">
+                {/* The initials open the profile; the chevron opens the account menu. */}
+                <Link
+                  to="/profile"
+                  aria-label={`${t("nav.profile")}${firstName ? ` · ${firstName}` : ""}`}
+                  aria-current={isActive("/profile") ? "page" : undefined}
+                  className={`inline-flex items-center justify-center w-9 h-9 rounded-full border text-[13px] font-bold transition-colors ${
+                    isActive("/profile") ? "border-brand-200 text-brand-200" : "border-brand-200/40 text-foreground hover:border-brand-200 hover:text-brand-200"
+                  }`}
+                >
+                  {initials}
+                </Link>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      aria-label="Account menu"
+                      className="inline-flex items-center justify-center w-8 h-9 rounded-md text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <ChevronDown className="w-4 h-4" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => navigate("/profile")}>
+                      <User className="w-4 h-4 mr-2" />
+                      {t("nav.profile")}
                     </DropdownMenuItem>
-                  )}
-                  {isPromoter && (
-                    <DropdownMenuItem onClick={() => navigate("/promoter")}>
-                      <Megaphone className="w-4 h-4 mr-2" />
-                      Promoter space
+                    <DropdownMenuItem onClick={() => navigate("/my-tickets")}>
+                      <Ticket className="w-4 h-4 mr-2" />
+                      My tickets
                     </DropdownMenuItem>
-                  )}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => navigate("/settings")}>{t("nav.settings")}</DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleSignOut}>
-                    <LogOut className="w-4 h-4 mr-2" />
-                    {t("nav.signOut")}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                    <DropdownMenuItem onClick={() => navigate("/settings/listings")}>
+                      <Banknote className="w-4 h-4 mr-2" />
+                      My wallet
+                    </DropdownMenuItem>
+                    {isPromoter && (
+                      <DropdownMenuItem onClick={() => navigate("/promoter")}>
+                        <Megaphone className="w-4 h-4 mr-2" />
+                        Promoter space
+                      </DropdownMenuItem>
+                    )}
+                    {isStudioOrganizer && (
+                      <DropdownMenuItem onClick={() => navigate("/studio")}>
+                        <LayoutDashboard className="w-4 h-4 mr-2" />
+                        TicketSafe Studio
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleSignOut}>
+                      <LogOut className="w-4 h-4 mr-2" />
+                      {t("nav.signOut")}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             ) : (
               <>
                 <Button variant="ghost" size="sm" asChild>
@@ -325,9 +341,11 @@ const HeaderNight = () => {
             {user ? (
               <div className="flex flex-col">
                 {[
-                  ...(isAdmin ? [{ to: "/admin/events", label: "Admin · All events", icon: ShieldCheck }] : []),
+                  { to: "/profile", label: "Profile", icon: User },
                   { to: "/my-tickets", label: "My tickets", icon: Ticket },
                   { to: "/settings/listings", label: "My wallet", icon: Banknote },
+                  ...(isPromoter ? [{ to: "/promoter", label: "Promoter space", icon: Megaphone }] : []),
+                  ...(isAdmin ? [{ to: "/admin/events", label: "Admin · All events", icon: ShieldCheck }] : []),
                 ].map((item) => (
                   <Link
                     key={item.to}
