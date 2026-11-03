@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Banknote, Download, CheckCircle2, Loader2, ArrowLeft, FileText, Clock, AlertTriangle, ExternalLink, Copy, Zap, RefreshCw } from "lucide-react";
+import { Banknote, Download, CheckCircle2, Loader2, ArrowLeft, FileText, Clock, AlertTriangle, ExternalLink, Copy, RefreshCw, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import Header from "@/components/Header";
 import { BackButton } from "@/components/BackButton";
@@ -42,13 +42,13 @@ const AdminPayouts = () => {
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [marking, setMarking] = useState<string | null>(null);
-  const [sending, setSending] = useState(false);
   const [polling, setPolling] = useState(false);
+  // Cancelled batches stay in the database; the list hides them unless asked.
+  const [showCancelled, setShowCancelled] = useState(false);
   // Stays sticky once the function reports "not configured" so the admin
   // sees the exact setup steps without having to re-click and re-read
   // the small toast.
   const [sepaConfigError, setSepaConfigError] = useState<string | null>(null);
-  const [revolutConfigError, setRevolutConfigError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user) navigate(authPathHere(), { replace: true });
@@ -69,6 +69,12 @@ const AdminPayouts = () => {
 
   const load = async () => {
     setLoading(true);
+    let batchQuery = supabase
+      .from("payout_batches")
+      .select("id, created_at, status, total_cents, num_payouts, sent_at")
+      .order("created_at", { ascending: false })
+      .limit(20);
+    if (!showCancelled) batchQuery = batchQuery.neq("status", "cancelled");
     const [{ data: studio }, { data: resale }, { data: batchRows }] = await Promise.all([
       supabase
         .from("organizer_payouts")
@@ -82,11 +88,7 @@ const AdminPayouts = () => {
         .eq("status", "requested")
         .is("batch_id", null)
         .order("requested_at", { ascending: true }),
-      supabase
-        .from("payout_batches")
-        .select("id, created_at, status, total_cents, num_payouts, sent_at")
-        .order("created_at", { ascending: false })
-        .limit(20),
+      batchQuery,
     ]);
 
     const rows: PendingPayout[] = [];
@@ -140,7 +142,8 @@ const AdminPayouts = () => {
 
   useEffect(() => {
     if (isAdmin) load();
-  }, [isAdmin]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdmin, showCancelled]);
 
   // format "sheet" → clean human-readable .txt for manual bank entry (default);
   // format "xml" → pain.001 SEPA file for banks that support bulk upload.
@@ -205,72 +208,22 @@ const AdminPayouts = () => {
     }
   };
 
-  const sendViaRevolut = async () => {
-    if (pending.length === 0) return;
-    setSending(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("send-payout-batch-revolut", {
-        body: { include_studio: true, include_resale: true },
-      });
-      if (error) throw new Error(error.message);
-      const payload = data as { ok?: boolean; error?: string; sent?: number; failed?: number; batch_id?: string };
-      if (payload.error) {
-        if (payload.error.toLowerCase().includes("not configured")) setRevolutConfigError(payload.error);
-        throw new Error(payload.error);
-      }
-      setRevolutConfigError(null);
-      const sentCount = payload.sent ?? 0;
-      const failedCount = payload.failed ?? 0;
-      if (failedCount > 0) {
-        toast.warning(`${sentCount} sent, ${failedCount} failed. Approve the rest in your Revolut app and click Refresh.`);
-      } else {
-        toast.success(`${sentCount} transfer${sentCount === 1 ? "" : "s"} created. Open your Revolut app and approve the SCA.`);
-      }
-      load();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Send failed");
-    } finally {
-      setSending(false);
-    }
-  };
-
-  // Always reloads the queue + batches from the DB. Best-effort: also pull
-  // Revolut status for any 'processing' batch — but if Revolut is on hold or
-  // unconfigured (poll returns non-2xx), that must NOT break the refresh.
   const refresh = async () => {
     setPolling(true);
     try {
       await load();
-      const { data, error } = await supabase.functions.invoke("poll-revolut-batch", { body: {} });
-      const payloadErr = (data as { error?: string } | null)?.error;
-      if (error || payloadErr) {
-        // Revolut not available — the DB view is already refreshed, so this is fine.
-        toast.success("Queue refreshed.");
-        return;
-      }
-      const payload = data as { completed?: number; failed?: number };
-      const completed = payload.completed ?? 0;
-      const failed = payload.failed ?? 0;
-      if (completed > 0 || failed > 0) {
-        await load();
-        toast.success(`Queue refreshed · ${completed} completed${failed ? `, ${failed} failed` : ""}.`);
-      } else {
-        toast.success("Queue refreshed.");
-      }
-    } catch {
-      // poll-revolut-batch threw (e.g. on hold). The reload above already ran.
       toast.success("Queue refreshed.");
     } finally {
       setPolling(false);
     }
   };
 
-  // Recover a batch that got stuck in 'processing' (e.g. a Revolut batch that
-  // never completed): send its payouts back to the queue as 'requested' so they
-  // can be paid via SEPA export, and cancel the batch.
+  // Recover a batch that got stuck in 'processing' and was NOT paid: send its
+  // payouts back to the queue as 'requested' so they can be exported again,
+  // and cancel the batch.
   const returnToQueue = async (batchId: string) => {
     if (!window.confirm(
-      `Return batch ${batchId} to the queue?\n\nIts payouts go back to "requested" so you can pay them via Export XML (SEPA). Only do this if the batch was NOT actually paid.`,
+      `Return batch ${batchId} to the queue?\n\nIts payouts go back to "requested" so you can export them again. Only do this if the batch was NOT actually paid.`,
     )) return;
     setMarking(batchId);
     try {
@@ -280,10 +233,40 @@ const AdminPayouts = () => {
       ]);
       if (e1 || e2) throw new Error(e1?.message ?? e2?.message ?? "Update failed");
       await supabase.from("payout_batches").update({ status: "cancelled" }).eq("id", batchId);
-      toast.success(`Batch ${batchId} returned to the queue — pay it with Export XML.`);
+      toast.success(`Batch ${batchId} returned to the queue.`);
       await load();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not return batch to queue");
+    } finally {
+      setMarking(null);
+    }
+  };
+
+  // Cancel a batch that was never paid and whose payouts must not be paid
+  // either (tests, duplicates): the batch and its payouts become 'cancelled'
+  // with a note, nothing is deleted. Cancelled payouts no longer count as
+  // withdrawn, so the amount is available again in the seller's or
+  // organizer's balance.
+  const cancelBatch = async (batchId: string) => {
+    const note = window.prompt(
+      `Cancel batch ${batchId} and all its payouts?\n\nNothing is deleted and no transfer is sent. The amounts become available again in the sellers' and organizers' balances.\n\nNote for the records:`,
+      "Cancelled, never sent",
+    );
+    if (note === null) return;
+    const notes = note.trim() || "Cancelled, never sent";
+    setMarking(batchId);
+    try {
+      const [{ error: e1 }, { error: e2 }] = await Promise.all([
+        supabase.from("organizer_payouts").update({ status: "cancelled", admin_notes: notes }).eq("batch_id", batchId).is("sent_at", null),
+        supabase.from("seller_payouts").update({ status: "cancelled", admin_notes: notes }).eq("batch_id", batchId).is("sent_at", null),
+      ]);
+      if (e1 || e2) throw new Error(e1?.message ?? e2?.message ?? "Update failed");
+      const { error: e3 } = await supabase.from("payout_batches").update({ status: "cancelled", notes }).eq("id", batchId);
+      if (e3) throw new Error(e3.message);
+      toast.success(`Batch ${batchId} cancelled.`);
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not cancel the batch");
     } finally {
       setMarking(null);
     }
@@ -343,8 +326,12 @@ const AdminPayouts = () => {
           <PageHeader
             icon={Banknote}
             title="SEPA payout queue"
-            description="Batch every Studio + resale payout into one bank upload."
+            description="Batch resale and legacy payouts into one bank upload."
           />
+
+          <p className="mb-6 rounded-xl border border-border bg-muted/40 px-4 py-3 text-sm text-foreground">
+            Studio events are paid out automatically through Stripe. This queue is only for resale and legacy payouts.
+          </p>
 
           {/* SEPA debtor config banner — shown the moment export-payout-batch
               tells us the secrets aren't set on the Supabase project. */}
@@ -415,97 +402,19 @@ const AdminPayouts = () => {
             <Card label="Studio / Resale" value={`${pending.filter(p => p.kind === "studio").length} / ${pending.filter(p => p.kind === "resale").length}`} icon={FileText} />
           </div>
 
-          {/* Revolut config-required banner — surfaces the moment
-              send-payout-batch-revolut tells us secrets aren't set. */}
-          {revolutConfigError && (
-            <div className="mb-6 bg-violet-50 border-2 border-violet-300 rounded-2xl p-5 md:p-6">
-              <div className="flex items-start gap-3">
-                <AlertTriangle className="w-5 h-5 text-violet-700 mt-1 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-base font-black text-violet-900 mb-1">Revolut Business API not configured</h3>
-                  <p className="text-sm text-violet-900/90 mb-3">
-                    To send transfers automatically without uploading XML, set up Revolut Business API access:
-                  </p>
-                  <ol className="text-sm text-violet-900/90 list-decimal pl-5 space-y-1 mb-4">
-                    <li>Go to <strong>Revolut Business → Settings → APIs → Add API client</strong></li>
-                    <li>
-                      Generate a key pair locally:{" "}
-                      <code className="bg-white px-1.5 py-0.5 rounded text-xs">openssl genrsa -out revolut.pem 2048 && openssl rsa -in revolut.pem -pubout -out revolut-public.pem</code>
-                    </li>
-                    <li>Upload <code className="bg-white px-1.5 py-0.5 rounded text-xs">revolut-public.pem</code> to Revolut → copy the Client ID it returns</li>
-                    <li>
-                      Open{" "}
-                      <a
-                        href="https://supabase.com/dashboard/project/lgmnatfvdzzjzyxlenry/settings/functions"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 font-bold underline"
-                      >
-                        Supabase secrets
-                        <ExternalLink className="w-3.5 h-3.5" />
-                      </a>{" "}
-                      and add:
-                    </li>
-                  </ol>
-                  <div className="space-y-2 mb-3">
-                    {[
-                      { key: "REVOLUT_CLIENT_ID", hint: "From Revolut → Settings → APIs" },
-                      { key: "REVOLUT_PRIVATE_KEY", hint: "Whole contents of revolut.pem (with -----BEGIN PRIVATE KEY-----)" },
-                    ].map((s) => (
-                      <div key={s.key} className="flex items-center justify-between gap-2 bg-white border border-violet-200 rounded-lg px-3 py-2">
-                        <div className="min-w-0">
-                          <div className="text-xs font-bold font-mono text-violet-900">{s.key}</div>
-                          <div className="text-[11px] text-violet-800/80 truncate">{s.hint}</div>
-                        </div>
-                        <button
-                          onClick={() => {
-                            navigator.clipboard.writeText(s.key).catch(() => undefined);
-                            toast.success(`Copied ${s.key}`);
-                          }}
-                          className="inline-flex items-center gap-1 text-[11px] font-bold text-violet-900 hover:underline shrink-0"
-                        >
-                          <Copy className="w-3 h-3" />
-                          Copy
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                  <p className="text-xs text-violet-900/80">
-                    Once set, hit "Send via Revolut" again — transfers are created via API, you approve with one SCA in your phone.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setRevolutConfigError(null)}
-                  className="text-violet-900/60 hover:text-violet-900 text-xs font-bold shrink-0"
-                >
-                  Dismiss
-                </button>
-              </div>
-            </div>
-          )}
-
           {/* Send / Export buttons */}
           <section className="mb-8 bg-card border border-border rounded-2xl p-5 md:p-6">
             <div className="flex flex-col gap-4">
               <div>
                 <h2 className="text-lg font-black">Pay out the queue</h2>
                 <p className="text-sm text-muted-foreground mt-0.5">
-                  <strong>Transfer sheet</strong> downloads a clean, readable list (beneficiary · IBAN · amount · reference) you type into your bank one by one — the manual path for now. <strong>SEPA XML</strong> is the same batch as a pain.001 file for banks that support bulk upload. <strong>Send via Revolut</strong> (green) will do it all automatically once Revolut Business is enabled — you'd just approve one SCA on your phone.
+                  <strong>Transfer sheet</strong> downloads a readable list (beneficiary · IBAN · amount · reference) to enter in your bank one by one. <strong>SEPA XML</strong> is the same batch as a pain.001 file, for banks that accept bulk uploads.
                 </p>
               </div>
               <div className="flex flex-col sm:flex-row gap-2">
                 <button
-                  onClick={sendViaRevolut}
-                  disabled={sending || exporting || pending.length === 0}
-                  className="inline-flex items-center justify-center gap-2 min-h-[44px] px-5 rounded-lg font-bold bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60 shrink-0"
-                >
-                  {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-                  Send via Revolut ({pending.length})
-                </button>
-                <button
                   onClick={() => exportBatch("sheet")}
-                  disabled={exporting || sending || pending.length === 0}
+                  disabled={exporting || pending.length === 0}
                   className="inline-flex items-center justify-center gap-2 min-h-[44px] px-5 rounded-lg font-bold bg-muted hover:bg-muted/80 border border-border disabled:opacity-60 shrink-0"
                   title="Clean, readable list of beneficiary · IBAN · amount · reference to type into your bank"
                 >
@@ -514,7 +423,7 @@ const AdminPayouts = () => {
                 </button>
                 <button
                   onClick={() => exportBatch("xml")}
-                  disabled={exporting || sending || pending.length === 0}
+                  disabled={exporting || pending.length === 0}
                   className="inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-lg font-semibold text-sm bg-muted/60 hover:bg-muted border border-border disabled:opacity-60 shrink-0"
                   title="pain.001 SEPA XML — for banks that support bulk transfer upload"
                 >
@@ -525,7 +434,7 @@ const AdminPayouts = () => {
                   onClick={refresh}
                   disabled={polling}
                   className="inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-lg font-bold bg-muted hover:bg-muted/80 border border-border disabled:opacity-60 shrink-0"
-                  title="Reload the queue and batches (also syncs Revolut status when available)"
+                  title="Reload the queue and batches"
                 >
                   {polling ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
                   Refresh
@@ -575,9 +484,20 @@ const AdminPayouts = () => {
 
           {/* Batches list */}
           <section className="bg-card border border-border rounded-2xl p-5 md:p-6">
-            <h2 className="text-lg font-black mb-4">Batches</h2>
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+              <h2 className="text-lg font-black">Batches</h2>
+              <label className="inline-flex items-center gap-2 min-h-[44px] text-sm text-muted-foreground cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={showCancelled}
+                  onChange={(e) => setShowCancelled(e.target.checked)}
+                  className="h-4 w-4 accent-primary"
+                />
+                Show cancelled
+              </label>
+            </div>
             {batches.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No batches yet.</p>
+              <p className="text-sm text-muted-foreground">{showCancelled ? "No batches yet." : "No open or sent batches."}</p>
             ) : (
               <div className="space-y-3">
                 {batches.map((b) => (
@@ -599,10 +519,19 @@ const AdminPayouts = () => {
                             onClick={() => returnToQueue(b.id)}
                             disabled={marking === b.id}
                             className="inline-flex items-center gap-1.5 px-3 min-h-[34px] rounded-lg text-xs font-bold bg-muted hover:bg-muted/80 border border-border disabled:opacity-60"
-                            title="Send these payouts back to the queue (e.g. a stuck Revolut batch) so you can pay them via Export XML"
+                            title="Not paid: send these payouts back to the queue to export them again"
                           >
                             <ArrowLeft className="w-3.5 h-3.5" />
                             Return to queue
+                          </button>
+                          <button
+                            onClick={() => cancelBatch(b.id)}
+                            disabled={marking === b.id}
+                            className="inline-flex items-center gap-1.5 px-3 min-h-[34px] rounded-lg text-xs font-bold bg-muted hover:bg-muted/80 border border-border text-destructive disabled:opacity-60"
+                            title="Never paid and must not be paid (tests, duplicates): cancel the batch and its payouts, nothing is deleted"
+                          >
+                            <XCircle className="w-3.5 h-3.5" />
+                            Cancel batch
                           </button>
                           <button
                             onClick={() => markSent(b.id)}
