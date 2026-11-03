@@ -33,7 +33,13 @@ const ALL = [
   sample("d2", "Business Gala", ["o2", "Sample Student Union"], -12, 2500, 180, 240, 250, 221, -60),
   sample("d3", "Erasmus Welcome Party", ["o1", "Demo Society"], -45, 800, 102, 180, 200, 164, -90),
 ];
-const DATA: AdminData = { events: ALL.map((s) => s.event), orders: ALL.flatMap((s) => s.orders) };
+// A few events without sales, which the Events tab hides until asked.
+const EMPTY = [sample("d4", "Draft Afterwork", ["o1", "Demo Society"], 20, 1000, 120, 0, 80, 0, -5), sample("d5", "Sunset Rooftop", ["o2", "Sample Student Union"], 30, 1500, 140, 0, 120, 0, -5)];
+const DATA: AdminData = {
+  events: [...ALL, ...EMPTY].map((s) => s.event),
+  orders: ALL.flatMap((s) => s.orders),
+  scans: ALL.flatMap((s) => Array.from({ length: s.event.checkedIn }, () => ({ event_id: s.event.id, at: s.event.date }))),
+};
 
 const people = (n: number): Attendee[] =>
   Array.from({ length: n }, (_, i) => ({
@@ -48,6 +54,7 @@ const AdminEventsDemo = () => (
     updated={new Date()}
     onRefresh={() => {}}
     loadPeople={async () => people(12)}
+    searchPeople={async (q) => people(12).filter((p) => `${p.first_name} ${p.last_name} ${p.email}`.toLowerCase().includes(q.toLowerCase())).map((p) => ({ ...p, event_id: "d2" }))}
     banner={<p className="mb-4 border border-dashed border-primary/40 bg-primary/5 px-4 py-3 text-sm">Demo: sample numbers on this computer only. The real page is /admin/events.</p>}
   />
 );
