@@ -66,17 +66,19 @@ Pushing to `main` triggers [.github/workflows/deploy.yml](.github/workflows/depl
 
 Optional repository secrets (Settings → Secrets and variables → Actions) override the baked-in defaults: `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`.
 
-### Edge Functions → Supabase (automatic, once configured)
+### Edge Functions → Supabase
 
-The same workflow has a `deploy-functions` job that runs `supabase functions deploy` on every push to `main`. It **skips cleanly** until you add this repository secret:
+[.github/workflows/deploy-edge-functions.yml](.github/workflows/deploy-edge-functions.yml) is separate from the site workflow, so it can never hold back a site deploy. It only deploys `ticket-access` and `export-event-sales`, only when their code changes on `main` (or by hand from the Actions tab). **Payment functions (checkouts, webhooks, payouts, refunds) are never deployed automatically**: deploy them by hand, one at a time.
+
+It deploys nothing (and ends green) until you add this repository secret:
 
 - `SUPABASE_ACCESS_TOKEN` — create at https://supabase.com/dashboard/account/tokens
 - `SUPABASE_PROJECT_REF` — optional; defaults to the project ref in the workflow
 
-To deploy functions manually instead:
+To deploy one function by hand:
 
 ```sh
-supabase functions deploy --project-ref <project-ref>
+supabase functions deploy <function-name> --project-ref <project-ref>
 ```
 
 Per-function settings (e.g. `verify_jwt = false` for the public `stripe-webhook`) live in [supabase/config.toml](supabase/config.toml).
