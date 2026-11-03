@@ -176,11 +176,12 @@ const US = "#10b981";
 const DAY = 86_400_000;
 
 type Period = "month" | "30d" | "year" | "all";
+// All time first: the page opens on it, so the first number seen is the full total.
 const PERIODS: { key: Period; label: string; vs: string }[] = [
-  { key: "month", label: "This month", vs: "same days last month" },
-  { key: "30d", label: "Last 30 days", vs: "the 30 days before" },
-  { key: "year", label: "This year", vs: "same days last year" },
   { key: "all", label: "All time", vs: "" },
+  { key: "year", label: "This year", vs: "same days last year" },
+  { key: "30d", label: "Last 30 days", vs: "the 30 days before" },
+  { key: "month", label: "This month", vs: "same days last month" },
 ];
 
 /** The period's window and the one it's compared with (none for all time). */
@@ -237,7 +238,7 @@ export function AdminEventsView({
 }) {
   useThemeMode("studio");
   const [tab, setTab] = useState<Tab>("overview");
-  const [period, setPeriod] = useState<Period>("month");
+  const [period, setPeriod] = useState<Period>("all");
   const [openId, setOpenId] = useState<string | null>(null);
   const events = useMemo(() => data?.events ?? [], [data]);
   const byId = useMemo(() => new Map(events.map((e) => [e.id, e])), [events]);
@@ -259,6 +260,8 @@ export function AdminEventsView({
     return {
       paid, fee, org: paid - fee,
       tickets: os.reduce((n, o) => n + o.quantity, 0),
+      // Free tickets carry no fee, so the fee per ticket is over paid tickets only.
+      paidTickets: os.reduce((n, o) => n + (o.paidCents > 0 ? o.quantity : 0), 0),
       orders: os.length,
       came: (data?.scans ?? []).filter((s) => inWindow(s.at, w)).length,
     };
@@ -362,7 +365,7 @@ export function AdminEventsView({
 
 /* ───────────────────────── Overview ───────────────────────── */
 
-type Figures = { paid: number; fee: number; org: number; tickets: number; orders: number; came: number };
+type Figures = { paid: number; fee: number; org: number; tickets: number; paidTickets: number; orders: number; came: number };
 
 function Overview({ data, main, now, before, onOrganizers, win, byId }: { data: AdminData; main: Currency; now: Figures; before: Figures | null; onOrganizers: () => void; win: { from: number; to: number }; byId: Map<string, AdminEvent> }) {
   // Money per month over the last 12 months, organizers and us.
@@ -391,7 +394,7 @@ function Overview({ data, main, now, before, onOrganizers, win, byId }: { data: 
             <span className="font-display text-5xl font-bold tabular-nums text-emerald-700"><CountMoney cents={now.fee} currency={main} decimals={2} /></span>
             {before && <Delta now={now.fee} before={before.fee} money={main} />}
           </div>
-          <p className="text-xs text-muted-foreground mt-1">Service fees, before Stripe's costs{now.tickets ? ` · ${fmtMoney(Math.round(now.fee / now.tickets), main, 2)} per ticket` : ""}</p>
+          <p className="text-xs text-muted-foreground mt-1">Service fees, before Stripe's costs{now.paidTickets ? ` · ${fmtMoney(Math.round(now.fee / now.paidTickets), main, 2)} per paid ticket` : ""}</p>
           <div className="mt-5 h-3 w-full bg-muted flex overflow-hidden" aria-hidden>
             <div className="h-full motion-safe:transition-[width] motion-safe:duration-700" style={{ width: `${pct(now.org, now.paid)}%`, background: ORG }} />
             <div className="h-full motion-safe:transition-[width] motion-safe:duration-700" style={{ width: `${now.paid ? 100 - pct(now.org, now.paid) : 0}%`, background: US }} />
