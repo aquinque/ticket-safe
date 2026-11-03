@@ -1859,7 +1859,7 @@ const Sell = () => {
                   {[
                     "Real QR from your original ticket",
                     "Each QR can only be listed once",
-                    "Verified students only — no scalpers",
+                    "Every QR is checked before it goes on sale",
                     "Escrow payment, instant when sold",
                     "Set any price you want — fair is faster",
                   ].map((text) => (
