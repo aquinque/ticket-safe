@@ -4,7 +4,7 @@
  * in chat) before the buyer can pay.
  *
  * The cap itself is computed in the database (public.resale_price_cap, see
- * migration 20261103120000): organizer cap for the ticket type, else for the
+ * migration 20261103130000): organizer cap for the ticket type, else for the
  * event, else face value + billing_settings.resale_default_markup_bps, else
  * none. This file only reads that result and words the refusal.
  *
