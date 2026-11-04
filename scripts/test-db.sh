@@ -81,7 +81,7 @@ run_file() {
   if out="$("${PSQL[@]}" -f "$file" 2>&1)"; then
     n="$(grep -c 'ok - ' <<<"$out" || true)"
     if [ "${TEST_DB_VERBOSE:-0}" = "1" ]; then grep -o 'ok - .*' <<<"$out" | sed 's/^/      /' || true; fi
-    pass "$label${n:+ ($n checks)}"
+    if [ "${n:-0}" -gt 0 ]; then pass "$label ($n checks)"; else pass "$label"; fi
   else
     echo "$out" >&2
     fail "$label"
