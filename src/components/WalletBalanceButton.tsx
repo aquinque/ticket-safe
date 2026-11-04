@@ -12,8 +12,8 @@ const MIN_WITHDRAW_CENTS = 100;
 const formatEur = (cents: number) => `€${(cents / 100).toFixed(2)}`;
 
 /**
- * Header balance for signed-in users: shows the resale balance, and a
- * Withdraw action that opens the payout form on My Wallet.
+ * Header balance, only for a balance left from the resales sold before Stripe (paid outside
+ * Stripe), with a Withdraw action. Otherwise nothing: Stripe pays resales automatically.
  */
 const WalletBalanceButton = () => {
   const { user } = useAuth();
@@ -40,6 +40,11 @@ const WalletBalanceButton = () => {
   if (!user) return null;
 
   const balance = availableCents ?? 0;
+
+  // Resales are paid to the seller's bank by Stripe after each event: there is nothing to withdraw,
+  // and My wallet is already in the account menu, so nothing shows here. Only a balance left from
+  // the resales sold before Stripe (paid outside Stripe; none are left today) shows, with Withdraw.
+  if (availableCents === null || balance <= 0) return null;
   const canWithdraw = balance >= MIN_WITHDRAW_CENTS;
 
   return (

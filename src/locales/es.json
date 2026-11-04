@@ -503,7 +503,8 @@
       "walletHint": "{amount} disponibles",
       "studio": "Pagos de eventos",
       "studioHint": "Pagados a través de Stripe, en Ticket Studio",
-      "description": "Adónde va el dinero de tus reventas."
+      "description": "Adónde va el dinero de tus reventas.",
+      "walletAuto": "Reventas enviadas a tu banco por Stripe"
     },
     "preferences": {
       "title": "Preferencias",

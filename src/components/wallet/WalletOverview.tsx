@@ -185,6 +185,9 @@ export const WalletOverview = ({
   const paidOut = (earnings?.claimed_cents ?? 0) + completedCardSales.filter((s) => s.payout_job_id).reduce((sum, s) => sum + sellerNetCents(s), 0);
 
   const hasCardSales = completedCardSales.length > 0;
+  // A balance left from the resales sold before Stripe (paid outside Stripe) is the only thing that is
+  // ever withdrawn by IBAN; without one, the wallet only shows what Stripe sends automatically.
+  const legacy = available > 0;
   const actionNeeded = bank === "pending" || (bank === "none" && hasCardSales);
 
   const history: HistoryItem[] = useMemo(() => {
@@ -260,15 +263,28 @@ export const WalletOverview = ({
       {/* Balance */}
       <section aria-labelledby="wallet-balance" className="menu-rise" style={{ animationDelay: "0ms" }}>
         <div className={eyebrow}>Wallet</div>
-        <h1 id="wallet-balance" className="mt-3 font-display font-bold tracking-[-0.02em] leading-none tabular-nums text-[52px] sm:text-[64px] md:text-[76px]">
-          {loaded ? formatEur(available) : <span className="text-muted-foreground">—</span>}
-          <span className="sr-only"> available to withdraw</span>
-        </h1>
-        <p className="mt-3 text-sm text-muted-foreground" aria-hidden="true">Available to withdraw</p>
-        <p className="mt-4 text-base">
-          <span className="font-display font-bold tabular-nums">{formatEur(pending)}</span>{" "}
-          <span className="text-muted-foreground">pending</span>
-        </p>
+        {legacy ? (
+          <>
+            <h1 id="wallet-balance" className="mt-3 font-display font-bold tracking-[-0.02em] leading-none tabular-nums text-[52px] sm:text-[64px] md:text-[76px]">
+              {loaded ? formatEur(available) : <span className="text-muted-foreground">—</span>}
+              <span className="sr-only"> available to withdraw</span>
+            </h1>
+            <p className="mt-3 text-sm text-muted-foreground" aria-hidden="true">Available to withdraw</p>
+            <p className="mt-4 text-base">
+              <span className="font-display font-bold tabular-nums">{formatEur(pending)}</span>{" "}
+              <span className="text-muted-foreground">pending</span>
+            </p>
+          </>
+        ) : (
+          <>
+            {/* Resales are paid by Stripe straight to the seller's bank: the headline is what is on its way. */}
+            <h1 id="wallet-balance" className="mt-3 font-display font-bold tracking-[-0.02em] leading-none tabular-nums text-[52px] sm:text-[64px] md:text-[76px]">
+              {loaded ? formatEur(pending) : <span className="text-muted-foreground">—</span>}
+              <span className="sr-only"> on its way to your bank</span>
+            </h1>
+            <p className="mt-3 text-sm text-muted-foreground" aria-hidden="true">On its way to your bank</p>
+          </>
+        )}
         {pending > 0 && (
           <p className="mt-1 text-[13px] leading-snug text-muted-foreground max-w-md">
             {[
@@ -279,6 +295,20 @@ export const WalletOverview = ({
           </p>
         )}
 
+        {!legacy && (
+          <div className="mt-7 flex flex-col sm:flex-row sm:items-start gap-3">
+            <div className="sm:w-[300px]">
+              <Button variant="primary" size="lg" onClick={onSell} className="w-full gap-2 font-semibold">
+                Sell a ticket
+                <ArrowRight className="w-4 h-4" strokeWidth={1.5} />
+              </Button>
+              <p className="mt-2.5 text-[13px] leading-snug text-muted-foreground">
+                No withdrawal to ask for: Stripe sends each sale to your bank automatically after the event.
+              </p>
+            </div>
+          </div>
+        )}
+        {legacy && (
         <div className="mt-7 flex flex-col sm:flex-row sm:items-start gap-3">
           <div className="sm:w-[240px]">
             <Button
@@ -298,6 +328,7 @@ export const WalletOverview = ({
             Sell a ticket
           </Button>
         </div>
+        )}
 
         <dl className="mt-8 grid grid-cols-3 border-y border-brand-200/25">
           {[
