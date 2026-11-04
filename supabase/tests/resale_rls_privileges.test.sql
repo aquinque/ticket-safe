@@ -219,6 +219,8 @@ SELECT tests.expect_error('SELECT public.update_my_listing_price(''' || tests.id
 SELECT tests.expect_error('SELECT public.update_my_listing_price(''' || tests.id('L1') || ''', -5)', 'INVALID_PRICE%', 'S: negative price: INVALID_PRICE');
 SELECT tests.expect_error('SELECT public.update_my_listing_price(''' || tests.id('L1') || ''', NULL)', 'INVALID_PRICE%', 'S: NULL price: INVALID_PRICE');
 SELECT tests.expect_error('SELECT public.update_my_listing_price(''' || tests.id('L2') || ''', 10000.01)', 'INVALID_PRICE%', 'S: price > 10000: INVALID_PRICE');
+SELECT tests.expect_error('SELECT public.update_my_listing_price(''' || tests.id('L1') || ''', 0.49)', 'INVALID_PRICE%', 'S: price under 0.50: INVALID_PRICE');
+SELECT tests.expect_error('SELECT public.update_my_listing_price(''' || tests.id('L1') || ''', 12.345)', 'INVALID_PRICE%', 'S: price with 3 decimals: INVALID_PRICE');
 SELECT public.update_my_listing_price(tests.id('L2'), 10000);
 SELECT tests.ok((SELECT price_cents = 1000000 FROM public.resale_listings(p_listing_id => tests.id('L2'))), 'S: external L2 (no cap) at 10000 allowed');
 SELECT public.update_my_listing_price(tests.id('L2'), 12.00);
@@ -310,6 +312,7 @@ SELECT tests.expect_error('SELECT public.create_studio_listing(''' || tests.id('
 SELECT tests.expect_error('SELECT public.create_studio_listing(''' || tests.id('ET4') || ''', NULL)', 'INVALID_PRICE%', 'S lists ET4 at NULL: INVALID_PRICE');
 SELECT tests.expect_error('SELECT public.create_studio_listing(''' || tests.id('ET4') || ''', 0)', 'INVALID_PRICE%', 'S lists ET4 at 0: INVALID_PRICE');
 SELECT tests.expect_error('SELECT public.create_studio_listing(''' || tests.id('ET4') || ''', 10001)', 'INVALID_PRICE%', 'S lists ET4 at 10001: INVALID_PRICE');
+SELECT tests.expect_error('SELECT public.create_studio_listing(''' || tests.id('ET4') || ''', 0.001)', 'INVALID_PRICE%', 'S lists ET4 at 0.001: INVALID_PRICE');
 SELECT tests.expect_error('SELECT public.create_studio_listing(''' || tests.id('ET4') || ''', 36.01)', 'PRICE_ABOVE_CAP%', 'S lists ET4 at 36.01 (cap 3600): PRICE_ABOVE_CAP');
 SELECT tests.expect_error('SELECT public.create_studio_listing(''' || tests.id('ET4') || ''', 20, repeat(''x'', 501))', 'INVALID_NOTES%', 'S lists ET4 with 501-character notes: INVALID_NOTES');
 SELECT public.create_studio_listing(tests.id('ET2'), 36.00, '  side entrance  ', 'https://example.invalid/p2.jpg', NULL) AS new_listing \gset
@@ -643,4 +646,9 @@ SELECT tests.expect_denied(
   'anon: conversations insert refused (42501)');
 RESET ROLE;
 
+
+-- seller_public_stats(uuid) is server-side only after C (it returns full names).
+RESET ROLE;
+SELECT tests.assert(NOT has_function_privilege('anon', 'public.seller_public_stats(uuid)', 'EXECUTE'), 'anon cannot call seller_public_stats');
+SELECT tests.assert(NOT has_function_privilege('authenticated', 'public.seller_public_stats(uuid)', 'EXECUTE'), 'authenticated cannot call seller_public_stats');
 ROLLBACK;

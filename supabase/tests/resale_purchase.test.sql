@@ -100,10 +100,10 @@ SELECT tests.ok(
    FROM public.complete_resale_purchase(:'tx_s'::uuid, 'pi_s', gen_random_uuid(), 'qr-new-s')),
   'complete with the Studio ticket already scanned: studio_ticket_unavailable');
 SELECT tests.ok(
-  (SELECT status = 'cancelled' AND buyer_id IS NULL AND reserved_transaction_id IS NULL FROM public.tickets WHERE id = 'aaaaaaaa-0000-0000-0000-0000000000b3')
+  (SELECT status = 'cancelled' AND buyer_id IS NULL AND reserved_transaction_id IS NULL AND qr_hash IS NULL FROM public.tickets WHERE id = 'aaaaaaaa-0000-0000-0000-0000000000b3')
   AND (SELECT status::text = 'cancelled' AND payment_intent_id = 'pi_s' FROM public.transactions WHERE id = :'tx_s'::uuid)
   AND NOT EXISTS (SELECT 1 FROM public.event_tickets WHERE qr_token = 'qr-new-s'),
-  'studio_ticket_unavailable: listing cancelled, tx cancelled with payment intent, no new ticket');
+  'studio_ticket_unavailable: listing cancelled, tx cancelled with payment intent, no new ticket, qr_hash freed for a later relist');
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- Expired reservation taken over by another buyer (external L2, qty 2)

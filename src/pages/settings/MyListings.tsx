@@ -79,7 +79,7 @@ interface RawListing {
   qr_verified?: boolean;
 }
 
-type StatusFilter = "all" | "available" | "sold" | "reserved";
+type StatusFilter = "all" | "available" | "sold" | "cancelled";
 type SortOption = "newest" | "oldest" | "price_high" | "price_low" | "active_first";
 
 // Featured-listing (boost) durations — prices must match the server
@@ -95,11 +95,17 @@ const BOOST_OPTIONS = [
 const STATUS_LABELS: Record<string, string> = {
   available: "Active",
   sold: "Sold",
-  reserved: "Cancelled",
+  cancelled: "Cancelled",
 };
+
+/** A listing in someone's checkout is still the seller's live listing: it counts as Active. */
+const isActive = (status: string) => status === "available" || status === "reserved";
+const matchesFilter = (status: string, filter: StatusFilter) =>
+  filter === "all" || (filter === "available" ? isActive(status) : status === filter);
 
 const StatusBadge = ({ status }: { status: string }) => {
   if (status === "available") return <Chip tone="good">Active</Chip>;
+  if (status === "reserved") return <Chip tone="accent">In checkout</Chip>;
   if (status === "sold") return <Chip tone="accent">Sold</Chip>;
   return <Chip>Cancelled</Chip>;
 };
@@ -264,9 +270,9 @@ const MyListings = () => {
 
   // ── Derived stats ──────────────────────────────────────────────────────────
   const stats = useMemo(() => {
-    const active = listings.filter((l) => l.status === "available").length;
+    const active = listings.filter((l) => isActive(l.status)).length;
     const sold = listings.filter((l) => l.status === "sold").length;
-    const cancelled = listings.filter((l) => l.status === "reserved").length;
+    const cancelled = listings.filter((l) => l.status === "cancelled").length;
     const earnings = listings
       .filter((l) => l.status === "sold")
       .reduce((sum, l) => sum + (l.selling_price ?? 0) * 0.95, 0); // 5% platform fee
@@ -279,7 +285,7 @@ const MyListings = () => {
 
     // Status filter
     if (statusFilter !== "all") {
-      list = list.filter((l) => l.status === statusFilter);
+      list = list.filter((l) => matchesFilter(l.status, statusFilter));
     }
 
     // Search
@@ -300,7 +306,7 @@ const MyListings = () => {
       if (sort === "price_high") return (b.selling_price ?? 0) - (a.selling_price ?? 0);
       if (sort === "price_low") return (a.selling_price ?? 0) - (b.selling_price ?? 0);
       if (sort === "active_first") {
-        const order = { available: 0, sold: 1, reserved: 2 };
+        const order = { available: 0, reserved: 0, sold: 1, cancelled: 2 };
         return (order[a.status as keyof typeof order] ?? 3) - (order[b.status as keyof typeof order] ?? 3);
       }
       return 0;
@@ -343,12 +349,13 @@ const MyListings = () => {
     setCancelLoading(true);
     try {
       await cancelMyListing(callRpc, cancelId);
-      setListings((prev) => prev.filter((l: RawListing) => l.id !== cancelId));
-      toast({ title: "Listing deleted", description: "Your ticket has been removed." });
+      // The server deletes the listing, or marks it cancelled when payments refer to it: reload to show which.
+      await fetchListings();
+      toast({ title: "Listing withdrawn", description: "Your ticket is no longer on sale." });
       setCancelId(null);
     } catch (err) {
       const raw = err instanceof Error ? err.message : null;
-      toast({ title: "Failed to delete listing", description: listingErrorMessage(raw, "Please try again."), variant: "destructive" });
+      toast({ title: "Couldn't withdraw the listing", description: listingErrorMessage(raw, "Please try again."), variant: "destructive" });
     }
     setCancelLoading(false);
   };
@@ -411,7 +418,7 @@ const MyListings = () => {
           <div className="flex flex-col md:flex-row gap-3 mb-6">
             {/* Status tabs */}
             <div className="flex gap-2 overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0" role="tablist" aria-label="Filter listings">
-              {(["all", "available", "sold", "reserved"] as StatusFilter[]).map((s) => (
+              {(["all", "available", "sold", "cancelled"] as StatusFilter[]).map((s) => (
                 <button
                   key={s}
                   role="tab"
@@ -427,7 +434,7 @@ const MyListings = () => {
                   <span className="tabular-nums opacity-70">
                     {s === "all"
                       ? listings.length
-                      : listings.filter((l) => l.status === s).length}
+                      : listings.filter((l) => matchesFilter(l.status, s)).length}
                   </span>
                 </button>
               ))}
@@ -689,10 +696,10 @@ const MyListings = () => {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-destructive">
               <Trash2 className="w-5 h-5" />
-              Delete Listing
+              Withdraw listing
             </DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete this listing? It will be permanently removed. This action cannot be undone.
+              Withdraw this listing? It comes off sale right away. You can list the ticket again later.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">

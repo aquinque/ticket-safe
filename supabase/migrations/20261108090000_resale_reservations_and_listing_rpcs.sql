@@ -617,7 +617,7 @@ BEGIN
       IF NOT FOUND OR v_et.status <> 'valid' OR v_et.tier_source IS NOT DISTINCT FROM 'external' THEN
         v_outcome := 'studio_ticket_unavailable';
         UPDATE public.tickets t
-        SET status = 'cancelled', reserved_transaction_id = NULL, reserved_until = NULL, updated_at = now()
+        SET status = 'cancelled', qr_hash = NULL, reserved_transaction_id = NULL, reserved_until = NULL, updated_at = now()
         WHERE t.id = v_t.id;
       ELSIF p_new_qr_token IS NULL OR p_new_event_ticket_id IS NULL THEN
         RAISE EXCEPTION 'QR_TOKEN_REQUIRED' USING ERRCODE = 'P0001';
@@ -804,7 +804,7 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'ALREADY_LISTED' USING ERRCODE = 'P0001';
   END IF;
-  IF p_selling_price IS NULL OR p_selling_price <= 0 OR p_selling_price > 10000 THEN
+  IF p_selling_price IS NULL OR p_selling_price < 0.5 OR p_selling_price > 10000 OR p_selling_price <> round(p_selling_price, 2) THEN
     RAISE EXCEPTION 'INVALID_PRICE' USING ERRCODE = 'P0001';
   END IF;
   SELECT c.cap_cents INTO v_cap FROM public.resale_price_cap(v_et.event_id, v_et.tier_id) c;
@@ -832,7 +832,7 @@ $$;
 REVOKE ALL ON FUNCTION public.create_studio_listing(uuid, numeric, text, text, text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.create_studio_listing(uuid, numeric, text, text, text) TO authenticated;
 COMMENT ON FUNCTION public.create_studio_listing(uuid, numeric, text, text, text) IS
-  'Lists one of the caller''s Studio tickets for resale and returns the new listing id. The row is written by the server only: seller = caller, event from the ticket, quantity 1, status available, verified, qr_hash studio:<ticket id>. Raises, in this order: AUTH_REQUIRED, TICKET_NOT_OWNED, TICKET_NOT_VALID (not valid, or external tier), EVENT_CLOSED, ALREADY_LISTED (available/reserved/sold listing exists, or its qr_hash is still taken), INVALID_PRICE (null, <= 0 or > 10000), PRICE_ABOVE_CAP (resale_price_cap), INVALID_NOTES (> 500 characters).';
+  'Lists one of the caller''s Studio tickets for resale and returns the new listing id. The row is written by the server only: seller = caller, event from the ticket, quantity 1, status available, verified, qr_hash studio:<ticket id>. Raises, in this order: AUTH_REQUIRED, TICKET_NOT_OWNED, TICKET_NOT_VALID (not valid, or external tier), EVENT_CLOSED, ALREADY_LISTED (available/reserved/sold listing exists, or its qr_hash is still taken), INVALID_PRICE (null, under 0.50, over 10000, or more than 2 decimals), PRICE_ABOVE_CAP (resale_price_cap), INVALID_NOTES (> 500 characters).';
 
 CREATE OR REPLACE FUNCTION public.my_listings()
 RETURNS TABLE (
@@ -896,7 +896,7 @@ BEGIN
   IF v_t.status IS DISTINCT FROM 'available' THEN
     RAISE EXCEPTION 'NOT_EDITABLE' USING ERRCODE = 'P0001';
   END IF;
-  IF p_selling_price IS NULL OR p_selling_price <= 0 OR p_selling_price > 10000 THEN
+  IF p_selling_price IS NULL OR p_selling_price < 0.5 OR p_selling_price > 10000 OR p_selling_price <> round(p_selling_price, 2) THEN
     RAISE EXCEPTION 'INVALID_PRICE' USING ERRCODE = 'P0001';
   END IF;
   SELECT c.cap_cents INTO v_cap
@@ -914,7 +914,7 @@ $$;
 REVOKE ALL ON FUNCTION public.update_my_listing_price(uuid, numeric) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.update_my_listing_price(uuid, numeric) TO authenticated;
 COMMENT ON FUNCTION public.update_my_listing_price(uuid, numeric) IS
-  'Changes the price of one of the caller''s listings while it is available (never during a checkout). Locks the listing. Raises AUTH_REQUIRED, NOT_FOUND (not the caller''s), NOT_EDITABLE (status is not available), INVALID_PRICE (null, <= 0 or > 10000), PRICE_ABOVE_CAP (resale_price_cap of the event and, for a Studio listing, its tier).';
+  'Changes the price of one of the caller''s listings while it is available (never during a checkout). Locks the listing. Raises AUTH_REQUIRED, NOT_FOUND (not the caller''s), NOT_EDITABLE (status is not available), INVALID_PRICE (null, under 0.50, over 10000, or more than 2 decimals), PRICE_ABOVE_CAP (resale_price_cap of the event and, for a Studio listing, its tier).';
 
 CREATE OR REPLACE FUNCTION public.cancel_my_listing(p_listing_id uuid)
 RETURNS void

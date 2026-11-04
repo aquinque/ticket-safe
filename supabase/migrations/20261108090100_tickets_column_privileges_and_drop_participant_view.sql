@@ -98,3 +98,9 @@ CREATE POLICY "Buyers can create conversations" ON public.conversations
 
 -- ── 4. Participant names view ───────────────────────────────────────────────
 DROP VIEW IF EXISTS public.conversation_participant_names;
+
+-- seller_public_stats(uuid) returns a seller's full name for any user id and was
+-- callable by anyone. The site now uses seller_public_stats_for_listing (first
+-- name only, live listings only), so the old function is server-side only.
+REVOKE ALL ON FUNCTION public.seller_public_stats(uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.seller_public_stats(uuid) TO service_role;
