@@ -970,7 +970,7 @@ const EventPublic = () => {
   };
 
   const InfoChip = ({ icon: Icon, children, onClick, href, tone = "default" }: { icon: typeof Calendar; children: React.ReactNode; onClick?: () => void; href?: string; tone?: "default" | "live" | "accent" }) => {
-    const cls = `snap-start shrink-0 inline-flex items-center gap-1.5 h-9 pl-3 pr-3.5 rounded-full border text-sm whitespace-nowrap transition-colors ${
+    const cls = `snap-start shrink-0 inline-flex items-center gap-1.5 h-9 pl-3 pr-3.5 border text-sm whitespace-nowrap transition-colors ${
       tone === "live" ? "border-emerald-400/40 bg-emerald-400/10 text-emerald-300" : tone === "accent" ? "border-primary/50 bg-primary/15 text-foreground" : "border-border bg-card/70 text-foreground"
     } ${onClick || href ? "hover:border-foreground/50" : ""}`;
     const inner = <><Icon className={`w-4 h-4 ${tone === "live" ? "text-emerald-400" : "text-primary"}`} strokeWidth={1.75} />{children}</>;
