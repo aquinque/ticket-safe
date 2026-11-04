@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import HeaderNight from "@/components/HeaderNight";
 import Footer from "@/components/Footer";
@@ -17,6 +17,7 @@ import {
   Loader2,
   AlertTriangle,
   ShieldCheck,
+  Clock,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useI18n } from "@/contexts/I18nContext";
@@ -27,24 +28,12 @@ import { toast } from "sonner";
 import { SellerTrust } from "@/components/SellerTrust";
 import { calcBreakdown, buyerFeeRateFor } from "@/lib/fees";
 import { authPathHere } from "@/lib/returnTo";
+import { useResaleListing } from "@/hooks/useResaleListings";
 
-interface ListingData {
-  id: string;
-  seller_id: string;
-  selling_price: number;
-  quantity: number;
-  notes: string | null;
-  seller: { full_name: string } | null;
-  event: {
-    id: string;
-    title: string;
-    date: string;
-    location: string | null;
-    category: string;
-    banner_url: string | null;
-    base_price: number | null;
-  } | null;
-}
+/** Shown when someone else holds the listing at checkout (also the server's 409 RESERVED message). */
+const RESERVED_MESSAGE =
+  "Someone is checking out this ticket right now. If they don't complete, it comes back within 35 minutes.";
+const PRICE_CHANGED_MESSAGE = "The price of this ticket just changed. We've updated it below.";
 
 const Checkout = () => {
   useThemeMode("night");
@@ -52,13 +41,16 @@ const Checkout = () => {
   const { user, loading: authLoading } = useAuth();
   const { language } = useI18n();
   const [searchParams] = useSearchParams();
-  const listingId = searchParams.get("listing_id");
+  // listing_id from the site's own links; listing from older links and emails.
+  const listingId = searchParams.get("listing_id") ?? searchParams.get("listing");
+  // Back from a Stripe page the buyer left: their own reservation may still be in place, and the server
+  // hands it back to them, so paying again is allowed.
+  const cameBackFromStripe = searchParams.get("checkout") === "cancelled";
   const agreedPriceParam = searchParams.get("agreed_price");
   const agreedPrice = agreedPriceParam ? parseFloat(agreedPriceParam) : null;
 
-  const [listing, setListing] = useState<ListingData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [notFound, setNotFound] = useState(false);
+  // Read through the resale_listings function: still returned while reserved (isReserved), not once sold.
+  const { data: listing = null, isLoading: loading, isError, refetch } = useResaleListing(listingId);
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   // Negotiated price from an accepted offer (auto-detected below). Takes
@@ -69,36 +61,13 @@ const Checkout = () => {
   const [guestName, setGuestName] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
 
-  // Fetch the listing directly from Supabase
+  const toldCancelled = useRef(false);
   useEffect(() => {
-    if (!listingId) {
-      setNotFound(true);
-      setLoading(false);
-      return;
+    if (cameBackFromStripe && !toldCancelled.current) {
+      toldCancelled.current = true;
+      toast("Payment cancelled.");
     }
-
-    async function fetchListing() {
-      // Don't filter by status — the server handles availability when paying.
-      // This prevents "not found" errors for tickets temporarily reserved.
-      const { data, error } = await supabase
-        .from("tickets")
-        .select(
-          "id, seller_id, selling_price, quantity, notes, status, seller:profiles(full_name), event:events(id, title, date, location, category, banner_url, base_price)"
-        )
-        .eq("id", listingId)
-        .not("status", "in", "(sold,cancelled)")
-        .maybeSingle();
-
-      if (error || !data) {
-        setNotFound(true);
-      } else {
-        setListing(data as unknown as ListingData);
-      }
-      setLoading(false);
-    }
-
-    fetchListing();
-  }, [listingId]);
+  }, [cameBackFromStripe]);
 
   // Auto-detect the buyer's accepted offer for this listing (mirrors the server,
   // which charges this price regardless of the URL).
@@ -125,7 +94,7 @@ const Checkout = () => {
   }, [listingId, user]);
 
   // --- Loading ---
-  if (loading || authLoading) {
+  if ((loading && !!listingId) || authLoading) {
     return (
       <div className="theme-night min-h-screen bg-background flex flex-col">
         <SEOHead titleKey="common.appName" descriptionKey="common.appName" />
@@ -165,7 +134,7 @@ const Checkout = () => {
   }
 
   // --- Not found ---
-  if (notFound || !listing || !listing.event) {
+  if (!listingId || isError || !listing) {
     return (
       <div className="theme-night min-h-screen bg-background flex flex-col">
         <SEOHead titleKey="common.error" descriptionKey="common.error" />
@@ -175,11 +144,15 @@ const Checkout = () => {
             <Card>
               <CardContent className="pt-6 text-center">
                 <p className="text-muted-foreground mb-4">
-                  This ticket is no longer available.
+                  {isError ? "Couldn't load this ticket." : "This ticket is no longer available."}
                 </p>
-                <Button onClick={() => navigate("/marketplace/buy")}>
-                  Browse Tickets
-                </Button>
+                {isError ? (
+                  <Button onClick={() => void refetch()}>Try again</Button>
+                ) : (
+                  <Button onClick={() => navigate("/marketplace/buy")}>
+                    Browse Tickets
+                  </Button>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -193,18 +166,26 @@ const Checkout = () => {
   // Accepted offer (auto-detected) wins, then a URL hint, then the listing price.
   const event = listing.event;
   const negotiatedPrice = offerPrice ?? agreedPrice;
-  const unitPrice = negotiatedPrice ?? listing.selling_price;
-  // Tiered buyer fee (7% for unit prices >= €50, else 6%) — single source of truth.
+  const listingPrice = listing.priceCents / 100;
+  const unitPrice = negotiatedPrice ?? listingPrice;
+  // Buyer fee from src/lib/fees.ts, the same rounding as the server.
   const bd = calcBreakdown(unitPrice, listing.quantity);
   const subtotal = bd.listPriceEuros;
   const platformFee = bd.buyerFeeEuros;
   const total = bd.buyerTotalEuros;
   const feePercent = Math.round(buyerFeeRateFor(unitPrice) * 100);
 
-  const formattedDate = new Date(event.date).toLocaleDateString(
-    language === "fr" ? "fr-FR" : "en-GB",
-    { month: "long", day: "numeric", year: "numeric" }
-  );
+  const formattedDate = event.date
+    ? new Date(event.date).toLocaleDateString(language === "fr" ? "fr-FR" : "en-GB", {
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      })
+    : null;
+  // Someone else is paying for it right now. The buyer coming back from their own Stripe page may retry:
+  // the server gives a buyer's own reservation back to them.
+  const blockedByReservation = listing.isReserved && !cameBackFromStripe;
+  const payDisabled = isProcessing || listing.isOwn || blockedByReservation;
 
   // --- Stripe Checkout — no account required (guest checkout) ---
   const handleCheckout = async () => {
@@ -249,7 +230,16 @@ const Checkout = () => {
       const data = await res.json();
 
       if (!res.ok) {
-        setPaymentError(data.error ?? "Failed to start checkout. Please try again.");
+        const code = typeof data?.code === "string" ? data.code : null;
+        if (code === "RESERVED") {
+          setPaymentError(RESERVED_MESSAGE);
+          void refetch();
+        } else if (code === "PRICE_CHANGED") {
+          setPaymentError(PRICE_CHANGED_MESSAGE);
+          void refetch();
+        } else {
+          setPaymentError(data?.error ?? "Failed to start checkout. Please try again.");
+        }
         return;
       }
 
@@ -274,9 +264,9 @@ const Checkout = () => {
 
           <Card className="overflow-hidden">
             {/* Event image */}
-            {event.banner_url ? (
+            {event.bannerUrl ? (
               <img
-                src={event.banner_url}
+                src={event.bannerUrl}
                 alt={event.title}
                 className="w-full h-48 object-cover"
               />
@@ -292,11 +282,14 @@ const Checkout = () => {
               {/* Event info */}
               <div>
                 <h1 className="text-2xl font-bold mb-2">{event.title}</h1>
+                {listing.tierName && <p className="text-sm text-foreground/80 mb-2">{listing.tierName}</p>}
                 <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-                  <div className="flex items-center gap-1.5">
-                    <Calendar className="w-4 h-4" />
-                    {formattedDate}
-                  </div>
+                  {formattedDate && (
+                    <div className="flex items-center gap-1.5">
+                      <Calendar className="w-4 h-4" />
+                      {formattedDate}
+                    </div>
+                  )}
                   {event.location && (
                     <div className="flex items-center gap-1.5">
                       <MapPin className="w-4 h-4" />
@@ -307,10 +300,7 @@ const Checkout = () => {
               </div>
 
               {/* Seller trust panel — name, verified student, sales, escrow. */}
-              <SellerTrust
-                sellerId={listing.seller_id}
-                fallbackName={listing.seller?.full_name ?? undefined}
-              />
+              <SellerTrust listingId={listing.id} />
 
               <Separator />
 
@@ -350,13 +340,13 @@ const Checkout = () => {
 
               {/* Order summary */}
               <div className="space-y-2">
-                {negotiatedPrice && negotiatedPrice !== listing.selling_price && (
+                {negotiatedPrice && negotiatedPrice !== listingPrice && (
                   <div className="p-3 bg-success/10 border border-success/30 rounded-md mb-2">
                     <p className="text-sm font-medium text-success">
                       Negotiated price: €{negotiatedPrice.toFixed(2)}
                     </p>
                     <p className="text-xs text-success/80">
-                      Original listing: €{listing.selling_price.toFixed(2)}
+                      Original listing: €{listingPrice.toFixed(2)}
                     </p>
                   </div>
                 )}
@@ -370,17 +360,24 @@ const Checkout = () => {
                   <span className="text-muted-foreground">Service fee ({feePercent}%)</span>
                   <span>€{platformFee.toFixed(2)}</span>
                 </div>
-                {listing.notes && (
-                  <p className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-md">
-                    {listing.notes}
-                  </p>
-                )}
                 <Separator />
                 <div className="flex justify-between text-lg font-bold">
                   <span>Total</span>
                   <span className="text-primary">€{total.toFixed(2)}</span>
                 </div>
               </div>
+
+              {listing.isOwn && (
+                <Alert>
+                  <AlertDescription>This is your listing. You can change or remove it in My listings.</AlertDescription>
+                </Alert>
+              )}
+              {blockedByReservation && !paymentError && (
+                <Alert>
+                  <Clock className="w-4 h-4" />
+                  <AlertDescription>{RESERVED_MESSAGE}</AlertDescription>
+                </Alert>
+              )}
 
               {/* Error */}
               {paymentError && (
@@ -396,7 +393,7 @@ const Checkout = () => {
                 size="lg"
                 className="w-full"
                 onClick={handleCheckout}
-                disabled={isProcessing}
+                disabled={payDisabled}
               >
                 {isProcessing ? (
                   <>

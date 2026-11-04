@@ -11,7 +11,7 @@ interface TicketListingCardProps {
 
 const TicketListingCard = ({ listing }: TicketListingCardProps) => {
   const navigate = useNavigate();
-  const { event, sellingPrice, quantity, description, sellerName, files, verified } = listing;
+  const { event, sellingPrice, quantity, sellerName, files, verified } = listing;
 
   const formatDate = () => {
     const startDate = new Date(event.date);
@@ -85,10 +85,6 @@ const TicketListingCard = ({ listing }: TicketListingCardProps) => {
             </div>
           )}
         </div>
-
-        {description && (
-          <p className="text-sm text-muted-foreground mb-4 line-clamp-2">{description}</p>
-        )}
 
         <div className="flex items-center justify-between pt-4 border-t">
           <div>

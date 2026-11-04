@@ -38,92 +38,43 @@ import {
   Sparkles,
   Flame,
   Clock,
-  MessageSquare,
   X,
 } from "lucide-react";
 import { SEOHead } from "@/components/SEOHead";
-import { useTicketListings, TicketListing } from "@/contexts/TicketListingsContext";
-import { useAuth } from "@/hooks/useAuth";
 import { useThemeMode } from "@/hooks/useThemeMode";
-import { getOrCreateConversation } from "@/hooks/useChat";
-import { calcBreakdown, RESALE_BUYER_FEE_COPY } from "@/lib/fees";
+import { useResaleListings } from "@/hooks/useResaleListings";
+import { useResaleActions } from "@/hooks/useResaleActions";
+import { groupResaleListingsByEvent, type ResaleEventGroup, type ResaleListing } from "@/lib/resaleListings";
+import { ResaleListingList } from "@/components/resale/ResaleListingList";
 import { ResaleHero, GroupChatVsUs, HowItWorks, resalePitchStyles } from "@/components/resale/ResalePitch";
-import { toast } from "sonner";
-import { authPathHere } from "@/lib/returnTo";
 
 // ────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ────────────────────────────────────────────────────────────────────────────
 
-const isBoosted = (l: TicketListing): boolean =>
-  !!l.boostedUntil && new Date(l.boostedUntil).getTime() > Date.now();
-
-const daysUntil = (iso: string): number => {
+const daysUntil = (iso: string | null): number => {
+  if (!iso) return -1;
   const target = new Date(iso).getTime();
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   return Math.ceil((target - today.getTime()) / (1000 * 60 * 60 * 24));
 };
 
-const shortDate = (iso: string): string =>
-  new Date(iso).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+const shortDate = (iso: string | null): string =>
+  iso ? new Date(iso).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }) : "";
+
+const eventTime = (g: ResaleEventGroup): number => (g.event.date ? new Date(g.event.date).getTime() : Infinity);
 
 // ────────────────────────────────────────────────────────────────────────────
-// Data model — event groups derived from listings
+// Data model: listings come from the resale_listings function (src/lib/resaleListings.ts),
+// grouped by event, the cheapest listing first inside each group.
 // ────────────────────────────────────────────────────────────────────────────
 
-interface EventGroup {
-  eventId: string;
-  eventTitle: string;
-  eventDate: string;
-  eventLocation: string;
-  tickets: TicketListing[];
-  minPrice: number;
-  totalAvailable: number;
-  hasBoosted: boolean;
-  photoUrl: string | null;
-  videoUrl: string | null;
-}
-
-function groupByEvent(listings: TicketListing[]): EventGroup[] {
-  const map = new Map<string, EventGroup>();
-  for (const l of listings) {
-    const eid = l.event.id;
-    if (!map.has(eid)) {
-      map.set(eid, {
-        eventId: eid,
-        eventTitle: l.event.title,
-        eventDate: l.event.date,
-        eventLocation: l.event.location,
-        tickets: [],
-        minPrice: Infinity,
-        totalAvailable: 0,
-        hasBoosted: false,
-        photoUrl: null,
-        videoUrl: null,
-      });
-    }
-    const g = map.get(eid)!;
-    g.tickets.push(l);
-    g.totalAvailable += l.quantity;
-    if (l.sellingPrice < g.minPrice) g.minPrice = l.sellingPrice;
-    if (isBoosted(l)) g.hasBoosted = true;
-  }
-  // Tickets inside a group: boosted first, then cheapest. The first ticket
-  // with real media wins the card's photo/video, falling back to the event's
-  // own official banner/video (set by the organizer) when no reseller
-  // uploaded one, which is the common case.
-  for (const g of map.values()) {
-    g.tickets.sort((a, b) => {
-      const ab = Number(isBoosted(b)) - Number(isBoosted(a));
-      if (ab !== 0) return ab;
-      return a.sellingPrice - b.sellingPrice;
-    });
-    g.photoUrl = g.tickets.find((t) => t.photoUrl)?.photoUrl ?? g.tickets.find((t) => t.eventBannerUrl)?.eventBannerUrl ?? null;
-    g.videoUrl = g.tickets.find((t) => t.videoUrl)?.videoUrl ?? g.tickets.find((t) => t.eventVideoUrl)?.eventVideoUrl ?? null;
-  }
-  return Array.from(map.values());
-}
+/** The card's photo or video: a seller's own upload when there is one, else the event's banner or video. */
+const groupMedia = (g: ResaleEventGroup) => ({
+  photoUrl: g.listings.find((l) => l.photoUrl)?.photoUrl ?? g.event.bannerUrl,
+  videoUrl: g.listings.find((l) => l.videoUrl)?.videoUrl ?? g.event.videoUrl,
+});
 
 // ────────────────────────────────────────────────────────────────────────────
 // Page
@@ -145,8 +96,8 @@ const CATEGORY_CHIPS: { id: string; label: string }[] = [
 const Buy = () => {
   useThemeMode("night");
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const { listings, isLoading } = useTicketListings();
+  const { data: listings = [], isLoading, isError, refetch } = useResaleListings();
+  const actions = useResaleActions();
 
   // ── Filter state ────────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState("");
@@ -175,13 +126,13 @@ const Buy = () => {
 
   // ── Derived filter state ────────────────────────────────────────
   const allUniversities = useMemo(
-    () => Array.from(new Set(listings.map((l) => l.university).filter(Boolean))).sort(),
+    () => Array.from(new Set(listings.map((l) => l.event.university).filter((u): u is string => !!u))).sort(),
     [listings],
   );
   const allCampuses = useMemo(
     () =>
       Array.from(
-        new Set(listings.map((l) => l.campus).filter((c): c is string => !!c)),
+        new Set(listings.map((l) => l.event.campus).filter((c): c is string => !!c)),
       ).sort(),
     [listings],
   );
@@ -192,73 +143,49 @@ const Buy = () => {
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const haystack =
-          (l.event.title + " " + l.event.location + " " + (l.university || "") + " " + (l.campus || "")).toLowerCase();
+          [l.event.title, l.event.location, l.event.university, l.event.campus, l.tierName].filter(Boolean).join(" ").toLowerCase();
         if (!haystack.includes(q)) return false;
       }
       // Price bucket
       if (activePriceBucket) {
         const bucket = PRICE_BUCKETS.find((b) => b.id === activePriceBucket);
-        if (bucket && !bucket.matches(l.sellingPrice)) return false;
+        if (bucket && !bucket.matches(l.priceCents / 100)) return false;
       }
       // Categories
       if (activeCategories.size && !activeCategories.has((l.event.category || "").toLowerCase())) {
         return false;
       }
       // Universities
-      if (activeUniversities.size && !activeUniversities.has(l.university)) return false;
+      if (activeUniversities.size && !activeUniversities.has(l.event.university || "")) return false;
       // Campuses
-      if (activeCampuses.size && !activeCampuses.has(l.campus || "")) return false;
+      if (activeCampuses.size && !activeCampuses.has(l.event.campus || "")) return false;
       return true;
     });
   }, [listings, searchQuery, activePriceBucket, activeCategories, activeUniversities, activeCampuses]);
 
   const filteredGroups = useMemo(() => {
-    const groups = groupByEvent(filteredListings);
+    const groups = groupResaleListingsByEvent(filteredListings);
     if (sortBy === "price-asc") {
-      return [...groups].sort((a, b) => a.minPrice - b.minPrice);
+      return [...groups].sort((a, b) => a.minPriceCents - b.minPriceCents);
     }
     if (sortBy === "date-asc") {
-      return [...groups].sort(
-        (a, b) => new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime(),
-      );
+      return [...groups].sort((a, b) => eventTime(a) - eventTime(b));
     }
     // relevance: boosted first, then nearest event date
     return [...groups].sort((a, b) => {
       if (a.hasBoosted !== b.hasBoosted) return a.hasBoosted ? -1 : 1;
-      return new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime();
+      return eventTime(a) - eventTime(b);
     });
   }, [filteredListings, sortBy]);
 
   // Nothing listed at all: search, chips and sort have nothing to act on, so they step aside.
-  const noListings = !isLoading && listings.length === 0;
+  const noListings = !isLoading && !isError && listings.length === 0;
 
   // Filters behind the button (what the chip row and the search box don't show).
   const panelFilterCount =
     (activePriceBucket ? 1 : 0) + activeUniversities.size + activeCampuses.size;
   const activeFilterCount =
     panelFilterCount + activeCategories.size + (searchQuery.trim() ? 1 : 0);
-
-  // ── Actions ────────────────────────────────────────────────────
-  const handleMakeOffer = async (ticket: TicketListing) => {
-    if (!user) {
-      navigate(authPathHere());
-      return;
-    }
-    if (user.id === ticket.sellerId) {
-      toast.error("You can't make an offer on your own ticket.");
-      return;
-    }
-    try {
-      const convId = await getOrCreateConversation(ticket.id, user.id, ticket.sellerId);
-      navigate(`/messages/${convId}`);
-    } catch {
-      toast.error("Couldn't start the conversation.");
-    }
-  };
-
-  const handleBuy = (ticket: TicketListing) => {
-    navigate(`/checkout?listing_id=${ticket.id}`);
-  };
 
   // ── Render ─────────────────────────────────────────────────────
   return (
@@ -423,6 +350,18 @@ const Buy = () => {
         <div className="container mx-auto max-w-6xl px-4 md:px-6 pb-16 md:pb-24">
           {isLoading ? (
             <SkeletonGrid />
+          ) : isError ? (
+            <div role="alert" className="text-center max-w-md mx-auto py-10 md:py-14">
+              <h3 className="text-xl font-bold text-foreground mb-2">Couldn't load resale tickets.</h3>
+              <p className="text-sm text-muted-foreground mb-5">Check your connection and try again.</p>
+              <button
+                type="button"
+                onClick={() => void refetch()}
+                className="inline-flex items-center gap-2 px-5 min-h-[44px] rounded-lg font-bold text-sm bg-primary text-primary-foreground hover:bg-primary-hover transition-colors"
+              >
+                Try again
+              </button>
+            </div>
           ) : filteredGroups.length === 0 ? (
             <EmptyState
               onReset={resetAll}
@@ -433,13 +372,13 @@ const Buy = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5 items-start">
               {filteredGroups.map((g, i) => (
                 <EventCard
-                  key={g.eventId}
+                  key={g.event.id}
                   group={g}
                   index={i}
-                  expanded={expandedEvent === g.eventId}
-                  onToggle={() => setExpandedEvent(expandedEvent === g.eventId ? null : g.eventId)}
-                  onBuy={handleBuy}
-                  onOffer={handleMakeOffer}
+                  expanded={expandedEvent === g.event.id}
+                  onToggle={() => setExpandedEvent(expandedEvent === g.event.id ? null : g.event.id)}
+                  onOffer={actions.offer}
+                  offerBusy={actions.offerBusy}
                 />
               ))}
             </div>
@@ -522,18 +461,19 @@ function EventCard({
   index,
   expanded,
   onToggle,
-  onBuy,
   onOffer,
+  offerBusy,
 }: {
-  group: EventGroup;
+  group: ResaleEventGroup;
   index: number;
   expanded: boolean;
   onToggle: () => void;
-  onBuy: (t: TicketListing) => void;
-  onOffer: (t: TicketListing) => void;
+  onOffer: (l: ResaleListing) => void;
+  offerBusy: boolean;
 }) {
-  const days = daysUntil(group.eventDate);
-  const sellingFast = group.totalAvailable <= 3;
+  const days = daysUntil(group.event.date);
+  const sellingFast = group.ticketCount <= 3;
+  const { photoUrl, videoUrl } = groupMedia(group);
 
   return (
     <div
@@ -543,10 +483,10 @@ function EventCard({
       {/* Photo — the seller's own when there is one, else the event banner,
           else a flat surface (never a broken image). */}
       <div className="relative aspect-[16/10] overflow-hidden bg-muted">
-        {group.videoUrl ? (
-          <video src={group.videoUrl} className="absolute inset-0 w-full h-full object-cover" autoPlay muted loop playsInline />
-        ) : group.photoUrl ? (
-          <img src={group.photoUrl} alt={group.eventTitle} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+        {videoUrl ? (
+          <video src={videoUrl} className="absolute inset-0 w-full h-full object-cover" autoPlay muted loop playsInline />
+        ) : photoUrl ? (
+          <img src={photoUrl} alt={group.event.title} className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
         ) : null}
         <div className="absolute inset-0 bg-gradient-to-t from-black/45 to-transparent" />
 
@@ -568,18 +508,17 @@ function EventCard({
       {/* Content */}
       <div className="flex-1 flex flex-col p-4 md:p-5">
         <h3 className="font-bold text-foreground text-lg leading-snug line-clamp-2">
-          {group.eventTitle}
+          {group.event.title}
         </h3>
         <p className="mt-1 text-sm text-muted-foreground truncate">
-          {shortDate(group.eventDate)}
-          {group.eventLocation ? ` · ${group.eventLocation}` : ""}
+          {[shortDate(group.event.date), group.event.location].filter(Boolean).join(" · ")}
         </p>
 
         <div className="mt-4 flex items-end justify-between gap-3">
           <div>
             <div className="text-xs text-muted-foreground">From</div>
             <div className="text-2xl font-black text-foreground tabular-nums leading-none mt-1">
-              €{group.minPrice.toFixed(0)}
+              €{(group.minPriceCents / 100).toFixed(0)}
             </div>
           </div>
           <button
@@ -588,13 +527,13 @@ function EventCard({
             aria-expanded={expanded}
             className="inline-flex items-center gap-1.5 px-4 min-h-[44px] rounded-lg font-bold text-sm bg-primary text-primary-foreground hover:bg-primary-hover transition-colors"
           >
-            {expanded ? "Hide" : `View ${group.totalAvailable} ticket${group.totalAvailable === 1 ? "" : "s"}`}
+            {expanded ? "Hide" : `View ${group.ticketCount} ticket${group.ticketCount === 1 ? "" : "s"}`}
             {!expanded && <ArrowRight className="w-4 h-4" />}
           </button>
         </div>
       </div>
 
-      {expanded && <ExpandedTickets group={group} onBuy={onBuy} onOffer={onOffer} />}
+      {expanded && <ExpandedTickets group={group} onOffer={onOffer} offerBusy={offerBusy} />}
     </div>
   );
 }
@@ -605,71 +544,20 @@ function EventCard({
 
 function ExpandedTickets({
   group,
-  onBuy,
   onOffer,
+  offerBusy,
 }: {
-  group: EventGroup;
-  onBuy: (t: TicketListing) => void;
-  onOffer: (t: TicketListing) => void;
+  group: ResaleEventGroup;
+  onOffer: (l: ResaleListing) => void;
+  offerBusy: boolean;
 }) {
   return (
     <div className="border-t border-border bg-muted/30 p-4 space-y-2.5">
       <p className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-        <ShieldCheck className="w-3.5 h-3.5 text-primary" />
+        <ShieldCheck className="w-3.5 h-3.5 text-primary" aria-hidden />
         Protected by TicketSafe · escrow payment
       </p>
-      {group.tickets.map((t) => {
-        const bd = calcBreakdown(t.sellingPrice, 1);
-        const allIn = bd.buyerTotalEuros;
-        return (
-          <div key={t.id} className="p-3.5 rounded-xl bg-card border border-border">
-            <div className="flex items-baseline gap-2">
-              <span className="font-black text-xl text-foreground tabular-nums">
-                €{allIn.toFixed(2)}
-              </span>
-              <span className="text-xs text-muted-foreground">
-                incl. €{bd.buyerFeeEuros.toFixed(2)} service fee ({RESALE_BUYER_FEE_COPY})
-              </span>
-            </div>
-            <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-muted-foreground">
-              <span>{t.quantity} left</span>
-              {isBoosted(t) && (
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-cta text-cta-foreground font-bold uppercase text-[10px]">
-                  <Sparkles className="w-2.5 h-2.5" />
-                  Featured
-                </span>
-              )}
-              {t.verified && (
-                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-success/15 text-success font-bold uppercase text-[10px]">
-                  <ShieldCheck className="w-2.5 h-2.5" />
-                  Verified
-                </span>
-              )}
-            </div>
-            {t.description && (
-              <p className="mt-1.5 text-sm text-foreground/75 line-clamp-2">{t.description}</p>
-            )}
-            <div className="mt-3 grid grid-cols-[1fr_auto] gap-2">
-              <button
-                type="button"
-                onClick={() => onBuy(t)}
-                className="inline-flex items-center justify-center gap-1.5 min-h-[44px] rounded-lg font-bold text-sm bg-primary text-primary-foreground hover:bg-primary-hover transition-colors"
-              >
-                Buy
-                <ArrowRight className="w-4 h-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => onOffer(t)}
-                className="inline-flex items-center justify-center gap-1.5 px-4 min-h-[44px] rounded-lg border border-border text-foreground font-semibold text-sm hover:bg-muted transition-colors"
-              >
-                <MessageSquare className="w-4 h-4" />
-                Make an offer
-              </button>
-            </div>
-          </div>
-        );
-      })}
+      <ResaleListingList listings={group.listings} onOffer={onOffer} offerBusy={offerBusy} />
     </div>
   );
 }
@@ -710,7 +598,7 @@ function EmptyState({
         <Ticket className="w-8 h-8 text-primary/70" strokeWidth={1.5} />
       </div>
       <h3 className="text-2xl font-bold text-foreground mb-2">
-        {hasAnyListing ? "No tickets match" : "Nothing listed right now"}
+        {hasAnyListing ? "No tickets match" : "No tickets on resale at the moment."}
       </h3>
       <p className="text-sm text-muted-foreground mb-6">
         {hasAnyListing

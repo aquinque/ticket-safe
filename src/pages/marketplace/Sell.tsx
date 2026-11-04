@@ -77,6 +77,19 @@ import {
 } from "@/types/listings";
 import { useTicketListings } from "@/contexts/TicketListingsContext";
 import { authPathHere } from "@/lib/returnTo";
+import { callRpc } from "@/lib/supabaseRpc";
+
+/** Rows of my_listed_studio_tickets(): the user's own Studio tickets already listed (available, reserved or sold). */
+const parseListedStudioTickets = (data: unknown): { studio_ticket_id: string; status: string }[] =>
+  Array.isArray(data)
+    ? data.flatMap((row: unknown) => {
+        if (typeof row !== "object" || row === null) return [];
+        const r = row as Record<string, unknown>;
+        return typeof r.studio_ticket_id === "string"
+          ? [{ studio_ticket_id: r.studio_ticket_id, status: typeof r.status === "string" ? r.status : "" }]
+          : [];
+      })
+    : [];
 
 // ---------------------------------------------------------------------------
 // Validation schema for the notes field
@@ -272,12 +285,7 @@ const Sell = () => {
             .is("scanned_at", null),
           // Listings the user already created — to exclude tickets already
           // listed for resale (available/reserved) or already sold.
-          supabase
-            .from("tickets")
-            .select("studio_ticket_id, status")
-            .eq("seller_id", user.id)
-            .in("status", ["available", "reserved", "sold"])
-            .not("studio_ticket_id", "is", null),
+          callRpc("my_listed_studio_tickets", {}),
         ]);
         if (cancelled) return;
         if (ownedErr) {
@@ -285,9 +293,7 @@ const Sell = () => {
           setMyTickets([]);
           return;
         }
-        const alreadyListed = new Set(
-          ((listed ?? []) as unknown as { studio_ticket_id: string }[]).map((l) => l.studio_ticket_id),
-        );
+        const alreadyListed = new Set(parseListedStudioTickets(listed).map((l) => l.studio_ticket_id));
         const rows: OwnedTicket[] = ((owned ?? []) as unknown as Record<string, unknown>[])
           .filter((r) => !alreadyListed.has(String(r.id)))
           .map((r) => {
@@ -360,12 +366,7 @@ const Sell = () => {
             .eq("buyer_id", user.id)
             .eq("status", "valid")
             .is("scanned_at", null),
-          supabase
-            .from("tickets")
-            .select("studio_ticket_id, status")
-            .eq("seller_id", user.id)
-            .in("status", ["available", "reserved", "sold"])
-            .not("studio_ticket_id", "is", null),
+          callRpc("my_listed_studio_tickets", {}),
         ]);
         if (cancelled) return;
         if (ownedErr) {
@@ -373,9 +374,7 @@ const Sell = () => {
           setMyEvents([]);
           return;
         }
-        const alreadyListed = new Set(
-          ((listed ?? []) as unknown as { studio_ticket_id: string }[]).map((l) => l.studio_ticket_id),
-        );
+        const alreadyListed = new Set(parseListedStudioTickets(listed).map((l) => l.studio_ticket_id));
         const byEvent = new Map<string, { event: Event; count: number }>();
         for (const r of (owned ?? []) as unknown as Record<string, unknown>[]) {
           if (alreadyListed.has(String(r.id))) continue;
@@ -435,12 +434,8 @@ const Sell = () => {
           navigate("/my-tickets");
           return;
         }
-        const { data: existing } = await supabase
-          .from("tickets")
-          .select("id, status")
-          .eq("studio_ticket_id", tk.id)
-          .in("status", ["available", "reserved", "sold"])
-          .maybeSingle();
+        const { data: listedData } = await callRpc("my_listed_studio_tickets", {});
+        const existing = parseListedStudioTickets(listedData).find((l) => l.studio_ticket_id === tk.id);
         if (existing) {
           if (existing.status === "sold") {
             toast.error("This ticket has already been resold.");

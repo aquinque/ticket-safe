@@ -44,6 +44,8 @@ import { toast } from "sonner";
 import { authPathHere } from "@/lib/returnTo";
 import { countdown } from "@/lib/eventCountdown";
 import { eventShareUrl } from "@/lib/shareUrl";
+import { EventResaleListings } from "@/components/resale/EventResaleListings";
+import { useResaleListings } from "@/hooks/useResaleListings";
 
 interface PublicEvent {
   id: string;
@@ -145,7 +147,6 @@ const EventPublic = () => {
 
   const [event, setEvent] = useState<PublicEvent | null>(null);
   const [tiers, setTiers] = useState<TierAvailability[]>([]);
-  const [resaleCount, setResaleCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [selectedTier, setSelectedTier] = useState<string | null>(null);
   const tierFeeCents = useTierServiceFee(selectedTier);
@@ -326,28 +327,6 @@ const EventPublic = () => {
     };
   }, [event?.id, refreshTiers]);
 
-  // Resale availability — "Resale available (X tickets)" banner. Reads the
-  // same `tickets` table the resale marketplace itself lists from; no new
-  // table or business rule, just a count for this event's listings.
-  useEffect(() => {
-    if (!event?.id) {
-      setResaleCount(0);
-      return;
-    }
-    let active = true;
-    supabase
-      .from("tickets")
-      .select("id", { count: "exact", head: true })
-      .eq("event_id", event.id)
-      .eq("status", "available")
-      .then(({ count }) => {
-        if (active) setResaleCount(count ?? 0);
-      });
-    return () => {
-      active = false;
-    };
-  }, [event?.id]);
-
   // Whether the signed-in user already follows this event's organizer.
   useEffect(() => {
     const orgId = event?.organizer?.id;
@@ -490,6 +469,12 @@ const EventPublic = () => {
       setBuying(false);
     }
   };
+
+  // Resale listings for this event (the same query the "Tickets on resale" section reads, so one fetch).
+  // Only for an event that hasn't ended: the section is hidden then, and listings of ended events aren't on sale.
+  const resaleOpen = !!event?.id && !isPastEvent(event, new Date(nowTs));
+  const { data: resaleListings = [] } = useResaleListings({ eventId: event?.id, enabled: resaleOpen });
+  const resaleCount = resaleListings.reduce((n, l) => n + l.quantity, 0);
 
   // ── Loading skeleton ──────────────────────────────────────────────────────
   if (loading || authLoading) {
@@ -849,7 +834,7 @@ const EventPublic = () => {
                 {t.description && <span className={`block text-sm mt-0.5 line-clamp-2 ${soldOut ? "text-muted-foreground/60" : "text-muted-foreground"}`}>{t.description}</span>}
                 {soldOut ? (
                   <span className="block text-xs text-muted-foreground mt-2">
-                    No more tickets in this category{resaleCount > 0 ? " — check the resale listings below" : ""}.
+                    No more tickets in this category.{resaleCount > 0 ? " Some are on resale below." : ""}
                   </span>
                 ) : fewLeft ? (
                   <div className="mt-2.5">
@@ -891,15 +876,6 @@ const EventPublic = () => {
           </div>
         );
       })}
-      {resaleCount > 0 && (
-        <Link
-          to={`/event/${event.id}/tickets`}
-          className="flex items-center justify-between gap-2 px-4 py-3 rounded-2xl border border-dashed border-border text-sm text-foreground hover:border-primary hover:text-primary transition-colors"
-        >
-          <span>Resale: {resaleCount} ticket{resaleCount > 1 ? "s" : ""} from other students</span>
-          <ArrowRight className="w-4 h-4 shrink-0" />
-        </Link>
-      )}
     </div>
   );
 
@@ -1126,6 +1102,7 @@ const EventPublic = () => {
                 </section>
               )}
               {selected && !eventSoldOut && !isPast && <div className="lg:sticky lg:top-24">{renderSummary(true)}</div>}
+              {!isPast && <EventResaleListings eventId={event.id} headingId="resale-heading-desktop" />}
               {teaserVideo && <TeaserVideo src={teaserVideo} poster={event.banner_url} title={event.title} />}
             </aside>
 
@@ -1152,6 +1129,7 @@ const EventPublic = () => {
                 </section>
               )}
               {selected && !eventSoldOut && !isPast && <div id="checkout" className="lg:hidden scroll-mt-20">{renderSummary(true)}</div>}
+              {!isPast && <EventResaleListings eventId={event.id} headingId="resale-heading-mobile" className="lg:hidden" />}
               {teaserVideo && <div className="lg:hidden"><TeaserVideo src={teaserVideo} poster={event.banner_url} title={event.title} /></div>}
               {event.description && (
                 <section className="rounded-2xl border border-border bg-card/50 p-5">

@@ -430,17 +430,11 @@ const GalaESCP = () => {
                               </Badge>
                             )}
                           </div>
-                          {ticket.description && (
+                          {ticket.tierName && (
                             <p className="text-sm text-muted-foreground truncate">
-                              {ticket.description}
+                              {ticket.tierName}
                             </p>
                           )}
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Sold by{" "}
-                            <span className="font-medium">
-                              {ticket.sellerName}
-                            </span>
-                          </p>
                         </div>
 
                         <Button

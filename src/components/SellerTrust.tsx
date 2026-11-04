@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ShieldCheck, BadgeCheck, CalendarDays, Lock } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { callRpc } from "@/lib/supabaseRpc";
 
 interface SellerStats {
   full_name: string | null;
@@ -11,15 +11,16 @@ interface SellerStats {
 }
 
 /**
- * Buyer-facing trust panel for a resale seller. Profiles are private (RLS), so
- * we read non-sensitive public stats through the `seller_public_stats` RPC:
- * display name, verified-student status, member-since year, completed sales.
+ * Buyer-facing trust panel for a resale seller. Profiles are private (RLS) and a listing's seller id is
+ * not public, so we read non-sensitive public stats by listing through the
+ * `seller_public_stats_for_listing` RPC: display name, verified-student status, member-since year,
+ * completed sales.
  */
 export const SellerTrust = ({
-  sellerId,
+  listingId,
   fallbackName,
 }: {
-  sellerId: string;
+  listingId: string;
   fallbackName?: string;
 }) => {
   const [stats, setStats] = useState<SellerStats | null>(null);
@@ -29,10 +30,7 @@ export const SellerTrust = ({
     let cancelled = false;
     (async () => {
       setLoading(true);
-      // seller_public_stats isn't in the generated types yet.
-      const { data, error } = await (supabase as unknown as {
-        rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>;
-      }).rpc("seller_public_stats", { p_seller_id: sellerId });
+      const { data, error } = await callRpc("seller_public_stats_for_listing", { p_listing_id: listingId });
       if (cancelled) return;
       const row = Array.isArray(data) ? (data[0] as SellerStats | undefined) : null;
       if (!error && row) setStats(row);
@@ -41,7 +39,7 @@ export const SellerTrust = ({
     return () => {
       cancelled = true;
     };
-  }, [sellerId]);
+  }, [listingId]);
 
   const name = stats?.full_name || fallbackName || "Verified student";
   const isVerifiedStudent = !!(stats?.university && /escp/i.test(stats.university));
