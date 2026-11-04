@@ -289,14 +289,23 @@ function stripFromDate(d: ServerTicketData): string {
 const ticketRef = (id: string) => `TS-${id.slice(0, 4).toUpperCase()}-${id.slice(-4).toUpperCase()}`;
 
 async function drawTicketPage(pdfDoc: PDFDocument, page: PDFPage, d: ServerTicketData, fonts: Fonts): Promise<void> {
-  page.drawRectangle({ x: 0, y: 0, width: PAGE_W, height: PAGE_H, color: PAGE_BG });
-
   const X = 20;
   const W = PAGE_W - 40;
   const PADX = 16;
-  const at = (fromTop: number) => PAGE_H - fromTop; // page y from a distance below the page's top
 
-  const bannerH = Math.round(W / 2.35);
+  // The event's picture is shown whole: a flyer carries its own title and date, so nothing is cropped
+  // off. Its box takes the picture's own height (between a wide strip and a tall flyer) and the page
+  // grows by what the box gains over the strip.
+  const bannerImage = await tryEmbedEventImage(pdfDoc, d.eventImageUrl);
+  const stripBannerH = Math.round(W / 2.35);
+  const bannerH = bannerImage
+    ? Math.round(Math.min(Math.max((W * bannerImage.height) / bannerImage.width, stripBannerH), 440))
+    : stripBannerH;
+  const pageH = PAGE_H + (bannerH - stripBannerH);
+  page.setSize(PAGE_W, pageH);
+  page.drawRectangle({ x: 0, y: 0, width: PAGE_W, height: pageH, color: PAGE_BG });
+  const at = (fromTop: number) => pageH - fromTop; // page y from a distance below the page's top
+
   const stripH = 26;
   const infoH = 62;
   const qrSize = 210;
@@ -305,27 +314,19 @@ async function drawTicketPage(pdfDoc: PDFDocument, page: PDFPage, d: ServerTicke
   const cardH = bannerH + stripH + infoH + qrBlockH;
   const bannerY = at(cardTop + bannerH);
 
-  // ── Photo, or the event's colour with its title ──
-  // pdf-lib cannot clip, so the photo is scaled to cover the box and whatever spills above it is painted
-  // over with the page colour, and below it by the strip and the rest of the card, drawn afterwards.
-  page.drawRectangle({ x: X, y: bannerY, width: W, height: bannerH, color: hexColor(d.eventAccent) });
-  const bannerImage = await tryEmbedEventImage(pdfDoc, d.eventImageUrl);
+  // ── Picture (fitted inside its box, on the strip's black), or the event's colour with its title ──
   if (bannerImage) {
-    const scale = Math.max(W / bannerImage.width, bannerH / bannerImage.height);
+    page.drawRectangle({ x: X, y: bannerY, width: W, height: bannerH, color: STRIP });
+    const scale = Math.min(W / bannerImage.width, bannerH / bannerImage.height);
     const dw = bannerImage.width * scale;
     const dh = bannerImage.height * scale;
-    page.drawImage(bannerImage, { x: X + (W - dw) / 2, y: bannerY - (dh - bannerH) / 2, width: dw, height: dh });
-    page.drawRectangle({ x: 0, y: at(cardTop), width: PAGE_W, height: cardTop, color: PAGE_BG });
-    if (dw > W) {
-      page.drawRectangle({ x: 0, y: bannerY, width: X, height: bannerH, color: PAGE_BG });
-      page.drawRectangle({ x: X + W, y: bannerY, width: PAGE_W - X - W, height: bannerH, color: PAGE_BG });
-    }
+    page.drawImage(bannerImage, { x: X + (W - dw) / 2, y: bannerY + (bannerH - dh) / 2, width: dw, height: dh });
   } else {
+    page.drawRectangle({ x: X, y: bannerY, width: W, height: bannerH, color: hexColor(d.eventAccent) });
     drawText(page, "TICKETSAFE", { x: X + PADX, y: bannerY + 50, font: fonts.bodyBold, size: 7.5, color: WHITE, letterSpacing: 1.6 });
     drawText(page, d.eventName.toUpperCase(), { x: X + PADX, y: bannerY + 20, font: fonts.display, size: 24, color: WHITE, maxWidth: W - 2 * PADX });
   }
-  // The rest of the card, white, over anything the photo spilled below its box.
-  page.drawRectangle({ x: 0, y: 0, width: PAGE_W, height: bannerY, color: PAGE_BG });
+  // The rest of the card, white.
   page.drawRectangle({ x: X, y: at(cardTop + cardH), width: W, height: cardH - bannerH, color: WHITE });
 
   // ── Above the card: brand and position in the order ──
@@ -352,7 +353,14 @@ async function drawTicketPage(pdfDoc: PDFDocument, page: PDFPage, d: ServerTicke
   drawText(page, "NAME", { x: colL, y: at(infoTop + 22), font: fonts.bodyBold, size: 7.5, color: SLATE, letterSpacing: 1.1 });
   drawText(page, "TICKET", { x: colR, y: at(infoTop + 22), font: fonts.bodyBold, size: 7.5, color: SLATE, letterSpacing: 1.1 });
   drawText(page, `${d.buyerFirstName} ${d.buyerLastName}`.trim() || "—", { x: colL, y: at(infoTop + 42), font: fonts.bodyBold, size: 12.5, color: INK, maxWidth: colW });
-  drawText(page, [d.ticketType, d.pricePaid].filter(Boolean).join(" · ") || "—", { x: colR, y: at(infoTop + 42), font: fonts.bodyBold, size: 12.5, color: INK, maxWidth: colW });
+  // Tier and price on one line when they fit; otherwise the price goes under, so it is never cut off.
+  const ticketLine = [d.ticketType, d.pricePaid].filter(Boolean).join(" · ") || "—";
+  if (!d.pricePaid || fonts.bodyBold.widthOfTextAtSize(ticketLine, 12.5) <= colW) {
+    drawText(page, ticketLine, { x: colR, y: at(infoTop + 42), font: fonts.bodyBold, size: 12.5, color: INK, maxWidth: colW });
+  } else {
+    drawText(page, d.ticketType || "—", { x: colR, y: at(infoTop + 39), font: fonts.bodyBold, size: 11.5, color: INK, maxWidth: colW });
+    drawText(page, d.pricePaid, { x: colR, y: at(infoTop + 54), font: fonts.bodyBold, size: 11.5, color: INK, maxWidth: colW });
+  }
   page.drawRectangle({ x: X, y: at(infoTop + infoH), width: W, height: 1, color: RULE });
 
   // ── QR and reference ──

@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
  * confirmation email's ticket (replay-order-email/_shared/buyerEmail.ts renderTicketCard):
  *
  *   ┌───────────────────────────┐
- *   │ event picture (or poster) │
+ *   │ event picture, whole      │  (or a poster in the event's colour)
  *   ├───────────────────────────┤  black strip: SAT 14 DEC · 23:00 ……… THE WAREHOUSE
  *   │ NAME          TICKET      │
  *   │ Alex Martin   Regular·€14 │
@@ -61,17 +61,20 @@ export const TicketPass = ({ title, date, location, bannerUrl, accent, holderNam
     <article className="text-left">
       {label && <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">{label}</div>}
       <div className="overflow-hidden rounded-md bg-white text-slate-900 shadow-[0_18px_40px_-20px_rgba(0,0,0,0.6)]">
-        {/* Picture, or a poster in the event's colour */}
-        <div className="relative aspect-[2.35/1] w-full overflow-hidden" style={{ background: accent || "#3a5fe6" }}>
-          {bannerUrl ? (
-            <img src={bannerUrl} alt="" className="absolute inset-0 h-full w-full object-cover" loading="lazy" />
-          ) : (
+        {/* The event's picture whole (a flyer carries its own title and date, so nothing is cropped off),
+            or a poster in the event's colour */}
+        {bannerUrl ? (
+          <div className="w-full bg-[#0b0b0f]">
+            <img src={bannerUrl} alt="" className="mx-auto block h-auto max-h-[480px] w-full object-contain" loading="lazy" />
+          </div>
+        ) : (
+          <div className="relative aspect-[2.35/1] w-full overflow-hidden" style={{ background: accent || "#3a5fe6" }}>
             <div className="absolute inset-0 flex flex-col justify-end p-4">
               <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/80">TicketSafe</div>
               <div className="mt-1 font-display text-[30px] font-black uppercase leading-[0.92] tracking-[-0.02em] text-white line-clamp-2">{title}</div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Black strip: when, where */}
         <div className="flex items-center justify-between gap-3 bg-[#0b0b0f] px-4 py-2 text-[11px] font-bold uppercase tracking-[0.12em] text-white">

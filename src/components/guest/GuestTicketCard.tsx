@@ -17,7 +17,18 @@ const loadImage = (src: string, crossOrigin = false): Promise<HTMLImageElement> 
 /** Draws the ticket as it looks on screen (picture, black strip, name, ticket, QR, reference) onto a PNG. */
 async function buildTicketImage(ticket: GuestTicketView, qrDataUrl: string, ticketLine: string): Promise<Blob> {
   const W = 900;
-  const bannerH = Math.round(W / 2.35);
+  let picture: HTMLImageElement | null = null;
+  if (ticket.event.banner_url) {
+    try {
+      picture = await loadImage(ticket.event.banner_url, true);
+    } catch {
+      /* the colour and title stand in */
+    }
+  }
+  // The whole picture, as on screen: its own height, between a wide strip and a tall flyer.
+  const bannerH = picture
+    ? Math.round(Math.min(Math.max((W * picture.height) / picture.width, W / 2.35), 1080))
+    : Math.round(W / 2.35);
   const H = bannerH + 70 + 150 + 640 + 90;
   const canvas = document.createElement("canvas");
   canvas.width = W;
@@ -28,23 +39,17 @@ async function buildTicketImage(ticket: GuestTicketView, qrDataUrl: string, tick
   ctx.fillStyle = "#FFFFFF";
   ctx.fillRect(0, 0, W, H);
 
-  // Picture (covering), or the event's colour with its title
-  ctx.fillStyle = ticket.event.accent || "#3a5fe6";
-  ctx.fillRect(0, 0, W, bannerH);
-  let drewPicture = false;
-  if (ticket.event.banner_url) {
-    try {
-      const img = await loadImage(ticket.event.banner_url, true);
-      const scale = Math.max(W / img.width, bannerH / img.height);
-      const w = img.width * scale;
-      const h = img.height * scale;
-      ctx.drawImage(img, (W - w) / 2, (bannerH - h) / 2, w, h);
-      drewPicture = true;
-    } catch {
-      /* the colour and title stand in */
-    }
-  }
-  if (!drewPicture) {
+  // The whole picture (nothing cropped off), or the event's colour with its title
+  if (picture) {
+    ctx.fillStyle = "#0B0B0F";
+    ctx.fillRect(0, 0, W, bannerH);
+    const scale = Math.min(W / picture.width, bannerH / picture.height);
+    const w = picture.width * scale;
+    const h = picture.height * scale;
+    ctx.drawImage(picture, (W - w) / 2, (bannerH - h) / 2, w, h);
+  } else {
+    ctx.fillStyle = ticket.event.accent || "#3a5fe6";
+    ctx.fillRect(0, 0, W, bannerH);
     ctx.fillStyle = "#FFFFFF";
     ctx.textAlign = "left";
     ctx.font = font(900, 64);
