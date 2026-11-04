@@ -230,6 +230,7 @@ export type Database = {
           postal_code: string
           rcs_city: string
           rcs_full_label: string
+          resale_default_markup_bps: number
           refund_application_fee_on_refund: boolean
           share_capital_cents: number
           siren: string
@@ -255,6 +256,7 @@ export type Database = {
           postal_code?: string
           rcs_city?: string
           rcs_full_label?: string
+          resale_default_markup_bps?: number
           refund_application_fee_on_refund?: boolean
           share_capital_cents?: number
           siren?: string
@@ -280,6 +282,7 @@ export type Database = {
           postal_code?: string
           rcs_city?: string
           rcs_full_label?: string
+          resale_default_markup_bps?: number
           refund_application_fee_on_refund?: boolean
           share_capital_cents?: number
           siren?: string
@@ -1212,6 +1215,7 @@ export type Database = {
           max_per_order: number
           name: string
           price_cents: number
+          resale_max_price_cents: number | null
           reserved_qty: number
           sales_end_at: string | null
           sales_start_at: string | null
@@ -1233,6 +1237,7 @@ export type Database = {
           max_per_order?: number
           name: string
           price_cents: number
+          resale_max_price_cents?: number | null
           reserved_qty?: number
           sales_end_at?: string | null
           sales_start_at?: string | null
@@ -1254,6 +1259,7 @@ export type Database = {
           max_per_order?: number
           name?: string
           price_cents?: number
+          resale_max_price_cents?: number | null
           reserved_qty?: number
           sales_end_at?: string | null
           sales_start_at?: string | null
@@ -1312,6 +1318,7 @@ export type Database = {
           payment_provider: string
           primary_color: string | null
           published_at: string | null
+          resale_max_price_cents: number | null
           search_vector: unknown
           seo_description: string | null
           slug: string | null
@@ -1357,6 +1364,7 @@ export type Database = {
           payment_provider?: string
           primary_color?: string | null
           published_at?: string | null
+          resale_max_price_cents?: number | null
           search_vector?: unknown
           seo_description?: string | null
           slug?: string | null
@@ -1402,6 +1410,7 @@ export type Database = {
           payment_provider?: string
           primary_color?: string | null
           published_at?: string | null
+          resale_max_price_cents?: number | null
           search_vector?: unknown
           seo_description?: string | null
           slug?: string | null
@@ -2470,6 +2479,7 @@ export type Database = {
           buyer_id: string
           commission_cents: number | null
           created_at: string
+          dispute_id: string | null
           fee_amount: number | null
           id: string
           payment_intent_id: string | null
@@ -2487,6 +2497,7 @@ export type Database = {
           buyer_id: string
           commission_cents?: number | null
           created_at?: string
+          dispute_id?: string | null
           fee_amount?: number | null
           id?: string
           payment_intent_id?: string | null
@@ -2504,6 +2515,7 @@ export type Database = {
           buyer_id?: string
           commission_cents?: number | null
           created_at?: string
+          dispute_id?: string | null
           fee_amount?: number | null
           id?: string
           payment_intent_id?: string | null
@@ -2908,6 +2920,14 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      resale_price_cap: {
+        Args: { p_event_id: string; p_tier_id?: string | null }
+        Returns: {
+          cap_cents: number | null
+          face_value_cents: number | null
+          source: string
+        }[]
+      }
       reserve_tier: {
         Args: { p_qty: number; p_tier_id: string }
         Returns: boolean
@@ -3024,6 +3044,7 @@ export type Database = {
         | "cancelled"
         | "refunded"
         | "escrowed"
+        | "disputed"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -3174,6 +3195,7 @@ export const Constants = {
         "cancelled",
         "refunded",
         "escrowed",
+        "disputed",
       ],
     },
   },

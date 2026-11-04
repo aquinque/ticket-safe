@@ -49,6 +49,8 @@ import { GENDER_CHOICES, authErrorMessage, genderToStore } from "@/lib/authRules
 import { CURRENCIES, toCurrency, type Currency } from "@/lib/money";
 import { isPastEvent } from "@/lib/eventTime";
 import { authPathHere } from "@/lib/returnTo";
+import { callRpc } from "@/lib/supabaseRpc";
+import { fetchMyListings, type MyListingRow } from "@/lib/sellerListings";
 import { authRedirect } from "@/lib/siteUrl";
 import { ibanLast4 } from "@/components/wallet/walletModel";
 import { Chip, ChoiceEditRow, LinkRow, Row, RowAction, RowIcon, Section, TextEditRow, eyebrow } from "@/components/profile/ProfileUI";
@@ -166,7 +168,13 @@ const Profile = () => {
         .select("id, order_id, event:events(title, date, ends_at, location, banner_url), tier:event_tiers(name)")
         .eq("buyer_id", user.id)
         .eq("status", "valid"),
-      RESALE_ENABLED ? supabase.from("tickets").select("id, status").eq("seller_id", user.id).eq("status", "sold") : Promise.resolve({ data: [] as { id: string }[] }),
+      // Own listings come from my_listings(): the tickets table no longer exposes seller_id to the browser.
+      RESALE_ENABLED
+        ? fetchMyListings(callRpc).then(
+            (rows) => ({ data: rows.filter((r) => r.status === "sold") }),
+            () => ({ data: [] as MyListingRow[] }),
+          )
+        : Promise.resolve({ data: [] as MyListingRow[] }),
       supabase.from("stripe_connect_accounts").select("id, payouts_enabled").eq("user_id", user.id).eq("owner_type", "reseller").maybeSingle(),
       supabase.from("seller_earnings").select("available_cents").eq("seller_id", user.id).maybeSingle(),
     ]);

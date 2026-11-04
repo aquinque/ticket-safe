@@ -14,9 +14,9 @@
  */
 
 export const BUYER_FEE_RATE = 0.05;
-/** Kept equal to BUYER_FEE_RATE: the resale fee no longer steps up for pricier tickets. */
+/** Kept equal to BUYER_FEE_RATE: the resale fee no longer steps up for pricier tickets (it used to be 6 % / 7 %). */
 export const BUYER_FEE_RATE_HIGH = 0.05;
-/** Unit price (per ticket, EUR) at/above which the higher buyer fee applies. */
+/** Unit price (per ticket, EUR) at/above which BUYER_FEE_RATE_HIGH applies; no effect while both rates are equal. */
 export const HIGH_VALUE_THRESHOLD_EUR = 50;
 export const SELLER_COMMISSION_RATE = 0.05;
 
@@ -27,14 +27,18 @@ export const buyerFeeRateFor = (unitPriceEuros: number): number =>
 const percent = (rate: number) => Math.round(rate * 100);
 
 /**
- * How the site words the resale buyer fee: "6% (7% for tickets of €50 or more)". Display only: what is charged
- * comes from buyerFeeRateFor() on the checkout page and from the same tiers in revolut-resale-checkout.
+ * How the site words the resale buyer fee: "5%", one flat rate whatever the price. Display only: what is
+ * charged comes from BUYER_FEE_PERCENT in stripe-connect-resale-checkout (and the legacy
+ * revolut-resale-checkout), kept equal to BUYER_FEE_RATE by src/__tests__/resaleFeeCopy.test.ts.
  * Studio sales have their own wording in studioFee.ts.
  */
 export const RESALE_BUYER_FEE_COPY = `${percent(BUYER_FEE_RATE)}%`;
 
-/** The same words for a sentence that already has brackets: "6%, or 7% for tickets of €50 or more". */
+/** The same words for use inside a sentence ("a 5% service fee"). Kept separate in case the wording diverges again. */
 export const RESALE_BUYER_FEE_PHRASE = `${percent(BUYER_FEE_RATE)}%`;
+
+/** How the site words the resale seller commission: "5%", taken from the listing price (get_resale_commission_cents). */
+export const RESALE_SELLER_COMMISSION_COPY = `${percent(SELLER_COMMISSION_RATE)}%`;
 
 /** Convert euros (possibly fractional) to integer cents, rounding half-up. */
 export const toCents = (euros: number): number => Math.round(euros * 100);
@@ -77,10 +81,6 @@ export interface FeeBreakdown {
 }
 
 /**
- * Calculate the full fee breakdown for a ticket at `priceEuros` per ticket
- * for `quantity` tickets.
- */
-/**
  * Fair-price assessment for a resale listing vs the ticket's face value.
  * Returns null when no face value is known (so callers can render nothing).
  */
@@ -112,6 +112,10 @@ export const evaluateFairPrice = (
   return { faceValue, deltaPct, tone: "high", label: `${deltaPct}% above face value` };
 };
 
+/**
+ * Calculate the full fee breakdown for a ticket at `priceEuros` per ticket
+ * for `quantity` tickets.
+ */
 export const calcBreakdown = (priceEuros: number, quantity: number = 1): FeeBreakdown => {
   const listPriceCents = toCents(priceEuros * quantity);
   // Buyer fee tier is based on the UNIT price (per ticket), not the line total.

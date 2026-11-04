@@ -38,7 +38,7 @@ interface SaleRow {
   fee_amount: number | string | null;
   commission_cents: number | null;
   payout_job_id: string | null;
-  status: "completed" | "refunded";
+  status: "completed" | "refunded" | "disputed";
   stripe_checkout_session_id: string | null;
   created_at: string;
   ticket: { event: { title: string | null; date: string | null; ends_at: string | null } | null } | null;
@@ -109,7 +109,7 @@ export const WalletOverview = ({
         .from("transactions")
         .select("id, amount, fee_amount, commission_cents, payout_job_id, status, stripe_checkout_session_id, created_at, ticket:tickets(event:events(title, date, ends_at))")
         .eq("seller_id", userId)
-        .in("status", ["completed", "refunded"])
+        .in("status", ["completed", "refunded", "disputed"])
         .order("created_at", { ascending: false }),
       supabase.from("stripe_connect_accounts").select("id, payouts_enabled").eq("user_id", userId).eq("owner_type", "reseller").maybeSingle(),
       supabase
@@ -198,6 +198,10 @@ export const WalletOverview = ({
       const isCard = !!s.stripe_checkout_session_id?.startsWith("cs_");
       if (s.status === "refunded") {
         items.push({ id: `s-${s.id}`, at: s.created_at, label: `Refund · ${title}`, detail: "Sale refunded to the buyer", cents: sellerNetCents(s, isCard), sign: "none", chip: { text: "Refunded", tone: "neutral" } });
+        continue;
+      }
+      if (s.status === "disputed") {
+        items.push({ id: `s-${s.id}`, at: s.created_at, label: `Resale · ${title}`, detail: "The buyer disputed the payment with their bank. On hold until it is resolved.", cents: sellerNetCents(s, isCard), sign: "none", chip: { text: "On hold", tone: "neutral" } });
         continue;
       }
       if (!isCard) {
