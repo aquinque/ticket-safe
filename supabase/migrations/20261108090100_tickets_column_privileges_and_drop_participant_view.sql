@@ -1,33 +1,35 @@
--- Tickets lockdown: column privileges, seller updates only while available,
--- conversations bound to the listing's seller, participant-names view dropped
+-- Tickets lockdown: no client writes, public columns only, conversations
+-- bound to the listing's seller, participant-names view dropped
 -- (2026-11-08).
 --
 -- Apply ONLY after the site and edge functions that read listings through
--- resale_listings() / my_*() and chat names through
+-- resale_listings() / my_*() / admin_pending_listings(), write them through
+-- create_studio_listing() / update_my_listing_price() / cancel_my_listing()
+-- (or service-role edge functions), and read chat names through
 -- get_conversation_participant_names() are live (20261108090000 must already
--- be applied). The old site reads columns revoked here.
+-- be applied). The old site reads and writes columns revoked here.
 --
 -- Why
 --  * anon and authenticated could read every tickets column of every visible
 --    listing: qr_hash (for Studio listings 'studio:<event ticket id>'),
 --    file_url (the uploaded ticket), studio_ticket_id, buyer_id,
---    verification_errors, the seller's free-text notes.
---  * "Sellers and admins can update tickets" let a seller change any column
---    of their own rows at any time: verification_status, status, the price
---    in the middle of someone's checkout, the reservation.
+--    verification_errors, the seller's id and free-text notes.
+--  * authenticated could INSERT any row it liked as long as seller_id was
+--    itself: verification_status 'verified', status 'sold', buyer_id set to
+--    someone else, a reservation, a qr_hash. "Sellers and admins can update
+--    tickets" let a seller change any column of their own rows at any time.
 --  * Conversations could be created with any seller_id.
 --  * anon/authenticated held TRUNCATE, TRIGGER and REFERENCES on tickets.
 --
 -- What
---  1. tickets privileges: anon reads only the public listing columns;
---     authenticated reads those plus seller_id, notes, needs_review,
---     expires_at (own-row filters; RLS still limits which rows) and may
---     update only selling_price, notes, photo_url, video_url. INSERT and
---     DELETE stay with authenticated, gated by RLS (the sell form inserts).
---     Never granted to anon/authenticated: qr_hash, file_url, buyer_id,
---     verification_errors, studio_ticket_id, reserved_transaction_id,
---     reserved_until.
---  2. Seller UPDATE policy limited to the seller's own available listings.
+--  1. tickets privileges: anon and authenticated read only the public
+--     listing columns (the same list for both) and hold no INSERT, UPDATE,
+--     DELETE, TRUNCATE, REFERENCES or TRIGGER. Own rows and the admin queue
+--     are read, and every client write is made, through the SECURITY DEFINER
+--     functions of 20261108090000; edge functions use service_role.
+--  2. The client write policies on tickets are dropped (no client role can
+--     write any more; RLS without a policy also denies by default should a
+--     grant ever come back). The SELECT policies are unchanged.
 --  3. conversations INSERT requires the seller to be the listing's seller.
 --  4. DROP VIEW conversation_participant_names (replaced by
 --     get_conversation_participant_names() in 20261104120000).
@@ -35,16 +37,10 @@
 -- ── 1. tickets privileges ───────────────────────────────────────────────────
 REVOKE ALL ON public.tickets FROM PUBLIC;
 REVOKE ALL ON public.tickets FROM anon;
+REVOKE ALL ON public.tickets FROM authenticated;
 GRANT SELECT (id, event_id, status, verification_status, selling_price, quantity, qr_verified,
               created_at, updated_at, boosted_until, photo_url, video_url)
-  ON public.tickets TO anon;
-
-REVOKE SELECT, UPDATE, TRUNCATE, REFERENCES, TRIGGER ON public.tickets FROM authenticated;
-GRANT SELECT (id, event_id, status, verification_status, selling_price, quantity, qr_verified,
-              created_at, updated_at, boosted_until, photo_url, video_url,
-              seller_id, notes, needs_review, expires_at)
-  ON public.tickets TO authenticated;
-GRANT UPDATE (selling_price, notes, photo_url, video_url) ON public.tickets TO authenticated;
+  ON public.tickets TO anon, authenticated;
 
 -- PostgreSQL 17 adds the MAINTAIN privilege (VACUUM/ANALYZE/REINDEX/LOCK...),
 -- which the platform's default grants hand to anon/authenticated. Not on 16.
@@ -62,15 +58,12 @@ BEGIN
   END IF;
 END $$;
 
--- ── 2. Seller updates: own available listings only ─────────────────────────
+-- ── 2. Client write policies: gone ─────────────────────────────────────────
 DROP POLICY IF EXISTS "Sellers and admins can update tickets" ON public.tickets;
 DROP POLICY IF EXISTS "Sellers update own available listings" ON public.tickets;
-CREATE POLICY "Sellers update own available listings" ON public.tickets
-  AS PERMISSIVE FOR UPDATE TO authenticated
-  USING (((SELECT auth.uid()) = seller_id) AND status = 'available')
-  WITH CHECK (((SELECT auth.uid()) = seller_id) AND status = 'available');
--- admins_update_tickets (admins, any row) and the SELECT / INSERT / DELETE
--- policies are unchanged.
+DROP POLICY IF EXISTS admins_update_tickets ON public.tickets;
+DROP POLICY IF EXISTS "Sellers can insert own tickets" ON public.tickets;
+DROP POLICY IF EXISTS "Sellers can delete their own tickets" ON public.tickets;
 
 -- ── 3. Conversations: the seller must be the listing's seller ──────────────
 -- The check cannot be a plain EXISTS on tickets inside the policy: the

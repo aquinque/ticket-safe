@@ -28,8 +28,22 @@
 --     record_resale_refund. Each one runs as a single transaction and locks
 --     the rows it changes, so concurrent checkouts and webhook retries
 --     cannot double-sell a listing.
+--  6. Seller and admin functions (SECURITY DEFINER, EXECUTE to authenticated
+--     only): create_studio_listing, my_listings, update_my_listing_price,
+--     cancel_my_listing, admin_pending_listings. Once C is applied the
+--     browser cannot write tickets at all; these are its only write paths.
 --
--- Requires 20261103120000_resale_disputes_and_price_cap.sql ('disputed'
+-- Lock order (every function): the listing (tickets row) first, then the
+-- transactions row, then the event_tickets row. A function that starts from
+-- a transaction id reads its ticket_id without a lock, locks the listing,
+-- then locks the transaction and re-checks it. Taking them in any other
+-- order deadlocks against a concurrent reserve (40P01).
+--
+-- A Studio-backed listing is only listable, visible and buyable while its
+-- event ticket is 'valid' (not transferred, scanned, cancelled, refunded)
+-- and its tier is not an external one (external-tier resale is blocked).
+--
+-- Requires 20261103130000_resale_disputes_and_price_cap.sql ('disputed'
 -- transaction status). Status comparisons cast to text, so the functions
 -- also compile on a database where that value is missing.
 
@@ -96,6 +110,26 @@ GRANT EXECUTE ON FUNCTION public.resale_event_is_open(text, boolean, timestamptz
 COMMENT ON FUNCTION public.resale_event_is_open(text, boolean, timestamptz, timestamptz, timestamptz) IS
   'True when resale is open for an event: published, active, not cancelled, and not ended yet (event_end = ends_at, else date + 8 h). Pass the events columns status, is_active, date, ends_at, cancelled_at.';
 
+CREATE OR REPLACE FUNCTION public.resale_studio_ticket_ok(p_studio_ticket_id uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SET search_path = public
+AS $$
+  SELECT p_studio_ticket_id IS NULL OR EXISTS (
+    SELECT 1
+    FROM public.event_tickets et
+    JOIN public.event_tiers tr ON tr.id = et.tier_id
+    WHERE et.id = p_studio_ticket_id
+      AND et.status::text = 'valid'
+      AND tr.source IS DISTINCT FROM 'external'
+  );
+$$;
+REVOKE ALL ON FUNCTION public.resale_studio_ticket_ok(uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.resale_studio_ticket_ok(uuid) TO service_role;
+COMMENT ON FUNCTION public.resale_studio_ticket_ok(uuid) IS
+  'True when a listing may be shown or sold as far as its Studio ticket goes: no Studio ticket (p_studio_ticket_id NULL), or the event ticket is valid and its tier is not external (external-tier resale is blocked). Used by the resale functions; service_role only.';
+
 CREATE OR REPLACE FUNCTION public.resale_listings(
   p_event_id uuid DEFAULT NULL,
   p_listing_id uuid DEFAULT NULL
@@ -159,6 +193,8 @@ AS $$
   WHERE t.verification_status = 'verified'
     AND t.selling_price IS NOT NULL
     AND public.resale_event_is_open(e.status, e.is_active, e.date, e.ends_at, e.cancelled_at)
+    AND (t.studio_ticket_id IS NULL
+         OR (et.status::text = 'valid' AND tr.source IS DISTINCT FROM 'external'))
     AND (p_event_id IS NULL OR t.event_id = p_event_id)
     AND (p_listing_id IS NULL OR t.id = p_listing_id)
     AND (
@@ -170,7 +206,7 @@ $$;
 REVOKE ALL ON FUNCTION public.resale_listings(uuid, uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.resale_listings(uuid, uuid) TO anon, authenticated;
 COMMENT ON FUNCTION public.resale_listings(uuid, uuid) IS
-  'Verified resale listings on open events, cheapest first, safe columns only (never seller identity, qr_hash, file_url, buyer_id, verification_errors, studio_ticket_id or notes). price_cents is per ticket, before the buyer fee. Without p_listing_id: listings that can be bought now (available, or reserved with an expired hold). With p_listing_id: that listing even while reserved, is_reserved telling whether someone holds it now.';
+  'Verified resale listings on open events, cheapest first, safe columns only (never seller identity, qr_hash, file_url, buyer_id, verification_errors, studio_ticket_id or notes). A Studio listing is left out unless its event ticket is valid and its tier is not external. price_cents is per ticket, before the buyer fee. Without p_listing_id: listings that can be bought now (available, or reserved with an expired hold). With p_listing_id: that listing even while reserved, is_reserved telling whether someone holds it now.';
 
 CREATE OR REPLACE FUNCTION public.start_listing_conversation(p_listing_id uuid)
 RETURNS uuid
@@ -194,7 +230,8 @@ BEGIN
   WHERE t.id = p_listing_id
     AND t.verification_status = 'verified'
     AND t.status IN ('available', 'reserved')
-    AND public.resale_event_is_open(e.status, e.is_active, e.date, e.ends_at, e.cancelled_at);
+    AND public.resale_event_is_open(e.status, e.is_active, e.date, e.ends_at, e.cancelled_at)
+    AND public.resale_studio_ticket_ok(t.studio_ticket_id);
   IF NOT FOUND OR v_seller IS NULL THEN
     RAISE EXCEPTION 'LISTING_NOT_AVAILABLE' USING ERRCODE = 'P0001';
   END IF;
@@ -222,23 +259,31 @@ GRANT EXECUTE ON FUNCTION public.start_listing_conversation(uuid) TO authenticat
 COMMENT ON FUNCTION public.start_listing_conversation(uuid) IS
   'Opens (or returns) the caller''s conversation with the seller of a listing. The seller is taken from the listing, never from the client. Raises AUTH_REQUIRED, LISTING_NOT_AVAILABLE (not verified, not available/reserved, or event not open) or OWN_LISTING.';
 
-CREATE OR REPLACE FUNCTION public.seller_public_stats_for_listing(p_listing_id uuid)
-RETURNS TABLE (full_name text, university text, campus text, member_since timestamptz, completed_sales integer)
+-- The result type changed during review (full_name -> first_name): drop any
+-- earlier definition so CREATE does not fail with 42P13.
+DROP FUNCTION IF EXISTS public.seller_public_stats_for_listing(uuid);
+CREATE FUNCTION public.seller_public_stats_for_listing(p_listing_id uuid)
+RETURNS TABLE (first_name text, university text, campus text, member_since timestamptz, completed_sales integer)
 LANGUAGE sql
 STABLE
 SECURITY DEFINER
 SET search_path = public
 AS $$
-  SELECT s.full_name, s.university, s.campus, s.member_since, s.completed_sales
+  SELECT nullif((regexp_split_to_array(btrim(s.full_name), '\s+'))[1], ''),
+         s.university, s.campus, s.member_since, s.completed_sales
   FROM public.tickets t
+  JOIN public.events e ON e.id = t.event_id
   CROSS JOIN LATERAL public.seller_public_stats(t.seller_id) s
   WHERE t.id = p_listing_id
-    AND t.verification_status = 'verified';
+    AND t.verification_status = 'verified'
+    AND t.status IN ('available', 'reserved')
+    AND public.resale_event_is_open(e.status, e.is_active, e.date, e.ends_at, e.cancelled_at)
+    AND public.resale_studio_ticket_ok(t.studio_ticket_id);
 $$;
 REVOKE ALL ON FUNCTION public.seller_public_stats_for_listing(uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.seller_public_stats_for_listing(uuid) TO anon, authenticated;
 COMMENT ON FUNCTION public.seller_public_stats_for_listing(uuid) IS
-  'seller_public_stats for the seller of a verified listing, looked up by listing id so the seller id never reaches the browser.';
+  'Public stats of the seller of a listing that is on sale now (verified, available or reserved, event open, Studio ticket still valid and not external), looked up by listing id so the seller id never reaches the browser. first_name is the first word of the seller''s full name, never the full name. No row for sold, cancelled, unverified or closed listings.';
 
 CREATE OR REPLACE FUNCTION public.my_purchased_listings()
 RETURNS TABLE (
@@ -335,8 +380,9 @@ DECLARE
   v_tx uuid;
   v_until timestamptz;
 BEGIN
+  -- Lock order: the listing first, then transactions (see the header).
   SELECT t.id, t.seller_id, t.status, t.verification_status, t.selling_price,
-         t.reserved_transaction_id, t.reserved_until, t.event_id
+         t.reserved_transaction_id, t.reserved_until, t.event_id, t.studio_ticket_id
     INTO v_t
   FROM public.tickets t
   WHERE t.id = p_listing_id
@@ -353,7 +399,8 @@ BEGIN
 
   IF v_t.verification_status IS DISTINCT FROM 'verified'
      OR v_t.status IS NULL OR v_t.status NOT IN ('available', 'reserved')
-     OR v_open IS NOT TRUE THEN
+     OR v_open IS NOT TRUE
+     OR NOT public.resale_studio_ticket_ok(v_t.studio_ticket_id) THEN
     RETURN QUERY SELECT 'not_available'::text, NULL::uuid, v_t.seller_id, NULL::uuid, NULL::timestamptz;
     RETURN;
   END IF;
@@ -403,7 +450,7 @@ $$;
 REVOKE ALL ON FUNCTION public.reserve_resale_listing(uuid, uuid, numeric, integer, integer, integer, integer, integer) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.reserve_resale_listing(uuid, uuid, numeric, integer, integer, integer, integer, integer) TO service_role;
 COMMENT ON FUNCTION public.reserve_resale_listing(uuid, uuid, numeric, integer, integer, integer, integer, integer) IS
-  'Service role only. Locks the listing and, when it can be bought, creates the pending transaction and reserves the listing for it until now() + p_hold_seconds. Outcomes: reserved, not_available, own_listing, price_changed (listing price differs from p_expected_unit_price), reserved_by_other (another buyer holds an unexpired reservation; reserved_until says until when). A takeover of an expired reservation, or of the same buyer''s own, cancels the previous pending transaction and returns it as previous_transaction_id.';
+  'Service role only. Locks the listing and, when it can be bought, creates the pending transaction and reserves the listing for it until now() + p_hold_seconds. Outcomes: reserved, not_available (also for a Studio listing whose event ticket is no longer valid or whose tier is external), own_listing, price_changed (listing price differs from p_expected_unit_price), reserved_by_other (another buyer holds an unexpired reservation; reserved_until says until when). A takeover of an expired reservation, or of the same buyer''s own, cancels the previous pending transaction and returns it as previous_transaction_id.';
 
 CREATE OR REPLACE FUNCTION public.release_resale_reservation(p_transaction_id uuid)
 RETURNS boolean
@@ -415,6 +462,7 @@ AS $$
 DECLARE
   v_listing uuid;
 BEGIN
+  -- Lock order: the listing (found by its reservation) first, then the transaction.
   SELECT t.id INTO v_listing
   FROM public.tickets t
   WHERE t.reserved_transaction_id = p_transaction_id
@@ -491,6 +539,8 @@ SET search_path = public
 AS $$
 #variable_conflict use_column
 DECLARE
+  v_ticket_id uuid;
+  v_listing_found boolean;
   v_tx record;
   v_t record;
   v_et record;
@@ -500,7 +550,27 @@ DECLARE
   v_first text;
   v_last text;
 BEGIN
-  -- 1. The transaction.
+  -- 1. Which listing the transaction is for: read WITHOUT a lock. Lock order
+  --    is listing, then transaction (reserve_resale_listing locks the listing
+  --    and then cancels the previous transaction; locking the transaction
+  --    first here deadlocked against it).
+  SELECT tx.ticket_id INTO v_ticket_id
+  FROM public.transactions tx
+  WHERE tx.id = p_transaction_id;
+  IF NOT FOUND THEN
+    RETURN QUERY SELECT 'transaction_missing'::text, NULL::uuid, NULL::uuid, NULL::uuid;
+    RETURN;
+  END IF;
+
+  -- 2. Lock the listing, then the transaction, and re-check that the
+  --    transaction still points to that listing.
+  SELECT t.id, t.status, t.verification_status, t.reserved_transaction_id, t.studio_ticket_id
+    INTO v_t
+  FROM public.tickets t
+  WHERE t.id = v_ticket_id
+  FOR UPDATE;
+  v_listing_found := FOUND;
+
   SELECT tx.id, tx.ticket_id, tx.buyer_id, tx.status::text AS status
     INTO v_tx
   FROM public.transactions tx
@@ -510,25 +580,23 @@ BEGIN
     RETURN QUERY SELECT 'transaction_missing'::text, NULL::uuid, NULL::uuid, NULL::uuid;
     RETURN;
   END IF;
+  IF v_tx.ticket_id IS DISTINCT FROM v_ticket_id THEN
+    -- transactions.ticket_id is never updated; fail loudly (the webhook retries).
+    RAISE EXCEPTION 'TRANSACTION_LISTING_CHANGED' USING ERRCODE = 'P0001';
+  END IF;
 
-  -- 2. Already done (webhook retry, or a later dispute/refund).
+  -- 3. Already done (webhook retry, or a later dispute/refund).
   IF v_tx.status IN ('completed', 'disputed', 'refunded') THEN
     RETURN QUERY SELECT 'already_completed'::text, v_tx.ticket_id, v_tx.buyer_id, NULL::uuid;
     RETURN;
   END IF;
 
-  -- 3. Cancelled (reservation taken over or released) or another state.
+  -- 4. Cancelled (reservation taken over or released) or another state.
   IF v_tx.status <> 'pending' THEN
     v_outcome := 'transaction_not_pending';
   ELSE
-    -- 4. The listing.
-    SELECT t.id, t.status, t.verification_status, t.reserved_transaction_id, t.studio_ticket_id
-      INTO v_t
-    FROM public.tickets t
-    WHERE t.id = v_tx.ticket_id
-    FOR UPDATE;
-
-    IF NOT FOUND THEN
+    -- 5. The listing (locked above).
+    IF NOT v_listing_found THEN
       v_outcome := 'listing_missing';
     ELSIF v_t.status = 'sold' THEN
       v_outcome := 'listing_sold';
@@ -538,13 +606,15 @@ BEGIN
           OR v_t.status IS NULL OR v_t.status NOT IN ('available', 'reserved') THEN
       v_outcome := 'listing_unavailable';
     ELSIF v_t.studio_ticket_id IS NOT NULL THEN
-      -- 5. The Studio ticket behind the listing.
-      SELECT et.id, et.order_id, et.event_id, et.tier_id, et.status::text AS status, et.source
+      -- 6. The Studio ticket behind the listing (locked last).
+      SELECT et.id, et.order_id, et.event_id, et.tier_id, et.status::text AS status, et.source,
+             tr.source AS tier_source
         INTO v_et
       FROM public.event_tickets et
+      LEFT JOIN public.event_tiers tr ON tr.id = et.tier_id
       WHERE et.id = v_t.studio_ticket_id
-      FOR UPDATE;
-      IF NOT FOUND OR v_et.status <> 'valid' THEN
+      FOR UPDATE OF et;
+      IF NOT FOUND OR v_et.status <> 'valid' OR v_et.tier_source IS NOT DISTINCT FROM 'external' THEN
         v_outcome := 'studio_ticket_unavailable';
         UPDATE public.tickets t
         SET status = 'cancelled', reserved_transaction_id = NULL, reserved_until = NULL, updated_at = now()
@@ -555,7 +625,7 @@ BEGIN
     END IF;
   END IF;
 
-  -- 6. Conflict: the buyer paid but cannot get this listing. The caller refunds.
+  -- 7. Conflict: the buyer paid but cannot get this listing. The caller refunds.
   IF v_outcome IS NOT NULL THEN
     UPDATE public.transactions tx
     SET status = 'cancelled',
@@ -565,7 +635,7 @@ BEGIN
     RETURN;
   END IF;
 
-  -- 7. Success.
+  -- 8. Success.
   UPDATE public.tickets t
   SET status = 'sold',
       buyer_id = v_tx.buyer_id,
@@ -600,7 +670,7 @@ $$;
 REVOKE ALL ON FUNCTION public.complete_resale_purchase(uuid, text, uuid, text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.complete_resale_purchase(uuid, text, uuid, text) TO service_role;
 COMMENT ON FUNCTION public.complete_resale_purchase(uuid, text, uuid, text) IS
-  'Service role only. Completes a paid resale in one transaction: listing sold to the buyer, Studio ticket transferred and a new one issued (id p_new_event_ticket_id, token p_new_qr_token, holder from the buyer profile), transaction completed. Outcomes: completed; already_completed (completed/disputed/refunded: no-op); transaction_missing; and the conflicts that need a refund: transaction_not_pending, listing_missing, listing_sold, reserved_by_other, listing_unavailable, studio_ticket_unavailable (Studio ticket no longer valid; the listing is cancelled). A conflict cancels the transaction and stores the payment intent. Raises QR_TOKEN_REQUIRED for a Studio listing without p_new_qr_token / p_new_event_ticket_id.';
+  'Service role only. Completes a paid resale in one transaction: listing sold to the buyer, Studio ticket transferred and a new one issued (id p_new_event_ticket_id, token p_new_qr_token, holder from the buyer profile), transaction completed. Outcomes: completed; already_completed (completed/disputed/refunded: no-op); transaction_missing; and the conflicts that need a refund: transaction_not_pending, listing_missing, listing_sold, reserved_by_other, listing_unavailable, studio_ticket_unavailable (Studio ticket no longer valid, or its tier is external; the listing is cancelled). A conflict cancels the transaction and stores the payment intent. Locks the listing, then the transaction, then the Studio ticket. Raises QR_TOKEN_REQUIRED for a Studio listing without p_new_qr_token / p_new_event_ticket_id.';
 
 CREATE OR REPLACE FUNCTION public.record_resale_refund(p_payment_intent_id text)
 RETURNS TABLE (outcome text, transaction_id uuid, relisted boolean, was_completed boolean)
@@ -611,16 +681,31 @@ SET search_path = public
 AS $$
 #variable_conflict use_column
 DECLARE
+  v_pre record;
   v_tx record;
   v_relisted boolean := false;
   v_n integer;
 BEGIN
-  SELECT tx.id, tx.ticket_id, tx.buyer_id, tx.status::text AS status
-    INTO v_tx
+  -- Find the transaction WITHOUT a lock, lock its listing, then the
+  -- transaction (lock order: listing, then transaction).
+  SELECT tx.id, tx.ticket_id
+    INTO v_pre
   FROM public.transactions tx
   WHERE p_payment_intent_id IS NOT NULL AND tx.payment_intent_id = p_payment_intent_id
   ORDER BY tx.created_at DESC
-  LIMIT 1
+  LIMIT 1;
+
+  IF NOT FOUND THEN
+    RETURN QUERY SELECT 'not_found'::text, NULL::uuid, false, false;
+    RETURN;
+  END IF;
+
+  PERFORM 1 FROM public.tickets t WHERE t.id = v_pre.ticket_id FOR UPDATE;
+
+  SELECT tx.id, tx.ticket_id, tx.buyer_id, tx.status::text AS status
+    INTO v_tx
+  FROM public.transactions tx
+  WHERE tx.id = v_pre.id
   FOR UPDATE;
 
   IF NOT FOUND THEN
@@ -650,7 +735,7 @@ BEGIN
     -- Refunded before completion: free the listing if this transaction holds it.
     UPDATE public.tickets t
     SET status = 'available', reserved_transaction_id = NULL, reserved_until = NULL, updated_at = now()
-    WHERE t.reserved_transaction_id = v_tx.id AND t.status = 'reserved';
+    WHERE t.id = v_tx.ticket_id AND t.reserved_transaction_id = v_tx.id AND t.status = 'reserved';
   END IF;
 
   RETURN QUERY SELECT 'refunded'::text, v_tx.id, v_relisted, v_tx.status IN ('completed', 'disputed');
@@ -660,3 +745,264 @@ REVOKE ALL ON FUNCTION public.record_resale_refund(text) FROM PUBLIC, anon, auth
 GRANT EXECUTE ON FUNCTION public.record_resale_refund(text) TO service_role;
 COMMENT ON FUNCTION public.record_resale_refund(text) IS
   'Service role only. Marks the resale transaction paid with this payment intent as refunded. Outcomes: not_found, already_refunded, refunded. relisted = the listing went back on sale (only a completed sale outside Studio whose listing is still sold to this buyer). was_completed = the refunded transaction had been completed or disputed, i.e. the buyer had received the ticket; with relisted = false the admin should check it (Studio resale).';
+
+-- ── 6. Seller and admin functions ───────────────────────────────────────────
+-- Once 20261108090100 (C) is applied, anon/authenticated hold no INSERT,
+-- UPDATE or DELETE on tickets and read only the public columns. Sellers list,
+-- reprice, cancel and read their own listings through these functions;
+-- admins read the review queue through admin_pending_listings. Errors are
+-- raised with ERRCODE P0001 and the message set to the code.
+
+CREATE OR REPLACE FUNCTION public.create_studio_listing(
+  p_studio_ticket_id uuid,
+  p_selling_price numeric,
+  p_notes text DEFAULT NULL,
+  p_photo_url text DEFAULT NULL,
+  p_video_url text DEFAULT NULL
+)
+RETURNS uuid
+LANGUAGE plpgsql
+VOLATILE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_et record;
+  v_cap integer;
+  v_notes text := nullif(btrim(p_notes), '');
+  v_id uuid;
+BEGIN
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'AUTH_REQUIRED' USING ERRCODE = 'P0001';
+  END IF;
+
+  -- Locks the event ticket: two concurrent calls for it run one after the
+  -- other, so the ALREADY_LISTED check below cannot be raced.
+  SELECT et.id, et.buyer_id, et.event_id, et.tier_id, et.status::text AS status, tr.source AS tier_source,
+         e.status AS e_status, e.is_active, e.date, e.ends_at, e.cancelled_at
+    INTO v_et
+  FROM public.event_tickets et
+  LEFT JOIN public.event_tiers tr ON tr.id = et.tier_id
+  LEFT JOIN public.events e ON e.id = et.event_id
+  WHERE et.id = p_studio_ticket_id
+  FOR UPDATE OF et;
+
+  IF NOT FOUND OR v_et.buyer_id IS DISTINCT FROM v_uid THEN
+    RAISE EXCEPTION 'TICKET_NOT_OWNED' USING ERRCODE = 'P0001';
+  END IF;
+  IF v_et.status <> 'valid' OR v_et.tier_source IS NOT DISTINCT FROM 'external' THEN
+    RAISE EXCEPTION 'TICKET_NOT_VALID' USING ERRCODE = 'P0001';
+  END IF;
+  IF NOT public.resale_event_is_open(v_et.e_status, v_et.is_active, v_et.date, v_et.ends_at, v_et.cancelled_at) THEN
+    RAISE EXCEPTION 'EVENT_CLOSED' USING ERRCODE = 'P0001';
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM public.tickets t
+    WHERE t.studio_ticket_id = p_studio_ticket_id
+      AND t.status IN ('available', 'reserved', 'sold')
+  ) THEN
+    RAISE EXCEPTION 'ALREADY_LISTED' USING ERRCODE = 'P0001';
+  END IF;
+  IF p_selling_price IS NULL OR p_selling_price <= 0 OR p_selling_price > 10000 THEN
+    RAISE EXCEPTION 'INVALID_PRICE' USING ERRCODE = 'P0001';
+  END IF;
+  SELECT c.cap_cents INTO v_cap FROM public.resale_price_cap(v_et.event_id, v_et.tier_id) c;
+  IF v_cap IS NOT NULL AND p_selling_price * 100 > v_cap THEN
+    RAISE EXCEPTION 'PRICE_ABOVE_CAP' USING ERRCODE = 'P0001';
+  END IF;
+  IF v_notes IS NOT NULL AND length(v_notes) > 500 THEN
+    RAISE EXCEPTION 'INVALID_NOTES' USING ERRCODE = 'P0001';
+  END IF;
+
+  BEGIN
+    INSERT INTO public.tickets (seller_id, event_id, selling_price, quantity, notes, status, qr_hash, qr_verified,
+                                verification_status, needs_review, studio_ticket_id, photo_url, video_url)
+    VALUES (v_uid, v_et.event_id, p_selling_price, 1, v_notes, 'available', 'studio:' || p_studio_ticket_id, true,
+            'verified', false, p_studio_ticket_id, p_photo_url, p_video_url)
+    RETURNING id INTO v_id;
+  EXCEPTION WHEN unique_violation THEN
+    -- qr_hash 'studio:<id>' is unique: an older, dead row for this ticket
+    -- (e.g. rejected) still holds it.
+    RAISE EXCEPTION 'ALREADY_LISTED' USING ERRCODE = 'P0001';
+  END;
+  RETURN v_id;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.create_studio_listing(uuid, numeric, text, text, text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.create_studio_listing(uuid, numeric, text, text, text) TO authenticated;
+COMMENT ON FUNCTION public.create_studio_listing(uuid, numeric, text, text, text) IS
+  'Lists one of the caller''s Studio tickets for resale and returns the new listing id. The row is written by the server only: seller = caller, event from the ticket, quantity 1, status available, verified, qr_hash studio:<ticket id>. Raises, in this order: AUTH_REQUIRED, TICKET_NOT_OWNED, TICKET_NOT_VALID (not valid, or external tier), EVENT_CLOSED, ALREADY_LISTED (available/reserved/sold listing exists, or its qr_hash is still taken), INVALID_PRICE (null, <= 0 or > 10000), PRICE_ABOVE_CAP (resale_price_cap), INVALID_NOTES (> 500 characters).';
+
+CREATE OR REPLACE FUNCTION public.my_listings()
+RETURNS TABLE (
+  listing_id uuid,
+  event_id uuid,
+  selling_price numeric,
+  quantity integer,
+  notes text,
+  status text,
+  verification_status text,
+  created_at timestamptz,
+  boosted_until timestamptz,
+  studio_ticket_id uuid
+)
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+#variable_conflict use_column
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'AUTH_REQUIRED' USING ERRCODE = 'P0001';
+  END IF;
+  RETURN QUERY
+  SELECT t.id, t.event_id, t.selling_price, t.quantity, t.notes, t.status, t.verification_status,
+         t.created_at, t.boosted_until, t.studio_ticket_id
+  FROM public.tickets t
+  WHERE t.seller_id = auth.uid()
+  ORDER BY t.created_at DESC NULLS LAST, t.id;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.my_listings() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.my_listings() TO authenticated;
+COMMENT ON FUNCTION public.my_listings() IS
+  'The caller''s own listings (every status), newest first, with their notes. Raises AUTH_REQUIRED without a signed-in user.';
+
+CREATE OR REPLACE FUNCTION public.update_my_listing_price(p_listing_id uuid, p_selling_price numeric)
+RETURNS void
+LANGUAGE plpgsql
+VOLATILE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_t record;
+  v_cap integer;
+BEGIN
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'AUTH_REQUIRED' USING ERRCODE = 'P0001';
+  END IF;
+
+  SELECT t.id, t.status, t.event_id, t.studio_ticket_id INTO v_t
+  FROM public.tickets t
+  WHERE t.id = p_listing_id AND t.seller_id = v_uid
+  FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'NOT_FOUND' USING ERRCODE = 'P0001';
+  END IF;
+  IF v_t.status IS DISTINCT FROM 'available' THEN
+    RAISE EXCEPTION 'NOT_EDITABLE' USING ERRCODE = 'P0001';
+  END IF;
+  IF p_selling_price IS NULL OR p_selling_price <= 0 OR p_selling_price > 10000 THEN
+    RAISE EXCEPTION 'INVALID_PRICE' USING ERRCODE = 'P0001';
+  END IF;
+  SELECT c.cap_cents INTO v_cap
+  FROM public.resale_price_cap(
+    v_t.event_id,
+    (SELECT et.tier_id FROM public.event_tickets et WHERE et.id = v_t.studio_ticket_id)
+  ) c;
+  IF v_cap IS NOT NULL AND p_selling_price * 100 > v_cap THEN
+    RAISE EXCEPTION 'PRICE_ABOVE_CAP' USING ERRCODE = 'P0001';
+  END IF;
+
+  UPDATE public.tickets t SET selling_price = p_selling_price WHERE t.id = v_t.id;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.update_my_listing_price(uuid, numeric) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.update_my_listing_price(uuid, numeric) TO authenticated;
+COMMENT ON FUNCTION public.update_my_listing_price(uuid, numeric) IS
+  'Changes the price of one of the caller''s listings while it is available (never during a checkout). Locks the listing. Raises AUTH_REQUIRED, NOT_FOUND (not the caller''s), NOT_EDITABLE (status is not available), INVALID_PRICE (null, <= 0 or > 10000), PRICE_ABOVE_CAP (resale_price_cap of the event and, for a Studio listing, its tier).';
+
+CREATE OR REPLACE FUNCTION public.cancel_my_listing(p_listing_id uuid)
+RETURNS void
+LANGUAGE plpgsql
+VOLATILE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_uid uuid := auth.uid();
+  v_t record;
+BEGIN
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'AUTH_REQUIRED' USING ERRCODE = 'P0001';
+  END IF;
+
+  SELECT t.id, t.status INTO v_t
+  FROM public.tickets t
+  WHERE t.id = p_listing_id AND t.seller_id = v_uid
+  FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'NOT_FOUND' USING ERRCODE = 'P0001';
+  END IF;
+  IF v_t.status IS DISTINCT FROM 'available' THEN
+    RAISE EXCEPTION 'NOT_EDITABLE' USING ERRCODE = 'P0001';
+  END IF;
+
+  IF EXISTS (SELECT 1 FROM public.transactions tx WHERE tx.ticket_id = v_t.id) THEN
+    -- Deleting would cascade to its transactions (cancelled checkouts, which
+    -- may carry a payment intent and a refund): keep them, cancel the
+    -- listing instead and free its qr_hash so the ticket can be listed again.
+    UPDATE public.tickets t
+    SET status = 'cancelled', qr_hash = NULL, reserved_transaction_id = NULL, reserved_until = NULL
+    WHERE t.id = v_t.id;
+  ELSE
+    DELETE FROM public.tickets t WHERE t.id = v_t.id;
+  END IF;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.cancel_my_listing(uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.cancel_my_listing(uuid) TO authenticated;
+COMMENT ON FUNCTION public.cancel_my_listing(uuid) IS
+  'Withdraws one of the caller''s listings while it is available: deletes it, or, when transactions reference it, sets it to cancelled (keeping the transaction history) with its qr_hash cleared. Raises AUTH_REQUIRED, NOT_FOUND (not the caller''s), NOT_EDITABLE (status is not available).';
+
+CREATE OR REPLACE FUNCTION public.admin_pending_listings()
+RETURNS TABLE (
+  id uuid,
+  status text,
+  verification_status text,
+  selling_price numeric,
+  quantity integer,
+  notes text,
+  qr_verified boolean,
+  created_at timestamptz,
+  event_id uuid,
+  event_title text,
+  event_date timestamptz,
+  event_location text,
+  event_campus text,
+  seller_full_name text,
+  seller_email text,
+  seller_campus text
+)
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+#variable_conflict use_column
+BEGIN
+  IF auth.uid() IS NULL OR NOT EXISTS (
+    SELECT 1 FROM public.user_roles ur WHERE ur.user_id = auth.uid() AND ur.role = 'admin'
+  ) THEN
+    RAISE EXCEPTION 'NOT_ADMIN' USING ERRCODE = 'P0001';
+  END IF;
+  RETURN QUERY
+  SELECT t.id, t.status, t.verification_status, t.selling_price, t.quantity, t.notes, t.qr_verified, t.created_at,
+         t.event_id, e.title, e.date, e.location, e.campus,
+         p.full_name, p.email, p.campus
+  FROM public.tickets t
+  LEFT JOIN public.events e ON e.id = t.event_id
+  LEFT JOIN public.profiles p ON p.id = t.seller_id
+  WHERE t.verification_status = 'pending'
+    AND t.status = 'available'
+  ORDER BY t.created_at ASC NULLS LAST, t.id;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.admin_pending_listings() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.admin_pending_listings() TO authenticated;
+COMMENT ON FUNCTION public.admin_pending_listings() IS
+  'Admin review queue: listings with verification_status pending and status available, oldest first, with event and seller details (name, email, campus). Raises NOT_ADMIN unless the caller has the admin role in user_roles.';

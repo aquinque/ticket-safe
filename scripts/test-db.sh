@@ -91,7 +91,7 @@ run_file() {
 # ── Schema ─────────────────────────────────────────────────────────────────
 run_file "fixture prod_resale_baseline.sql" "$TESTS/fixtures/prod_resale_baseline.sql"
 for m in \
-  20261103120000_resale_disputes_and_price_cap.sql \
+  20261103130000_resale_disputes_and_price_cap.sql \
   20261104120000_views_security_invoker_and_write_revokes.sql \
   20261108090000_resale_reservations_and_listing_rpcs.sql \
   20261108090100_tickets_column_privileges_and_drop_participant_view.sql; do
@@ -113,6 +113,8 @@ L9="$(q "select tests.id('L9')")"
 L11="$(q "select tests.id('L11')")"
 L12="$(q "select tests.id('L12')")"
 L13="$(q "select tests.id('L13')")"
+L14="$(q "select tests.id('L14')")"
+L15="$(q "select tests.id('L15')")"
 reserve_sql() { # listing buyer
   echo "select outcome from public.reserve_resale_listing('$1', '$2', 20.00, 1, 2100, 100, 100, 2100)"
 }
@@ -178,5 +180,54 @@ expect_eq "double-sell: listing sold exactly once, to tx2's buyer" \
   "$(q "select count(*) from public.tickets where id = '$L13' and status = 'sold' and buyer_id = '$BB'")" "1"
 expect_eq "double-sell: tx1 cancelled with its payment intent stored" \
   "$(q "select status || ':' || payment_intent_id from public.transactions where id = '$TX1'")" "cancelled:pi_race_13_1"
+
+# 5. Lock order, reserve vs complete (was a 40P01 deadlock). The interleaving
+#    that deadlocked: reserve_resale_listing has locked the listing and is
+#    about to cancel the previous pending transaction, while
+#    complete_resale_purchase for that same transaction runs. Session R takes
+#    the listing lock exactly as reserve does first (SELECT ... FOR UPDATE),
+#    holds it while session C starts complete_resale_purchase, then runs the
+#    reserve (same buyer: takes over and cancels TX14). Before the fix C
+#    locked TX14 and then waited on the listing while R waited on TX14:
+#    deadlock detected. Now C waits on the listing without holding TX14.
+deadlock_case() { # label listing tx second_session_sql expected_second_outcome expected_tx_status
+  local label="$1" listing="$2" tx="$3" sql="$4" expected="$5" r_out c_out
+  local rf="$RACE/deadlock-$listing.r"
+  ( "${PSQL[@]}" -At -c "set role service_role" -c "begin" \
+      -c "select 'locked' from public.tickets where id = '$listing' for update" \
+      -c "select pg_sleep(1.5)" \
+      -c "$(reserve_sql "$listing" "$BA")" -c "commit" >"$rf" 2>&1 || echo "error" >>"$rf" ) &
+  local pid=$!
+  # Wait until R holds the listing lock, then start C.
+  for _ in $(seq 1 50); do
+    grep -qx locked "$rf" 2>/dev/null && break
+    sleep 0.05
+  done
+  c_out="$(svc "$sql" 2>&1 || echo error)"
+  wait "$pid"
+  r_out="$(cat "$rf")"
+  if grep -qi 'deadlock' <<<"$r_out$c_out"; then
+    fail "$label: deadlock detected (40P01): R=[$r_out] C=[$c_out]"
+  fi
+  pass "$label: no 40P01 in either session"
+  expect_eq "$label: reserve (holding the listing first) gets reserved" "$(grep -x 'reserved\|reserved_by_other\|not_available\|error' "$rf" | head -1)" "reserved"
+  expect_eq "$label: second session outcome" "$c_out" "$expected"
+  expect_eq "$label: the previous transaction is $6" \
+    "$(q "select status from public.transactions where id = '$tx'")" "$6"
+  expect_eq "$label: listing held by the new pending transaction" \
+    "$(q "select count(*) from public.tickets t join public.transactions x on x.id = t.reserved_transaction_id where t.id = '$listing' and t.status = 'reserved' and x.status = 'pending' and x.id <> '$tx'")" "1"
+}
+TX14="$(svc "select transaction_id from public.reserve_resale_listing('$L14', '$BA', 20.00, 1, 2100, 100, 100, 2100)")"
+deadlock_case "lock order reserve/complete" "$L14" "$TX14" \
+  "select outcome from public.complete_resale_purchase('$TX14', 'pi_dl_14', NULL, NULL)" "transaction_not_pending" "cancelled"
+expect_eq "lock order reserve/complete: TX14 keeps its payment intent for the refund" \
+  "$(q "select payment_intent_id from public.transactions where id = '$TX14'")" "pi_dl_14"
+
+# 6. Same interleaving, reserve vs record_resale_refund (it also locked the
+#    transaction before the listing).
+TX15="$(svc "select transaction_id from public.reserve_resale_listing('$L15', '$BA', 20.00, 1, 2100, 100, 100, 2100)")"
+q "update public.transactions set payment_intent_id = 'pi_dl_15' where id = '$TX15'" >/dev/null
+deadlock_case "lock order reserve/refund" "$L15" "$TX15" \
+  "select outcome || ':' || relisted from public.record_resale_refund('pi_dl_15')" "refunded:false" "refunded"
 
 echo "test:db: $PASS passed, $FAIL failed"

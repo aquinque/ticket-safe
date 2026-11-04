@@ -5,6 +5,8 @@
 --   L11  external listing on E4, 20.00: deterministic lock wait
 --   L12  Studio listing on E1 (ET5), 20.00: same payment delivered twice
 --   L13  external listing on E4, 20.00: expired hold taken over, both pay
+--   L14  external listing on E4, 20.00: reserve vs complete lock order (deadlock)
+--   L15  external listing on E4, 20.00: reserve vs refund lock order (deadlock)
 
 INSERT INTO tests.ids (name, id)
 SELECT 'R' || lpad(i::text, 2, '0'), ('cccccccc-0000-0000-0001-' || lpad(i::text, 12, '0'))::uuid
@@ -14,7 +16,9 @@ INSERT INTO tests.ids (name, id) VALUES
   ('L9',  'aaaaaaaa-0000-0000-0000-000000000009'),
   ('L11', 'aaaaaaaa-0000-0000-0000-000000000011'),
   ('L12', 'aaaaaaaa-0000-0000-0000-000000000012'),
-  ('L13', 'aaaaaaaa-0000-0000-0000-000000000013');
+  ('L13', 'aaaaaaaa-0000-0000-0000-000000000013'),
+  ('L14', 'aaaaaaaa-0000-0000-0000-000000000014'),
+  ('L15', 'aaaaaaaa-0000-0000-0000-000000000015');
 
 INSERT INTO auth.users (id, email)
 SELECT id, lower(name) || '@example.invalid' FROM tests.ids WHERE name ~ '^R[0-9]{2}$';
@@ -28,4 +32,6 @@ INSERT INTO public.tickets (id, event_id, seller_id, status, verification_status
   (tests.id('L9'),  tests.id('E4'), tests.id('S'), 'available', 'verified', 20.00, 1, 'hash-l9',  NULL),
   (tests.id('L11'), tests.id('E4'), tests.id('S'), 'available', 'verified', 20.00, 1, 'hash-l11', NULL),
   (tests.id('L12'), tests.id('E1'), tests.id('S'), 'available', 'verified', 20.00, 1, 'studio:' || tests.id('ET5'), tests.id('ET5')),
-  (tests.id('L13'), tests.id('E4'), tests.id('S'), 'available', 'verified', 20.00, 1, 'hash-l13', NULL);
+  (tests.id('L13'), tests.id('E4'), tests.id('S'), 'available', 'verified', 20.00, 1, 'hash-l13', NULL),
+  (tests.id('L14'), tests.id('E4'), tests.id('S'), 'available', 'verified', 20.00, 1, 'hash-l14', NULL),
+  (tests.id('L15'), tests.id('E4'), tests.id('S'), 'available', 'verified', 20.00, 1, 'hash-l15', NULL);

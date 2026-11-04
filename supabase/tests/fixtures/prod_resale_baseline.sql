@@ -5,7 +5,7 @@
 -- pg_get_viewdef, pg_get_functiondef, pg_get_triggerdef, relacl), taken on
 -- 2026-11-04. It reproduces production as it was BEFORE
 -- 20261104120000_views_security_invoker_and_write_revokes.sql, so the harness
--- can apply, in order: 20261103120000 (disputes + price cap), 20261104120000
+-- can apply, in order: 20261103130000 (disputes + price cap), 20261104120000
 -- (A), 20261108090000 (B) and 20261108090100 (C), and test all of them.
 --
 -- Scope: only the tables, views, functions, triggers, policies and grants the

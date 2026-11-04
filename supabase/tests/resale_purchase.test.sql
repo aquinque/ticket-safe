@@ -258,5 +258,60 @@ SELECT tests.ok(
   (SELECT status = 'available' AND reserved_transaction_id IS NULL FROM public.tickets WHERE id = tests.id('L8')),
   'refund of a pending tx: L8 reservation released');
 
+-- ════════════════════════════════════════════════════════════════════════════
+-- Studio listings whose ticket is no longer valid, or on an external tier
+-- ════════════════════════════════════════════════════════════════════════════
+RESET ROLE;
+INSERT INTO tests.ids (name, id) VALUES
+  ('ET6', 'ffffffff-0000-0000-0000-000000000006'),
+  ('ET7', 'ffffffff-0000-0000-0000-000000000007'),
+  ('ET8', 'ffffffff-0000-0000-0000-000000000008'),
+  ('ET10','ffffffff-0000-0000-0000-000000000010'),
+  ('TXT', 'dddddddd-0000-0000-0000-0000000000e1'),
+  ('TFL', 'dddddddd-0000-0000-0000-0000000000e2'),
+  ('LS',  'aaaaaaaa-0000-0000-0000-0000000000e2'),
+  ('LT',  'aaaaaaaa-0000-0000-0000-0000000000e3'),
+  ('LX',  'aaaaaaaa-0000-0000-0000-0000000000e4'),
+  ('LF',  'aaaaaaaa-0000-0000-0000-0000000000e5');
+INSERT INTO public.event_tiers (id, event_id, name, price_cents, currency, total_qty, sold_qty, source) VALUES
+  (tests.id('TXT'), tests.id('E1'), 'Partner ticket', 2000, 'EUR', 10, 1, 'external'),
+  (tests.id('TFL'), tests.id('E1'), 'Late tier',      2000, 'EUR', 10, 1, 'platform');
+INSERT INTO public.event_tickets (id, order_id, event_id, tier_id, buyer_id, qr_token, status) VALUES
+  (tests.id('ET6'),  tests.id('O1'), tests.id('E1'), tests.id('T1'),  tests.id('S'), 'qr-et6',  'valid'),
+  (tests.id('ET7'),  tests.id('O1'), tests.id('E1'), tests.id('T1'),  tests.id('S'), 'qr-et7',  'valid'),
+  (tests.id('ET8'),  tests.id('O1'), tests.id('E1'), tests.id('TXT'), tests.id('S'), 'qr-et8',  'valid'),
+  (tests.id('ET10'), tests.id('O1'), tests.id('E1'), tests.id('TFL'), tests.id('S'), 'qr-et10', 'valid');
+INSERT INTO public.tickets (id, event_id, seller_id, status, verification_status, selling_price, quantity, qr_hash, studio_ticket_id) VALUES
+  (tests.id('LS'), tests.id('E1'), tests.id('S'), 'available', 'verified', 20.00, 1, 'studio:' || tests.id('ET6'),  tests.id('ET6')),
+  (tests.id('LT'), tests.id('E1'), tests.id('S'), 'available', 'verified', 20.00, 1, 'studio:' || tests.id('ET7'),  tests.id('ET7')),
+  (tests.id('LX'), tests.id('E1'), tests.id('S'), 'available', 'verified', 20.00, 1, 'studio:' || tests.id('ET8'),  tests.id('ET8')),
+  (tests.id('LF'), tests.id('E1'), tests.id('S'), 'available', 'verified', 20.00, 1, 'studio:' || tests.id('ET10'), tests.id('ET10'));
+UPDATE public.event_tickets SET status = 'scanned', scanned_at = now() WHERE id = tests.id('ET6');
+UPDATE public.event_tickets SET status = 'transferred' WHERE id = tests.id('ET7');
+SET ROLE service_role;
+SELECT tests.ok((SELECT outcome = 'not_available' FROM public.reserve_resale_listing(tests.id('LS'), tests.id('B1'), 20.00, 1, 2100, 100, 100)), 'reserve: Studio listing whose ticket was scanned -> not_available');
+SELECT tests.ok((SELECT outcome = 'not_available' FROM public.reserve_resale_listing(tests.id('LT'), tests.id('B1'), 20.00, 1, 2100, 100, 100)), 'reserve: Studio listing whose ticket was transferred -> not_available');
+SELECT tests.ok((SELECT outcome = 'not_available' FROM public.reserve_resale_listing(tests.id('LX'), tests.id('B1'), 20.00, 1, 2100, 100, 100)), 'reserve: Studio listing on an external tier -> not_available');
+SELECT tests.ok(
+  (SELECT count(*) FROM public.transactions WHERE ticket_id IN (tests.id('LS'), tests.id('LT'), tests.id('LX'))) = 0
+  AND (SELECT bool_and(status = 'available' AND reserved_transaction_id IS NULL) FROM public.tickets WHERE id IN (tests.id('LS'), tests.id('LT'), tests.id('LX'))),
+  'reserve refusals on invalid Studio tickets write nothing');
+-- Reserved while the tier was a platform one; the tier becomes external
+-- before the payment lands: studio_ticket_unavailable, listing cancelled.
+SELECT transaction_id AS tx_f FROM public.reserve_resale_listing(tests.id('LF'), tests.id('B1'), 20.00, 1, 2100, 100, 100) \gset
+RESET ROLE;
+UPDATE public.event_tiers SET source = 'external' WHERE id = tests.id('TFL');
+SET ROLE service_role;
+SELECT tests.ok(
+  (SELECT outcome = 'studio_ticket_unavailable' AND new_event_ticket_id IS NULL
+   FROM public.complete_resale_purchase(:'tx_f'::uuid, 'pi_f', gen_random_uuid(), 'qr-new-f')),
+  'complete on a Studio listing whose tier became external: studio_ticket_unavailable');
+SELECT tests.ok(
+  (SELECT status = 'cancelled' AND buyer_id IS NULL AND reserved_transaction_id IS NULL FROM public.tickets WHERE id = tests.id('LF'))
+  AND (SELECT status::text = 'cancelled' AND payment_intent_id = 'pi_f' FROM public.transactions WHERE id = :'tx_f'::uuid)
+  AND (SELECT status::text = 'valid' FROM public.event_tickets WHERE id = tests.id('ET10'))
+  AND NOT EXISTS (SELECT 1 FROM public.event_tickets WHERE qr_token = 'qr-new-f'),
+  'external tier at completion: listing cancelled, tx cancelled with payment intent, old ticket untouched, no new ticket');
+
 RESET ROLE;
 ROLLBACK;
