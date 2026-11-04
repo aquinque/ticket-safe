@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useParams, useNavigate, useLocation, Link } from "react-router-dom";
 import {
   Calendar,
-  MapPin,
   Loader2,
   Ticket,
   Plus,
@@ -18,7 +17,6 @@ import {
   Flame,
   Share2,
   CalendarPlus,
-  Users,
   Navigation,
   ChevronDown,
   X,
@@ -969,15 +967,6 @@ const EventPublic = () => {
     );
   };
 
-  const InfoChip = ({ icon: Icon, children, onClick, href, tone = "default" }: { icon: typeof Calendar; children: React.ReactNode; onClick?: () => void; href?: string; tone?: "default" | "live" | "accent" }) => {
-    const cls = `snap-start shrink-0 inline-flex items-center gap-1.5 h-9 pl-3 pr-3.5 rounded-full border text-sm whitespace-nowrap transition-colors ${
-      tone === "live" ? "border-emerald-400/40 bg-emerald-400/10 text-emerald-300" : tone === "accent" ? "border-primary/50 bg-primary/15 text-foreground" : "border-border bg-card/70 text-foreground"
-    } ${onClick || href ? "hover:border-foreground/50" : ""}`;
-    const inner = <><Icon className={`w-4 h-4 ${tone === "live" ? "text-emerald-400" : "text-primary"}`} strokeWidth={1.75} />{children}</>;
-    if (href) return <a href={href} target="_blank" rel="noopener noreferrer" className={cls}>{inner}</a>;
-    if (onClick) return <button type="button" onClick={onClick} className={cls}>{inner}</button>;
-    return <span className={cls}>{inner}</span>;
-  };
 
 
   return (
@@ -1077,26 +1066,56 @@ const EventPublic = () => {
             </div>
           )}
 
-          {/* Chips: the facts, swipeable on a phone */}
-          <div className="ts-chips flex gap-2 overflow-x-auto snap-x pt-4 pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 motion-safe:animate-fade-in" style={{ animationDelay: "200ms", animationFillMode: "both" }}>
-            <InfoChip icon={Calendar}>{startDate.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })} · {startDate.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</InfoChip>
-            {event.location && (
-              <InfoChip icon={MapPin} href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`}>
-                <span className="max-w-[180px] truncate">{event.location}</span>
-              </InfoChip>
-            )}
-            {interestedLabel && !clock.over && <InfoChip icon={Users}>{interestedLabel}</InfoChip>}
-            {minPriceCents != null && !eventSoldOut && !isPast && (
-              <InfoChip icon={Ticket} tone="accent" onClick={scrollToTickets}>{minPriceCents === 0 ? "Free" : `From ${fmtPrice(minPriceCents)}`}</InfoChip>
-            )}
-          </div>
-          {/* Countdown: one quiet line under the date, gone once the event is over. */}
-          {!clock.over && (
-            <p className="mt-2.5 flex items-center gap-2 text-sm text-muted-foreground">
-              <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
-              {clock.label}
-            </p>
-          )}
+          {/* The facts as two lines of text: when and where, then countdown, interest and price. */}
+          {(() => {
+            const sep = <span aria-hidden className="text-muted-foreground/50">·</span>;
+            const second: React.ReactNode[] = [];
+            if (!clock.over) {
+              second.push(
+                <span key="clock" className={clock.live ? "text-emerald-400" : undefined}>{clock.label}</span>,
+              );
+              if (interestedLabel) second.push(<span key="interest">{interestedLabel}</span>);
+            }
+            if (minPriceCents != null && !eventSoldOut && !isPast) {
+              second.push(
+                <button
+                  key="price"
+                  type="button"
+                  onClick={scrollToTickets}
+                  className="font-medium text-foreground underline decoration-foreground/30 underline-offset-4 hover:decoration-foreground transition-colors"
+                >
+                  {minPriceCents === 0 ? "Free" : `From ${fmtPrice(minPriceCents)}`}
+                </button>,
+              );
+            }
+            return (
+              <div className="pt-4 space-y-1.5 motion-safe:animate-fade-in" style={{ animationDelay: "200ms", animationFillMode: "both" }}>
+                <p className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-[15px] md:text-base text-foreground">
+                  <span>
+                    {startDate.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}, {startDate.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                  {event.location && (
+                    <>
+                      {sep}
+                      <a
+                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline decoration-foreground/25 underline-offset-4 hover:decoration-foreground transition-colors"
+                      >
+                        {event.location}
+                      </a>
+                    </>
+                  )}
+                </p>
+                {second.length > 0 && (
+                  <p className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm text-muted-foreground">
+                    {second.flatMap((node, i) => (i === 0 ? [node] : [<span key={`sep-${i}`} aria-hidden className="text-muted-foreground/50">·</span>, node]))}
+                  </p>
+                )}
+              </div>
+            );
+          })()}
         </div>
       </section>
 
@@ -1290,8 +1309,6 @@ const EventPublic = () => {
       )}
 
       <style>{`
-        .ts-chips { scrollbar-width: none; }
-        .ts-chips::-webkit-scrollbar { display: none; }
         .ts-field-input {
           width: 100%;
           padding: 11px 12px;
