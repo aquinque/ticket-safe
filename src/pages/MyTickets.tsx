@@ -38,8 +38,10 @@ interface OrderRow {
     primary_color: string | null;
     banner_url: string | null;
     logo_url: string | null;
+    ends_at?: string | null;
+    last_entry_at?: string | null;
   } | null;
-  tier: { name: string } | null;
+  tier: { name: string; entry_until?: string | null } | null;
 }
 
 interface TicketRow {
@@ -111,12 +113,12 @@ const MyTickets = () => {
           .maybeSingle(),
         supabase
           .from("events")
-          .select("title, date, location, slug, primary_color, banner_url, logo_url")
+          .select("title, date, location, slug, primary_color, banner_url, logo_url, ends_at, last_entry_at")
           .eq("id", firstEventId)
           .maybeSingle(),
         supabase
           .from("event_tiers")
-          .select("name")
+          .select("name, entry_until")
           .eq("id", firstTierId)
           .maybeSingle(),
       ]);
@@ -320,6 +322,9 @@ const MyTickets = () => {
                     holderName={holderName}
                     tierName={order.tier?.name ?? null}
                     priceLabel={perTicketCents != null ? formatMoney(perTicketCents, order.currency) : null}
+                    lastEntryAt={order.event?.last_entry_at ?? null}
+                    closesAt={order.event?.ends_at ?? null}
+                    entryUntil={order.tier?.entry_until ?? null}
                     qrSrc={qrUrls[t.id] ?? null}
                     refCode={ticketRef(t.id)}
                     unavailable={unavailable}

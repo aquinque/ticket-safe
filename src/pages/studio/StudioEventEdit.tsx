@@ -69,6 +69,8 @@ interface EventRow {
   description_font: string | null;
   date: string;
   ends_at: string | null;
+  /** Last entry, printed on the ticket. */
+  last_entry_at?: string | null;
   location: string | null;
   category: string | null;
   status: "draft" | "published" | "cancelled" | "sold_out" | null;
@@ -100,6 +102,8 @@ interface TierRow {
   is_active: boolean;
   sales_start_at: string | null;
   sales_end_at: string | null;
+  /** This ticket admits only before this time (early entry); printed on the ticket. */
+  entry_until?: string | null;
   max_per_order: number | null;
   // 'external' tiers are imported partner/club allocations — managed in the
   // dedicated External tickets section, not the native tier editor below.
@@ -971,6 +975,8 @@ const StudioEventEdit = () => {
               userId={user?.id ?? ""}
             />
           )}
+
+          {!readOnly && <EntryTimesCard event={event} saving={saving} onSave={(patch) => updateEventField(patch)} />}
 
           {/* Tiers manager; a read-only list once the event has ended */}
           <section className="bg-card border border-border rounded-2xl p-5 md:p-6 mb-6">
@@ -2332,6 +2338,79 @@ const toLocalInput = (iso: string | null): string => {
 const fromLocalInput = (s: string): string | null =>
   s.trim() ? new Date(s).toISOString() : null;
 
+/** Doors, last entry and closing time, printed on every ticket. Editable once published, unlike the details editor. */
+const EntryTimesCard = ({
+  event,
+  saving,
+  onSave,
+}: {
+  event: EventRow;
+  saving: boolean;
+  onSave: (patch: Partial<EventRow>) => void;
+}) => {
+  const [lastEntry, setLastEntry] = useState(toLocalInput(event.last_entry_at ?? null));
+  const [endsAt, setEndsAt] = useState(toLocalInput(event.ends_at));
+  useEffect(() => {
+    setLastEntry(toLocalInput(event.last_entry_at ?? null));
+    setEndsAt(toLocalInput(event.ends_at));
+  }, [event.last_entry_at, event.ends_at]);
+  const dirty = lastEntry !== toLocalInput(event.last_entry_at ?? null) || endsAt !== toLocalInput(event.ends_at);
+  const start = new Date(event.date);
+  const error =
+    lastEntry && new Date(lastEntry) < start
+      ? "Last entry must be after the doors open."
+      : endsAt && new Date(endsAt) <= start
+        ? "Closing time must be after the doors open."
+        : lastEntry && endsAt && new Date(lastEntry) > new Date(endsAt)
+          ? "Last entry must be before closing time."
+          : null;
+  return (
+    <section className="bg-card border border-border rounded-2xl p-5 md:p-6 mb-6">
+      <h2 className="text-lg font-bold">Entry times</h2>
+      <p className="text-sm text-muted-foreground mt-1">Printed on every ticket, in the email and on the PDF.</p>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
+        <div>
+          <label className="text-xs font-bold text-muted-foreground mb-1 block">Doors open</label>
+          <div className="px-3 py-2 rounded-lg border border-border bg-muted/40 text-sm tabular-nums">
+            {start.toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+          </div>
+          <p className="text-[10px] text-muted-foreground mt-1">The event's start time.</p>
+        </div>
+        <div>
+          <label className="text-xs font-bold text-muted-foreground mb-1 block">Last entry (optional)</label>
+          <input
+            type="datetime-local"
+            value={lastEntry}
+            onChange={(e) => setLastEntry(e.target.value)}
+            className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm"
+          />
+        </div>
+        <div>
+          <label className="text-xs font-bold text-muted-foreground mb-1 block">Closes (optional)</label>
+          <input
+            type="datetime-local"
+            value={endsAt}
+            onChange={(e) => setEndsAt(e.target.value)}
+            className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm"
+          />
+        </div>
+      </div>
+      <p className="text-[11px] text-muted-foreground mt-2">An early-entry ticket's own limit is set on its tier, under Advanced.</p>
+      {error && <p className="text-sm text-destructive mt-2">{error}</p>}
+      {dirty && (
+        <button
+          onClick={() => onSave({ last_entry_at: fromLocalInput(lastEntry), ends_at: fromLocalInput(endsAt) })}
+          disabled={saving || !!error}
+          className="mt-3 inline-flex items-center gap-1.5 px-3 min-h-[36px] rounded-lg text-sm font-bold bg-primary text-primary-foreground disabled:opacity-60"
+        >
+          <Save className="w-3.5 h-3.5" />
+          Save
+        </button>
+      )}
+    </section>
+  );
+};
+
 const TierEditor = ({
   tier,
   onChange,
@@ -2349,6 +2428,7 @@ const TierEditor = ({
     is_active: tier.is_active,
     sales_start_at: toLocalInput(tier.sales_start_at),
     sales_end_at: toLocalInput(tier.sales_end_at),
+    entry_until: toLocalInput(tier.entry_until ?? null),
     max_per_order: tier.max_per_order != null ? String(tier.max_per_order) : "",
     kind: tier.kind ?? "ticket",
     capacity_per_unit: String(tier.capacity_per_unit ?? 1),
@@ -2361,6 +2441,7 @@ const TierEditor = ({
     draft.is_active !== tier.is_active ||
     draft.sales_start_at !== toLocalInput(tier.sales_start_at) ||
     draft.sales_end_at !== toLocalInput(tier.sales_end_at) ||
+    draft.entry_until !== toLocalInput(tier.entry_until ?? null) ||
     draft.max_per_order !== (tier.max_per_order != null ? String(tier.max_per_order) : "") ||
     draft.kind !== (tier.kind ?? "ticket") ||
     draft.capacity_per_unit !== String(tier.capacity_per_unit ?? 1);
@@ -2422,7 +2503,7 @@ const TierEditor = ({
       <details className="mt-3 pt-3 border-t border-border group">
         <summary className="cursor-pointer list-none inline-flex items-center gap-1.5 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors select-none">
           <span className="inline-block transition-transform group-open:rotate-90">›</span>
-          Advanced — schedule sales window & per-order cap
+          Advanced — sales window, entry time & per-order cap
         </summary>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
           <div>
@@ -2458,6 +2539,17 @@ const TierEditor = ({
             />
             <p className="text-[10px] text-muted-foreground mt-1">e.g. "2" for VIP, leave blank otherwise.</p>
           </div>
+        </div>
+
+        <div className="mt-3 max-w-xs">
+          <label className="text-xs font-bold text-muted-foreground mb-1 block">Entry before (optional)</label>
+          <input
+            type="datetime-local"
+            value={draft.entry_until}
+            onChange={(e) => setDraft((d) => ({ ...d, entry_until: e.target.value }))}
+            className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm"
+          />
+          <p className="text-[10px] text-muted-foreground mt-1">For early-entry tickets. Printed on the ticket: "Entry before 00:30".</p>
         </div>
 
         <div className="mt-3 pt-3 border-t border-border">
@@ -2509,6 +2601,7 @@ const TierEditor = ({
                 is_active: draft.is_active,
                 sales_start_at: fromLocalInput(draft.sales_start_at),
                 sales_end_at: fromLocalInput(draft.sales_end_at),
+                entry_until: fromLocalInput(draft.entry_until),
                 // max_per_order is NOT NULL in the DB (default 10) — fall back to
                 // 10 when cleared rather than null, which would be rejected.
                 max_per_order: draft.max_per_order.trim()

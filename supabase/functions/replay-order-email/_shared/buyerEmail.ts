@@ -15,12 +15,38 @@ export function stripDate(iso: string | null | undefined, timeZone = "Europe/Par
   const time = d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone });
   return `${day} · ${time}`.toUpperCase();
 }
+/** "00:30" in the event's time zone; "" when there is no time. */
+export function clockText(iso: string | null | undefined, timeZone = "Europe/Paris"): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone });
+}
+/**
+ * The entry times printed on the ticket, as on the site (TicketPass ticketEntryTimes): doors, last entry and
+ * closing when the last entry or the closing time is set, and the tier's own "entry before" (early entry).
+ */
+export function entryTimes(o: { doorsAt?: string | null; lastEntryAt?: string | null; closesAt?: string | null; entryUntil?: string | null; timeZone?: string }) {
+  const tz = o.timeZone ?? "Europe/Paris";
+  const doors = clockText(o.doorsAt, tz);
+  const lastEntry = clockText(o.lastEntryAt, tz);
+  const closes = clockText(o.closesAt, tz);
+  const cells = lastEntry || closes
+    ? [
+        ...(doors ? [{ label: "Doors", value: doors }] : []),
+        ...(lastEntry ? [{ label: "Last entry", value: lastEntry }] : []),
+        ...(closes ? [{ label: "Closes", value: closes }] : []),
+      ]
+    : [];
+  return { cells, entryBefore: clockText(o.entryUntil, tz) };
+}
 export function renderTicketCard(o: {
   idx: number; total: number; holder: string; holderEmail: string; tierName: string; evDate: string; evLocation: string; refShort: string;
   appleWalletUrl?: string | null; ticketUrl?: string;
   evTitle?: string; bannerUrl?: string | null; accent?: string | null; stripText?: string; priceLabel?: string | null; qrImageUrl?: string | null;
+  entry?: { cells: { label: string; value: string }[]; entryBefore: string };
 }): string {
-  const { idx, total, holder, holderEmail, tierName, evLocation, refShort, appleWalletUrl, ticketUrl, evTitle, bannerUrl, accent, stripText, priceLabel, qrImageUrl } = o;
+  const { idx, total, holder, holderEmail, tierName, evLocation, refShort, appleWalletUrl, ticketUrl, evTitle, bannerUrl, accent, stripText, priceLabel, qrImageUrl, entry } = o;
   const bg = /^#[0-9a-f]{3,8}$/i.test(accent ?? "") ? accent! : "#3a5fe6";
   const label = "font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#64748b";
   const value = "font-size:15px;font-weight:800;color:#0f172a;line-height:1.3;margin-top:3px";
@@ -28,6 +54,13 @@ export function renderTicketCard(o: {
   const picture = bannerUrl
     ? `<img src="${esc(bannerUrl)}" alt="" width="520" style="display:block;width:100%;max-width:520px;height:auto;border:0">`
     : `<div style="padding:30px 18px 18px"><div style="font-size:10px;font-weight:800;letter-spacing:.2em;text-transform:uppercase;color:rgba(255,255,255,.8)">TicketSafe</div><div style="margin-top:6px;font-size:32px;font-weight:900;line-height:.95;letter-spacing:-.02em;text-transform:uppercase;color:#fff">${esc(evTitle ?? "")}</div></div>`;
+  const cells = entry?.cells ?? [];
+  const entryRow = cells.length || entry?.entryBefore
+    ? `<tr><td style="padding:12px 16px;border-top:1px solid #e2e8f0">
+    ${cells.length ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse"><tr>${cells.map((c) => `<td width="${Math.floor(100 / cells.length)}%" valign="top"><div style="${label}">${esc(c.label)}</div><div style="${value}">${esc(c.value)}</div></td>`).join("")}</tr></table>` : ""}
+    ${entry?.entryBefore ? `<div style="${cells.length ? "margin-top:10px;" : ""}background:#fef3c7;color:#78350f;font-size:13px;font-weight:800;padding:8px 12px">This ticket is valid for entry before ${esc(entry.entryBefore)}</div>` : ""}
+  </td></tr>`
+    : "";
   const qr = qrImageUrl
     ? `<img src="${esc(qrImageUrl)}" alt="Your ticket QR code" width="220" height="220" style="display:block;margin:0 auto;width:220px;height:220px;border:0">`
     : `<div style="padding:24px 0;font-size:13px;color:#475569">Your QR code is on the attached PDF.</div>`;
@@ -47,6 +80,7 @@ ${total > 1 ? `<div style="margin:0 0 8px;font-size:11px;font-weight:800;letter-
       <td width="50%" valign="top" style="padding-left:8px"><div style="${label}">Ticket</div><div style="${value}">${esc(ticketLine || "—")}</div></td>
     </tr></table>
   </td></tr>
+  ${entryRow}
   <tr><td style="padding:20px 16px 18px;border-top:1px solid #e2e8f0;text-align:center">
     ${qr}
     <div style="margin-top:10px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11px;letter-spacing:.12em;color:#64748b">${refShort}</div>
@@ -78,7 +112,7 @@ export function renderBuyerEmail(o: { firstName: string; evTitle: string; evDate
       <h2 style="margin:0;font-size:18px;font-weight:900;color:#0f172a;line-height:1.25">${esc(evTitle)}</h2>
       <p style="margin:6px 0 0;font-size:13px;color:#64748b">${esc(evDate)}${evLocation ? ` · ${esc(evLocation)}` : ""}</p>
       <p style="margin:6px 0 0;font-size:13px;color:#64748b">${esc(tierName)}</p>
-      <p style="margin:12px 0 0;display:inline-block;background:#eef2ff;color:#2440b6;font-weight:800;font-size:12px;padding:7px 14px;border-radius:999px">📎 Your ticket${qty > 1 ? "s are" : " is"} attached as a PDF</p>
+      <p style="margin:12px 0 0;display:inline-block;background:#eef2ff;color:#2440b6;font-weight:800;font-size:12px;padding:7px 14px;border-radius:999px">Your ticket${qty > 1 ? "s are" : " is"} also attached as a PDF</p>
     </div>
     ${ticketBlocksHtml}
     ${totals}
@@ -91,6 +125,30 @@ export function renderBuyerEmail(o: { firstName: string; evTitle: string; evDate
   </div>
   ${legalHtml ? `<div style="padding:4px 16px 0">${legalHtml}</div>` : ""}
 </div></body></html>`;
+}
+/** The same email as plain text, sent alongside the HTML (mail clients and spam filters expect both). */
+export function renderBuyerEmailText(o: {
+  firstName: string; evTitle: string; evDate: string; evLocation: string;
+  tickets: { holder: string; ticketLine: string; ref: string; url: string }[];
+  entry?: { cells: { label: string; value: string }[]; entryBefore: string };
+  totalText: string; orderRef: string; supportEmail: string;
+}): string {
+  const lines: string[] = [];
+  lines.push(o.firstName ? `Hi ${o.firstName},` : "Hi,", "");
+  lines.push(`Here ${o.tickets.length > 1 ? "are your tickets" : "is your ticket"} for ${o.evTitle}.`);
+  lines.push(`${o.evDate}${o.evLocation ? ` · ${o.evLocation}` : ""}`);
+  if (o.entry?.cells.length) lines.push(o.entry.cells.map((c) => `${c.label}: ${c.value}`).join(" · "));
+  if (o.entry?.entryBefore) lines.push(`This ticket is valid for entry before ${o.entry.entryBefore}.`);
+  lines.push("");
+  o.tickets.forEach((t, i) => {
+    lines.push(`${o.tickets.length > 1 ? `Ticket ${i + 1} of ${o.tickets.length}` : "Your ticket"}: ${t.holder || "—"} · ${t.ticketLine} · ${t.ref}`);
+    if (t.url) lines.push(`Open it (QR code to show at the door): ${t.url}`);
+  });
+  lines.push("", "Your ticket is also attached as a PDF. Each QR is single-use and checked at the door.");
+  lines.push("", `Total paid: ${o.totalText} · Order ${o.orderRef}`);
+  lines.push("", "All your tickets: https://ticket-safe.eu/my-tickets");
+  lines.push(`Questions? Reply to this email or write to ${o.supportEmail}.`, "", "Ticket Safe · ticket-safe.eu");
+  return lines.join("\n");
 }
 export function buildTicketUrls(supabaseUrl: string, ticketId: string): { apple: string } {
   const base = supabaseUrl.replace(/\/+$/, "");

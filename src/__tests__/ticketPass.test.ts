@@ -37,3 +37,36 @@ describe("ticket design shared by the site, the email and the PDF", () => {
     expect(src).toMatch(/if \(!qrImage\) try/);
   });
 });
+
+describe("entry times on the ticket", () => {
+  it("shows doors, last entry and closing only when the last entry or closing is set", async () => {
+    const { entryTimes, renderBuyerEmailText } = await import("../../supabase/functions/replay-order-email/_shared/buyerEmail");
+    const none = entryTimes({ doorsAt: "2026-11-06T23:01:00Z" });
+    expect(none.cells).toEqual([]);
+    expect(none.entryBefore).toBe("");
+    const full = entryTimes({ doorsAt: "2026-11-06T23:01:00Z", lastEntryAt: "2026-11-07T01:30:00Z", closesAt: "2026-11-07T04:00:00Z", entryUntil: "2026-11-06T23:30:00Z", timeZone: "Europe/Madrid" });
+    expect(full.cells).toEqual([
+      { label: "Doors", value: "00:01" },
+      { label: "Last entry", value: "02:30" },
+      { label: "Closes", value: "05:00" },
+    ]);
+    expect(full.entryBefore).toBe("00:30");
+    const text = renderBuyerEmailText({
+      firstName: "Alex", evTitle: "EBS", evDate: "Saturday 7 November", evLocation: "Madrid",
+      tickets: [{ holder: "Alex Martin", ticketLine: "Early · €6.00", ref: "TS-1", url: "https://ticket-safe.eu/t/x" }],
+      entry: full, totalText: "€6.00", orderRef: "TS-ABC", supportEmail: "help@example.com",
+    });
+    expect(text).toContain("Last entry: 02:30");
+    expect(text).toContain("valid for entry before 00:30");
+    expect(text).toContain("https://ticket-safe.eu/t/x");
+  });
+
+  it("the email card prints the entry row", () => {
+    const html = renderTicketCard({
+      idx: 1, total: 1, holder: "A", holderEmail: "", tierName: "Early", evDate: "", evLocation: "", refShort: "TS-1",
+      entry: { cells: [{ label: "Closes", value: "05:00" }], entryBefore: "00:30" },
+    });
+    expect(html).toContain("Closes");
+    expect(html).toContain("valid for entry before 00:30");
+  });
+});

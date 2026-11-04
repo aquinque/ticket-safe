@@ -3,7 +3,7 @@ import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TICKET_QR_OPTIONS, type GuestTicketView } from "@/lib/guestAccess";
 import { formatMoney } from "@/lib/money";
-import { TicketPass, ticketStripDate } from "@/components/tickets/TicketPass";
+import { TicketPass, ticketEntryTimes, ticketStripDate } from "@/components/tickets/TicketPass";
 
 const loadImage = (src: string, crossOrigin = false): Promise<HTMLImageElement> =>
   new Promise((resolve, reject) => {
@@ -29,7 +29,9 @@ async function buildTicketImage(ticket: GuestTicketView, qrDataUrl: string, tick
   const bannerH = picture
     ? Math.round(Math.min(Math.max((W * picture.height) / picture.width, W / 2.35), 1080))
     : Math.round(W / 2.35);
-  const H = bannerH + 70 + 150 + 640 + 90;
+  const entry = ticketEntryTimes({ doorsAt: ticket.event.date, lastEntryAt: ticket.event.last_entry_at, closesAt: ticket.event.ends_at, entryUntil: ticket.entry_until });
+  const entryH = (entry.cells.length ? 110 : 0) + (entry.entryBefore ? 80 : 0) + (entry.cells.length || entry.entryBefore ? 20 : 0);
+  const H = bannerH + 70 + 150 + entryH + 640 + 90;
   const canvas = document.createElement("canvas");
   canvas.width = W;
   canvas.height = H;
@@ -80,10 +82,39 @@ async function buildTicketImage(ticket: GuestTicketView, qrDataUrl: string, tick
   ctx.fillStyle = "#E2E8F0";
   ctx.fillRect(0, infoY + 150, W, 2);
 
+  // Doors, last entry, closing; an early-entry ticket's own limit
+  let y = infoY + 152;
+  if (entry.cells.length) {
+    const colW = (W - 80) / entry.cells.length;
+    entry.cells.forEach((c, i) => {
+      ctx.textAlign = "left";
+      ctx.fillStyle = "#64748B";
+      ctx.font = font(700, 20);
+      ctx.fillText(c.label.toUpperCase(), 40 + i * colW, y + 46);
+      ctx.fillStyle = "#0F172A";
+      ctx.font = font(700, 32);
+      ctx.fillText(c.value, 40 + i * colW, y + 88);
+    });
+    y += 110;
+  }
+  if (entry.entryBefore) {
+    ctx.fillStyle = "#FEF3C7";
+    ctx.fillRect(40, y + 10, W - 80, 60);
+    ctx.fillStyle = "#78350F";
+    ctx.font = font(700, 26);
+    ctx.textAlign = "left";
+    ctx.fillText(`This ticket is valid for entry before ${entry.entryBefore}`, 60, y + 50);
+    y += 80;
+  }
+  if (entryH) {
+    ctx.fillStyle = "#E2E8F0";
+    ctx.fillRect(0, y + 18, W, 2);
+  }
+
   // QR and reference
   const qr = await loadImage(qrDataUrl);
   ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(qr, (W - 560) / 2, infoY + 190, 560, 560);
+  ctx.drawImage(qr, (W - 560) / 2, infoY + 190 + entryH, 560, 560);
   ctx.fillStyle = "#64748B";
   ctx.font = font(500, 22);
   ctx.textAlign = "center";
@@ -162,6 +193,9 @@ export const GuestTicketCard = ({ ticket, index, total }: GuestTicketCardProps) 
         qrSrc={qrUrl}
         refCode={ticket.ref ?? ""}
         unavailable={unavailable}
+        lastEntryAt={ticket.event.last_entry_at ?? null}
+        closesAt={ticket.event.ends_at ?? null}
+        entryUntil={ticket.entry_until ?? null}
       >
         {stillValid && (
           <Button variant="outline" onClick={save} disabled={!qrUrl || saving} className="h-11 border-slate-300 bg-white text-slate-900 hover:bg-slate-50">
