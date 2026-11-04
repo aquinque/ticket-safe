@@ -44,8 +44,7 @@ const EventTicketsMarketplace = () => {
   const actions = useResaleActions();
   const [notFound, setNotFound] = useState(false);
   const [notifying, setNotifying] = useState(false);
-  // Live price intel for this event — used by the market-insight card and
-  // by the "best deal" badge on each listing card.
+  // Live price intel for this event, used by the market-insight card.
   const { intel } = useEventPriceIntel(eventId);
 
   useEffect(() => {
