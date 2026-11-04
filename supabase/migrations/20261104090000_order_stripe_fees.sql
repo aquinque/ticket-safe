@@ -17,7 +17,7 @@ alter table public.order_stripe_fees enable row level security;
 drop policy if exists "Admins read Stripe fees" on public.order_stripe_fees;
 create policy "Admins read Stripe fees" on public.order_stripe_fees
   for select to authenticated
-  using (public.has_role((select auth.uid()), 'admin'));
+  using (exists (select 1 from public.user_roles where user_roles.user_id = (select auth.uid()) and user_roles.role = 'admin'::app_role));
 
 revoke all on public.order_stripe_fees from anon;
 revoke insert, update, delete on public.order_stripe_fees from authenticated;

@@ -12,7 +12,17 @@
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getStripeClient } from "../_shared/stripeConnect.ts";
+import Stripe from "npm:stripe@14.21.0";
+
+/** Same key and live-mode guard as _shared/stripeConnect.ts, kept here so the function deploys on its own. */
+function getStripeClient(): Stripe {
+  const key = Deno.env.get("STRIPE_SECRET_KEY");
+  if (!key) throw new Error("STRIPE_SECRET_KEY not configured");
+  if (key.startsWith("sk_live_") && Deno.env.get("STRIPE_ALLOW_LIVE_MODE") !== "true") {
+    throw new Error("Refusing to use a live Stripe key — STRIPE_ALLOW_LIVE_MODE is not set to true.");
+  }
+  return new Stripe(key, { apiVersion: "2024-06-20", httpClient: Stripe.createFetchHttpClient() });
+}
 
 const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type" };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } });
