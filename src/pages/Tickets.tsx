@@ -235,7 +235,7 @@ const Tickets = () => {
             <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-5">
               <div className="min-w-0">
                 <h1 className="font-display font-bold text-4xl md:text-6xl text-foreground leading-[0.98] text-balance motion-safe:animate-slide-up" style={{ letterSpacing: "-0.02em" }}>
-                  Nights out{nearCity ? <> near <span className="text-primary">{nearCity.label}</span></> : " near you"}
+                  Events{nearCity ? <> near <span className="text-primary">{nearCity.label}</span></> : " near you"}
                 </h1>
                 <p className="text-sm md:text-base text-muted-foreground mt-3 max-w-xl motion-safe:animate-fade-in" style={{ animationDelay: "120ms", animationFillMode: "both" }}>
                   Tickets sold directly by the organisers and associations behind them. Closest to you first.
