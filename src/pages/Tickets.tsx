@@ -374,8 +374,8 @@ const Tickets = () => {
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-5">
                   {filteredEvents.map((e, i) => (
                     <Fragment key={e.id}>
-                      <div className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both" style={{ animationDelay: `${Math.min(i, 12) * 40}ms` }}>
-                        <div className="rounded-lg transition-transform duration-300 hover:-translate-y-1 hover:shadow-[0_24px_50px_-20px_hsl(var(--primary)/0.7)]">
+                      <div className="h-full animate-in fade-in slide-in-from-bottom-2 fill-mode-both" style={{ animationDelay: `${Math.min(i, 12) * 40}ms` }}>
+                        <div className="h-full rounded-lg transition-transform duration-300 hover:-translate-y-1 hover:shadow-[0_24px_50px_-20px_hsl(var(--primary)/0.7)]">
                           <EventCardShared event={toEventData(e)} onClick={() => navigate(`/e/${e.slug}`)} />
                         </div>
                       </div>
