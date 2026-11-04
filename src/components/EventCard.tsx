@@ -53,8 +53,8 @@ export function posterRatio(width: number, height: number): number {
   return Math.min(POSTER_MAX_RATIO, Math.max(POSTER_MIN_RATIO, width / height));
 }
 
-/** Event card: the whole affiche at its own shape on top, nothing laid over it, then the date, title,
- *  place and price on a dark panel below with the category, campus and urgency badges. Without a poster
+/** Event card: the whole affiche at its own shape on top, with the category and campus as small frosted
+ *  chips in its corner, then the date, urgency, title, place and price on a dark panel below. Without a poster
  *  the box shows a flat surface (never a stock photo). */
 const EventCard = ({ event, onClick }: EventCardProps) => {
   const { t, language } = useI18n();
@@ -98,6 +98,17 @@ const EventCard = ({ event, onClick }: EventCardProps) => {
         ) : (
           <div className="absolute inset-0 bg-muted" />
         )}
+        {/* Category and campus, frosted over the picture's corner */}
+        <div className="absolute left-2 right-2 top-2 flex min-w-0 items-center gap-1.5">
+          <span className="shrink-0 bg-black/35 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white backdrop-blur-md">
+            {event.category}
+          </span>
+          {campusLabel && (
+            <span className="min-w-0 truncate bg-black/25 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white/90 backdrop-blur-md">
+              {campusLabel}
+            </span>
+          )}
+        </div>
         {(event.isPastEvent || event.soldOut) && (
           <span className={`absolute right-2 top-2 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${event.isPastEvent ? "bg-black/70 text-white" : "bg-danger text-danger-foreground"}`}>
             {event.isPastEvent ? t("events.eventEnded") : soldOutLabel}
@@ -107,16 +118,6 @@ const EventCard = ({ event, onClick }: EventCardProps) => {
 
       {/* Date, title, place, price */}
       <div className="flex flex-1 flex-col px-3.5 pb-3.5 pt-3">
-        <div className="mb-2 flex min-w-0 items-center gap-1.5">
-          <Badge className="shrink-0 border-transparent bg-white/10 text-[10px] font-bold uppercase tracking-wider text-white hover:bg-white/10">
-            {event.category}
-          </Badge>
-          {campusLabel && (
-            <Badge className="min-w-0 truncate border-transparent bg-white/10 text-[10px] font-bold uppercase tracking-wider text-white hover:bg-white/10">
-              <span className="truncate">{campusLabel}</span>
-            </Badge>
-          )}
-        </div>
         <div className="mb-1 flex items-center gap-2">
           <span className="text-[11px] font-bold tracking-wider text-white/80">{formatDateBadge(event.date, locale)}</span>
           {!event.isPastEvent && !event.soldOut && urgency && (
@@ -161,7 +162,6 @@ export const EventCardSkeleton = () => (
   <div className="w-full overflow-hidden rounded-lg bg-muted animate-pulse">
     <div className="w-full bg-foreground/10" style={{ aspectRatio: "1.6" }} />
     <div className="space-y-2 px-3.5 py-3.5">
-      <div className="h-4 w-24 bg-foreground/10" />
       <div className="h-3 w-20 rounded bg-foreground/10" />
       <div className="h-5 w-3/4 rounded bg-foreground/10" />
       <div className="h-3 w-1/2 rounded bg-foreground/10" />
