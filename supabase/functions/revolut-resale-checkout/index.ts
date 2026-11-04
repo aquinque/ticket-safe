@@ -6,6 +6,11 @@
  * checkout calls stripe-connect-resale-checkout. Completion (mark sold, transfer ticket) is handled
  * by revolut-webhook.
  *
+ * Off unless REVOLUT_RESALE_ENABLED=true (answers 410): it reserves listings
+ * without the transaction-owned holds of reserve_resale_listing, so it must
+ * not run next to the Stripe checkout. It no longer releases other buyers'
+ * reservations (no global sweep, no release by listing id before reading).
+ *
  * Guest checkout: no Ticket Safe account required to buy. With a valid
  * Authorization header we use the signed-in user as normal; otherwise the
  * request must carry `guest: { name, email }` and we resolve (or silently
@@ -24,7 +29,6 @@ const corsHeaders = {
 const BUYER_FEE_PERCENT = 5;
 const BUYER_FEE_PERCENT_HIGH = 5;
 const HIGH_VALUE_THRESHOLD_EUR = 50;
-const RESERVATION_TTL_MS = 30 * 60 * 1000;
 const MAX_UNIT_PRICE_EUR = 5000;
 const MAX_QUANTITY = 50;
 const MIN_UNIT_PRICE_EUR = 0.5;
@@ -35,6 +39,7 @@ function json(body: unknown, status = 200) {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (Deno.env.get("REVOLUT_RESALE_ENABLED") !== "true") return json({ error: "Resale checkout is on Stripe now." }, 410);
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -81,10 +86,6 @@ serve(async (req) => {
       const { data: rlOk } = await supabase.rpc("rate_limit_consume", { p_bucket: "resale_checkout", p_key: rateLimitKey, p_max_hits: 12, p_window_sec: 60 });
       if (rlOk === false) return json({ error: "Too many checkout attempts. Please wait a minute and try again." }, 429);
     } catch { /* fail open */ }
-
-    const cutoff = new Date(Date.now() - RESERVATION_TTL_MS).toISOString();
-    await supabase.from("tickets").update({ status: "available" }).eq("status", "reserved").lt("updated_at", cutoff);
-    await supabase.from("tickets").update({ status: "available" }).eq("id", listingId).eq("status", "reserved");
 
     // verification_status gate: an external/unverified listing (pending admin
     // review) must not be payable with real money before it's been checked.
