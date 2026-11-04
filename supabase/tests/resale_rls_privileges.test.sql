@@ -29,12 +29,12 @@ SELECT tests.expect_denied('SELECT * FROM public.tickets',                   'an
 SELECT tests.expect_denied('SELECT id FROM public.tickets WHERE qr_hash = ''hash-l2''', 'anon: filtering on qr_hash refused too (42501)');
 
 SELECT tests.ok(
-  (SELECT count(*) = 4 AND bool_and(status = 'available' AND verification_status = 'verified')
+  (SELECT count(*) = 5 AND bool_and(status = 'available' AND verification_status = 'verified')
    FROM public.tickets),
-  'anon: SELECT id, status, verification_status works and returns only the 4 available+verified rows (RLS)');
+  'anon: SELECT id, status, verification_status works and returns only the 5 available+verified rows: L1, L2, L6, L7, L10 (RLS)');
 SELECT tests.ok(
   (SELECT count(*) FROM (SELECT id, event_id, status, verification_status, selling_price, quantity, qr_verified,
-                                created_at, updated_at, boosted_until, photo_url, video_url FROM public.tickets) x) = 4,
+                                created_at, updated_at, boosted_until, photo_url, video_url FROM public.tickets) x) = 5,
   'anon: every granted column is readable');
 
 SELECT tests.expect_denied('UPDATE public.tickets SET selling_price = 1',                 'anon: UPDATE tickets refused (42501, privilege)');
@@ -48,8 +48,8 @@ SELECT tests.expect_denied('TRUNCATE public.tickets',                           
 -- anon on available_tickets_public (invoker view, read-only)
 -- ════════════════════════════════════════════════════════════════════════════
 SELECT tests.ok(
-  (SELECT count(*) = 4 AND bool_and(status = 'available') FROM public.available_tickets_public),
-  'anon: SELECT * FROM available_tickets_public returns the 4 active rows (invoker + RLS + column grants)');
+  (SELECT count(*) = 5 AND bool_and(status = 'available') FROM public.available_tickets_public),
+  'anon: SELECT * FROM available_tickets_public returns the 5 active rows (invoker + RLS + column grants)');
 SELECT tests.ok(
   (SELECT array_agg(column_name::text ORDER BY ordinal_position) FROM information_schema.columns
    WHERE table_schema = 'public' AND table_name = 'available_tickets_public')
@@ -264,7 +264,9 @@ SELECT tests.ok(
   AND has_function_privilege('authenticated', 'public.my_purchased_listings()', 'EXECUTE')
   AND has_function_privilege('authenticated', 'public.my_listed_studio_tickets()', 'EXECUTE')
   AND NOT has_function_privilege('anon', 'public.get_conversation_participant_names(uuid)', 'EXECUTE')
-  AND has_function_privilege('authenticated', 'public.get_conversation_participant_names(uuid)', 'EXECUTE'),
+  AND has_function_privilege('authenticated', 'public.get_conversation_participant_names(uuid)', 'EXECUTE')
+  AND NOT has_function_privilege('anon', 'public.listing_has_seller(uuid, uuid)', 'EXECUTE')
+  AND has_function_privilege('authenticated', 'public.listing_has_seller(uuid, uuid)', 'EXECUTE'),
   'front-facing functions: EXECUTE exactly as in the contract');
 SELECT tests.ok(
   NOT EXISTS (
@@ -273,7 +275,7 @@ SELECT tests.ok(
       AND p.proname IN ('resale_event_is_open', 'resale_listings', 'start_listing_conversation', 'seller_public_stats_for_listing',
                         'my_purchased_listings', 'my_listed_studio_tickets', 'get_conversation_participant_names',
                         'reserve_resale_listing', 'release_resale_reservation', 'release_expired_resale_reservations',
-                        'complete_resale_purchase', 'record_resale_refund')
+                        'complete_resale_purchase', 'record_resale_refund', 'listing_has_seller')
       AND NOT coalesce(p.proconfig @> ARRAY['search_path=public'], false)
   ),
   'every new function pins search_path = public');
@@ -371,6 +373,15 @@ SELECT tests.expect_denied(
 SELECT tests.expect_denied(
   'INSERT INTO public.conversations (ticket_id, buyer_id, seller_id) VALUES (''' || tests.id('L7') || ''', ''' || tests.id('B2') || ''', ''' || tests.id('S') || ''')',
   'B1: direct conversations insert as another buyer rejected (42501, RLS WITH CHECK)');
+SELECT tests.ok(
+  tests.affected('INSERT INTO public.conversations (ticket_id, buyer_id, seller_id) VALUES (''' || tests.id('L7') || ''', ''' || tests.id('B1') || ''', ''' || tests.id('S') || ''')') = 1,
+  'B1: direct conversations insert with the listing''s real seller still works (no policy recursion)');
+RESET ROLE;
+SET ROLE anon;
+SELECT tests.as_user(NULL);
+SELECT tests.expect_denied(
+  'INSERT INTO public.conversations (ticket_id, buyer_id, seller_id) VALUES (''' || tests.id('L6') || ''', ''' || tests.id('B1') || ''', ''' || tests.id('S') || ''')',
+  'anon: conversations insert refused (42501)');
 RESET ROLE;
 
 ROLLBACK;

@@ -73,16 +73,34 @@ CREATE POLICY "Sellers update own available listings" ON public.tickets
 -- policies are unchanged.
 
 -- ── 3. Conversations: the seller must be the listing's seller ──────────────
+-- The check cannot be a plain EXISTS on tickets inside the policy: the
+-- tickets SELECT policy itself reads conversations, so PostgreSQL rejects the
+-- INSERT with 42P17 "infinite recursion detected in policy". It goes through
+-- a definer function that reads tickets without RLS and returns only a
+-- boolean.
+CREATE OR REPLACE FUNCTION public.listing_has_seller(p_listing_id uuid, p_seller_id uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.tickets t
+    WHERE t.id = p_listing_id AND t.seller_id = p_seller_id
+  );
+$$;
+REVOKE ALL ON FUNCTION public.listing_has_seller(uuid, uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.listing_has_seller(uuid, uuid) TO authenticated, service_role;
+COMMENT ON FUNCTION public.listing_has_seller(uuid, uuid) IS
+  'True when p_seller_id is the seller of listing p_listing_id. Used by the conversations INSERT policy (a direct EXISTS on tickets there would recurse through the tickets SELECT policy).';
+
 DROP POLICY IF EXISTS "Buyers can create conversations" ON public.conversations;
 CREATE POLICY "Buyers can create conversations" ON public.conversations
   AS PERMISSIVE FOR INSERT TO public
   WITH CHECK (
     ((SELECT auth.uid()) = buyer_id)
-    AND EXISTS (
-      SELECT 1 FROM public.tickets t
-      WHERE t.id = conversations.ticket_id
-        AND t.seller_id = conversations.seller_id
-    )
+    AND public.listing_has_seller(ticket_id, seller_id)
   );
 
 -- ── 4. Participant names view ───────────────────────────────────────────────

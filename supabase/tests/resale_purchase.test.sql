@@ -207,7 +207,7 @@ SELECT tests.ok(
   'complete a pending tx whose listing is simply available: completed');
 SELECT tests.ok(
   (SELECT status = 'sold' AND buyer_id = tests.id('B1') FROM public.tickets WHERE id = 'aaaaaaaa-0000-0000-0000-0000000000b5'),
-  'complete a pending tx whose listing is simply available: completed');
+  'available-listing completion: listing sold to B1');
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- record_resale_refund
@@ -247,7 +247,7 @@ SELECT tests.ok(
   'refund of a completed sale whose listing now belongs to another buyer: refunded, not relisted');
 SELECT tests.ok(
   (SELECT status = 'sold' AND buyer_id = tests.id('A') FROM public.tickets WHERE id = tests.id('L2')),
-  'refund of a completed sale whose listing now belongs to another buyer: not relisted');
+  'that listing stays sold to its current buyer');
 -- A refund that lands while the tx still holds a reservation frees the listing.
 SELECT transaction_id AS tx_p FROM public.reserve_resale_listing(tests.id('L8'), tests.id('B1'), 30.00, 1, 3150, 150, 150) \gset
 UPDATE public.transactions SET payment_intent_id = 'pi_p' WHERE id = :'tx_p'::uuid;
@@ -256,7 +256,7 @@ SELECT tests.ok(
   'refund of a pending tx holding L8: refunded');
 SELECT tests.ok(
   (SELECT status = 'available' AND reserved_transaction_id IS NULL FROM public.tickets WHERE id = tests.id('L8')),
-  'refund of a pending tx holding L8: refunded, reservation released');
+  'refund of a pending tx: L8 reservation released');
 
 RESET ROLE;
 ROLLBACK;
