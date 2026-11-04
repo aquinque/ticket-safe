@@ -55,7 +55,7 @@ describe("the checkout enforces it", () => {
     const offerAt = checkout.indexOf('.from("offers")');
     const capAt = checkout.indexOf('rpc("resale_price_cap"');
     const checkAt = checkout.indexOf("checkResalePrice(unitCents, parseResaleCap(capRow), negotiatedPrice != null)");
-    const reserveAt = checkout.indexOf('update({ status: "reserved" })');
+    const reserveAt = checkout.indexOf('rpc("reserve_resale_listing"');
     expect(offerAt).toBeGreaterThan(-1);
     expect(capAt).toBeGreaterThan(offerAt);
     expect(checkAt).toBeGreaterThan(capAt);
