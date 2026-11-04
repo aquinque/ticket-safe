@@ -19,8 +19,34 @@
  * Plain TypeScript, no Deno imports: the vitest suite imports it directly.
  */
 
-// deno-lint-ignore no-explicit-any
-type SupabaseClient = any;
+/** What a query resolves to: supabase-js responses (success or failure) fit this shape. */
+export interface DbResult {
+  data: unknown;
+  error: { message: string } | null;
+}
+
+/** Something `await` resolves to a DbResult (supabase-js builders are thenables). */
+export interface DbThenable {
+  then(onfulfilled: (value: DbResult) => unknown, onrejected?: (reason: unknown) => unknown): unknown;
+}
+
+/** A filtered query: more filters, a single row, the updated rows read back, or awaited as is. */
+export interface DbFilter extends DbThenable {
+  eq(column: string, value: string): DbFilter;
+  maybeSingle(): DbThenable;
+  select(columns: string): DbThenable;
+}
+
+/**
+ * The part of the supabase-js client this module uses (from().select()/update(), eq filters,
+ * maybeSingle()). The service-role client in the webhook satisfies it, and so does the test fake.
+ */
+export interface DisputeDbClient {
+  from(table: string): {
+    select(columns: string): DbFilter;
+    update(values: Record<string, unknown>): DbFilter;
+  };
+}
 
 interface TxRow {
   id: string;
@@ -56,7 +82,7 @@ export function sellerNetCents(tx: Pick<TxRow, "amount" | "fee_amount" | "commis
 }
 
 export async function holdResaleOnDispute(
-  supabase: SupabaseClient,
+  supabase: DisputeDbClient,
   { paymentIntentId, disputeId }: { paymentIntentId: string; disputeId: string },
 ): Promise<ResaleDisputeHold> {
   const { data: tx } = await supabase.from("transactions").select(TX_COLUMNS).eq("payment_intent_id", paymentIntentId).maybeSingle();
@@ -104,10 +130,11 @@ export type ResaleDisputeRelease =
 
 /** On charge.dispute.closed: a won dispute gives the sale back to the seller; any other outcome keeps it held. */
 export async function releaseResaleDispute(
-  supabase: SupabaseClient,
+  supabase: DisputeDbClient,
   { disputeId, disputeStatus }: { disputeId: string; disputeStatus: string },
 ): Promise<ResaleDisputeRelease> {
-  const { data: tx } = await supabase.from("transactions").select("id, status").eq("dispute_id", disputeId).eq("status", "disputed").maybeSingle();
+  const { data } = await supabase.from("transactions").select("id, status").eq("dispute_id", disputeId).eq("status", "disputed").maybeSingle();
+  const tx = data as { id: string; status: string } | null;
   if (!tx) return { kind: "nothing_to_release" };
   if (disputeStatus !== "won") return { kind: "kept", transactionId: tx.id, disputeStatus };
   await supabase.from("transactions").update({ status: "completed" }).eq("id", tx.id).eq("status", "disputed");

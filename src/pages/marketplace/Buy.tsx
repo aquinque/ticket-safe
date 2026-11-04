@@ -44,7 +44,7 @@ import { SEOHead } from "@/components/SEOHead";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { useResaleListings } from "@/hooks/useResaleListings";
 import { useResaleActions } from "@/hooks/useResaleActions";
-import { groupResaleListingsByEvent, type ResaleEventGroup, type ResaleListing } from "@/lib/resaleListings";
+import { formatEuroCents, groupFromPriceCents, groupResaleListingsByEvent, type ResaleEventGroup, type ResaleListing } from "@/lib/resaleListings";
 import { ResaleListingList } from "@/components/resale/ResaleListingList";
 import { ResaleHero, GroupChatVsUs, HowItWorks, resalePitchStyles } from "@/components/resale/ResalePitch";
 
@@ -518,7 +518,7 @@ function EventCard({
           <div>
             <div className="text-xs text-muted-foreground">From</div>
             <div className="text-2xl font-black text-foreground tabular-nums leading-none mt-1">
-              €{(group.minPriceCents / 100).toFixed(0)}
+              {formatEuroCents(groupFromPriceCents(group))}
             </div>
           </div>
           <button

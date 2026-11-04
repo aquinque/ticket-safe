@@ -617,6 +617,9 @@ const EventPublic = () => {
         <div className="border border-border p-6">
           <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-rose-400 mb-4">Sold out</p>
           <h3 className="text-base font-medium text-foreground mb-2">This event is sold out</h3>
+          {resaleCount > 0 && (
+            <p className="text-sm text-foreground mb-2">Some tickets are on resale below.</p>
+          )}
           <p className="text-sm text-muted-foreground mb-5">
             Follow the organizer to hear about new tickets or upcoming events.
           </p>
@@ -1102,7 +1105,7 @@ const EventPublic = () => {
                 </section>
               )}
               {selected && !eventSoldOut && !isPast && <div className="lg:sticky lg:top-24">{renderSummary(true)}</div>}
-              {!isPast && <EventResaleListings eventId={event.id} headingId="resale-heading-desktop" />}
+              {!isPast && <EventResaleListings eventId={event.id} headingId="resale-heading-desktop" logErrors />}
               {teaserVideo && <TeaserVideo src={teaserVideo} poster={event.banner_url} title={event.title} />}
             </aside>
 

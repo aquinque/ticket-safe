@@ -204,6 +204,13 @@ export function resaleCardPricing(l: Pick<ResaleListing, "priceCents" | "quantit
   };
 }
 
+/** The "From" price of an event group: the cheapest per-ticket price fee included, as the cards show it. */
+export function groupFromPriceCents(group: Pick<ResaleEventGroup, "listings">): number {
+  let min = Infinity;
+  for (const l of group.listings) min = Math.min(min, resaleCardPricing(l).eachCents);
+  return Number.isFinite(min) ? min : 0;
+}
+
 const startOfLocalDay = (d: Date): number => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
 
 /** "Listed today", "Listed yesterday" or "Listed N days ago", by calendar day in the viewer's time zone. */

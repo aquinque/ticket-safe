@@ -67,7 +67,7 @@ import { sendResaleCompletionEmails } from "../_shared/sendResaleCompletionEmail
 import { renderEmail, ctaButton, ticketSummary, escapeHtml } from "../_shared/emailComponents.ts";
 import { emailTokens } from "../_shared/emailTokens.ts";
 import { formatMinor } from "../_shared/money.ts";
-import { holdResaleOnDispute, releaseResaleDispute, resaleDisputeAlert } from "../_shared/resaleDispute.ts";
+import { holdResaleOnDispute, releaseResaleDispute, resaleDisputeAlert, type DisputeDbClient } from "../_shared/resaleDispute.ts";
 import { completeResaleCheckout, type CompleteResaleCheckoutDeps } from "../_shared/resaleCheckoutCompletion.ts";
 import { parseRefundRecordResult, refundNeedsAdminReview } from "../_shared/resaleReservation.ts";
 
@@ -313,7 +313,7 @@ serve(async (req) => {
               .update({ status: "blocked", blocked_reason: `Dispute ${dispute.id} on event ${order.event_id}` })
               .eq("event_id", order.event_id).eq("status", "scheduled");
           } else {
-            const hold = await holdResaleOnDispute(supabase, { paymentIntentId: pi, disputeId: dispute.id });
+            const hold = await holdResaleOnDispute(supabase as unknown as DisputeDbClient, { paymentIntentId: pi, disputeId: dispute.id });
             console.log(`[stripe-connect-webhook] resale dispute ${dispute.id}: ${hold.kind}`);
             resale = resaleDisputeAlert(hold);
           }
@@ -338,7 +338,7 @@ serve(async (req) => {
 
       case "charge.dispute.closed": {
         const dispute = event.data.object as Stripe.Dispute;
-        const result = await releaseResaleDispute(supabase, { disputeId: dispute.id, disputeStatus: dispute.status });
+        const result = await releaseResaleDispute(supabase as unknown as DisputeDbClient, { disputeId: dispute.id, disputeStatus: dispute.status });
         console.log(`[stripe-connect-webhook] dispute ${dispute.id} closed (${dispute.status}): ${result.kind}`);
         break;
       }

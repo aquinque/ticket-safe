@@ -78,6 +78,7 @@ import {
 import { useTicketListings } from "@/contexts/TicketListingsContext";
 import { authPathHere } from "@/lib/returnTo";
 import { callRpc } from "@/lib/supabaseRpc";
+import { createStudioListing, listingErrorMessage, LISTING_ERROR_MESSAGES, STUDIO_LISTING_NOTES_MAX } from "@/lib/sellerListings";
 
 /** Rows of my_listed_studio_tickets(): the user's own Studio tickets already listed (available, reserved or sold). */
 const parseListedStudioTickets = (data: unknown): { studio_ticket_id: string; status: string }[] =>
@@ -721,41 +722,31 @@ const Sell = () => {
       }
     }
 
+    if (studioTicket && formData.notes.trim().length > STUDIO_LISTING_NOTES_MAX) {
+      toast.error(LISTING_ERROR_MESSAGES.INVALID_NOTES);
+      return;
+    }
+
     setIsSubmitting(true);
 
-    // Studio-resale fast path: insert directly into `tickets`. The QR is
-    // already trusted (signed by our backend) so no admin review, no QR
-    // upload, no submit-listing roundtrip.
+    // Studio-resale fast path: create_studio_listing() checks the ticket is yours and still valid, the
+    // event is open and the price is under the cap, then lists it at once. The QR is already trusted
+    // (signed by our backend), so no admin review, no QR upload, no submit-listing roundtrip.
     if (studioTicket) {
       try {
-        const { data: ticket, error } = await supabase
-          .from("tickets")
-          .insert({
-            seller_id: user.id,
-            event_id: studioTicket.event_id,
-            selling_price: price,
-            quantity: parseInt(formData.quantity, 10) || 1,
-            notes: formData.notes || null,
-            status: "available",
-            qr_hash: `studio:${studioTicket.id}`,
-            qr_verified: true,
-            verification_status: "verified",
-            needs_review: false,
-            studio_ticket_id: studioTicket.id,
-            photo_url: photoUrl,
-            video_url: videoUrl,
-          })
-          .select("id")
-          .single();
-        if (error) {
-          toast.error(error.message || "Could not list your ticket.");
-          return;
-        }
-        setCreatedListingId(ticket.id);
+        const listingId = await createStudioListing(callRpc, {
+          studioTicketId: studioTicket.id,
+          sellingPrice: price,
+          notes: formData.notes,
+          photoUrl,
+          videoUrl,
+        });
+        setCreatedListingId(listingId);
         refetchListings();
         toast.success("Listed instantly. Your QR stays valid until it sells.");
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Unexpected error.");
+        const raw = err instanceof Error ? err.message : null;
+        toast.error(listingErrorMessage(raw, "Could not list your ticket. Please try again."));
       } finally {
         setIsSubmitting(false);
       }
@@ -1740,10 +1731,10 @@ const Sell = () => {
                         setFormData({ ...formData, notes: e.target.value })
                       }
                       rows={3}
-                      maxLength={1000}
+                      maxLength={studioTicket ? STUDIO_LISTING_NOTES_MAX : 1000}
                     />
                     <p className="text-xs text-muted-foreground mt-1">
-                      {formData.notes.length}/1000 characters
+                      {formData.notes.length}/{studioTicket ? STUDIO_LISTING_NOTES_MAX : 1000} characters
                     </p>
                   </div>
 

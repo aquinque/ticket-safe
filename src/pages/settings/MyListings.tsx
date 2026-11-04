@@ -47,6 +47,14 @@ import { generatePayoutReceiptPDF } from "@/lib/payoutReceiptPdf";
 import { RESALE_BUYER_FEE_COPY, RESALE_SELLER_COMMISSION_COPY, calcBreakdown } from "@/lib/fees";
 import { Chip, WalletOverview } from "@/components/wallet/WalletOverview";
 import { authPathHere } from "@/lib/returnTo";
+import { callRpc } from "@/lib/supabaseRpc";
+import {
+  cancelMyListing,
+  fetchMyListings,
+  listingErrorMessage,
+  updateMyListingPrice,
+  type MyListingRow,
+} from "@/lib/sellerListings";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -198,26 +206,22 @@ const MyListings = () => {
     }
   }, [user, authLoading, navigate]);
 
-  // Fetch seller's listings — two separate queries to avoid events-table RLS issues
+  // Fetch seller's listings: my_listings() (own rows only, notes included; the tickets table itself no
+  // longer exposes seller_id or notes to the browser), then the events in a second query.
   const fetchListings = async () => {
     if (!user) return;
     setLoading(true);
 
-    // 1. Fetch the seller's own tickets (simple query, no join)
-    const { data: ticketRows, error: ticketsError } = await supabase
-      .from("tickets")
-      .select("id, event_id, selling_price, quantity, notes, status, created_at, boosted_until")
-      .eq("seller_id", user.id)
-      .order("created_at", { ascending: false });
-
-    if (ticketsError) {
-      console.error("Error fetching tickets:", ticketsError);
-      toast({ title: "Error loading listings", description: ticketsError.message, variant: "destructive" });
+    let rows: MyListingRow[];
+    try {
+      rows = await fetchMyListings(callRpc);
+    } catch (err) {
+      console.error("Error fetching listings:", err);
+      const raw = err instanceof Error ? err.message : null;
+      toast({ title: "Error loading listings", description: listingErrorMessage(raw, "Please try again in a moment."), variant: "destructive" });
       setLoading(false);
       return;
     }
-
-    const rows = ticketRows ?? [];
 
     if (rows.length === 0) {
       setListings([]);
@@ -226,7 +230,7 @@ const MyListings = () => {
     }
 
     // 2. Fetch event details for all unique event IDs
-    const eventIds = [...new Set(rows.map((r) => r.event_id).filter(Boolean))];
+    const eventIds = [...new Set(rows.map((r) => r.eventId))];
     const { data: eventRows } = await supabase
       .from("events")
       .select("id, title, date, location, category")
@@ -240,14 +244,14 @@ const MyListings = () => {
     // 3. Merge
     const merged: RawListing[] = rows.map((r) => ({
       id: r.id,
-      event_id: r.event_id,
-      selling_price: r.selling_price,
-      quantity: r.quantity ?? 1,
+      event_id: r.eventId,
+      selling_price: r.sellingPrice,
+      quantity: r.quantity,
       notes: r.notes,
-      status: r.status ?? "available",
-      created_at: r.created_at,
-      boosted_until: r.boosted_until ?? null,
-      event: eventsMap[r.event_id] ?? null,
+      status: r.status,
+      created_at: r.createdAt,
+      boosted_until: r.boostedUntil,
+      event: eventsMap[r.eventId] ?? null,
     }));
 
     setListings(merged);
@@ -319,20 +323,16 @@ const MyListings = () => {
       return;
     }
     setEditLoading(true);
-    const { error } = await supabase
-      .from("tickets")
-      .update({ selling_price: price })
-      .eq("id", editingId)
-      .eq("seller_id", user!.id);
-
-    if (error) {
-      toast({ title: "Failed to update price", variant: "destructive" });
-    } else {
+    try {
+      await updateMyListingPrice(callRpc, editingId, price);
       setListings((prev) =>
         prev.map((l) => (l.id === editingId ? { ...l, selling_price: price } : l))
       );
       toast({ title: "Price updated", description: `New price: €${price.toFixed(2)}` });
       setEditingId(null);
+    } catch (err) {
+      const raw = err instanceof Error ? err.message : null;
+      toast({ title: "Failed to update price", description: listingErrorMessage(raw, "Please try again."), variant: "destructive" });
     }
     setEditLoading(false);
   };
@@ -341,18 +341,14 @@ const MyListings = () => {
   const confirmCancel = async () => {
     if (!cancelId) return;
     setCancelLoading(true);
-    const { error } = await supabase
-      .from("tickets")
-      .delete()
-      .eq("id", cancelId)
-      .eq("seller_id", user!.id);
-
-    if (error) {
-      toast({ title: "Failed to delete listing", variant: "destructive" });
-    } else {
+    try {
+      await cancelMyListing(callRpc, cancelId);
       setListings((prev) => prev.filter((l: RawListing) => l.id !== cancelId));
       toast({ title: "Listing deleted", description: "Your ticket has been removed." });
       setCancelId(null);
+    } catch (err) {
+      const raw = err instanceof Error ? err.message : null;
+      toast({ title: "Failed to delete listing", description: listingErrorMessage(raw, "Please try again."), variant: "destructive" });
     }
     setCancelLoading(false);
   };

@@ -61,6 +61,26 @@ describe("event page: Tickets on resale", () => {
     expect(section).toContain('rounded-2xl border border-border bg-card/50 p-4 lg:p-5');
     expect(section).toContain("Every resale ticket is checked before it's listed and reissued in your name, with a new QR code.");
   });
+
+  it("promises a reissued ticket with a new QR code only when every listing is a Studio ticket", () => {
+    const section = code("src/components/resale/EventResaleListings.tsx");
+    expect(section).toContain("const allStudio = listings.every((l) => l.tierName !== null);");
+    expect(section).toMatch(/\{allStudio\s*\?\s*"Every resale ticket is checked before it's listed and reissued in your name, with a new QR code\."\s*:\s*"Every resale ticket is checked before it's listed\."\}/);
+  });
+
+  it("logs a listings error from one placement only", () => {
+    const section = code("src/components/resale/EventResaleListings.tsx");
+    expect(section).toContain("if (logErrors && isError && !logged.current)");
+    const placements = [...page.matchAll(/<EventResaleListings[^>]*>/g)].map((m) => m[0]);
+    expect(placements).toHaveLength(2);
+    expect(placements.filter((p) => /\blogErrors\b/.test(p))).toHaveLength(1);
+  });
+
+  it("points to the resale listings from the sold-out summary when there are some", () => {
+    const soldOut = page.slice(page.indexOf("if (eventSoldOut) {"), page.indexOf("if (!selected) {"));
+    expect(soldOut).toContain("{resaleCount > 0 && (");
+    expect(soldOut).toContain("Some tickets are on resale below.");
+  });
 });
 
 describe("resale page", () => {
@@ -84,6 +104,11 @@ describe("resale page", () => {
   it("never handles the seller's id or notes", () => {
     expect(page).not.toMatch(/sellerId|seller_id|\bnotes\b|\b(?:t|l|ticket|listing)\.description\b/);
   });
+
+  it("shows the group's From price fee included, like the cards", () => {
+    expect(page).toContain("{formatEuroCents(groupFromPriceCents(group))}");
+    expect(page).not.toContain("group.minPriceCents / 100");
+  });
 });
 
 describe("checkout", () => {
@@ -106,6 +131,15 @@ describe("checkout", () => {
   });
 });
 
+describe("seller trust panel", () => {
+  it("shows the seller's first name only", () => {
+    const panel = code("src/components/SellerTrust.tsx");
+    expect(panel).toContain("parseSellerStats(data)");
+    expect(panel).toContain("stats?.firstName");
+    expect(panel).not.toMatch(/full_name|fullName/);
+  });
+});
+
 describe("seller notes are not public", () => {
   it("are not read or shown on public pages", () => {
     for (const path of [
@@ -124,6 +158,8 @@ describe("seller notes are not public", () => {
 // ── Repo-wide: the front never reads a protected tickets column ──────────────
 
 const PROTECTED = /\b(qr_hash|file_url|buyer_id|verification_errors|studio_ticket_id|reserved_[a-z_]+)\b/;
+/** Granted to neither anon nor authenticated: a seller reads their own rows through my_listings(). */
+const SELLER_PRIVATE = /\b(seller_id|notes)\b/;
 
 function sourceFiles(dir: string): string[] {
   const out: string[] = [];
@@ -176,6 +212,36 @@ describe("no front read of protected tickets columns", () => {
     expect(offenders).toEqual([]);
   });
 
+  it("never writes tickets (inserts, updates and deletes go through RPCs)", () => {
+    const offenders: string[] = [];
+    for (const { path, source } of files) {
+      for (const query of ticketsQueries(source)) {
+        const write = query.match(/\.(insert|update|delete|upsert)\(/);
+        if (write) offenders.push(`${path}: .${write[1]}() on tickets`);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
+  it("never selects or filters the seller's id or notes on tickets (own and admin rows come from RPCs)", () => {
+    const offenders: string[] = [];
+    for (const { path, source } of files) {
+      for (const query of ticketsQueries(source)) {
+        for (const sel of query.matchAll(/\.select\(\s*(["'`])([\s\S]*?)\1/g)) {
+          if (SELLER_PRIVATE.test(sel[2])) offenders.push(`${path}: selects ${sel[2].match(SELLER_PRIVATE)?.[0]}`);
+        }
+        for (const filter of query.matchAll(/\.(eq|neq|in|is|not|gt|gte|lt|lte|like|ilike|order|match)\(\s*["'`]([a-z_]+)["'`]/g)) {
+          if (SELLER_PRIVATE.test(filter[2])) offenders.push(`${path}: filters on ${filter[2]}`);
+        }
+        if (/\.or\([^)]*\b(?:seller_id|notes)\./.test(query)) offenders.push(`${path}: .or() on seller_id or notes`);
+      }
+      for (const m of source.matchAll(/(?<![\w])tickets(?:!\w+)?\(([^)]*)\)/g)) {
+        if (SELLER_PRIVATE.test(m[1])) offenders.push(`${path}: tickets(${m[1]})`);
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+
   it("embeds tickets only with granted columns", () => {
     const offenders: string[] = [];
     for (const { path, source } of files) {
@@ -202,5 +268,12 @@ describe("no front read of protected tickets columns", () => {
     expect(first).not.toContain("buyer_id");
     expect(PROTECTED.test("reserved_until")).toBe(true);
     expect(PROTECTED.test("selling_price, notes, seller_id")).toBe(false);
+    expect(SELLER_PRIVATE.test("selling_price, notes")).toBe(true);
+    expect(SELLER_PRIVATE.test("id, selling_price, status")).toBe(false);
+    // Writes and seller filters are caught.
+    const [write] = ticketsQueries(`await supabase.from("tickets").update({ selling_price: 5 }).eq("id", id);`);
+    expect(write).toMatch(/\.update\(/);
+    const [own] = ticketsQueries(`supabase.from("tickets").select("id, status").eq("seller_id", user.id)`);
+    expect(own).toContain('.eq("seller_id"');
   });
 });

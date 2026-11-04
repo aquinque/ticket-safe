@@ -137,7 +137,7 @@ describe("a dispute on a resale", () => {
     const webhook = read("supabase/functions/stripe-connect-webhook/index.ts");
     const created = webhook.slice(webhook.indexOf('case "charge.dispute.created"'), webhook.indexOf('case "charge.dispute.closed"'));
     expect(created).toMatch(/stripe_connect_payout_jobs[\s\S]*status: "blocked"/);
-    expect(created).toMatch(/holdResaleOnDispute\(supabase, \{ paymentIntentId: pi, disputeId: dispute\.id \}\)/);
+    expect(created).toMatch(/holdResaleOnDispute\(supabase(?: as unknown as DisputeDbClient)?, \{ paymentIntentId: pi, disputeId: dispute\.id \}\)/);
     expect(webhook).toMatch(/case "charge\.dispute\.closed"[\s\S]*releaseResaleDispute/);
   });
 });
