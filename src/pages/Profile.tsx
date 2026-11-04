@@ -718,9 +718,11 @@ const Profile = () => {
               icon={Wallet}
               to="/settings/listings"
               label={t("account.payments.wallet")}
-              detail={t("account.payments.walletHint", {
-                amount: new Intl.NumberFormat(locale, { style: "currency", currency: "EUR" }).format(payout.availableCents / 100),
-              })}
+              detail={
+                payout.availableCents > 0
+                  ? t("account.payments.walletHint", { amount: new Intl.NumberFormat(locale, { style: "currency", currency: "EUR" }).format(payout.availableCents / 100) })
+                  : t("account.payments.walletAuto")
+              }
             />
             {isOrganizer && <LinkRow icon={LayoutDashboard} to="/studio" label={t("account.payments.studio")} detail={t("account.payments.studioHint")} />}
           </Section>

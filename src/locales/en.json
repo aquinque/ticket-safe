@@ -503,7 +503,8 @@
       "walletHint": "{amount} available",
       "studio": "Event payouts",
       "studioHint": "Paid out through Stripe, in Ticket Studio",
-      "description": "Where your resale money goes."
+      "description": "Where your resale money goes.",
+      "walletAuto": "Resales sent to your bank by Stripe"
     },
     "preferences": {
       "title": "Preferences",

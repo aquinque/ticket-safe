@@ -503,7 +503,8 @@
       "walletHint": "{amount} disponibles",
       "studio": "Versements des événements",
       "studioHint": "Versés via Stripe, dans Ticket Studio",
-      "description": "Où va l'argent de vos reventes."
+      "description": "Où va l'argent de vos reventes.",
+      "walletAuto": "Reventes versées sur votre compte par Stripe"
     },
     "preferences": {
       "title": "Préférences",
