@@ -61,8 +61,8 @@ async function ticketView(supabase: Supabase, ticketId: string) {
     .maybeSingle();
   if (!t) return null;
   const [{ data: ev }, { data: tier }, { data: order }] = await Promise.all([
-    supabase.from("events").select("title, date, location, banner_url, primary_color").eq("id", t.event_id).maybeSingle(),
-    supabase.from("event_tiers").select("name").eq("id", t.tier_id).maybeSingle(),
+    supabase.from("events").select("title, date, location, banner_url, primary_color, ends_at, last_entry_at").eq("id", t.event_id).maybeSingle(),
+    supabase.from("event_tiers").select("name, entry_until").eq("id", t.tier_id).maybeSingle(),
     t.order_id
       ? supabase.from("event_orders").select("total_cents, quantity, currency").eq("id", t.order_id).maybeSingle()
       : Promise.resolve({ data: null as { total_cents: number | null; quantity: number | null; currency: string | null } | null }),
@@ -76,12 +76,15 @@ async function ticketView(supabase: Supabase, ticketId: string) {
     price_cents: order?.total_cents != null ? Math.round(order.total_cents / qty) : null,
     currency: order?.currency ?? "EUR",
     ref: ticketRef(ticketId),
+    entry_until: tier?.entry_until ?? null,
     event: {
       title: ev?.title ?? null,
       date: ev?.date ?? null,
       location: ev?.location ?? null,
       banner_url: ev?.banner_url ?? null,
       accent: ev?.primary_color ?? null,
+      ends_at: ev?.ends_at ?? null,
+      last_entry_at: ev?.last_entry_at ?? null,
     },
     // Same value the door scanner reads. Withheld once the ticket is no longer valid.
     qr_token: t.status === "valid" ? t.qr_token : null,

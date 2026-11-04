@@ -69,6 +69,10 @@ export interface ServerTicketData {
   eventAccent?: string | null;
   /** "SAT 14 DEC · 23:00", already in the event's time zone; worked out from eventDate (Paris) if absent. */
   stripText?: string;
+  /** Doors / Last entry / Closes, already in the event's time zone; nothing drawn when empty. */
+  entryCells?: { label: string; value: string }[];
+  /** "00:30": this ticket admits only before this time (early entry). */
+  entryBefore?: string;
 
   buyerFirstName: string;
   buyerLastName: string;
@@ -301,7 +305,9 @@ async function drawTicketPage(pdfDoc: PDFDocument, page: PDFPage, d: ServerTicke
   const bannerH = bannerImage
     ? Math.round(Math.min(Math.max((W * bannerImage.height) / bannerImage.width, stripBannerH), 440))
     : stripBannerH;
-  const pageH = PAGE_H + (bannerH - stripBannerH);
+  const cells = d.entryCells ?? [];
+  const entryH = (cells.length ? 40 : 0) + (d.entryBefore ? (cells.length ? 30 : 26) : 0) + (cells.length || d.entryBefore ? 14 : 0);
+  const pageH = PAGE_H + (bannerH - stripBannerH) + entryH;
   page.setSize(PAGE_W, pageH);
   page.drawRectangle({ x: 0, y: 0, width: PAGE_W, height: pageH, color: PAGE_BG });
   const at = (fromTop: number) => pageH - fromTop; // page y from a distance below the page's top
@@ -311,7 +317,7 @@ async function drawTicketPage(pdfDoc: PDFDocument, page: PDFPage, d: ServerTicke
   const qrSize = 210;
   const qrBlockH = 24 + qrSize + 18 + 14 + 26;
   const cardTop = 52;
-  const cardH = bannerH + stripH + infoH + qrBlockH;
+  const cardH = bannerH + stripH + infoH + entryH + qrBlockH;
   const bannerY = at(cardTop + bannerH);
 
   // ── Picture (fitted inside its box, on the strip's black), or the event's colour with its title ──
@@ -363,8 +369,27 @@ async function drawTicketPage(pdfDoc: PDFDocument, page: PDFPage, d: ServerTicke
   }
   page.drawRectangle({ x: X, y: at(infoTop + infoH), width: W, height: 1, color: RULE });
 
+  // ── Doors, last entry, closing; an early-entry ticket's own limit ──
+  if (entryH) {
+    let y = infoTop + infoH;
+    if (cells.length) {
+      const cw = (W - 2 * PADX) / cells.length;
+      cells.forEach((c, i) => {
+        drawText(page, c.label.toUpperCase(), { x: colL + i * cw, y: at(y + 18), font: fonts.bodyBold, size: 7.5, color: SLATE, letterSpacing: 1.1 });
+        drawText(page, c.value, { x: colL + i * cw, y: at(y + 35), font: fonts.bodyBold, size: 12.5, color: INK, maxWidth: cw - 6 });
+      });
+      y += 40;
+    }
+    if (d.entryBefore) {
+      const boxTop = y + (cells.length ? 4 : 8);
+      page.drawRectangle({ x: colL, y: at(boxTop + 20), width: W - 2 * PADX, height: 20, color: rgb(254 / 255, 243 / 255, 199 / 255) });
+      drawText(page, `This ticket is valid for entry before ${d.entryBefore}`, { x: colL + 8, y: at(boxTop + 14), font: fonts.bodyBold, size: 9, color: rgb(120 / 255, 53 / 255, 15 / 255), maxWidth: W - 2 * PADX - 16 });
+    }
+    page.drawRectangle({ x: X, y: at(infoTop + infoH + entryH), width: W, height: 1, color: RULE });
+  }
+
   // ── QR and reference ──
-  const qrTop = infoTop + infoH + 24;
+  const qrTop = infoTop + infoH + entryH + 24;
   const qrX = X + (W - qrSize) / 2;
   try {
     const qrDataUrl = await QRCode.toDataURL(d.qrToken, { errorCorrectionLevel: "L", margin: 1, width: 1000, color: { dark: "#000000", light: "#FFFFFF" } });

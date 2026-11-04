@@ -29,7 +29,12 @@ export interface GuestTicketView {
   currency?: string | null;
   /** "TS-4F2A-91A0", printed under the QR. */
   ref?: string | null;
-  event: { title: string | null; date: string | null; location: string | null; banner_url?: string | null; accent?: string | null };
+  /** This tier's own entry limit (early entry), when set. */
+  entry_until?: string | null;
+  event: {
+    title: string | null; date: string | null; location: string | null; banner_url?: string | null; accent?: string | null;
+    ends_at?: string | null; last_entry_at?: string | null;
+  };
   qr_token: string | null;
 }
 
