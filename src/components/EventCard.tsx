@@ -42,7 +42,7 @@ interface EventCardProps {
   onClick: () => void;
 }
 
-/** Poster-format event card (4:5, Shotgun-style): full-bleed affiche with a
+/** Poster-format event card (4:5, Shotgun-style): the whole affiche (contained on a blurred copy of itself) with a
  *  bottom gradient overlay carrying date/title/location/price, category +
  *  campus + urgency badges up top, and a generated brand-gradient fallback
  *  (never a stock photo or a generic music-note icon) when there's no real
@@ -62,15 +62,16 @@ const EventCard = ({ event, onClick }: EventCardProps) => {
       onClick={onClick}
       className="group relative block w-full aspect-[4/5] overflow-hidden rounded-lg text-left"
     >
-      {/* Affiche */}
+      {/* Backdrop: the same affiche, blurred and dimmed, fills the 4:5 frame. */}
       {hasPoster ? (
         <img
           src={event.image ?? undefined}
-          alt={event.title}
+          alt=""
+          aria-hidden="true"
           loading="lazy"
           decoding="async"
-          className={`absolute inset-0 w-full h-full object-cover transition-transform duration-300 ${
-            event.soldOut ? "grayscale opacity-60" : "md:group-hover:scale-[1.03]"
+          className={`absolute inset-0 w-full h-full object-cover scale-125 blur-2xl brightness-[0.55] saturate-150 ${
+            event.soldOut ? "grayscale opacity-60" : ""
           }`}
         />
       ) : (
@@ -82,39 +83,36 @@ const EventCard = ({ event, onClick }: EventCardProps) => {
 
       {/* Bottom gradient — always present so the text stays legible over a
           photo, and reads as a deliberate label on the generated fallback. */}
-      <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/90 via-black/40 to-transparent pointer-events-none" />
+      <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/90 via-black/45 to-transparent pointer-events-none" />
 
-      {/* Top badges */}
-      <div className="absolute top-3 left-3 right-3 flex flex-wrap items-center gap-1.5">
-        <Badge className="bg-black/55 text-white border-transparent text-[10px] uppercase tracking-wider font-bold">
-          {event.category}
-        </Badge>
-        {campusLabel && (
-          <Badge className="bg-black/40 text-white border-transparent text-[10px] uppercase tracking-wider font-bold">
-            {campusLabel}
-          </Badge>
-        )}
-        {event.isPastEvent ? (
-          <Badge className="ml-auto bg-black/70 text-white border-transparent text-[10px] uppercase tracking-wider font-bold">
-            {t("events.eventEnded")}
-          </Badge>
-        ) : event.soldOut ? (
-          <Badge className="ml-auto bg-danger text-danger-foreground border-transparent text-[10px] uppercase tracking-wider font-bold">
-            {soldOutLabel}
-          </Badge>
-        ) : (
-          urgency && (
-            <Badge className="ml-auto bg-cta text-cta-foreground border-transparent text-[10px] uppercase tracking-wider font-bold">
-              {urgency}
-            </Badge>
-          )
+      {/* The whole affiche above the text: a column, so the poster never sits
+          under the date/title block, whatever its shape. */}
+      <div className="absolute inset-0 flex flex-col">
+      {/* The whole affiche, never cropped: a landscape banner or a portrait
+          poster both keep their title and edges. */}
+      <div className="relative flex-1 min-h-0">
+        {hasPoster && (
+          <img
+            src={event.image ?? undefined}
+            alt={event.title}
+            loading="lazy"
+            decoding="async"
+            className={`absolute inset-0 w-full h-full object-contain transition-transform duration-300 ${
+              event.soldOut ? "grayscale opacity-60" : "md:group-hover:scale-[1.03]"
+            }`}
+          />
         )}
       </div>
 
       {/* Bottom content */}
-      <div className="absolute inset-x-0 bottom-0 p-4 text-white">
-        <div className="text-[11px] font-bold tracking-wider text-white/80 mb-1">
-          {formatDateBadge(event.date, locale)}
+      <div className="relative px-4 pb-4 pt-2 text-white">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="text-[11px] font-bold tracking-wider text-white/80">{formatDateBadge(event.date, locale)}</span>
+          {!event.isPastEvent && !event.soldOut && urgency && (
+            <Badge className="bg-cta text-cta-foreground border-transparent text-[10px] uppercase tracking-wider font-bold px-1.5 py-0">
+              {urgency}
+            </Badge>
+          )}
         </div>
         <h3
           className={`font-display font-bold leading-tight mb-1.5 line-clamp-2 ${hasPoster ? "text-lg" : "text-xl"}`}
@@ -143,6 +141,29 @@ const EventCard = ({ event, onClick }: EventCardProps) => {
             )
           )}
         </div>
+      </div>
+
+      </div>
+
+      {/* Top badges, over the frame */}
+      <div className="absolute top-3 left-3 right-3 flex items-center gap-1.5 min-w-0">
+        <Badge className="shrink-0 bg-black/55 text-white border-transparent text-[10px] uppercase tracking-wider font-bold">
+          {event.category}
+        </Badge>
+        {campusLabel && (
+          <Badge className="min-w-0 truncate bg-black/40 text-white border-transparent text-[10px] uppercase tracking-wider font-bold">
+            <span className="truncate">{campusLabel}</span>
+          </Badge>
+        )}
+        {event.isPastEvent ? (
+          <Badge className="ml-auto shrink-0 bg-black/70 text-white border-transparent text-[10px] uppercase tracking-wider font-bold">
+            {t("events.eventEnded")}
+          </Badge>
+        ) : event.soldOut ? (
+          <Badge className="ml-auto shrink-0 bg-danger text-danger-foreground border-transparent text-[10px] uppercase tracking-wider font-bold">
+            {soldOutLabel}
+          </Badge>
+        ) : null}
       </div>
 
       <span className="sr-only">{t("events.buyOrResellTicket")}</span>
