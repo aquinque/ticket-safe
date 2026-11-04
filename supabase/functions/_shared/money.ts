@@ -16,7 +16,7 @@
 export type Currency = "EUR" | "GBP";
 export type EurStyle = "suffix" | "prefix" | "fr";
 
-const NBSP = " ";
+const NBSP = "\u00a0";
 const group = (n: number, sep: string) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, sep);
 
 /** 'GBP' (any case) -> "GBP"; anything else, a missing value included, -> "EUR". */

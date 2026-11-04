@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { renderBuyerEmail, renderTicketCard, buildTicketUrls, deriveFirstName, appleWalletConfigured } from "./_shared/buyerEmail.ts";
+import { renderBuyerEmail, renderTicketCard, buildTicketUrls, deriveFirstName, appleWalletConfigured, stripDate } from "./_shared/buyerEmail.ts";
 import { RECEIPT_LEGAL_COLUMNS, receiptLegalFromSettings, renderNoticeHtml, renderPaymentSummaryHtml } from "./_shared/receiptLegal.ts";
 import { generateTicketsPDFServer, type ServerTicketData } from "../_shared/ticketPdfServer.ts";
 import { formatMinor } from "../_shared/money.ts";
@@ -47,8 +47,8 @@ async function hashAccessToken(token: string): Promise<string> {
 
 const SITE_URL = Deno.env.get("SITE_URL") ?? "https://ticket-safe.eu";
 
-// Returns the link for one ticket, or "" if it could not be saved (the email is still sent).
-async function createTicketLink(supabase: ReturnType<typeof createClient>, ticketId: string): Promise<string> {
+// Returns the link for one ticket and its token, or empty ones if it could not be saved (the email is still sent).
+async function createTicketLink(supabase: ReturnType<typeof createClient>, ticketId: string): Promise<{ url: string; token: string }> {
   try {
     const token = newAccessToken();
     const { error } = await supabase.from("guest_access_tokens").insert({
@@ -58,12 +58,12 @@ async function createTicketLink(supabase: ReturnType<typeof createClient>, ticke
     });
     if (error) {
       console.warn("[replay-order-email] ticket link not saved:", error);
-      return "";
+      return { url: "", token: "" };
     }
-    return `${SITE_URL}/t/${token}`;
+    return { url: `${SITE_URL}/t/${token}`, token };
   } catch (e) {
     console.warn("[replay-order-email] ticket link skipped:", e);
-    return "";
+    return { url: "", token: "" };
   }
 }
 
@@ -117,7 +117,7 @@ serve(async (req) => {
   if (ord.status !== "paid") return json({ error: `This order isn't payable (status: ${ord.status}).` }, 409);
 
   const [{ data: evRow }, { data: tierRow }, { data: tickets }, { data: prof }, { data: legalRow }] = await Promise.all([
-    supabase.from("events").select("id, title, date, location, slug, organizer_id, banner_url").eq("id", ord.event_id).maybeSingle(),
+    supabase.from("events").select("id, title, date, location, slug, organizer_id, banner_url, primary_color").eq("id", ord.event_id).maybeSingle(),
     supabase.from("event_tiers").select("name").eq("id", ord.tier_id).maybeSingle(),
     supabase.from("event_tickets").select("id, qr_token, holder_first_name, holder_last_name, holder_email").eq("order_id", orderId).order("created_at", { ascending: true }),
     supabase.from("profiles").select("full_name").eq("id", ord.buyer_id).maybeSingle(),
@@ -158,19 +158,29 @@ serve(async (req) => {
     const holderEmail = t.holder_email && t.holder_email !== ord.buyer_email ? t.holder_email : "";
     const refShort = `TS-${t.id.slice(0, 4).toUpperCase()}-${t.id.slice(-4).toUpperCase()}`;
     const { apple } = buildTicketUrls(supabaseUrl, t.id);
-    const ticketUrl = await createTicketLink(supabase, t.id);
-    blocks.push(renderTicketCard({ idx: i + 1, total: tickets!.length, holder, holderEmail, tierName, evDate, evLocation, refShort, appleWalletUrl: walletReady ? apple : null, ticketUrl }));
+    const link = await createTicketLink(supabase, t.id);
+    blocks.push(renderTicketCard({
+      idx: i + 1, total: tickets!.length, holder, holderEmail, tierName, evDate, evLocation, refShort,
+      appleWalletUrl: walletReady ? apple : null, ticketUrl: link.url,
+      evTitle, bannerUrl: evRow?.banner_url ?? null, accent: (evRow as { primary_color?: string | null } | null)?.primary_color ?? null,
+      // London events are in pounds; their time is London's.
+      stripText: stripDate(evRow?.date, currency === "GBP" ? "Europe/London" : "Europe/Paris"),
+      priceLabel: formatMinor((ord.total_cents ?? 0) / qty, currency, "prefix"),
+      qrImageUrl: link.token ? `${supabaseUrl.replace(/\/+$/, "")}/functions/v1/ticket-access?t=${link.token}&qr=png` : null,
+    }));
     pdfTickets.push({
       eventName: evTitle,
       eventDate: evRow?.date ?? evDate,
       eventLocation: evLocation,
       eventImageUrl: evRow?.banner_url ?? null,
+      eventAccent: (evRow as { primary_color?: string | null } | null)?.primary_color ?? null,
+      stripText: stripDate(evRow?.date, currency === "GBP" ? "Europe/London" : "Europe/Paris"),
       organizerName: organizerName ?? "Ticket Safe",
       buyerFirstName: t.holder_first_name || fallbackFirst,
       buyerLastName: t.holder_last_name || fallbackLast,
       buyerEmail: ord.buyer_email,
       ticketType: tierName,
-      pricePaid: formatMinor((ord.total_cents ?? 0) / qty, currency),
+      pricePaid: formatMinor((ord.total_cents ?? 0) / qty, currency, "prefix"),
       ticketId: t.id,
       orderNumber,
       qrToken: t.qr_token,
