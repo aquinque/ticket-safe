@@ -1,0 +1,43 @@
+name: Link previews
+
+# Fetches live event share links the way WhatsApp, Facebook, X, LinkedIn, Slack,
+# Telegram and iMessage do, and checks the preview tags and pictures they get.
+# Runs after each site deploy, by hand, and on pull requests (against the live site).
+on:
+  workflow_run:
+    workflows: ["Deploy to GitHub Pages"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      slugs:
+        description: "Event slugs to check, space separated (empty = all published)"
+        required: false
+  pull_request:
+    paths:
+      - "scripts/check-link-previews.sh"
+      - "scripts/prerender-event-pages.mjs"
+      - ".github/workflows/link-previews.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Where does ticket-safe.eu point?
+        run: |
+          dig +short ticket-safe.eu A || true
+          dig +short www.ticket-safe.eu CNAME || true
+          curl -sSI https://ticket-safe.eu/ | grep -iE '^(HTTP|server|x-github|x-vercel|x-nf|via)' || true
+          echo "--- /e/ path served by:"
+          curl -sSI "https://ticket-safe.eu/e/ebs-halloween-ayala-120" | grep -iE '^(HTTP|server|location|content-type)' || true
+      - name: Crawler check
+        env:
+          SLUGS: ${{ github.event.inputs.slugs }}
+        run: |
+          if [ -n "${SLUGS:-}" ]; then scripts/check-link-previews.sh https://ticket-safe.eu $SLUGS
+          elif curl -fsS https://ticket-safe.eu/og/slugs.txt >/dev/null; then scripts/check-link-previews.sh https://ticket-safe.eu
+          else scripts/check-link-previews.sh https://ticket-safe.eu ebs-halloween-ayala-120 les-riches-pyjama-party tournoipsg; fi

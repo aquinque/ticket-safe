@@ -26,8 +26,6 @@ const MarketplaceSell = lazy(() => import("./pages/marketplace/Sell"));
 const Checkout = lazy(() => import("./pages/Checkout"));
 const About = lazy(() => import("./pages/About"));
 const Profile = lazy(() => import("./pages/Profile"));
-const Settings = lazy(() => import("./pages/Settings"));
-const PersonalInformation = lazy(() => import("./pages/settings/PersonalInformation"));
 const PurchaseHistory = lazy(() => import("./pages/settings/PurchaseHistory"));
 const MyListings = lazy(() => import("./pages/settings/MyListings"));
 const PrivacyData = lazy(() => import("./pages/settings/PrivacyData"));
@@ -117,8 +115,9 @@ const App = () => (
         <Route path="/checkout" element={<Checkout />} />
         <Route path="/about" element={<About />} />
         <Route path="/profile" element={<Profile />} />
-        <Route path="/settings" element={<Settings />} />
-        <Route path="/settings/personal" element={<PersonalInformation />} />
+        {/* Settings and Personal information now live on the profile page. */}
+        <Route path="/settings" element={<Navigate to="/profile" replace />} />
+        <Route path="/settings/personal" element={<Navigate to="/profile" replace />} />
         <Route path="/settings/purchases" element={<PurchaseHistory />} />
         <Route path="/settings/listings" element={<MyListings />} />
         <Route path="/settings/privacy" element={<PrivacyData />} />

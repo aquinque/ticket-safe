@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { Loader2, Mail, Lock, User, CheckCircle2, XCircle, Eye, EyeOff, AlertCircle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { pendingPromoterInvite } from "@/lib/promoterLinks";
+import { rememberResetReturn } from "@/lib/resetReturn";
 import { authRedirect } from "@/lib/siteUrl";
 import { emailConfirmLanding, returnPathOr, safeReturnPath } from "@/lib/returnTo";
 import {
@@ -75,7 +76,7 @@ const Auth = () => {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [gender, setGender] = useState<GenderChoice>("");
-  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(mode === 'reset');
   const [showPassword, setShowPassword] = useState(false);
   const [pending, setPending] = useState<PendingEmail | null>(null);
   const [formError, setFormError] = useState<FormError | null>(null);
@@ -136,6 +137,7 @@ const Auth = () => {
     if (!pending || resendSecondsLeft > 0) return;
     setLoading(true);
     try {
+      if (pending.kind !== "confirm") rememberResetReturn(destination());
       const { error } = pending.kind === "confirm"
         ? await supabase.auth.resend({
             type: 'signup',
@@ -170,6 +172,8 @@ const Auth = () => {
 
     setLoading(true);
     try {
+      // The reset email always opens /reset-password: remember where to come back to afterwards.
+      rememberResetReturn(destination());
       const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
         redirectTo: authRedirect("/reset-password"),
       });

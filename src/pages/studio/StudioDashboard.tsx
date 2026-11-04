@@ -33,6 +33,7 @@ import { isArchivedEvent } from "@/lib/eventStatus";
 import { CURRENCIES, toCurrency, type Currency } from "@/lib/money";
 import { LiveFeed, SalesChart, SalesCurve, TierRing, UpdatedAgo, liveChartStyles, type DaySales, type RecentSale, type TierSlice } from "@/components/studio/dashboard/LiveCharts";
 import { authPathHere } from "@/lib/returnTo";
+import { eventShareUrl } from "@/lib/shareUrl";
 
 /**
  * Studio dashboard — the first screen after login.
@@ -746,7 +747,7 @@ const NextUp = ({ event, phase, pace, checkedIn, days }: { event: StudioEvent; p
   })();
 
   const share = async () => {
-    const url = `${window.location.origin}/e/${event.slug}`;
+    const url = eventShareUrl(event.slug);
     try {
       if (navigator.share) { await navigator.share({ title: event.title, url }); return; }
       await navigator.clipboard.writeText(url);

@@ -5,9 +5,13 @@ on:
     branches:
       - main
   workflow_dispatch:
+  # Sent by the database (public.request_site_rebuild) as soon as a published event is
+  # created, edited, cancelled or unpublished, so its link preview is ready within minutes.
+  repository_dispatch:
+    types: [events-changed]
   # Event link previews are written into the site at build time (scripts/prerender-event-pages.mjs). Every 10 minutes
   # the `changes` job compares the published events with the list the live site was built from, and the site is only
-  # rebuilt when an event was published or edited, so a link shared soon after shows the event's preview.
+  # rebuilt when an event was published or edited. This is the safety net for the dispatch above.
   schedule:
     - cron: "*/10 * * * *"
 

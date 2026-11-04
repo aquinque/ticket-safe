@@ -60,6 +60,7 @@ import { PromoCodesPanel } from "@/components/studio/PromoCodesPanel";
 import { GuestlistsPanel } from "@/components/studio/GuestlistsPanel";
 import { FinancialStatementCard } from "@/components/studio/FinancialStatementCard";
 import { authPathHere } from "@/lib/returnTo";
+import { eventShareUrl } from "@/lib/shareUrl";
 
 interface EventRow {
   id: string;
@@ -621,7 +622,7 @@ const StudioEventEdit = () => {
               small on screen); the phone's share sheet sits beside it when
               there is one. A light wash of the brand blue, nothing louder. */}
           {!readOnly && event.status === "published" && event.slug && (() => {
-            const shareUrl = `https://ticket-safe.eu/e/${event.slug}`;
+            const shareUrl = eventShareUrl(event.slug);
             const shortUrl = shareUrl.replace(/^https?:\/\//, "");
             const canNativeShare = typeof navigator !== "undefined" && "share" in navigator;
             const copyLink = async () => {
@@ -1036,10 +1037,6 @@ const StudioEventEdit = () => {
           {/* Per-buyer limit — editable at any status (only affects new purchases) */}
           {!readOnly && <PerBuyerLimitControl event={event} onSaved={(patch) => setEvent({ ...event, ...patch })} />}
 
-          {/* Social sharing — per-event OG image + meta description so the
-              link preview when a BDE drops the URL in WhatsApp / Instagram /
-              email reads as intentional rather than generic. */}
-          {!readOnly && <SocialSharingControl event={event} onSaved={(patch) => setEvent({ ...event, ...patch })} />}
 
           <GroupLabel>Sales</GroupLabel>
 
@@ -1473,166 +1470,6 @@ const PerBuyerLimitControl = ({
           Save
         </button>
       )}
-    </section>
-  );
-};
-
-/**
- * Per-event OG image + meta description override. The link preview
- * matters more than the page itself when a BDE drops the URL in
- * WhatsApp / Instagram / email — this is what the recipient actually
- * sees first.
- *
- * The image is uploaded to the same `event-banners` bucket the regular
- * banner uses so storage policies stay homogeneous. We deliberately
- * don't crop here: the banner already exists, this is a separate
- * 1200×630-leaning image meant for social cards.
- */
-const SocialSharingControl = ({
-  event,
-  onSaved,
-}: {
-  event: EventRow;
-  onSaved: (patch: Partial<EventRow>) => void;
-}) => {
-  const [seoDesc, setSeoDesc] = useState<string>(event.seo_description ?? "");
-  const [ogImage, setOgImage] = useState<string | null>(event.og_image_url ?? null);
-  const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
-
-  useEffect(() => {
-    setSeoDesc(event.seo_description ?? "");
-    setOgImage(event.og_image_url ?? null);
-  }, [event.seo_description, event.og_image_url]);
-
-  const dirty = seoDesc !== (event.seo_description ?? "") || ogImage !== (event.og_image_url ?? null);
-
-  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      toast.error("Please choose an image file.");
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("Image must be under 5 MB.");
-      return;
-    }
-    setUploading(true);
-    try {
-      const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
-      const path = `og/${event.id}-${Date.now()}.${ext}`;
-      const { error: upErr } = await supabase.storage.from("event-banners").upload(path, file, {
-        cacheControl: "3600",
-        upsert: true,
-        contentType: file.type || "image/jpeg",
-      });
-      if (upErr) {
-        toast.error(`Upload failed: ${upErr.message}`);
-        return;
-      }
-      const { data } = supabase.storage.from("event-banners").getPublicUrl(path);
-      setOgImage(data.publicUrl);
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const handleSave = async () => {
-    setSaving(true);
-    const { error } = await supabase
-      .from("events")
-      .update({
-        seo_description: seoDesc.trim() || null,
-        og_image_url: ogImage,
-      })
-      .eq("id", event.id);
-    setSaving(false);
-    if (error) {
-      toast.error(error.message);
-      return;
-    }
-    onSaved({ seo_description: seoDesc.trim() || null, og_image_url: ogImage });
-    toast.success("Social sharing saved");
-  };
-
-  return (
-    <section className="bg-card border border-border rounded-2xl p-5 md:p-6 mb-6">
-      <details className="group">
-        <summary className="cursor-pointer list-none flex items-start gap-3 select-none">
-          <Share2 className="w-5 h-5 text-primary mt-0.5" />
-          <div className="flex-1">
-            <h2 className="text-lg font-bold leading-tight inline-flex items-center gap-2">
-              Social sharing
-              <span className="inline-block text-muted-foreground transition-transform group-open:rotate-90 text-sm">›</span>
-            </h2>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Customise the link preview when buyers share your event on WhatsApp / Instagram / email.
-              Falls back to the event banner + description if not set.
-            </p>
-          </div>
-        </summary>
-
-        <div className="space-y-4 mt-5">
-          <div>
-            <label className="text-xs font-bold text-muted-foreground mb-1.5 block">
-              Link preview image (1200 × 630 recommended)
-            </label>
-            {ogImage ? (
-              <div className="relative rounded-xl overflow-hidden border border-border max-w-sm">
-                <img src={ogImage} alt="OG preview" className="w-full aspect-[1.91/1] object-cover" />
-                <button
-                  type="button"
-                  onClick={() => setOgImage(null)}
-                  className="absolute top-2 right-2 px-2.5 py-1 rounded-lg bg-black/65 text-white text-[11px] font-bold hover:bg-black/80"
-                >
-                  Remove
-                </button>
-              </div>
-            ) : (
-              <label className="flex flex-col items-center justify-center aspect-[1.91/1] max-w-sm rounded-xl border-2 border-dashed border-border bg-muted/30 cursor-pointer hover:border-primary/50">
-                {uploading ? (
-                  <Loader2 className="w-7 h-7 text-muted-foreground animate-spin" />
-                ) : (
-                  <>
-                    <ImageIcon className="w-7 h-7 text-muted-foreground mb-1" />
-                    <span className="text-sm font-semibold text-muted-foreground">Upload OG image</span>
-                    <span className="text-[11px] text-muted-foreground mt-0.5">JPG / PNG · max 5 MB</span>
-                  </>
-                )}
-                <input type="file" accept="image/*" onChange={handleFile} className="hidden" />
-              </label>
-            )}
-          </div>
-
-          <div>
-            <label className="text-xs font-bold text-muted-foreground mb-1.5 block">
-              Meta description ({seoDesc.length}/160)
-            </label>
-            <textarea
-              value={seoDesc}
-              onChange={(e) => setSeoDesc(e.target.value.slice(0, 160))}
-              className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm min-h-[70px]"
-              placeholder="A one-night-only black-tie gala at Pavillon d'Armenonville — limited tickets."
-              maxLength={160}
-            />
-            <p className="text-[11px] text-muted-foreground mt-1">
-              Shown under the title on Google + social link previews. Keep it short & punchy.
-            </p>
-          </div>
-
-          {dirty && (
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="inline-flex items-center gap-1.5 px-4 min-h-[36px] rounded-lg text-sm font-bold bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-60"
-            >
-              {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-              Save
-            </button>
-          )}
-        </div>
-      </details>
     </section>
   );
 };

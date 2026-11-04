@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { SEOHead } from "@/components/SEOHead";
 import { PromoVideo } from "@/components/PromoVideo";
+import { TeaserVideo, useVideoShape } from "@/components/event/TeaserVideo";
 import { useServiceFeeForPrice, useTierServiceFee } from "@/hooks/useServiceFee";
 import { studioFeeRule } from "@/lib/studioFee";
 import { currencySymbol, formatMoney, toCurrency } from "@/lib/money";
@@ -34,14 +35,15 @@ import HeaderNight from "@/components/HeaderNight";
 import { descriptionFontFamily } from "@/lib/descriptionFonts";
 import { eventThemeVars, isHex } from "@/lib/eventTheme";
 import { ProtectionBadge } from "@/components/common/ProtectionBadge";
-import { DoorsStub, PosterGlow, Reveal, eventStageStyles } from "@/components/event/EventStage";
 import { useAuth } from "@/hooks/useAuth";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { readPromoterRef, trackPromoterVisit } from "@/lib/promoterLinks";
-import { eventEnd, eventPhase, eventStart, isPastEvent, type EventTimeFields } from "@/lib/eventTime";
+import { eventEnd, isPastEvent } from "@/lib/eventTime";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { authPathHere } from "@/lib/returnTo";
+import { countdown } from "@/lib/eventCountdown";
+import { eventShareUrl } from "@/lib/shareUrl";
 
 interface PublicEvent {
   id: string;
@@ -84,20 +86,6 @@ function useNow(tickMs: number): number {
 }
 
 /** "In 26 days", "In 3 h 12 min", "Happening now", "Ended". Short, for a chip. Over and live follow the product's one end-of-event rule. */
-function countdown(ev: EventTimeFields, now: number): { label: string; live: boolean; over: boolean } {
-  const phase = eventPhase(ev, new Date(now));
-  if (phase === "past") return { label: "Ended", live: false, over: true };
-  if (phase === "live") return { label: "Happening now", live: true, over: false };
-  const diff = Math.max(0, (eventStart(ev)?.getTime() ?? now) - now);
-  const d = Math.floor(diff / 86_400_000);
-  const h = Math.floor((diff % 86_400_000) / 3_600_000);
-  const m = Math.floor((diff % 3_600_000) / 60_000);
-  if (d >= 2) return { label: `In ${d} days`, live: false, over: false };
-  if (d === 1) return { label: "Tomorrow", live: false, over: false };
-  if (h >= 1) return { label: `In ${h} h ${m.toString().padStart(2, "0")}`, live: false, over: false };
-  return { label: `In ${Math.max(1, m)} min`, live: false, over: false };
-}
-
 /** Calendar file for Apple, Google, Outlook: one download, every app opens it. */
 function downloadIcs(ev: { title: string; date: string; ends_at: string | null; location: string | null; slug: string; description: string | null }) {
   const stamp = (iso: string) => new Date(iso).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
@@ -176,6 +164,10 @@ const EventPublic = () => {
   const [promoCode, setPromoCode] = useState("");
   const [showPromoInput, setShowPromoInput] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
+  // In development, ?preview_video=<url> tries a promo video on the page before it is uploaded.
+  const previewVideo = import.meta.env.DEV ? new URLSearchParams(location.search).get("preview_video") : null;
+  const promoVideo = previewVideo ?? event?.video_url ?? null;
+  const videoShape = useVideoShape(promoVideo);
   const [interested, setInterested] = useState(0);
   const nowTs = useNow(30_000);
   // Keep the attendees array sized to the current quantity. When quantity grows,
@@ -559,6 +551,10 @@ const EventPublic = () => {
   // theme (including .theme-night below), so plain `text-primary` /
   // `bg-primary` utilities give the same guarantee without hardcoding a hex.
   const selected = tiers.find((t) => t.tier_id === selectedTier) ?? null;
+  // The promo video: a horizontal one plays in the poster frame, a vertical one under the tickets
+  // (the poster stays on top). Until its shape is known, the poster shows.
+  const heroVideo = videoShape === "landscape" ? promoVideo : null;
+  const teaserVideo = videoShape === "portrait" ? promoVideo : null;
   const totalCents = selected ? selected.price_cents * qty : 0;
   // Per-ticket service fee as the server computes it (database formula, or the
   // event's negotiated fee). The checkout charges the same amount. Free (€0)
@@ -618,7 +614,7 @@ const EventPublic = () => {
   const accent = themeVars["--event-primary"];
   const organizerAccent = isHex(event.organizer?.primary_color) ? event.organizer.primary_color : accent;
   const shareEvent = async () => {
-    const url = `https://ticket-safe.eu/e/${event.slug}`;
+    const url = eventShareUrl(event.slug);
     try {
       if (navigator.share) { await navigator.share({ title: event.title, text: `${event.title} · ${startDate.toLocaleDateString("en-GB", { day: "numeric", month: "long" })}`, url }); return; }
       await navigator.clipboard.writeText(url);
@@ -811,16 +807,15 @@ const EventPublic = () => {
             onClick={choose}
             onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); choose(); } }}
             style={{ animationDelay: `${i * 60}ms`, animationFillMode: "both" }}
-            className={`ts-ticket relative motion-safe:animate-fade-in border rounded-2xl transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+            className={`relative motion-safe:animate-fade-in border rounded-2xl transition-all duration-200 ${
               soldOut
                 ? "cursor-not-allowed border-dashed border-border bg-card/30"
                 : isSelected
-                ? "cursor-pointer border-primary bg-gradient-to-r from-primary/20 to-primary/5 shadow-[inset_0_0_0_1px_hsl(var(--primary)),0_12px_40px_-16px_hsl(var(--primary))]"
-                : "cursor-pointer border-border bg-card/60 hover:border-foreground/40 hover:bg-card motion-safe:hover:-translate-y-0.5 motion-safe:active:scale-[0.99]"
+                ? "cursor-pointer border-primary bg-primary/10 shadow-[inset_0_0_0_1px_hsl(var(--primary))]"
+                : "cursor-pointer border-border bg-card/60 hover:border-foreground/40 hover:bg-card motion-safe:active:scale-[0.99]"
             }`}
           >
-            <div className="flex items-stretch">
-            <div className="flex-1 min-w-0 flex items-start gap-3.5 p-4">
+            <div className="flex items-start gap-3.5 p-4">
               <span
                 aria-hidden
                 className={`mt-0.5 w-5 h-5 rounded-full border shrink-0 flex items-center justify-center transition-colors ${
@@ -869,7 +864,7 @@ const EventPublic = () => {
                 ) : null}
                 {isSelected && !soldOut && (
                   <div className="mt-3.5 pt-3.5 border-t border-primary/30 flex items-center justify-between gap-3 motion-safe:animate-fade-in" onClick={(e) => e.stopPropagation()}>
-                    <span className="text-sm text-muted-foreground whitespace-nowrap">How many?</span>
+                    <span className="text-sm text-muted-foreground">How many?</span>
                     <QtyStepper
                       qty={qty}
                       onDecrease={() => setQty((n) => Math.max(1, n - 1))}
@@ -886,9 +881,8 @@ const EventPublic = () => {
                   </div>
                 )}
               </div>
-              </div>
-              <div className={`w-[88px] sm:w-[104px] shrink-0 border-l border-dashed flex flex-col items-center justify-center px-2 py-4 text-center ${isSelected ? "border-primary/50" : "border-border"}`}>
-                <div className={`font-display font-semibold tabular-nums transition-all ${isSelected ? "text-xl" : "text-lg"} ${soldOut ? "text-muted-foreground/60 line-through" : t.price_cents === 0 ? "text-emerald-400" : "text-foreground"}`}>{t.price_cents === 0 ? "Free" : fmtPrice(t.price_cents)}</div>
+              <div className="text-right shrink-0">
+                <div className={`font-semibold tabular-nums transition-all ${isSelected ? "text-xl" : "text-base"} ${soldOut ? "text-muted-foreground/60 line-through" : t.price_cents === 0 ? "text-emerald-400" : "text-foreground"}`}>{t.price_cents === 0 ? "Free" : fmtPrice(t.price_cents)}</div>
                 {isSelected && !soldOut && qty > 1 && (
                   <div className="text-xs text-muted-foreground tabular-nums mt-0.5 motion-safe:animate-fade-in">× {qty} = {fmtPrice(t.price_cents * qty)}</div>
                 )}
@@ -1016,12 +1010,11 @@ const EventPublic = () => {
       {/* ===== Poster: the organizer's photo, sharp and whole, in the 16:9 frame the Studio cropped it to.
           Nothing is written on it; the title comes right after. Full-bleed on a phone, a rounded card on
           larger screens. ===== */}
-      <section className="relative isolate pt-16 md:pt-20">
-        <PosterGlow src={event.banner_url ?? event.logo_url ?? event.organizer?.logo_url ?? null} accent={accent} />
-        <div className="relative sm:container sm:mx-auto sm:max-w-5xl sm:px-4 sm:pt-4">
-          <div className="ts-poster relative w-full aspect-[16/9] overflow-hidden sm:rounded-2xl shadow-[0_30px_80px_-30px_rgba(0,0,0,0.8)] ring-1 ring-white/10" style={{ background: accent }}>
-            {event.video_url ? (
-              <PromoVideo src={event.video_url} poster={event.banner_url} className="absolute inset-0 w-full h-full object-cover" />
+      <section className="pt-16 md:pt-20">
+        <div className="sm:container sm:mx-auto sm:max-w-5xl sm:px-4 sm:pt-4">
+          <div className="relative w-full aspect-[16/9] overflow-hidden sm:rounded-2xl" style={{ background: accent }}>
+            {heroVideo ? (
+              <PromoVideo src={heroVideo} poster={event.banner_url} className="absolute inset-0 w-full h-full object-cover" />
             ) : event.banner_url ? (
               <img
                 src={event.banner_url}
@@ -1061,7 +1054,7 @@ const EventPublic = () => {
         </div>
 
         {/* ===== Title, right under the poster, then the facts ===== */}
-        <div className="relative container mx-auto max-w-5xl px-4 pt-5 md:pt-7">
+        <div className="container mx-auto max-w-5xl px-4 pt-5 md:pt-7">
           <div className="flex items-center gap-2.5 flex-wrap text-[11px] font-bold uppercase tracking-[0.12em] motion-safe:animate-fade-in">
             <span className={`inline-flex items-center gap-1.5 ${statusText.colorClass}`}>
               {statusText.pulse && <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />}
@@ -1085,19 +1078,25 @@ const EventPublic = () => {
           )}
 
           {/* Chips: the facts, swipeable on a phone */}
-          <DoorsStub
-            event={event}
-            priceLabel={minPriceCents != null && !eventSoldOut && !isPast ? (minPriceCents === 0 ? "Free" : `From ${fmtPrice(minPriceCents)}`) : null}
-            onPrice={scrollToTickets}
-          />
-          <div className="ts-chips flex gap-2 overflow-x-auto snap-x pt-3 pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 motion-safe:animate-fade-in" style={{ animationDelay: "450ms", animationFillMode: "both" }}>
+          <div className="ts-chips flex gap-2 overflow-x-auto snap-x pt-4 pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 motion-safe:animate-fade-in" style={{ animationDelay: "200ms", animationFillMode: "both" }}>
+            <InfoChip icon={Calendar}>{startDate.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })} · {startDate.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</InfoChip>
             {event.location && (
               <InfoChip icon={MapPin} href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`}>
                 <span className="max-w-[180px] truncate">{event.location}</span>
               </InfoChip>
             )}
             {interestedLabel && !clock.over && <InfoChip icon={Users}>{interestedLabel}</InfoChip>}
+            {minPriceCents != null && !eventSoldOut && !isPast && (
+              <InfoChip icon={Ticket} tone="accent" onClick={scrollToTickets}>{minPriceCents === 0 ? "Free" : `From ${fmtPrice(minPriceCents)}`}</InfoChip>
+            )}
           </div>
+          {/* Countdown: one quiet line under the date, gone once the event is over. */}
+          {!clock.over && (
+            <p className="mt-2.5 flex items-center gap-2 text-sm text-muted-foreground">
+              <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
+              {clock.label}
+            </p>
+          )}
         </div>
       </section>
 
@@ -1105,7 +1104,7 @@ const EventPublic = () => {
         <div className="container mx-auto px-4 max-w-5xl">
           <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,440px)_1fr] gap-8 lg:gap-12 lg:items-start mt-5 md:mt-8">
             {/* ===== LEFT (desktop): tickets, then who's coming, then the checkout ===== */}
-            <aside className="hidden lg:flex lg:flex-col gap-4">
+            <aside className="hidden lg:block space-y-4">
               <section className="rounded-2xl border border-border bg-card/50 p-5">
                 <div className="flex items-baseline justify-between mb-4">
                   <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Tickets</h2>
@@ -1127,10 +1126,11 @@ const EventPublic = () => {
                 </section>
               )}
               {selected && !eventSoldOut && !isPast && <div className="lg:sticky lg:top-24">{renderSummary(true)}</div>}
+              {teaserVideo && <TeaserVideo src={teaserVideo} poster={event.banner_url} title={event.title} />}
             </aside>
 
             {/* ===== RIGHT: the story (on a phone: tickets first, then the story) ===== */}
-            <div className="min-w-0 flex flex-col gap-4">
+            <div className="min-w-0 space-y-4">
               <section id="tickets" className="lg:hidden rounded-2xl border border-border bg-card/50 p-4 scroll-mt-20">
                 <div className="flex items-baseline justify-between mb-3">
                   <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Tickets</h2>
@@ -1152,6 +1152,7 @@ const EventPublic = () => {
                 </section>
               )}
               {selected && !eventSoldOut && !isPast && <div id="checkout" className="lg:hidden scroll-mt-20">{renderSummary(true)}</div>}
+              {teaserVideo && <div className="lg:hidden"><TeaserVideo src={teaserVideo} poster={event.banner_url} title={event.title} /></div>}
               {event.description && (
                 <section className="rounded-2xl border border-border bg-card/50 p-5">
                   <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground mb-3">About</h2>
@@ -1171,7 +1172,6 @@ const EventPublic = () => {
               )}
 
               {/* When & where */}
-              <Reveal>
               <section className="rounded-2xl border border-border bg-card/50 p-5">
                 <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground mb-4">When & where</h2>
                 <div className="flex items-start gap-4">
@@ -1202,11 +1202,9 @@ const EventPublic = () => {
                   </div>
                 </div>
               </section>
-              </Reveal>
 
               {/* Organiser */}
               {event.organizer && (
-                <Reveal>
                 <section className="rounded-2xl border border-border bg-card/50 p-5" style={{ borderLeft: `3px solid ${organizerAccent}` }}>
                   <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground mb-4">Organised by</h2>
                   <div className="flex items-center gap-4">
@@ -1222,7 +1220,7 @@ const EventPublic = () => {
                       </div>
                       <div className="text-xs text-muted-foreground">Verified organiser{interestedLabel ? ` · ${interestedLabel} in this event` : ""}</div>
                       {event.organizer.website && (
-                        <a href={event.organizer.website} target="_blank" rel="noopener noreferrer" className="block truncate text-xs text-primary hover:underline">{event.organizer.website.replace(/^https?:\/\/(www\.)?/, "").replace(/\?.*$/, "")}</a>
+                        <a href={event.organizer.website} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">{event.organizer.website.replace(/^https?:\/\//, "")}</a>
                       )}
                     </div>
                     <button
@@ -1236,11 +1234,9 @@ const EventPublic = () => {
                     </button>
                   </div>
                 </section>
-                </Reveal>
               )}
 
               {/* How it works */}
-              <Reveal>
               <section className="rounded-2xl border border-border bg-card/50 p-5">
                 <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground mb-4">How it works</h2>
                 <ul className="grid gap-3 sm:grid-cols-2">
@@ -1261,7 +1257,6 @@ const EventPublic = () => {
                 </ul>
                 <div className="mt-4 pt-4 border-t border-border"><ProtectionBadge /></div>
               </section>
-              </Reveal>
 
               <div className="pt-4 pb-2 text-center text-xs text-muted-foreground">
                 Powered by <Link to="/" className="font-medium text-foreground hover:underline">Ticket Safe</Link>
@@ -1294,7 +1289,6 @@ const EventPublic = () => {
         </div>
       )}
 
-      <style>{eventStageStyles}</style>
       <style>{`
         .ts-chips { scrollbar-width: none; }
         .ts-chips::-webkit-scrollbar { display: none; }

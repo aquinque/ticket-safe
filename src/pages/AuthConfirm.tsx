@@ -212,7 +212,7 @@ const AuthConfirm = () => {
                     {resending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     {resendCooldownUntil !== null && Date.now() < resendCooldownUntil
                       ? `Resend in ${Math.max(1, Math.ceil((resendCooldownUntil - Date.now()) / 1000))}s`
-                      : "Get a new link"}
+                      : "Request a new link"}
                   </Button>
                 </div>
               )}
