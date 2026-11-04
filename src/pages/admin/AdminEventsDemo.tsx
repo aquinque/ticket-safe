@@ -13,7 +13,7 @@ function sample(id: string, title: string, org: [string, string], days: number, 
   const orders: AdminOrder[] = [];
   for (let left = sold, i = 0; left > 0; i++) {
     const q = Math.min(left, 1 + (i % 3));
-    orders.push({ event_id: id, created_at: at(salesFrom + ((i * 7) % Math.max(1, days - salesFrom))), quantity: q, paidCents: q * (price + fee), feeCents: q * fee, tier_id: `${id}-t` });
+    orders.push({ event_id: id, created_at: at(salesFrom + ((i * 7) % Math.max(1, days - salesFrom))), quantity: q, paidCents: q * (price + fee), feeCents: q * fee, tier_id: `${id}-t`, stripeFeeCents: Math.round(q * (price + fee) * 0.015) + 25 });
     left -= q;
   }
   return {

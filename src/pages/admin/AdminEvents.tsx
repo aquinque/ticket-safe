@@ -24,9 +24,23 @@ import { isPastEvent } from "@/lib/eventTime";
  * Money, per paid order: the buyer paid total_cents; Ticket Safe made the service fee (fee_cents,
  * before Stripe's costs); the organizer made the rest. Refunded orders are left out. Amounts are
  * kept per currency and never added across euros and pounds.
+ *
+ * What we keep: the service fee minus Stripe's processing fee on each payment (destination charges,
+ * so Stripe bills the platform). The real fee is read from Stripe by admin-stripe-fees and kept in
+ * order_stripe_fees; orders not read yet are counted separately, never guessed.
  */
 
-export interface AdminOrder { event_id: string; created_at: string; quantity: number; paidCents: number; feeCents: number; tier_id: string | null }
+export interface AdminOrder {
+  id?: string;
+  event_id: string;
+  created_at: string;
+  quantity: number;
+  paidCents: number;
+  feeCents: number;
+  tier_id: string | null;
+  /** Stripe's processing fee on this payment; null while not read from Stripe yet (or no Stripe payment). */
+  stripeFeeCents?: number | null;
+}
 
 export interface AdminEvent {
   id: string;
@@ -83,17 +97,25 @@ async function loadAdminData(): Promise<AdminData> {
   type Org = { id: string; name: string; contact_email: string | null };
   type EvRow = { id: string; title: string; date: string; ends_at: string | null; location: string | null; status: string | null; slug: string | null; organizer: Org | Org[] | null };
   type TierRow = { id: string; event_id: string; name: string; price_cents: number; sold_qty: number; total_qty: number; currency: string | null; sort_order: number };
-  type OrderRow = { event_id: string; created_at: string; quantity: number; total_cents: number; fee_cents: number | null; tier_id: string | null };
+  type OrderRow = { id: string; event_id: string; created_at: string; quantity: number; total_cents: number; fee_cents: number | null; tier_id: string | null };
+  type FeeRow = { order_id: string; fee_cents: number | null };
   type ScanRow = { event_id: string; scanned_at: string };
 
-  const [evs, tiers, orderRows, scanRows] = await Promise.all([
+  const [evs, tiers, orderRows, scanRows, feeRows] = await Promise.all([
     fetchAll<EvRow>((a, b) => supabase.from("events").select("id, title, date, ends_at, location, status, slug, organizer:organizer_profiles!events_organizer_id_fkey(id, name, contact_email)").order("date", { ascending: false }).range(a, b)),
     fetchAll<TierRow>((a, b) => supabase.from("event_tiers").select("id, event_id, name, price_cents, sold_qty, total_qty, currency, sort_order").range(a, b)),
-    fetchAll<OrderRow>((a, b) => supabase.from("event_orders").select("event_id, created_at, quantity, total_cents, fee_cents, tier_id").eq("status", "paid").range(a, b)),
+    fetchAll<OrderRow>((a, b) => supabase.from("event_orders").select("id, event_id, created_at, quantity, total_cents, fee_cents, tier_id").eq("status", "paid").range(a, b)),
     fetchAll<ScanRow>((a, b) => supabase.from("event_tickets").select("event_id, scanned_at").not("scanned_at", "is", null).range(a, b)),
+    // Admins only (RLS); a missing table or a refusal just leaves the fees unknown.
+    fetchAll<FeeRow>((a, b) => supabase.from("order_stripe_fees" as never).select("order_id, fee_cents").range(a, b)).catch(() => [] as FeeRow[]),
   ]);
+  const stripeFee = new Map(feeRows.map((f) => [f.order_id, f.fee_cents]));
 
-  const orders: AdminOrder[] = orderRows.map((o) => ({ event_id: o.event_id, created_at: o.created_at, quantity: o.quantity, paidCents: o.total_cents, feeCents: o.fee_cents ?? 0, tier_id: o.tier_id }));
+  const orders: AdminOrder[] = orderRows.map((o) => ({
+    id: o.id, event_id: o.event_id, created_at: o.created_at, quantity: o.quantity, paidCents: o.total_cents, feeCents: o.fee_cents ?? 0, tier_id: o.tier_id,
+    // Free orders have no payment, so nothing to pay Stripe.
+    stripeFeeCents: o.total_cents <= 0 ? 0 : stripeFee.has(o.id) ? stripeFee.get(o.id) ?? 0 : null,
+  }));
   const tiersBy = new Map<string, TierRow[]>();
   for (const t of tiers) tiersBy.set(t.event_id, [...(tiersBy.get(t.event_id) ?? []), t]);
   const money = new Map<string, { orders: number; paid: number; fee: number }>();
@@ -214,6 +236,21 @@ const AdminEvents = () => {
     const id = window.setInterval(() => { if (document.visibilityState === "visible") load(); }, 60_000);
     return () => window.clearInterval(id);
   }, [load]);
+  // Read Stripe's fee for new paid orders (a few calls at most), then show the updated figures.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      let synced = 0;
+      for (let i = 0; i < 5 && !cancelled; i++) {
+        const { data: res, error: err } = await supabase.functions.invoke("admin-stripe-fees", { body: {} });
+        if (err || !res) break;
+        synced += (res as { synced?: number }).synced ?? 0;
+        if (!((res as { remaining?: number }).remaining ?? 0)) break;
+      }
+      if (synced > 0 && !cancelled) load();
+    })().catch((e) => console.error("[admin-stripe-fees]", e));
+    return () => { cancelled = true; };
+  }, [load]);
   return <AdminEventsView data={data} error={error} updated={updated} onRefresh={load} loadPeople={loadAttendees} searchPeople={searchPeople} />;
 };
 
@@ -257,8 +294,14 @@ export function AdminEventsView({
     const os = (data?.orders ?? []).filter((o) => byId.get(o.event_id)?.currency === main && inWindow(o.created_at, w));
     const paid = os.reduce((n, o) => n + o.paidCents, 0);
     const fee = os.reduce((n, o) => n + o.feeCents, 0);
+    const read = os.filter((o) => o.stripeFeeCents != null);
+    const stripe = read.reduce((n, o) => n + (o.stripeFeeCents ?? 0), 0);
     return {
       paid, fee, org: paid - fee,
+      stripe,
+      // What we keep, over the orders whose Stripe fee is known; the others are listed apart.
+      kept: read.reduce((n, o) => n + o.feeCents - (o.stripeFeeCents ?? 0), 0),
+      unread: os.length - read.length,
       tickets: os.reduce((n, o) => n + o.quantity, 0),
       // Free tickets carry no fee, so the fee per ticket is over paid tickets only.
       paidTickets: os.reduce((n, o) => n + (o.paidCents > 0 ? o.quantity : 0), 0),
@@ -365,7 +408,7 @@ export function AdminEventsView({
 
 /* ───────────────────────── Overview ───────────────────────── */
 
-type Figures = { paid: number; fee: number; org: number; tickets: number; paidTickets: number; orders: number; came: number };
+type Figures = { paid: number; fee: number; org: number; stripe: number; kept: number; unread: number; tickets: number; paidTickets: number; orders: number; came: number };
 
 function Overview({ data, main, now, before, onOrganizers, win, byId }: { data: AdminData; main: Currency; now: Figures; before: Figures | null; onOrganizers: () => void; win: { from: number; to: number }; byId: Map<string, AdminEvent> }) {
   // Money per month over the last 12 months, organizers and us.
@@ -395,6 +438,26 @@ function Overview({ data, main, now, before, onOrganizers, win, byId }: { data: 
             {before && <Delta now={now.fee} before={before.fee} money={main} />}
           </div>
           <p className="text-xs text-muted-foreground mt-1">Service fees, before Stripe's costs{now.paidTickets ? ` · ${fmtMoney(Math.round(now.fee / now.paidTickets), main, 2)} per paid ticket` : ""}</p>
+          {/* What is left once Stripe has been paid */}
+          <div className="mt-4 pt-4 border-t border-border">
+            <div className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">We keep after Stripe</div>
+            <div className="flex flex-wrap items-baseline gap-3 mt-1">
+              <span className="font-display text-3xl font-bold tabular-nums text-emerald-700">
+                <CountMoney cents={now.kept} currency={main} decimals={2} />
+              </span>
+              {before && before.unread === 0 && now.unread === 0 && <Delta now={now.kept} before={before.kept} money={main} />}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Stripe fees {fmtMoney(now.stripe, main, 2)}
+              {now.fee > 0 && now.unread === 0 ? ` · ${pct(now.stripe, now.fee)}% of our fees` : ""}
+              {now.paidTickets && now.unread === 0 ? ` · ${fmtMoney(Math.round(now.kept / now.paidTickets), main, 2)} per paid ticket` : ""}
+            </p>
+            {now.unread > 0 && (
+              <p className="text-xs text-amber-700 mt-1">
+                {plural(now.unread, "order")} not read from Stripe yet, left out of this figure. It updates on its own.
+              </p>
+            )}
+          </div>
           <div className="mt-5 h-3 w-full bg-muted flex overflow-hidden" aria-hidden>
             <div className="h-full motion-safe:transition-[width] motion-safe:duration-700" style={{ width: `${pct(now.org, now.paid)}%`, background: ORG }} />
             <div className="h-full motion-safe:transition-[width] motion-safe:duration-700" style={{ width: `${now.paid ? 100 - pct(now.org, now.paid) : 0}%`, background: US }} />

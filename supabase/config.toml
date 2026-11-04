@@ -99,3 +99,6 @@ verify_jwt = false
 # before any sales row is read.
 [functions.export-event-sales]
 verify_jwt = false
+
+[functions.admin-stripe-fees]
+verify_jwt = true
