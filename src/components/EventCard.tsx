@@ -54,7 +54,7 @@ export function posterRatio(width: number, height: number): number {
 }
 
 /** Event card: the whole affiche at its own shape on top, with the category and campus as small frosted
- *  chips in its corner, then the date, urgency, title, place and price on a dark panel below. Without a poster
+ *  chips in its corner, then the date, urgency, title, place and price on a panel in the site's card colour. Without a poster
  *  the box shows a flat surface (never a stock photo). */
 const EventCard = ({ event, onClick }: EventCardProps) => {
   const { t, language } = useI18n();
@@ -71,7 +71,7 @@ const EventCard = ({ event, onClick }: EventCardProps) => {
     <button
       type="button"
       onClick={onClick}
-      className="group relative flex h-full w-full flex-col overflow-hidden rounded-lg bg-[#0b0b0f] text-left text-white"
+      className="group relative flex h-full w-full flex-col overflow-hidden rounded-lg border border-border bg-card text-left text-card-foreground"
     >
       {/* The affiche, whole; a blurred copy of itself only shows where a very tall or very wide one
           meets the box's limits. */}
@@ -99,12 +99,12 @@ const EventCard = ({ event, onClick }: EventCardProps) => {
           <div className="absolute inset-0 bg-muted" />
         )}
         {/* Category and campus, frosted over the picture's corner */}
-        <div className="absolute left-2 right-2 top-2 flex min-w-0 items-center gap-1.5">
-          <span className="shrink-0 bg-black/35 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white backdrop-blur-md">
+        <div className="absolute left-1.5 right-1.5 top-1.5 flex min-w-0 items-center gap-1">
+          <span className="shrink-0 bg-black/35 px-1.5 py-px text-[9px] md:text-[10px] font-bold uppercase tracking-wider text-white backdrop-blur-md">
             {event.category}
           </span>
           {campusLabel && (
-            <span className="min-w-0 truncate bg-black/25 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white/90 backdrop-blur-md">
+            <span className="min-w-0 truncate bg-black/25 px-1.5 py-px text-[9px] md:text-[10px] font-bold uppercase tracking-wider text-white/90 backdrop-blur-md">
               {campusLabel}
             </span>
           )}
@@ -119,7 +119,7 @@ const EventCard = ({ event, onClick }: EventCardProps) => {
       {/* Date, title, place, price */}
       <div className="flex flex-1 flex-col px-3.5 pb-3.5 pt-3">
         <div className="mb-1 flex items-center gap-2">
-          <span className="text-[11px] font-bold tracking-wider text-white/80">{formatDateBadge(event.date, locale)}</span>
+          <span className="text-[11px] font-bold tracking-wider text-muted-foreground">{formatDateBadge(event.date, locale)}</span>
           {!event.isPastEvent && !event.soldOut && urgency && (
             <Badge className="border-transparent bg-cta px-1.5 py-0 text-[10px] font-bold uppercase tracking-wider text-cta-foreground">
               {urgency}
@@ -130,12 +130,12 @@ const EventCard = ({ event, onClick }: EventCardProps) => {
           {event.title}
         </h3>
         <div className="mt-auto flex items-center justify-between gap-2">
-          <div className="flex min-w-0 items-center gap-1 text-xs text-white/75">
+          <div className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
             <MapPin className="h-3.5 w-3.5 shrink-0" />
             <span className="truncate">{event.location}</span>
           </div>
           {event.soldOut ? (
-            <span className="shrink-0 text-sm font-black text-white/70">{soldOutLabel}</span>
+            <span className="shrink-0 text-sm font-black text-muted-foreground">{soldOutLabel}</span>
           ) : (
             event.fromPriceCents != null && (
               <span className="shrink-0 text-sm font-black tabular-nums">
