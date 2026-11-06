@@ -387,9 +387,7 @@
     "escrowPayments": "Pagos en depósito seguro",
     "escrowPaymentsDesc": "Tu pago se retiene de forma segura hasta que confirmas que has recibido la entrada.",
     "buyerGuarantee": "Garantía del comprador",
-    "buyerGuaranteeDesc": "Reembolso completo si la entrada no es válida o el evento se cancela, incluida la comisión de la plataforma.",
-    "verifiedStudents": "Estudiantes verificados",
-    "verifiedStudentsDesc": "Solo estudiantes verificados de tu escuela pueden comprar o vender."
+    "buyerGuaranteeDesc": "Reembolso completo si la entrada no es válida o el evento se cancela, incluida la comisión de la plataforma."
   },
   "notFound": {
     "title": "404",
