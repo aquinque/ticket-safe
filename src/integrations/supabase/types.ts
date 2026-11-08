@@ -1218,6 +1218,7 @@ export type Database = {
           resale_max_price_cents: number | null
           reserved_qty: number
           sales_end_at: string | null
+          entry_until: string | null
           sales_start_at: string | null
           sold_qty: number
           sort_order: number
@@ -1240,6 +1241,7 @@ export type Database = {
           resale_max_price_cents?: number | null
           reserved_qty?: number
           sales_end_at?: string | null
+          entry_until?: string | null
           sales_start_at?: string | null
           sold_qty?: number
           sort_order?: number
@@ -1262,6 +1264,7 @@ export type Database = {
           resale_max_price_cents?: number | null
           reserved_qty?: number
           sales_end_at?: string | null
+          entry_until?: string | null
           sales_start_at?: string | null
           sold_qty?: number
           sort_order?: number
@@ -1301,6 +1304,7 @@ export type Database = {
           description: string | null
           description_font: string | null
           ends_at: string | null
+          last_entry_at: string | null
           external_event_id: string | null
           external_id: string | null
           external_source: string | null
@@ -1347,6 +1351,7 @@ export type Database = {
           description?: string | null
           description_font?: string | null
           ends_at?: string | null
+          last_entry_at?: string | null
           external_event_id?: string | null
           external_id?: string | null
           external_source?: string | null
@@ -1393,6 +1398,7 @@ export type Database = {
           description?: string | null
           description_font?: string | null
           ends_at?: string | null
+          last_entry_at?: string | null
           external_event_id?: string | null
           external_id?: string | null
           external_source?: string | null

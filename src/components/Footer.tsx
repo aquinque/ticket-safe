@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Instagram, ShieldCheck, Lock, Ticket, Users } from "lucide-react";
+import { Instagram, ShieldCheck, Lock, Ticket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEffect, useRef, useState } from "react";
 import { useI18n } from "@/contexts/I18nContext";
@@ -58,11 +58,6 @@ const Footer = () => {
               icon={<ShieldCheck className="w-4 h-4 text-green-500" aria-hidden="true" />}
               label={t('trust.buyerGuarantee')}
               explanation={t('trust.buyerGuaranteeDesc')}
-            />
-            <TrustItem
-              icon={<Users className="w-4 h-4 text-primary" aria-hidden="true" />}
-              label={t('trust.verifiedStudents')}
-              explanation={t('trust.verifiedStudentsDesc')}
             />
             {ticketsSold !== null && (
               <div className="flex items-center gap-1.5">

@@ -32,11 +32,10 @@
  * Stack: pdf-lib (pure JS, runs in Deno) + @pdf-lib/fontkit (custom TTF
  * embedding) + qrcode (esm.sh) — no Chromium, no canvas, no client APIs.
  *
- * Design: phone-card portrait (400×800pt — NOT A4), navy page background,
- * a centered card one surface tone lighter, zero border-radius throughout.
- * Real site tokens (matches _shared/emailTokens.ts). Event photo in the
- * hero banner when available, a flat accent-tinted block otherwise — never
- * a gradient. Perforation notch between the info grid and the QR block.
+ * Design: phone-card portrait (400×640pt — NOT A4), navy page background and
+ * a white ticket card, like the confirmation email's ticket and the site's
+ * (src/components/tickets/TicketPass.tsx): event photo (or its title on its
+ * colour), black strip with date and venue, NAME / TICKET, QR, reference.
  *
  * QR payload is untouched: still `d.qrToken` encoded as-is, same
  * error-correction level. Check-in scanning is unaffected by this redesign
@@ -66,6 +65,14 @@ export interface ServerTicketData {
 
   /** Event's own banner photo (absolute URL). Flat tinted block if absent. */
   eventImageUrl?: string | null;
+  /** Event's colour ("#e8613c"), behind the title when there is no photo. */
+  eventAccent?: string | null;
+  /** "SAT 14 DEC · 23:00", already in the event's time zone; worked out from eventDate (Paris) if absent. */
+  stripText?: string;
+  /** Doors / Last entry / Closes, already in the event's time zone; nothing drawn when empty. */
+  entryCells?: { label: string; value: string }[];
+  /** "00:30": this ticket admits only before this time (early entry). */
+  entryBefore?: string;
 
   buyerFirstName: string;
   buyerLastName: string;
@@ -92,24 +99,15 @@ export interface ServerTicketData {
 // ── PALETTE — matches supabase/functions/_shared/emailTokens.ts exactly ──
 
 const PAGE_BG       = rgb(26 / 255, 39 / 255, 68 / 255);     // #1a2744 — brandNavy
-const CARD_BG       = rgb(36 / 255, 52 / 255, 90 / 255);     // #24345a — one step lighter
-const DIVIDER       = rgb(53 / 255, 74 / 255, 114 / 255);    // rgba(147,197,253,.15) composited over card bg
 const ACCENT        = rgb(58 / 255, 95 / 255, 230 / 255);    // #3a5fe6
 const ACCENT_LIGHT  = rgb(174 / 255, 198 / 255, 255 / 255);  // #aec6ff — labels, small caps
 const TEXT_MUTED    = rgb(159 / 255, 176 / 255, 204 / 255);  // #9fb0cc — secondary text on dark bg
 const WHITE         = rgb(1, 1, 1);
-const IMG_FALLBACK  = ACCENT;
 
 // ── PAGE GEOMETRY — phone-card portrait, not A4 ───────────────────────────
 
 const PAGE_W = 400;
-const PAGE_H = 800;
-const CARD_MARGIN = 16;
-const CARD_X = CARD_MARGIN;
-const CARD_Y = CARD_MARGIN;
-const CARD_W = PAGE_W - CARD_MARGIN * 2;
-const CARD_H = PAGE_H - CARD_MARGIN * 2;
-const PAD = 20;
+const PAGE_H = 640;
 
 // ── GLYPH-SAFE TEXT DRAWING ────────────────────────────────────────────────
 
@@ -170,10 +168,6 @@ function drawText(page: PDFPage, text: string, o: TextOpts) {
     const safe = sanitizeForFont(o.font, t) || "—";
     try { place(safe); } catch (err2) { console.warn("[ticketPdfServer] sanitized draw still failed, skipping:", err2); }
   }
-}
-
-function drawLabel(page: PDFPage, text: string, x: number, y: number, font: Fonts["body"]) {
-  drawText(page, text, { x, y, font, size: 9, color: ACCENT_LIGHT, letterSpacing: 1.2 });
 }
 
 // ── FONT LOADING ──────────────────────────────────────────────────────────
@@ -261,16 +255,6 @@ async function tryEmbedEventImage(pdf: PDFDocument, url: string | null | undefin
   }
 }
 
-function formatDateTime(d: ServerTicketData): { dateLine: string; timeLine: string } {
-  const parsed = new Date(d.eventDate);
-  const isISO = !isNaN(parsed.getTime());
-  if (!isISO) return { dateLine: d.eventDate, timeLine: d.eventTime ?? "" };
-  return {
-    dateLine: parsed.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }),
-    timeLine: d.eventTime ?? parsed.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
-  };
-}
-
 function dataUrlToBytes(dataUrl: string): Uint8Array {
   const base64 = dataUrl.split(",", 2)[1] ?? dataUrl;
   const bin = atob(base64);
@@ -280,106 +264,147 @@ function dataUrlToBytes(dataUrl: string): Uint8Array {
 }
 
 // ── PAGE DRAWER ───────────────────────────────────────────────────────────
+//
+// The ticket drawn like the email's ticket card and the site's (src/components/tickets/TicketPass.tsx):
+// a white card on the navy page — the event's photo (or its title on its colour), a black strip with the
+// date and the venue, NAME and TICKET, the QR and its reference.
+
+const INK = rgb(15 / 255, 23 / 255, 42 / 255);          // #0f172a
+const SLATE = rgb(100 / 255, 116 / 255, 139 / 255);     // #64748b
+const RULE = rgb(226 / 255, 232 / 255, 240 / 255);      // #e2e8f0
+const STRIP = rgb(11 / 255, 11 / 255, 15 / 255);        // #0b0b0f
+
+function hexColor(hex: string | null | undefined) {
+  const m = /^#?([0-9a-f]{6})$/i.exec((hex ?? "").trim());
+  if (!m) return ACCENT;
+  const n = parseInt(m[1], 16);
+  return rgb(((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255);
+}
+
+function stripFromDate(d: ServerTicketData): string {
+  if (d.stripText) return d.stripText;
+  const parsed = new Date(d.eventDate);
+  if (isNaN(parsed.getTime())) return d.eventDate.toUpperCase();
+  const day = parsed.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: "Europe/Paris" }).replace(/,/g, "");
+  const time = parsed.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Paris" });
+  return `${day} · ${time}`.toUpperCase();
+}
+
+const ticketRef = (id: string) => `TS-${id.slice(0, 4).toUpperCase()}-${id.slice(-4).toUpperCase()}`;
 
 async function drawTicketPage(pdfDoc: PDFDocument, page: PDFPage, d: ServerTicketData, fonts: Fonts): Promise<void> {
-  page.drawRectangle({ x: 0, y: 0, width: PAGE_W, height: PAGE_H, color: PAGE_BG });
-  page.drawRectangle({ x: CARD_X, y: CARD_Y, width: CARD_W, height: CARD_H, color: CARD_BG });
+  const X = 20;
+  const W = PAGE_W - 40;
+  const PADX = 16;
 
-  const top = (fromCardTop: number) => PAGE_H - CARD_Y - fromCardTop;
-  let cy = 0;
-
-  // ── Header: logo left, "BILLET OFFICIEL" right ──
-  cy += 28;
-  const markSize = 20;
-  page.drawRectangle({ x: CARD_X + PAD, y: top(cy) - markSize + 6, width: markSize, height: markSize, color: ACCENT });
-  drawText(page, "TS", { x: CARD_X + PAD + markSize / 2, y: top(cy) - markSize / 2 - 1, font: fonts.display, size: 9, color: WHITE, anchor: "center" });
-  drawText(page, "Ticket", { x: CARD_X + PAD + markSize + 8, y: top(cy) - 5, font: fonts.display, size: 14, color: WHITE });
-  const tw = fonts.display.widthOfTextAtSize("Ticket", 14);
-  drawText(page, "Safe", { x: CARD_X + PAD + markSize + 8 + tw, y: top(cy) - 5, font: fonts.display, size: 14, color: ACCENT_LIGHT });
-  drawText(page, "BILLET OFFICIEL", { x: CARD_X + CARD_W - PAD, y: top(cy) - 5, font: fonts.bodyBold, size: 8, color: ACCENT_LIGHT, letterSpacing: 1.4, anchor: "right" });
-
-  // ── Event image banner (or flat accent-tint block if none) ──
-  cy += 20;
-  const bannerH = 140;
+  // The event's picture is shown whole: a flyer carries its own title and date, so nothing is cropped
+  // off. Its box takes the picture's own height (between a wide strip and a tall flyer) and the page
+  // grows by what the box gains over the strip.
   const bannerImage = await tryEmbedEventImage(pdfDoc, d.eventImageUrl);
-  const bannerY = top(cy + bannerH);
+  const stripBannerH = Math.round(W / 2.35);
+  const bannerH = bannerImage
+    ? Math.round(Math.min(Math.max((W * bannerImage.height) / bannerImage.width, stripBannerH), 440))
+    : stripBannerH;
+  const cells = d.entryCells ?? [];
+  const entryH = (cells.length ? 40 : 0) + (d.entryBefore ? (cells.length ? 30 : 26) : 0) + (cells.length || d.entryBefore ? 14 : 0);
+  const pageH = PAGE_H + (bannerH - stripBannerH) + entryH;
+  page.setSize(PAGE_W, pageH);
+  page.drawRectangle({ x: 0, y: 0, width: PAGE_W, height: pageH, color: PAGE_BG });
+  const at = (fromTop: number) => pageH - fromTop; // page y from a distance below the page's top
+
+  const stripH = 26;
+  const infoH = 62;
+  const qrSize = 210;
+  const qrBlockH = 24 + qrSize + 18 + 14 + 26;
+  const cardTop = 52;
+  const cardH = bannerH + stripH + infoH + entryH + qrBlockH;
+  const bannerY = at(cardTop + bannerH);
+
+  // ── Picture (fitted inside its box, on the strip's black), or the event's colour with its title ──
   if (bannerImage) {
-    const scale = Math.max(CARD_W / bannerImage.width, bannerH / bannerImage.height);
-    const dw = bannerImage.width * scale, dh = bannerImage.height * scale;
-    page.drawImage(bannerImage, { x: CARD_X + (CARD_W - dw) / 2, y: bannerY - (dh - bannerH) / 2, width: dw, height: dh });
-    page.drawRectangle({ x: CARD_X, y: bannerY, width: CARD_W, height: bannerH, color: PAGE_BG, opacity: 0.25 });
+    page.drawRectangle({ x: X, y: bannerY, width: W, height: bannerH, color: STRIP });
+    const scale = Math.min(W / bannerImage.width, bannerH / bannerImage.height);
+    const dw = bannerImage.width * scale;
+    const dh = bannerImage.height * scale;
+    page.drawImage(bannerImage, { x: X + (W - dw) / 2, y: bannerY + (bannerH - dh) / 2, width: dw, height: dh });
   } else {
-    page.drawRectangle({ x: CARD_X, y: bannerY, width: CARD_W, height: bannerH, color: IMG_FALLBACK, opacity: 0.12 });
+    page.drawRectangle({ x: X, y: bannerY, width: W, height: bannerH, color: hexColor(d.eventAccent) });
+    drawText(page, "TICKETSAFE", { x: X + PADX, y: bannerY + 50, font: fonts.bodyBold, size: 7.5, color: WHITE, letterSpacing: 1.6 });
+    drawText(page, d.eventName.toUpperCase(), { x: X + PADX, y: bannerY + 20, font: fonts.display, size: 24, color: WHITE, maxWidth: W - 2 * PADX });
   }
-  cy += bannerH;
+  // The rest of the card, white.
+  page.drawRectangle({ x: X, y: at(cardTop + cardH), width: W, height: cardH - bannerH, color: WHITE });
 
-  // ── Event name + date/time + location ──
-  cy += 28;
-  drawText(page, d.eventName, { x: CARD_X + PAD, y: top(cy), font: fonts.display, size: 20, color: WHITE, maxWidth: CARD_W - 2 * PAD });
-  const meta = formatDateTime(d);
-  cy += 22;
-  drawText(page, [meta.dateLine, meta.timeLine].filter(Boolean).join("  ·  "), { x: CARD_X + PAD, y: top(cy), font: fonts.body, size: 10.5, color: TEXT_MUTED, maxWidth: CARD_W - 2 * PAD });
-  cy += 16;
-  drawText(page, d.eventLocation, { x: CARD_X + PAD, y: top(cy), font: fonts.body, size: 10.5, color: TEXT_MUTED, maxWidth: CARD_W - 2 * PAD });
+  // ── Above the card: brand and position in the order ──
+  drawText(page, "Ticket", { x: X, y: at(34), font: fonts.display, size: 14, color: WHITE });
+  const tw = fonts.display.widthOfTextAtSize("Ticket", 14);
+  drawText(page, "Safe", { x: X + tw, y: at(34), font: fonts.display, size: 14, color: ACCENT_LIGHT });
+  if (d.ticketIndex && d.ticketTotal && d.ticketTotal > 1) {
+    drawText(page, `TICKET ${d.ticketIndex} OF ${d.ticketTotal}`, { x: X + W, y: at(33), font: fonts.bodyBold, size: 8, color: ACCENT_LIGHT, letterSpacing: 1.2, anchor: "right" });
+  }
 
-  // ── Divider ──
-  cy += 20;
-  page.drawRectangle({ x: CARD_X + PAD, y: top(cy), width: CARD_W - 2 * PAD, height: 1, color: DIVIDER });
+  // ── Black strip: when, where ──
+  const stripY = at(cardTop + bannerH + stripH);
+  page.drawRectangle({ x: X, y: stripY, width: W, height: stripH, color: STRIP });
+  const stripText = stripFromDate(d);
+  drawText(page, stripText, { x: X + PADX, y: stripY + 9, font: fonts.bodyBold, size: 8.5, color: WHITE, letterSpacing: 1 });
+  const usedLeft = fonts.bodyBold.widthOfTextAtSize(stripText, 8.5) + stripText.length * 1 + 20;
+  drawText(page, (d.eventLocation ?? "").toUpperCase(), { x: X + W - PADX, y: stripY + 9, font: fonts.bodyBold, size: 8.5, color: WHITE, letterSpacing: 1, anchor: "right", maxWidth: Math.max(60, W - 2 * PADX - usedLeft) });
 
-  // ── Info grid, 2 columns ──
-  const colL = CARD_X + PAD, colR = CARD_X + CARD_W / 2 + 4;
-  const gridRow = (label: string, value: string, x: number) => {
-    drawLabel(page, label, x, top(cy), fonts.bodyBold);
-    drawText(page, value, { x, y: top(cy + 16), font: fonts.bodyBold, size: 13, color: WHITE, maxWidth: CARD_W / 2 - PAD - 10 });
-  };
-  cy += 26;
-  gridRow("TYPE DE BILLET", d.ticketType, colL);
-  gridRow("PRIX", d.pricePaid, colR);
-  cy += 38;
-  gridRow("TITULAIRE", `${d.buyerFirstName} ${d.buyerLastName}`.trim(), colL);
-  gridRow("N° BILLET", d.ticketId.slice(0, 13), colR);
-  cy += 38;
-  gridRow("N° COMMANDE", d.orderNumber ?? "—", colL);
-  const issuedDate = new Date(d.issuedAt ?? Date.now());
-  gridRow("ÉMIS LE", issuedDate.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" }), colR);
+  // ── Name, ticket ──
+  const infoTop = cardTop + bannerH + stripH;
+  const colL = X + PADX;
+  const colR = X + W / 2 + 6;
+  const colW = W / 2 - PADX - 8;
+  drawText(page, "NAME", { x: colL, y: at(infoTop + 22), font: fonts.bodyBold, size: 7.5, color: SLATE, letterSpacing: 1.1 });
+  drawText(page, "TICKET", { x: colR, y: at(infoTop + 22), font: fonts.bodyBold, size: 7.5, color: SLATE, letterSpacing: 1.1 });
+  drawText(page, `${d.buyerFirstName} ${d.buyerLastName}`.trim() || "—", { x: colL, y: at(infoTop + 42), font: fonts.bodyBold, size: 12.5, color: INK, maxWidth: colW });
+  // Tier and price on one line when they fit; otherwise the price goes under, so it is never cut off.
+  const ticketLine = [d.ticketType, d.pricePaid].filter(Boolean).join(" · ") || "—";
+  if (!d.pricePaid || fonts.bodyBold.widthOfTextAtSize(ticketLine, 12.5) <= colW) {
+    drawText(page, ticketLine, { x: colR, y: at(infoTop + 42), font: fonts.bodyBold, size: 12.5, color: INK, maxWidth: colW });
+  } else {
+    drawText(page, d.ticketType || "—", { x: colR, y: at(infoTop + 39), font: fonts.bodyBold, size: 11.5, color: INK, maxWidth: colW });
+    drawText(page, d.pricePaid, { x: colR, y: at(infoTop + 54), font: fonts.bodyBold, size: 11.5, color: INK, maxWidth: colW });
+  }
+  page.drawRectangle({ x: X, y: at(infoTop + infoH), width: W, height: 1, color: RULE });
 
-  // ── Perforation: dashed line + two semicircle notches ──
-  cy += 32;
-  const perfY = top(cy);
-  page.drawLine({ start: { x: CARD_X + 10, y: perfY }, end: { x: CARD_X + CARD_W - 10, y: perfY }, thickness: 1, color: DIVIDER, dashArray: [4, 4] });
-  page.drawCircle({ x: CARD_X, y: perfY, size: 9, color: PAGE_BG });
-  page.drawCircle({ x: CARD_X + CARD_W, y: perfY, size: 9, color: PAGE_BG });
+  // ── Doors, last entry, closing; an early-entry ticket's own limit ──
+  if (entryH) {
+    let y = infoTop + infoH;
+    if (cells.length) {
+      const cw = (W - 2 * PADX) / cells.length;
+      cells.forEach((c, i) => {
+        drawText(page, c.label.toUpperCase(), { x: colL + i * cw, y: at(y + 18), font: fonts.bodyBold, size: 7.5, color: SLATE, letterSpacing: 1.1 });
+        drawText(page, c.value, { x: colL + i * cw, y: at(y + 35), font: fonts.bodyBold, size: 12.5, color: INK, maxWidth: cw - 6 });
+      });
+      y += 40;
+    }
+    if (d.entryBefore) {
+      const boxTop = y + (cells.length ? 4 : 8);
+      page.drawRectangle({ x: colL, y: at(boxTop + 20), width: W - 2 * PADX, height: 20, color: rgb(254 / 255, 243 / 255, 199 / 255) });
+      drawText(page, `This ticket is valid for entry before ${d.entryBefore}`, { x: colL + 8, y: at(boxTop + 14), font: fonts.bodyBold, size: 9, color: rgb(120 / 255, 53 / 255, 15 / 255), maxWidth: W - 2 * PADX - 16 });
+    }
+    page.drawRectangle({ x: X, y: at(infoTop + infoH + entryH), width: W, height: 1, color: RULE });
+  }
 
-  // ── QR block ──
-  cy += 28;
-  const qrSize = 190;
-  const qrPad = 14;
-  const qrBoxX = CARD_X + (CARD_W - qrSize - qrPad * 2) / 2;
-  page.drawRectangle({ x: qrBoxX, y: top(cy + qrSize + qrPad * 2), width: qrSize + qrPad * 2, height: qrSize + qrPad * 2, color: WHITE });
+  // ── QR and reference ──
+  const qrTop = infoTop + infoH + entryH + 24;
+  const qrX = X + (W - qrSize) / 2;
   try {
-    const qrDataUrl = await QRCode.toDataURL(d.qrToken, { errorCorrectionLevel: "L", margin: 2, width: 1000, color: { dark: "#000000", light: "#FFFFFF" } });
+    const qrDataUrl = await QRCode.toDataURL(d.qrToken, { errorCorrectionLevel: "L", margin: 1, width: 1000, color: { dark: "#000000", light: "#FFFFFF" } });
     const qrImage = await pdfDoc.embedPng(dataUrlToBytes(qrDataUrl));
-    page.drawImage(qrImage, { x: qrBoxX + qrPad, y: top(cy + qrSize + qrPad), width: qrSize, height: qrSize });
+    page.drawImage(qrImage, { x: qrX, y: at(qrTop + qrSize), width: qrSize, height: qrSize });
   } catch (err) {
     console.warn("[ticketPdfServer] QR render failed:", err);
-    drawText(page, "QR unavailable — use ticket number at the door", { x: CARD_X + CARD_W / 2, y: top(cy + qrSize), font: fonts.body, size: 9, color: PAGE_BG, anchor: "center", maxWidth: qrSize });
+    drawText(page, "QR unavailable — show the reference at the door", { x: X + W / 2, y: at(qrTop + qrSize / 2), font: fonts.body, size: 9, color: SLATE, anchor: "center", maxWidth: qrSize });
   }
-  cy += qrSize + qrPad * 2;
+  drawText(page, ticketRef(d.ticketId), { x: X + W / 2, y: at(qrTop + qrSize + 18), font: fonts.mono, size: 9, color: SLATE, letterSpacing: 1.2, anchor: "center" });
+  drawText(page, "Single-use · checked at the door · cancelled automatically if resold", { x: X + W / 2, y: at(qrTop + qrSize + 34), font: fonts.body, size: 7.5, color: SLATE, anchor: "center", maxWidth: W - 2 * PADX });
 
-  cy += 20;
-  drawText(page, d.ticketId, { x: CARD_X + CARD_W / 2, y: top(cy), font: fonts.mono, size: 10, color: WHITE, anchor: "center" });
-  cy += 16;
-  drawText(page, "Ce QR est unique. Il est invalidé automatiquement en cas de revente.", {
-    x: CARD_X + CARD_W / 2, y: top(cy), font: fonts.body, size: 8, color: TEXT_MUTED, anchor: "center", maxWidth: CARD_W - 2 * PAD,
+  // ── Under the card ──
+  const below = cardTop + cardH + 22;
+  drawText(page, `${d.organizerName ? `${d.organizerName} · ` : ""}${d.orderNumber ? `Order ${d.orderNumber} · ` : ""}ticket-safe.eu`, {
+    x: PAGE_W / 2, y: at(below), font: fonts.body, size: 8, color: TEXT_MUTED, anchor: "center", maxWidth: PAGE_W - 40,
   });
-
-  // ── Footer ──
-  cy = CARD_H - 22;
-  drawText(page, "Revente uniquement via ticket-safe.eu · Un billet = une entrée", {
-    x: CARD_X + CARD_W / 2, y: top(cy), font: fonts.body, size: 8, color: TEXT_MUTED, anchor: "center", maxWidth: CARD_W - 2 * PAD,
-  });
-
-  if (d.ticketIndex && d.ticketTotal && d.ticketTotal > 1) {
-    drawText(page, `${d.ticketIndex}/${d.ticketTotal}`, { x: CARD_X + CARD_W - PAD, y: PAGE_H - CARD_Y - 28 - 20, font: fonts.bodyBold, size: 9, color: ACCENT_LIGHT, anchor: "right" });
-  }
 }

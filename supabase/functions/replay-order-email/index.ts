@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { renderBuyerEmail, renderTicketCard, buildTicketUrls, deriveFirstName, appleWalletConfigured } from "./_shared/buyerEmail.ts";
+import { renderBuyerEmail, renderBuyerEmailText, renderTicketCard, buildTicketUrls, deriveFirstName, appleWalletConfigured, stripDate, entryTimes } from "./_shared/buyerEmail.ts";
 import { RECEIPT_LEGAL_COLUMNS, receiptLegalFromSettings, renderNoticeHtml, renderPaymentSummaryHtml } from "./_shared/receiptLegal.ts";
 import { generateTicketsPDFServer, type ServerTicketData } from "../_shared/ticketPdfServer.ts";
 import { formatMinor } from "../_shared/money.ts";
@@ -47,8 +47,8 @@ async function hashAccessToken(token: string): Promise<string> {
 
 const SITE_URL = Deno.env.get("SITE_URL") ?? "https://ticket-safe.eu";
 
-// Returns the link for one ticket, or "" if it could not be saved (the email is still sent).
-async function createTicketLink(supabase: ReturnType<typeof createClient>, ticketId: string): Promise<string> {
+// Returns the link for one ticket and its token, or empty ones if it could not be saved (the email is still sent).
+async function createTicketLink(supabase: ReturnType<typeof createClient>, ticketId: string): Promise<{ url: string; token: string }> {
   try {
     const token = newAccessToken();
     const { error } = await supabase.from("guest_access_tokens").insert({
@@ -58,12 +58,12 @@ async function createTicketLink(supabase: ReturnType<typeof createClient>, ticke
     });
     if (error) {
       console.warn("[replay-order-email] ticket link not saved:", error);
-      return "";
+      return { url: "", token: "" };
     }
-    return `${SITE_URL}/t/${token}`;
+    return { url: `${SITE_URL}/t/${token}`, token };
   } catch (e) {
     console.warn("[replay-order-email] ticket link skipped:", e);
-    return "";
+    return { url: "", token: "" };
   }
 }
 
@@ -117,8 +117,8 @@ serve(async (req) => {
   if (ord.status !== "paid") return json({ error: `This order isn't payable (status: ${ord.status}).` }, 409);
 
   const [{ data: evRow }, { data: tierRow }, { data: tickets }, { data: prof }, { data: legalRow }] = await Promise.all([
-    supabase.from("events").select("id, title, date, location, slug, organizer_id, banner_url").eq("id", ord.event_id).maybeSingle(),
-    supabase.from("event_tiers").select("name").eq("id", ord.tier_id).maybeSingle(),
+    supabase.from("events").select("id, title, date, location, slug, organizer_id, banner_url, primary_color, ends_at, last_entry_at").eq("id", ord.event_id).maybeSingle(),
+    supabase.from("event_tiers").select("name, entry_until").eq("id", ord.tier_id).maybeSingle(),
     supabase.from("event_tickets").select("id, qr_token, holder_first_name, holder_last_name, holder_email").eq("order_id", orderId).order("created_at", { ascending: true }),
     supabase.from("profiles").select("full_name").eq("id", ord.buyer_id).maybeSingle(),
     supabase.from("billing_settings").select(RECEIPT_LEGAL_COLUMNS).eq("id", true).maybeSingle(),
@@ -149,6 +149,18 @@ serve(async (req) => {
   const summaryHtml = renderPaymentSummaryHtml({ orderRef: orderNumber, paidOn, quantity: qty, tierName, ticketCents: Math.max(0, totalCents - feeCents), feeCents, totalCents, currency });
   const legalHtml = renderNoticeHtml(legal, "ticket", { organizerName, site: SITE_URL, currency });
 
+  // Doors, last entry and closing, and this tier's own entry limit, in the event's time zone.
+  const evTimeZone = currency === "GBP" ? "Europe/London" : "Europe/Paris";
+  const evTimes = evRow as { date?: string | null; ends_at?: string | null; last_entry_at?: string | null } | null;
+  const entry = entryTimes({
+    doorsAt: evTimes?.date ?? null,
+    lastEntryAt: evTimes?.last_entry_at ?? null,
+    closesAt: evTimes?.ends_at ?? null,
+    entryUntil: (tierRow as { entry_until?: string | null } | null)?.entry_until ?? null,
+    timeZone: evTimeZone,
+  });
+  const textTickets: { holder: string; ticketLine: string; ref: string; url: string }[] = [];
+
   const blocks: string[] = [];
   const pdfTickets: ServerTicketData[] = [];
   const walletReady = appleWalletConfigured();
@@ -158,19 +170,33 @@ serve(async (req) => {
     const holderEmail = t.holder_email && t.holder_email !== ord.buyer_email ? t.holder_email : "";
     const refShort = `TS-${t.id.slice(0, 4).toUpperCase()}-${t.id.slice(-4).toUpperCase()}`;
     const { apple } = buildTicketUrls(supabaseUrl, t.id);
-    const ticketUrl = await createTicketLink(supabase, t.id);
-    blocks.push(renderTicketCard({ idx: i + 1, total: tickets!.length, holder, holderEmail, tierName, evDate, evLocation, refShort, appleWalletUrl: walletReady ? apple : null, ticketUrl }));
+    const link = await createTicketLink(supabase, t.id);
+    blocks.push(renderTicketCard({
+      idx: i + 1, total: tickets!.length, holder, holderEmail, tierName, evDate, evLocation, refShort,
+      appleWalletUrl: walletReady ? apple : null, ticketUrl: link.url,
+      evTitle, bannerUrl: evRow?.banner_url ?? null, accent: (evRow as { primary_color?: string | null } | null)?.primary_color ?? null,
+      // London events are in pounds; their time is London's.
+      stripText: stripDate(evRow?.date, currency === "GBP" ? "Europe/London" : "Europe/Paris"),
+      priceLabel: formatMinor((ord.total_cents ?? 0) / qty, currency, "prefix"),
+      qrImageUrl: link.token ? `${supabaseUrl.replace(/\/+$/, "")}/functions/v1/ticket-access?t=${link.token}&qr=png` : null,
+      entry,
+    }));
+    textTickets.push({ holder, ticketLine: [tierName, formatMinor((ord.total_cents ?? 0) / qty, currency, "prefix")].join(" · "), ref: refShort, url: link.url });
     pdfTickets.push({
       eventName: evTitle,
       eventDate: evRow?.date ?? evDate,
       eventLocation: evLocation,
       eventImageUrl: evRow?.banner_url ?? null,
+      eventAccent: (evRow as { primary_color?: string | null } | null)?.primary_color ?? null,
+      stripText: stripDate(evRow?.date, currency === "GBP" ? "Europe/London" : "Europe/Paris"),
+      entryCells: entry.cells,
+      entryBefore: entry.entryBefore || undefined,
       organizerName: organizerName ?? "Ticket Safe",
       buyerFirstName: t.holder_first_name || fallbackFirst,
       buyerLastName: t.holder_last_name || fallbackLast,
       buyerEmail: ord.buyer_email,
       ticketType: tierName,
-      pricePaid: formatMinor((ord.total_cents ?? 0) / qty, currency),
+      pricePaid: formatMinor((ord.total_cents ?? 0) / qty, currency, "prefix"),
       ticketId: t.id,
       orderNumber,
       qrToken: t.qr_token,
@@ -193,10 +219,15 @@ serve(async (req) => {
     method: "POST",
     headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      from: "Ticket Safe <noreply@ticket-safe.eu>",
+      // Inbox placement: a sender people can answer, a plain subject (no emoji), a reply address and a
+      // plain-text part next to the HTML. Mail without a text part, from "noreply", with an emoji subject
+      // is more often filed as promotions or spam.
+      from: "Ticket Safe <tickets@ticket-safe.eu>",
+      reply_to: legal.supportEmail,
       to: [ord.buyer_email],
-      subject: `🎫 Your ticket${qty > 1 ? "s" : ""} for ${evTitle}`,
+      subject: `Your ticket${qty > 1 ? "s" : ""} for ${evTitle}`,
       html: renderBuyerEmail({ firstName, evTitle, evDate, evLocation, tierName, totalCents: ord.total_cents ?? 0, currency, ticketBlocksHtml: blocks.join(""), qty: tickets?.length ?? 1, summaryHtml, legalHtml }),
+      text: renderBuyerEmailText({ firstName, evTitle, evDate, evLocation, tickets: textTickets, entry, totalText: formatMinor(ord.total_cents ?? 0, currency, "prefix"), orderRef: orderNumber, supportEmail: legal.supportEmail }),
       ...(attachments.length > 0 ? { attachments } : {}),
     }),
   });

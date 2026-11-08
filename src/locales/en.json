@@ -387,9 +387,7 @@
     "escrowPayments": "Escrow Payments",
     "escrowPaymentsDesc": "Your payment is held safely until you confirm you received the ticket.",
     "buyerGuarantee": "Buyer Guarantee",
-    "buyerGuaranteeDesc": "Full refund if the ticket is invalid or the event is cancelled, including the platform fee.",
-    "verifiedStudents": "Verified students",
-    "verifiedStudentsDesc": "Only verified students from your school can buy or sell."
+    "buyerGuaranteeDesc": "Full refund if the ticket is invalid or the event is cancelled, including the platform fee."
   },
   "notFound": {
     "title": "404",
@@ -503,7 +501,8 @@
       "walletHint": "{amount} available",
       "studio": "Event payouts",
       "studioHint": "Paid out through Stripe, in Ticket Studio",
-      "description": "Where your resale money goes."
+      "description": "Where your resale money goes.",
+      "walletAuto": "Resales sent to your bank by Stripe"
     },
     "preferences": {
       "title": "Preferences",

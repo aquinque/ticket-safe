@@ -235,7 +235,7 @@ const Tickets = () => {
             <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-5">
               <div className="min-w-0">
                 <h1 className="font-display font-bold text-4xl md:text-6xl text-foreground leading-[0.98] text-balance motion-safe:animate-slide-up" style={{ letterSpacing: "-0.02em" }}>
-                  Nights out{nearCity ? <> near <span className="text-primary">{nearCity.label}</span></> : " near you"}
+                  Events{nearCity ? <> near <span className="text-primary">{nearCity.label}</span></> : " near you"}
                 </h1>
                 <p className="text-sm md:text-base text-muted-foreground mt-3 max-w-xl motion-safe:animate-fade-in" style={{ animationDelay: "120ms", animationFillMode: "both" }}>
                   Tickets sold directly by the organisers and associations behind them. Closest to you first.
@@ -374,8 +374,8 @@ const Tickets = () => {
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-5">
                   {filteredEvents.map((e, i) => (
                     <Fragment key={e.id}>
-                      <div className="animate-in fade-in slide-in-from-bottom-2 fill-mode-both" style={{ animationDelay: `${Math.min(i, 12) * 40}ms` }}>
-                        <div className="rounded-lg transition-transform duration-300 hover:-translate-y-1 hover:shadow-[0_24px_50px_-20px_hsl(var(--primary)/0.7)]">
+                      <div className="h-full animate-in fade-in slide-in-from-bottom-2 fill-mode-both" style={{ animationDelay: `${Math.min(i, 12) * 40}ms` }}>
+                        <div className="h-full rounded-lg transition-transform duration-300 hover:-translate-y-1 hover:shadow-[0_24px_50px_-20px_hsl(var(--primary)/0.7)]">
                           <EventCardShared event={toEventData(e)} onClick={() => navigate(`/e/${e.slug}`)} />
                         </div>
                       </div>

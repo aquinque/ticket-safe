@@ -24,7 +24,17 @@ export interface GuestTicketView {
   status: string;
   holder_name: string | null;
   tier_name: string | null;
-  event: { title: string | null; date: string | null; location: string | null };
+  /** Price of this ticket in minor units of `currency`; absent from older answers. */
+  price_cents?: number | null;
+  currency?: string | null;
+  /** "TS-4F2A-91A0", printed under the QR. */
+  ref?: string | null;
+  /** This tier's own entry limit (early entry), when set. */
+  entry_until?: string | null;
+  event: {
+    title: string | null; date: string | null; location: string | null; banner_url?: string | null; accent?: string | null;
+    ends_at?: string | null; last_entry_at?: string | null;
+  };
   qr_token: string | null;
 }
 

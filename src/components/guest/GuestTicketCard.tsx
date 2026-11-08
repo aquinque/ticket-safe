@@ -2,47 +2,126 @@ import { useEffect, useState } from "react";
 import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TICKET_QR_OPTIONS, type GuestTicketView } from "@/lib/guestAccess";
+import { formatMoney } from "@/lib/money";
+import { TicketPass, ticketEntryTimes, ticketStripDate } from "@/components/tickets/TicketPass";
 
-const formatDate = (iso: string | null) =>
-  iso
-    ? new Date(iso).toLocaleString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
-    : "";
-
-/** Draws the ticket details and the QR onto a PNG, for saving to the phone. */
-const buildTicketImage = (ticket: GuestTicketView, qrDataUrl: string): Promise<Blob> =>
+const loadImage = (src: string, crossOrigin = false): Promise<HTMLImageElement> =>
   new Promise((resolve, reject) => {
-    const canvas = document.createElement("canvas");
-    canvas.width = 900;
-    canvas.height = 1180;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return reject(new Error("no canvas"));
-    ctx.fillStyle = "#FFFFFF";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = "#0F172A";
-    ctx.textAlign = "center";
-    ctx.font = "bold 42px -apple-system, Helvetica, Arial, sans-serif";
-    ctx.fillText(ticket.event.title ?? "Ticket", 450, 90);
-    ctx.font = "28px -apple-system, Helvetica, Arial, sans-serif";
-    ctx.fillStyle = "#475569";
-    ctx.fillText(formatDate(ticket.event.date), 450, 140);
-    if (ticket.event.location) ctx.fillText(ticket.event.location, 450, 180);
-    ctx.fillStyle = "#0F172A";
-    ctx.font = "bold 36px -apple-system, Helvetica, Arial, sans-serif";
-    ctx.fillText(ticket.holder_name ?? "", 450, 240);
-    ctx.font = "26px -apple-system, Helvetica, Arial, sans-serif";
-    ctx.fillStyle = "#475569";
-    ctx.fillText(ticket.tier_name ?? "", 450, 285);
     const img = new Image();
-    img.onload = () => {
-      ctx.drawImage(img, 150, 330, 600, 600);
-      ctx.fillStyle = "#94A3B8";
-      ctx.font = "22px -apple-system, Helvetica, Arial, sans-serif";
-      ctx.fillText("Ticket Safe · show this QR at the door", 450, 1110);
-      canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("no blob"))), "image/png");
-    };
-    img.onerror = () => reject(new Error("qr load failed"));
-    img.src = qrDataUrl;
+    if (crossOrigin) img.crossOrigin = "anonymous";
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error(`image failed: ${src.slice(0, 40)}`));
+    img.src = src;
   });
+
+/** Draws the ticket as it looks on screen (picture, black strip, name, ticket, QR, reference) onto a PNG. */
+async function buildTicketImage(ticket: GuestTicketView, qrDataUrl: string, ticketLine: string): Promise<Blob> {
+  const W = 900;
+  let picture: HTMLImageElement | null = null;
+  if (ticket.event.banner_url) {
+    try {
+      picture = await loadImage(ticket.event.banner_url, true);
+    } catch {
+      /* the colour and title stand in */
+    }
+  }
+  // The whole picture, as on screen: its own height, between a wide strip and a tall flyer.
+  const bannerH = picture
+    ? Math.round(Math.min(Math.max((W * picture.height) / picture.width, W / 2.35), 1080))
+    : Math.round(W / 2.35);
+  const entry = ticketEntryTimes({ doorsAt: ticket.event.date, lastEntryAt: ticket.event.last_entry_at, closesAt: ticket.event.ends_at, entryUntil: ticket.entry_until });
+  const entryH = (entry.cells.length ? 110 : 0) + (entry.entryBefore ? 80 : 0) + (entry.cells.length || entry.entryBefore ? 20 : 0);
+  const H = bannerH + 70 + 150 + entryH + 640 + 90;
+  const canvas = document.createElement("canvas");
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("no canvas");
+  const font = (w: number, px: number) => `${w} ${px}px -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif`;
+  ctx.fillStyle = "#FFFFFF";
+  ctx.fillRect(0, 0, W, H);
+
+  // The whole picture (nothing cropped off), or the event's colour with its title
+  if (picture) {
+    ctx.fillStyle = "#0B0B0F";
+    ctx.fillRect(0, 0, W, bannerH);
+    const scale = Math.min(W / picture.width, bannerH / picture.height);
+    const w = picture.width * scale;
+    const h = picture.height * scale;
+    ctx.drawImage(picture, (W - w) / 2, (bannerH - h) / 2, w, h);
+  } else {
+    ctx.fillStyle = ticket.event.accent || "#3a5fe6";
+    ctx.fillRect(0, 0, W, bannerH);
+    ctx.fillStyle = "#FFFFFF";
+    ctx.textAlign = "left";
+    ctx.font = font(900, 64);
+    ctx.fillText((ticket.event.title ?? "Ticket").toUpperCase().slice(0, 22), 40, bannerH - 44);
+  }
+
+  // Black strip
+  ctx.fillStyle = "#0B0B0F";
+  ctx.fillRect(0, bannerH, W, 70);
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = font(700, 24);
+  ctx.textAlign = "left";
+  ctx.fillText(ticketStripDate(ticket.event.date), 40, bannerH + 45);
+  ctx.textAlign = "right";
+  ctx.fillText((ticket.event.location ?? "").toUpperCase().slice(0, 34), W - 40, bannerH + 45);
+
+  // Name, ticket
+  const infoY = bannerH + 70;
+  ctx.textAlign = "left";
+  ctx.fillStyle = "#64748B";
+  ctx.font = font(700, 20);
+  ctx.fillText("NAME", 40, infoY + 52);
+  ctx.fillText("TICKET", W / 2 + 10, infoY + 52);
+  ctx.fillStyle = "#0F172A";
+  ctx.font = font(700, 32);
+  ctx.fillText((ticket.holder_name ?? "—").slice(0, 24), 40, infoY + 96);
+  ctx.fillText((ticketLine || "—").slice(0, 24), W / 2 + 10, infoY + 96);
+  ctx.fillStyle = "#E2E8F0";
+  ctx.fillRect(0, infoY + 150, W, 2);
+
+  // Doors, last entry, closing; an early-entry ticket's own limit
+  let y = infoY + 152;
+  if (entry.cells.length) {
+    const colW = (W - 80) / entry.cells.length;
+    entry.cells.forEach((c, i) => {
+      ctx.textAlign = "left";
+      ctx.fillStyle = "#64748B";
+      ctx.font = font(700, 20);
+      ctx.fillText(c.label.toUpperCase(), 40 + i * colW, y + 46);
+      ctx.fillStyle = "#0F172A";
+      ctx.font = font(700, 32);
+      ctx.fillText(c.value, 40 + i * colW, y + 88);
+    });
+    y += 110;
+  }
+  if (entry.entryBefore) {
+    ctx.fillStyle = "#FEF3C7";
+    ctx.fillRect(40, y + 10, W - 80, 60);
+    ctx.fillStyle = "#78350F";
+    ctx.font = font(700, 26);
+    ctx.textAlign = "left";
+    ctx.fillText(`This ticket is valid for entry before ${entry.entryBefore}`, 60, y + 50);
+    y += 80;
+  }
+  if (entryH) {
+    ctx.fillStyle = "#E2E8F0";
+    ctx.fillRect(0, y + 18, W, 2);
+  }
+
+  // QR and reference
+  const qr = await loadImage(qrDataUrl);
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(qr, (W - 560) / 2, infoY + 190 + entryH, 560, 560);
+  ctx.fillStyle = "#64748B";
+  ctx.font = font(500, 22);
+  ctx.textAlign = "center";
+  if (ticket.ref) ctx.fillText(ticket.ref, W / 2, H - 50);
+
+  return new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("no blob"))), "image/png"));
+}
 
 interface GuestTicketCardProps {
   ticket: GuestTicketView;
@@ -51,8 +130,9 @@ interface GuestTicketCardProps {
 }
 
 /**
- * A ticket shown on its own: big QR, details, and a button to save it as an image.
- * Works without a session. The QR is drawn from the same qr_token the scanner reads.
+ * A ticket shown on its own (link from the confirmation email, or the success page): the same
+ * ticket as on My Tickets and in the email, and a button to save it as an image. Works without a
+ * session. The QR is drawn from the same qr_token the scanner reads.
  */
 export const GuestTicketCard = ({ ticket, index, total }: GuestTicketCardProps) => {
   const [qrUrl, setQrUrl] = useState<string | null>(null);
@@ -73,11 +153,14 @@ export const GuestTicketCard = ({ ticket, index, total }: GuestTicketCardProps) 
     };
   }, [ticket.qr_token]);
 
+  const priceLabel = ticket.price_cents != null ? formatMoney(ticket.price_cents, ticket.currency ?? "EUR") : null;
+  const ticketLine = [ticket.tier_name, priceLabel].filter(Boolean).join(" · ");
+
   const save = async () => {
     if (!qrUrl) return;
     setSaving(true);
     try {
-      const blob = await buildTicketImage(ticket, qrUrl);
+      const blob = await buildTicketImage(ticket, qrUrl, ticketLine);
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
       link.download = `ticket-safe-${(ticket.event.title ?? "ticket").replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.png`;
@@ -89,47 +172,42 @@ export const GuestTicketCard = ({ ticket, index, total }: GuestTicketCardProps) 
   };
 
   const stillValid = ticket.status === "valid" && !!ticket.qr_token;
+  const unavailable = stillValid
+    ? null
+    : ticket.status === "scanned"
+      ? "This ticket has already been used."
+      : "This ticket is no longer valid.";
 
   return (
-    <div className="bg-card border border-border rounded-2xl p-5 md:p-6 text-left shadow-sm">
-      {index && total ? (
-        <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-2">
-          Ticket {index} of {total}
-        </div>
-      ) : null}
-      <h2 className="text-lg font-bold">{ticket.event.title}</h2>
-      <p className="text-sm text-muted-foreground">
-        {formatDate(ticket.event.date)}
-        {ticket.event.location ? ` · ${ticket.event.location}` : ""}
-      </p>
-      <p className="text-sm mt-2">
-        <span className="font-semibold">{ticket.holder_name ?? "—"}</span>
-        {ticket.tier_name ? <span className="text-muted-foreground"> · {ticket.tier_name}</span> : null}
-      </p>
-
-      {stillValid ? (
-        <>
-          <div className="mt-5 mx-auto w-full max-w-[360px] bg-white rounded-2xl p-4">
-            {qrUrl ? (
-              <img src={qrUrl} alt="Your ticket QR code" className="w-full h-auto block" />
-            ) : (
-              <div className="aspect-square w-full animate-pulse rounded-xl bg-muted" />
-            )}
-          </div>
-          <p className="text-xs text-muted-foreground text-center mt-3">
-            Show this screen at the door. Turn the brightness up if the scanner struggles.
-          </p>
-          <div className="flex justify-center mt-4">
-            <Button variant="outline" onClick={save} disabled={!qrUrl || saving} className="h-10">
-              <Download className="w-4 h-4 mr-2" />
-              {saving ? "Saving…" : "Save as image"}
-            </Button>
-          </div>
-        </>
-      ) : ticket.status === "scanned" ? (
-        <p className="mt-5 text-sm font-semibold text-amber-700">This ticket has already been used.</p>
-      ) : (
-        <p className="mt-5 text-sm font-semibold text-muted-foreground">This ticket is no longer valid.</p>
+    <div>
+      <TicketPass
+        label={index && total && total > 1 ? `Ticket ${index} of ${total}` : undefined}
+        title={ticket.event.title ?? "Your event"}
+        date={ticket.event.date}
+        location={ticket.event.location}
+        bannerUrl={ticket.event.banner_url}
+        accent={ticket.event.accent}
+        holderName={ticket.holder_name ?? ""}
+        tierName={ticket.tier_name}
+        priceLabel={priceLabel}
+        qrSrc={qrUrl}
+        refCode={ticket.ref ?? ""}
+        unavailable={unavailable}
+        lastEntryAt={ticket.event.last_entry_at ?? null}
+        closesAt={ticket.event.ends_at ?? null}
+        entryUntil={ticket.entry_until ?? null}
+      >
+        {stillValid && (
+          <Button variant="outline" onClick={save} disabled={!qrUrl || saving} className="h-11 border-slate-300 bg-white text-slate-900 hover:bg-slate-50">
+            <Download className="w-4 h-4 mr-2" />
+            {saving ? "Saving…" : "Save as image"}
+          </Button>
+        )}
+      </TicketPass>
+      {stillValid && (
+        <p className="mt-3 text-center text-[13px] text-muted-foreground">
+          Show this screen at the door. Also sent to your email, with a PDF.
+        </p>
       )}
     </div>
   );

@@ -4,13 +4,13 @@ import {
   Loader2,
   ArrowLeft,
   Ticket as TicketIcon,
-  ShieldCheck,
   Download,
 } from "lucide-react";
 import HeaderNight from "@/components/HeaderNight";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import Footer from "@/components/Footer";
 import { BackButton } from "@/components/BackButton";
+import { TicketPass, ticketRef } from "@/components/tickets/TicketPass";
 import { SEOHead } from "@/components/SEOHead";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -38,8 +38,10 @@ interface OrderRow {
     primary_color: string | null;
     banner_url: string | null;
     logo_url: string | null;
+    ends_at?: string | null;
+    last_entry_at?: string | null;
   } | null;
-  tier: { name: string } | null;
+  tier: { name: string; entry_until?: string | null } | null;
 }
 
 interface TicketRow {
@@ -111,12 +113,12 @@ const MyTickets = () => {
           .maybeSingle(),
         supabase
           .from("events")
-          .select("title, date, location, slug, primary_color, banner_url, logo_url")
+          .select("title, date, location, slug, primary_color, banner_url, logo_url, ends_at, last_entry_at")
           .eq("id", firstEventId)
           .maybeSingle(),
         supabase
           .from("event_tiers")
-          .select("name")
+          .select("name, entry_until")
           .eq("id", firstTierId)
           .maybeSingle(),
       ]);
@@ -225,12 +227,6 @@ const MyTickets = () => {
     );
   }
 
-  // Brand identity is non-negotiable: always Ticket Safe blue, even if the
-  // event was set up with a custom organiser colour. Matches the gradient
-  // used in the Studio QR-ticket email so on-screen and printed tickets
-  // look like the same product.
-  const TS_GRADIENT = "linear-gradient(135deg, hsl(220 100% 30%), hsl(210 100% 45%))";
-
   const eventDate = order.event?.date
     ? new Date(order.event.date).toLocaleString("en-GB", {
         weekday: "short",
@@ -289,7 +285,7 @@ const MyTickets = () => {
               </p>
             </div>
           ) : (
-            <div className="space-y-6">
+            <div className="space-y-8">
               {tickets.map((t, i) => {
                 const holderName =
                   [t.holder_first_name, t.holder_last_name]
@@ -301,161 +297,49 @@ const MyTickets = () => {
                 const isExternal = t.source === "external";
                 const hasExtFile = isExternal && !!t.external_file_url;
                 const showPlatformPdf = !isExternal || (!t.external_code && !t.external_file_url);
+                const perTicketCents = order.total_cents > 0 && tickets.length > 0 ? Math.round(order.total_cents / tickets.length) : null;
+                const unavailable =
+                  t.status === "scanned"
+                    ? `Used${t.scanned_at ? ` on ${new Date(t.scanned_at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}` : ""}`
+                    : t.status === "refunded"
+                      ? "Refunded — no longer valid"
+                      : t.status === "cancelled"
+                        ? "Cancelled"
+                        : (t.status as string) === "transferred"
+                          ? "Resold — no longer valid"
+                          : hasExtFile && !qrUrls[t.id]
+                            ? "Your entry ticket is the file below"
+                            : null;
                 return (
-                  <article
+                  <TicketPass
                     key={t.id}
-                    className="relative bg-card border border-border rounded-2xl shadow-md overflow-hidden"
+                    label={tickets.length > 1 ? `Ticket ${i + 1} of ${tickets.length}` : undefined}
+                    title={order.event?.title ?? "Your event"}
+                    date={order.event?.date ?? null}
+                    location={order.event?.location ?? null}
+                    bannerUrl={order.event?.banner_url}
+                    accent={order.event?.primary_color}
+                    holderName={holderName}
+                    tierName={order.tier?.name ?? null}
+                    priceLabel={perTicketCents != null ? formatMoney(perTicketCents, order.currency) : null}
+                    lastEntryAt={order.event?.last_entry_at ?? null}
+                    closesAt={order.event?.ends_at ?? null}
+                    entryUntil={order.tier?.entry_until ?? null}
+                    qrSrc={qrUrls[t.id] ?? null}
+                    refCode={ticketRef(t.id)}
+                    unavailable={unavailable}
                   >
-                    {/* ── TOP: brand-gradient header (mirrors the email) ── */}
-                    <div
-                      className="relative text-white px-5 md:px-6 pt-5 md:pt-6 pb-7"
-                      style={{ background: TS_GRADIENT }}
-                    >
-                      {/* Soft radial highlight for depth — same trick as the
-                          Studio preview ticket and the email header. */}
-                      <div
-                        className="absolute inset-0 opacity-25 pointer-events-none"
-                        style={{
-                          backgroundImage:
-                            "radial-gradient(circle at 15% 20%, rgba(255,255,255,.35), transparent 45%), radial-gradient(circle at 85% 80%, rgba(255,255,255,.15), transparent 50%)",
-                        }}
-                      />
-                      <div className="relative">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/85">
-                            Ticket Safe
-                          </div>
-                          {tickets.length > 1 && (
-                            <div className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/65">
-                              #{i + 1} of {tickets.length}
-                            </div>
-                          )}
-                        </div>
-                        <div className="text-lg md:text-xl font-bold leading-tight mb-1.5 line-clamp-2">
-                          {order.event?.title}
-                        </div>
-                        <div className="text-xs text-white/85">
-                          {eventDate}
-                          {order.event?.location && (
-                            <>
-                              <span className="mx-1.5 text-white/40">·</span>
-                              {order.event.location}
-                            </>
-                          )}
-                        </div>
-                        {order.tier && (
-                          <div
-                            className="inline-block mt-3 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider"
-                            style={{ background: "hsl(220 100% 18%)" }}
-                          >
-                            {order.tier.name}
+                      {hasExtFile && (
+                      <div className="mb-5">
+                        <ExternalFileButton ticketId={t.id} />
+                        {t.external_provider && (
+                          <div className="text-[11px] text-muted-foreground mt-2 text-center">
+                            Provided via {t.external_provider}
                           </div>
                         )}
                       </div>
-                    </div>
+                    )}
 
-                    {/* ── PERFORATION STRIP ──
-                        Two card-coloured circles overlap the gradient/white
-                        boundary, biting "notches" out of the gradient edge,
-                        and a dashed line runs across the middle — the
-                        physical-ticket cliché, done at component level so it
-                        works on any card width. */}
-                    <div className="relative">
-                      <div
-                        className="absolute -top-3 -left-3 w-6 h-6 rounded-full"
-                        style={{ background: "hsl(var(--background))" }}
-                      />
-                      <div
-                        className="absolute -top-3 -right-3 w-6 h-6 rounded-full"
-                        style={{ background: "hsl(var(--background))" }}
-                      />
-                      <div className="border-t border-dashed border-border mx-4" />
-                      <div className="h-2" />
-                    </div>
-
-                    {/* ── BOTTOM: holder + QR + actions ── */}
-                    <div className="px-5 md:px-6 pt-2 pb-6">
-                      {holderName && (
-                        <div className="text-center mb-5">
-                          <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-1">
-                            Holder
-                          </div>
-                          <div className="text-lg md:text-xl font-bold tracking-tight">
-                            {holderName}
-                          </div>
-                          {t.holder_email && (
-                            <div className="text-xs text-muted-foreground break-all mt-0.5">
-                              {t.holder_email}
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* QR — centred, white frame, pixelated rendering.
-                          For file-only external tickets there's no inline QR;
-                          the original file button below is the entry artifact. */}
-                      {!(hasExtFile && !qrUrls[t.id]) && (
-                        <div className="flex flex-col items-center mb-5">
-                          <div className="bg-white p-3 rounded-xl border border-border shadow-soft">
-                            {qrUrls[t.id] ? (
-                              <img
-                                src={qrUrls[t.id]}
-                                alt={`Ticket QR ${i + 1}`}
-                                className="w-64 h-64 md:w-72 md:h-72 block"
-                                style={{ imageRendering: "pixelated" }}
-                              />
-                            ) : (
-                              <div className="w-64 h-64 md:w-72 md:h-72 flex items-center justify-center text-muted-foreground text-xs">
-                                QR unavailable
-                              </div>
-                            )}
-                          </div>
-                          <div className="text-[11px] text-muted-foreground mt-2.5 inline-flex items-center gap-1.5">
-                            <ShieldCheck className="w-3 h-3" />
-                            {isExternal ? "Show this at the door" : "Single-use · checked at the door"}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Original partner/club ticket file — the real entry
-                          artifact for file-based external imports. */}
-                      {hasExtFile && (
-                        <div className="mb-5">
-                          <ExternalFileButton ticketId={t.id} />
-                          {t.external_provider && (
-                            <div className="text-[11px] text-muted-foreground mt-2 text-center">
-                              Provided via {t.external_provider}
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Status badges */}
-                      {t.status === "scanned" && t.scanned_at && (
-                        <div className="text-center mb-4">
-                          <div className="text-xs font-bold text-amber-700 bg-amber-100 inline-flex items-center gap-1 px-2.5 py-1 rounded-full">
-                            Used on {new Date(t.scanned_at).toLocaleString("en-GB")}
-                          </div>
-                        </div>
-                      )}
-                      {t.status === "refunded" && (
-                        <div className="text-center mb-4">
-                          <div className="text-xs font-bold text-red-700 bg-red-100 inline-flex items-center gap-1 px-2.5 py-1 rounded-full">
-                            Refunded — no longer valid
-                          </div>
-                        </div>
-                      )}
-                      {t.status === "cancelled" && (
-                        <div className="text-center mb-4">
-                          <div className="text-xs font-bold text-red-700 bg-red-100 inline-flex items-center gap-1 px-2.5 py-1 rounded-full">
-                            Cancelled
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Download PDF — full-width brand-blue CTA. Hidden for
-                          external tickets whose entry artifact is the club's
-                          own code/file (the platform PDF isn't what scans). */}
                       {showPlatformPdf && qrUrls[t.id] && order?.event && (
                         <button
                           type="button"
@@ -532,10 +416,10 @@ const MyTickets = () => {
                           )}
                         </button>
                       )}
-                    </div>
-                  </article>
+                  </TicketPass>
                 );
               })}
+              <p className="text-center text-[13px] text-muted-foreground">Also sent to your email, with a PDF of {tickets.length > 1 ? "each ticket" : "the ticket"}.</p>
             </div>
           )}
         </div>
