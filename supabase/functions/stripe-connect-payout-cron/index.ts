@@ -46,7 +46,7 @@ type SettlingRow = MoneyRow & { available_on: number };
 /**
  * Balance rows that hold money, in any currency: an organizer's Stripe account
  * in the UK holds pounds from London sales, a French one holds euros. Resale
- * stays in euros (reseller_payout below).
+ * is charged in euros and paid out in the seller's own currency (reseller_payout below).
  */
 const withMoney = (rows: MoneyRow[]) => rows.filter((b) => b.amount > 0);
 const sum = (rows: MoneyRow[]) => rows.reduce((s, b) => s + b.amount, 0);
@@ -267,7 +267,17 @@ serve(async (req) => {
             continue;
           }
           await stripe.transfers.create({ amount: owedCents, currency: "eur", destination: account.stripe_account_id });
-          const payout = await stripe.payouts.create({ amount: owedCents, currency: "eur" }, { stripeAccount: account.stripe_account_id });
+          // A seller outside the euro zone (UK, Switzerland, Poland…) banks in their own
+          // currency: Stripe converts the euro transfer into it, so pay out what that gave.
+          const connected = await stripe.accounts.retrieve(account.stripe_account_id);
+          const payoutCurrency = (connected.default_currency ?? "eur").toLowerCase();
+          let payoutCents = owedCents;
+          if (payoutCurrency !== "eur") {
+            const held = await stripe.balance.retrieve(undefined, { stripeAccount: account.stripe_account_id });
+            payoutCents = (held.available as MoneyRow[]).find((b) => b.currency === payoutCurrency)?.amount ?? 0;
+            if (payoutCents <= 0) throw new Error(`No ${payoutCurrency} available after the transfer`);
+          }
+          const payout = await stripe.payouts.create({ amount: payoutCents, currency: payoutCurrency }, { stripeAccount: account.stripe_account_id });
           await supabase.from("stripe_connect_payout_jobs").update({ status: "sent", stripe_payout_id: payout.id, amount_cents: owedCents, attempted_at: new Date().toISOString() }).eq("id", job.id);
           // Mark these transactions as paid out so they aren't double-counted next run.
           if (txIds.length > 0) {

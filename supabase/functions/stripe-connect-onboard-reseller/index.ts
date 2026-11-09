@@ -3,12 +3,13 @@
  *
  * POST /functions/v1/stripe-connect-onboard-reseller
  * Authorization: Bearer <seller-user-jwt>
- * Body: { action?: "onboard" | "refresh" | "dashboard" }
+ * Body: { action?: "onboard" | "refresh" | "dashboard", country?: string }
  *
  * The "Recevoir ton argent" step shown to a resale seller after their ticket
  * sells. Individuals only (private students). Same Express flow as
  * stripe-connect-onboard-organizer, keyed on the caller instead of an
- * organizer: Stripe hosts the identity and bank pages.
+ * organizer: Stripe hosts the identity and bank pages. The seller picks the
+ * country they live in (any EU country, UK, Switzerland, Norway).
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -21,6 +22,7 @@ import {
   accountStateColumns,
   accountHolderName,
 } from "../_shared/stripeConnect.ts";
+import { payoutCountryCode } from "../_shared/payoutCountries.ts";
 
 const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type" };
 function json(body: unknown, status = 200) {
@@ -42,10 +44,13 @@ serve(async (req) => {
   const { data: { user }, error: authErr } = await supabase.auth.getUser(authHeader.replace("Bearer ", ""));
   if (authErr || !user) return json({ error: "Invalid or expired token" }, 401);
 
-  let body: { action?: string } = {};
+  let body: { action?: string; country?: unknown } = {};
   try { body = await req.json(); } catch { /* empty body = onboard */ }
   const action = body.action ?? "onboard";
   if (!["onboard", "refresh", "dashboard"].includes(action)) return json({ error: "Invalid action" }, 400);
+  // Where the seller lives and banks (Stripe fixes it when the account is created). France when not given.
+  const chosenCountry = body.country === undefined ? null : payoutCountryCode(typeof body.country === "string" ? body.country : null);
+  if (body.country !== undefined && !chosenCountry) return json({ error: "Stripe can't open an account in that country." }, 400);
 
   let stripe;
   try {
@@ -102,6 +107,7 @@ serve(async (req) => {
       const account = await createExpressAccount(stripe, {
         email: user.email ?? null,
         businessType: "individual",
+        country: chosenCountry ?? "FR",
         metadata: { user_id: user.id },
       });
       stripeAccountId = account.id;
