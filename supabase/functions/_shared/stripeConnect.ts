@@ -13,6 +13,7 @@
  * transfer.
  */
 import Stripe from "npm:stripe@14.21.0";
+import { payoutCountryCode } from "./payoutCountries.ts";
 
 export function getStripeClient(): Stripe {
   const key = Deno.env.get("STRIPE_SECRET_KEY");
@@ -78,7 +79,11 @@ function cleanAddress(a: PrefillAddress | undefined, country: string): Stripe.Ad
   if (a.line1?.trim()) out.line1 = a.line1.trim();
   if (a.postal_code?.trim()) out.postal_code = a.postal_code.trim();
   if (a.city?.trim()) out.city = a.city.trim();
-  out.country = (a.country?.trim() || country).toUpperCase().slice(0, 2);
+  // A stored name ("France", "United Kingdom") becomes its code; an address from another
+  // country than the account's is left out, Stripe would refuse it.
+  const addressCountry = payoutCountryCode(a.country) ?? country;
+  if (addressCountry !== country) return undefined;
+  out.country = country;
   return out.line1 || out.postal_code || out.city ? out : undefined;
 }
 
