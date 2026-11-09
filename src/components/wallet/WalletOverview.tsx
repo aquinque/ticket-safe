@@ -3,6 +3,7 @@ import { ArrowRight, Download, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import { PAYOUT_COUNTRIES, type PayoutCountry } from "@/lib/payoutCountries";
 import { generatePayoutReceiptPDF } from "@/lib/payoutReceiptPdf";
 import {
   formatEur,
@@ -98,6 +99,7 @@ export const WalletOverview = ({
   const [sales, setSales] = useState<SaleRow[] | null>(null);
   const [payouts, setPayouts] = useState<PayoutRow[]>([]);
   const [bank, setBank] = useState<BankState>("none");
+  const [country, setCountry] = useState<PayoutCountry>("FR");
   const [paidJobs, setPaidJobs] = useState<Record<string, string>>({});
   const [iban, setIban] = useState<{ last4: string; holder: string | null } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -144,7 +146,7 @@ export const WalletOverview = ({
 
   const openStripe = async (action: "onboard" | "dashboard") => {
     setBusy(true);
-    const { data, error } = await supabase.functions.invoke("stripe-connect-onboard-reseller", { body: { action } });
+    const { data, error } = await supabase.functions.invoke("stripe-connect-onboard-reseller", { body: action === "onboard" ? { action, country } : { action } });
     setBusy(false);
     if (error || !data?.url) { toast.error("Couldn't open Stripe. Please try again."); return; }
     window.location.href = data.url;
@@ -364,6 +366,20 @@ export const WalletOverview = ({
             <span className="font-semibold tabular-nums">•••• {iban.last4}</span>
             {iban.holder && <span className="text-muted-foreground"> · {iban.holder}</span>}
           </p>
+        )}
+        {bank === "none" && hasCardSales && (
+          <div className="mt-4">
+            <label htmlFor="seller-country" className="text-sm font-semibold block mb-1.5">Where do you live?</label>
+            <select
+              id="seller-country"
+              value={country}
+              onChange={(e) => setCountry(e.target.value as PayoutCountry)}
+              className="w-full sm:w-64 px-3 min-h-[44px] border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              {PAYOUT_COUNTRIES.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
+            </select>
+            <p className="text-xs text-muted-foreground mt-1.5 max-w-md">The country of your address, ID and bank account. It can't be changed afterwards.</p>
+          </div>
         )}
         {bankAction && (
           <button
