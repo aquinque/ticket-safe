@@ -12,6 +12,7 @@ import { STUDIO_FEE_RULE } from "@/lib/studioFee";
 import { CURRENCIES, formatMoney, toCurrency, type Currency } from "@/lib/money";
 import { eventEnd } from "@/lib/eventTime";
 import { authPathHere } from "@/lib/returnTo";
+import { PAYOUT_COUNTRIES, payoutCountryCode, payoutCountryName, type PayoutCountry } from "@/lib/payoutCountries";
 
 /**
  * Studio "Payments" — Stripe Connect (Express) onboarding + where the money is.
@@ -240,6 +241,9 @@ const StudioPayments = () => {
   const [busy, setBusy] = useState<Action | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [businessType, setBusinessType] = useState<BusinessType | null>(null);
+  // Where the organizer lives and banks: the Stripe account's country, fixed once created.
+  const [country, setCountry] = useState<PayoutCountry | null>(null);
+  const chosenCountry: PayoutCountry = country ?? payoutCountryCode(organizer?.billing_country) ?? "FR";
 
   // Default choice: individual, for everyone. It is the only type Stripe activates without a SIREN.
   const chosenType: BusinessType = businessType ?? account?.business_type ?? "individual";
@@ -350,11 +354,14 @@ const StudioPayments = () => {
     await loadMoney(row);
   }, [loadAccount, loadMoney]);
 
-  const goToStripe = useCallback(async (action: "onboard" | "dashboard", type?: BusinessType) => {
+  const goToStripe = useCallback(async (action: "onboard" | "dashboard", type?: BusinessType, accountCountry?: PayoutCountry) => {
     setError(null);
     setBusy(action);
     try {
-      const result = await callFn<{ url?: string }>(action, type ? { business_type: type } : undefined);
+      const result = await callFn<{ url?: string }>(action, {
+        ...(type ? { business_type: type } : {}),
+        ...(accountCountry ? { country: accountCountry } : {}),
+      });
       if (result?.url) window.location.href = result.url;
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Something went wrong.";
@@ -383,6 +390,24 @@ const StudioPayments = () => {
       setBusy(null);
     }
   }, [callFn, goToStripe]);
+
+  // An unfinished account opened in the wrong country (Stripe then asks for an address and
+  // a bank from there): delete it and start again in the right one.
+  const startOverInCountry = useCallback(async (to: PayoutCountry) => {
+    setError(null);
+    setBusy("reset");
+    try {
+      await callFn("reset");
+      setAccount(null);
+      await goToStripe("onboard", chosenType, to);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Something went wrong.";
+      setError(msg);
+      toast.error(msg);
+    } finally {
+      setBusy(null);
+    }
+  }, [callFn, goToStripe, chosenType]);
 
   useEffect(() => {
     if (!authLoading && !user) navigate(authPathHere(), { replace: true });
@@ -573,6 +598,20 @@ const StudioPayments = () => {
                 })}
               </div>
             </div>
+            <div>
+              <label htmlFor="payout-country" className="text-sm font-bold mb-2 block">Where do you live?</label>
+              <select
+                id="payout-country"
+                value={chosenCountry}
+                onChange={(e) => setCountry(e.target.value as PayoutCountry)}
+                className="w-full sm:w-72 px-3 min-h-[44px] border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                {PAYOUT_COUNTRIES.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
+              </select>
+              <p className="text-xs text-muted-foreground mt-1.5">
+                The country of your address, ID and bank account, not of your event: a British organizer with an event in Madrid picks United Kingdom. Stripe can't change it later.
+              </p>
+            </div>
             <div key={chosen.value} className="bg-muted/60 px-3 py-2.5 text-xs text-muted-foreground space-y-1 motion-safe:animate-fade-in">
               <p>{chosen.needs}</p>
               <p>Your name and email are already filled in. You can stop and come back any time.</p>
@@ -594,7 +633,7 @@ const StudioPayments = () => {
               </div>
             )}
             <button
-              onClick={() => goToStripe("onboard", chosenType)}
+              onClick={() => goToStripe("onboard", chosenType, chosenCountry)}
               disabled={busy !== null}
               className="inline-flex items-center justify-center gap-2 px-5 min-h-[44px] font-bold bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-60 transition-colors"
             >
@@ -639,6 +678,33 @@ const StudioPayments = () => {
                       ? "Stripe is reviewing your details. Selling opens as soon as it's done, usually within a few minutes."
                       : "Your setup isn't finished. You can't sell tickets until it is."}
                 </p>
+              )}
+              {!active && !account.details_submitted && (
+                <details className="text-xs border border-border px-3 py-2.5">
+                  <summary className="cursor-pointer font-bold">Stripe asks for an address or a bank in the wrong country?</summary>
+                  <p className="text-muted-foreground mt-2">
+                    The account was opened in {payoutCountryName(payoutCountryCode(organizer?.billing_country) ?? "FR")}. Pick the country you live in and start over: your setup isn't finished, so nothing is lost.
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2 mt-2">
+                    <select
+                      aria-label="Country you live in"
+                      value={chosenCountry}
+                      onChange={(e) => setCountry(e.target.value as PayoutCountry)}
+                      className="px-2 min-h-[36px] border border-border bg-card text-xs focus:outline-none focus:ring-2 focus:ring-primary"
+                    >
+                      {PAYOUT_COUNTRIES.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => startOverInCountry(chosenCountry)}
+                      disabled={busy !== null}
+                      className="inline-flex items-center justify-center gap-1.5 px-3 min-h-[36px] font-bold bg-primary text-primary-foreground hover:bg-primary-hover disabled:opacity-60 transition-colors"
+                    >
+                      {busy === "reset" ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                      Start over in {payoutCountryName(chosenCountry)}
+                    </button>
+                  </div>
+                </details>
               )}
               {hasDue && (
                 <div className="text-xs text-muted-foreground">

@@ -42,6 +42,7 @@ import {
   type ConnectBusinessType,
   type CreateExpressAccountArgs,
 } from "../_shared/stripeConnect.ts";
+import { payoutCountryCode, payoutCountryName } from "../_shared/payoutCountries.ts";
 
 const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type" };
 function json(body: unknown, status = 200) {
@@ -53,7 +54,6 @@ const RETURN_PATH = "/studio/payments";
 type MoneyRow = { currency: string; amount: number };
 const sumIn = (rows: MoneyRow[], currency: string) => rows.filter((b) => b.currency === currency).reduce((s, b) => s + b.amount, 0);
 const fmt = (minor: number, currency: string) => `${currency === "gbp" ? "£" : "€"}${(minor / 100).toFixed(2)}`;
-const isUk = (country: string | null | undefined) => ["GB", "UK"].includes((country ?? "").trim().toUpperCase());
 
 /**
  * The currency an organizer's money sits in: the account's own (gbp for a UK
@@ -93,13 +93,15 @@ serve(async (req) => {
   const { data: { user }, error: authErr } = await supabase.auth.getUser(authHeader.replace("Bearer ", ""));
   if (authErr || !user) return json({ error: "Invalid or expired token" }, 401);
 
-  let body: { organizer_id?: string; action?: string; business_type?: unknown; amount_cents?: unknown; request_id?: unknown };
+  let body: { organizer_id?: string; action?: string; business_type?: unknown; amount_cents?: unknown; request_id?: unknown; country?: unknown };
   try { body = await req.json(); } catch { return json({ error: "Invalid JSON" }, 400); }
   const organizerId = body.organizer_id;
   const action = body.action ?? "onboard";
   if (!organizerId || !/^[0-9a-f-]{36}$/i.test(organizerId)) return json({ error: "Invalid organizer_id" }, 400);
   if (!["onboard", "refresh", "dashboard", "balance", "reset", "payout"].includes(action)) return json({ error: "Invalid action" }, 400);
   if (body.business_type !== undefined && !isConnectBusinessType(body.business_type)) return json({ error: "Invalid business_type" }, 400);
+  const chosenCountry = body.country === undefined ? null : payoutCountryCode(typeof body.country === "string" ? body.country : null);
+  if (body.country !== undefined && !chosenCountry) return json({ error: "Stripe can't open an account in that country." }, 400);
 
   const { data: org } = await supabase
     .from("organizer_profiles")
@@ -108,6 +110,8 @@ serve(async (req) => {
     .maybeSingle();
   if (!org) return json({ error: "Organizer not found" }, 404);
   if (org.user_id !== user.id) return json({ error: "Forbidden — not your organizer" }, 403);
+
+  const accountCountry = chosenCountry ?? payoutCountryCode(org.billing_country) ?? "FR";
 
   // What we already know about the person, so Stripe's form arrives filled in.
   const { data: profile } = await supabase.from("profiles").select("first_name, last_name, full_name").eq("id", user.id).maybeSingle();
@@ -126,8 +130,9 @@ serve(async (req) => {
     businessType,
     person,
     company: { tax_id: org.siren },
-    // A UK organizer gets a UK Stripe account, paid out in pounds to a UK bank.
-    ...(isUk(org.billing_country) ? { country: "GB" } : {}),
+    // Where the organizer lives and banks, chosen on the payments page (else their billing
+    // country, else France). A UK organizer gets a UK account, paid out in pounds to a UK bank.
+    country: accountCountry,
     address: { line1: org.billing_address_line1, postal_code: org.billing_postal_code, city: org.billing_city, country: org.billing_country },
     website: org.website,
     metadata: { organizer_id: organizerId, organizer_name: org.name },
@@ -275,6 +280,10 @@ serve(async (req) => {
     } else {
       const account = await createExpressAccount(stripe, prefill);
       stripeAccountId = account.id;
+      // Keep the billing country in step with the account (invoices print it).
+      if (chosenCountry && payoutCountryCode(org.billing_country) !== chosenCountry) {
+        await supabase.from("organizer_profiles").update({ billing_country: payoutCountryName(chosenCountry) }).eq("id", organizerId);
+      }
       const { error: insertErr } = await supabase.from("stripe_connect_accounts").insert({
         owner_type: "organizer",
         organizer_id: organizerId,
