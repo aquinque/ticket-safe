@@ -69,7 +69,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useI18n } from "@/contexts/I18nContext";
 import { SEOHead } from "@/components/SEOHead";
 import { decodeQRFromFile, extractTextFromFile, isQRTextValid } from "@/lib/qrValidator";
-import { calcBreakdown } from "@/lib/fees";
+import { calcBreakdown, RESALE_BUYER_FEE_COPY, RESALE_SELLER_COMMISSION_COPY } from "@/lib/fees";
 import {
   QR_ERROR_MESSAGES,
   CreateListingResponse,
@@ -77,6 +77,20 @@ import {
 } from "@/types/listings";
 import { useTicketListings } from "@/contexts/TicketListingsContext";
 import { authPathHere } from "@/lib/returnTo";
+import { callRpc } from "@/lib/supabaseRpc";
+import { createStudioListing, listingErrorMessage, LISTING_ERROR_MESSAGES, STUDIO_LISTING_NOTES_MAX } from "@/lib/sellerListings";
+
+/** Rows of my_listed_studio_tickets(): the user's own Studio tickets already listed (available, reserved or sold). */
+const parseListedStudioTickets = (data: unknown): { studio_ticket_id: string; status: string }[] =>
+  Array.isArray(data)
+    ? data.flatMap((row: unknown) => {
+        if (typeof row !== "object" || row === null) return [];
+        const r = row as Record<string, unknown>;
+        return typeof r.studio_ticket_id === "string"
+          ? [{ studio_ticket_id: r.studio_ticket_id, status: typeof r.status === "string" ? r.status : "" }]
+          : [];
+      })
+    : [];
 
 // ---------------------------------------------------------------------------
 // Validation schema for the notes field
@@ -119,11 +133,17 @@ const Sell = () => {
     id: string;
     event_id: string;
     qr_token: string;
+    tierId: string | null;
     tierName: string | null;
     facePriceEuros: number | null;
     status: string;
   } | null>(null);
   const [studioLoading, setStudioLoading] = useState(false);
+
+  // Resale price cap for the chosen event / ticket type (public.resale_price_cap:
+  // organizer's maximum, else face value + the default markup). The checkout
+  // refuses a price above it, so the form says so before the seller lists.
+  const [resaleCap, setResaleCap] = useState<{ capCents: number; source: string; faceCents: number | null } | null>(null);
 
   // Event autocomplete
   const [eventSearch, setEventSearch] = useState("");
@@ -266,12 +286,7 @@ const Sell = () => {
             .is("scanned_at", null),
           // Listings the user already created — to exclude tickets already
           // listed for resale (available/reserved) or already sold.
-          supabase
-            .from("tickets")
-            .select("studio_ticket_id, status")
-            .eq("seller_id", user.id)
-            .in("status", ["available", "reserved", "sold"])
-            .not("studio_ticket_id", "is", null),
+          callRpc("my_listed_studio_tickets", {}),
         ]);
         if (cancelled) return;
         if (ownedErr) {
@@ -279,9 +294,7 @@ const Sell = () => {
           setMyTickets([]);
           return;
         }
-        const alreadyListed = new Set(
-          ((listed ?? []) as unknown as { studio_ticket_id: string }[]).map((l) => l.studio_ticket_id),
-        );
+        const alreadyListed = new Set(parseListedStudioTickets(listed).map((l) => l.studio_ticket_id));
         const rows: OwnedTicket[] = ((owned ?? []) as unknown as Record<string, unknown>[])
           .filter((r) => !alreadyListed.has(String(r.id)))
           .map((r) => {
@@ -354,12 +367,7 @@ const Sell = () => {
             .eq("buyer_id", user.id)
             .eq("status", "valid")
             .is("scanned_at", null),
-          supabase
-            .from("tickets")
-            .select("studio_ticket_id, status")
-            .eq("seller_id", user.id)
-            .in("status", ["available", "reserved", "sold"])
-            .not("studio_ticket_id", "is", null),
+          callRpc("my_listed_studio_tickets", {}),
         ]);
         if (cancelled) return;
         if (ownedErr) {
@@ -367,9 +375,7 @@ const Sell = () => {
           setMyEvents([]);
           return;
         }
-        const alreadyListed = new Set(
-          ((listed ?? []) as unknown as { studio_ticket_id: string }[]).map((l) => l.studio_ticket_id),
-        );
+        const alreadyListed = new Set(parseListedStudioTickets(listed).map((l) => l.studio_ticket_id));
         const byEvent = new Map<string, { event: Event; count: number }>();
         for (const r of (owned ?? []) as unknown as Record<string, unknown>[]) {
           if (alreadyListed.has(String(r.id))) continue;
@@ -408,7 +414,7 @@ const Sell = () => {
       try {
         const { data: tk, error } = await supabase
           .from("event_tickets")
-          .select(`id, event_id, qr_token, status, buyer_id,
+          .select(`id, event_id, qr_token, status, buyer_id, tier_id,
                    tier:event_tiers(name, price_cents),
                    event:events(id, title, description, date, location, category, university, campus, image_url, is_active, base_price, created_at, updated_at)`)
           .eq("id", studioTicketParam)
@@ -429,12 +435,8 @@ const Sell = () => {
           navigate("/my-tickets");
           return;
         }
-        const { data: existing } = await supabase
-          .from("tickets")
-          .select("id, status")
-          .eq("studio_ticket_id", tk.id)
-          .in("status", ["available", "reserved", "sold"])
-          .maybeSingle();
+        const { data: listedData } = await callRpc("my_listed_studio_tickets", {});
+        const existing = parseListedStudioTickets(listedData).find((l) => l.studio_ticket_id === tk.id);
         if (existing) {
           if (existing.status === "sold") {
             toast.error("This ticket has already been resold.");
@@ -463,6 +465,7 @@ const Sell = () => {
           id: tk.id,
           event_id: tk.event_id,
           qr_token: tk.qr_token,
+          tierId: (tk as { tier_id?: string | null }).tier_id ?? null,
           tierName: tier?.name ?? null,
           facePriceEuros,
           status: tk.status,
@@ -663,6 +666,21 @@ const Sell = () => {
   // Form submit
   // ---------------------------------------------------------------------------
 
+  useEffect(() => {
+    const eventId = selectedEvent?.id;
+    if (!eventId) { setResaleCap(null); return; }
+    let cancelled = false;
+    supabase
+      .rpc("resale_price_cap", { p_event_id: eventId, p_tier_id: studioTicket?.tierId ?? null })
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        const row = Array.isArray(data) ? data[0] : null;
+        // No cap, or the lookup failed: the checkout still enforces it.
+        setResaleCap(!error && row?.cap_cents ? { capCents: row.cap_cents, source: row.source, faceCents: row.face_value_cents ?? null } : null);
+      });
+    return () => { cancelled = true; };
+  }, [selectedEvent?.id, studioTicket?.tierId]);
+
   const handleSubmit = async () => {
     if (!selectedEvent || !user) {
       toast.error("Please select an event");
@@ -686,6 +704,10 @@ const Sell = () => {
       toast.error("Please enter a valid selling price");
       return;
     }
+    if (resaleCap && Math.round(price * 100) > resaleCap.capCents) {
+      toast.error(`The maximum resale price for this ticket is €${(resaleCap.capCents / 100).toFixed(2)}.`);
+      return;
+    }
 
     if (!isQRTextValid(qrText)) {
       toast.error("QR not detected — please upload a photo or PDF of your ticket.");
@@ -700,41 +722,31 @@ const Sell = () => {
       }
     }
 
+    if (studioTicket && formData.notes.trim().length > STUDIO_LISTING_NOTES_MAX) {
+      toast.error(LISTING_ERROR_MESSAGES.INVALID_NOTES);
+      return;
+    }
+
     setIsSubmitting(true);
 
-    // Studio-resale fast path: insert directly into `tickets`. The QR is
-    // already trusted (signed by our backend) so no admin review, no QR
-    // upload, no submit-listing roundtrip.
+    // Studio-resale fast path: create_studio_listing() checks the ticket is yours and still valid, the
+    // event is open and the price is under the cap, then lists it at once. The QR is already trusted
+    // (signed by our backend), so no admin review, no QR upload, no submit-listing roundtrip.
     if (studioTicket) {
       try {
-        const { data: ticket, error } = await supabase
-          .from("tickets")
-          .insert({
-            seller_id: user.id,
-            event_id: studioTicket.event_id,
-            selling_price: price,
-            quantity: parseInt(formData.quantity, 10) || 1,
-            notes: formData.notes || null,
-            status: "available",
-            qr_hash: `studio:${studioTicket.id}`,
-            qr_verified: true,
-            verification_status: "verified",
-            needs_review: false,
-            studio_ticket_id: studioTicket.id,
-            photo_url: photoUrl,
-            video_url: videoUrl,
-          })
-          .select("id")
-          .single();
-        if (error) {
-          toast.error(error.message || "Could not list your ticket.");
-          return;
-        }
-        setCreatedListingId(ticket.id);
+        const listingId = await createStudioListing(callRpc, {
+          studioTicketId: studioTicket.id,
+          sellingPrice: price,
+          notes: formData.notes,
+          photoUrl,
+          videoUrl,
+        });
+        setCreatedListingId(listingId);
         refetchListings();
         toast.success("Listed instantly. Your QR stays valid until it sells.");
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Unexpected error.");
+        const raw = err instanceof Error ? err.message : null;
+        toast.error(listingErrorMessage(raw, "Could not list your ticket. Please try again."));
       } finally {
         setIsSubmitting(false);
       }
@@ -929,10 +941,14 @@ const Sell = () => {
     return Date.now() > endsAtMs + 6 * 60 * 60 * 1000;
   })();
 
+  const priceAboveCap =
+    !!resaleCap && Math.round(parseFloat(formData.sellingPrice) * 100) > resaleCap.capCents;
+
   const canSubmit =
     !!selectedEvent &&
     !eventIsPast &&
     !!formData.sellingPrice &&
+    !priceAboveCap &&
     isQRTextValid(qrText) &&
     !isSubmitting;
 
@@ -1643,6 +1659,32 @@ const Sell = () => {
                           className="pl-8 h-12 text-lg font-semibold"
                         />
                       </div>
+                      {(() => {
+                        const unit = parseFloat(formData.sellingPrice);
+                        if (!isFinite(unit) || unit <= 0) return null;
+                        const unitBd = calcBreakdown(unit, 1);
+                        return (
+                          <p className="text-sm mt-2">
+                            You'll receive{" "}
+                            <span className="font-semibold text-foreground tabular-nums">€{unitBd.sellerPayoutEuros.toFixed(2)}</span>
+                            <span className="text-muted-foreground"> ({RESALE_SELLER_COMMISSION_COPY} commission)</span>
+                            {!studioTicket && " per ticket"}.
+                            <span className="block text-xs text-muted-foreground mt-0.5">
+                              The buyer pays €{unitBd.buyerTotalEuros.toFixed(2)}, including a {RESALE_BUYER_FEE_COPY} service fee.
+                            </span>
+                          </p>
+                        );
+                      })()}
+                      {resaleCap && (
+                        <p className={`text-xs mt-1.5 ${priceAboveCap ? "text-destructive font-medium" : "text-muted-foreground"}`}>
+                          {priceAboveCap ? "Above the maximum resale price" : "Maximum resale price"}:{" "}
+                          <span className="tabular-nums">€{(resaleCap.capCents / 100).toFixed(2)}</span> per ticket
+                          {resaleCap.source === "face_value_markup" && resaleCap.faceCents
+                            ? ` (face value €${(resaleCap.faceCents / 100).toFixed(2)} + ${Math.round((resaleCap.capCents / resaleCap.faceCents - 1) * 100)}%)`
+                            : " (set by the organizer)"}.
+                          {priceAboveCap && " Lower your price to list this ticket."}
+                        </p>
+                      )}
                       <p className="text-xs text-muted-foreground mt-1.5">
                         Set a fair price to increase your chances of reselling.
                         {studioTicket?.facePriceEuros != null && (
@@ -1689,10 +1731,10 @@ const Sell = () => {
                         setFormData({ ...formData, notes: e.target.value })
                       }
                       rows={3}
-                      maxLength={1000}
+                      maxLength={studioTicket ? STUDIO_LISTING_NOTES_MAX : 1000}
                     />
                     <p className="text-xs text-muted-foreground mt-1">
-                      {formData.notes.length}/1000 characters
+                      {formData.notes.length}/{studioTicket ? STUDIO_LISTING_NOTES_MAX : 1000} characters
                     </p>
                   </div>
 
@@ -1790,7 +1832,7 @@ const Sell = () => {
                 return (
                   <div className="rounded-2xl bg-card border border-border p-5 md:p-6 shadow-sm">
                     <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-2">
-                      You receive
+                      You'll receive
                     </div>
                     <div className="text-3xl md:text-4xl font-semibold tracking-tight leading-none text-primary mb-4">
                       {bd ? (
@@ -1811,7 +1853,7 @@ const Sell = () => {
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">
-                          Platform commission <span className="text-muted-foreground/70">(5%)</span>
+                          Ticket Safe commission <span className="text-muted-foreground/70">({RESALE_SELLER_COMMISSION_COPY})</span>
                         </span>
                         <span className="tabular-nums text-muted-foreground">
                           {bd ? `−€${bd.sellerCommissionEuros.toFixed(2)}` : "—"}
@@ -1908,7 +1950,7 @@ const Sell = () => {
           {hasPriceSet && canSubmit ? (
             <div className="flex items-center gap-3 animate-in fade-in duration-300">
               <div className="flex-1 min-w-0">
-                <div className="text-[11px] font-medium text-muted-foreground">You receive</div>
+                <div className="text-[11px] font-medium text-muted-foreground">You'll receive ({RESALE_SELLER_COMMISSION_COPY} commission)</div>
                 {(() => {
                   const price = parseFloat(formData.sellingPrice);
                   const qty = parseInt(formData.quantity, 10) || 1;

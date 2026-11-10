@@ -8,16 +8,17 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Calendar, MapPin, User, ShoppingCart, Info, MessageSquare, HelpCircle, BarChart3, TrendingUp, TrendingDown, Minus, Sparkles, Ticket } from "lucide-react";
+import { Calendar, MapPin, ShoppingCart, Info, MessageSquare, BarChart3, TrendingUp, TrendingDown, Minus, Ticket } from "lucide-react";
 import { useEventPriceIntel } from "@/hooks/useEventPriceIntel";
 import { supabase } from "@/integrations/supabase/client";
 import { SEOHead } from "@/components/SEOHead";
 import { useAuth } from "@/hooks/useAuth";
 import { useI18n } from "@/contexts/I18nContext";
-import { getOrCreateConversation } from "@/hooks/useChat";
 import { toast } from "sonner";
-import { calcBreakdown } from "@/lib/fees";
 import { authPathHere } from "@/lib/returnTo";
+import { useResaleListings } from "@/hooks/useResaleListings";
+import { useResaleActions } from "@/hooks/useResaleActions";
+import { ResaleListingList } from "@/components/resale/ResaleListingList";
 
 interface EventInfo {
   id: string;
@@ -26,16 +27,6 @@ interface EventInfo {
   location: string | null;
   category: string;
   banner_url: string | null;
-}
-
-interface Listing {
-  id: string;
-  seller_id: string;
-  selling_price: number;
-  quantity: number;
-  notes: string | null;
-  created_at: string;
-  seller: { full_name: string } | null;
 }
 
 const EventTicketsMarketplace = () => {
@@ -47,12 +38,13 @@ const EventTicketsMarketplace = () => {
   const dateLocale = language === "fr" ? "fr-FR" : "en-GB";
 
   const [event, setEvent] = useState<EventInfo | null>(null);
-  const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
+  // Listings through the resale_listings function (cheapest first), not a direct read of tickets.
+  const { data: listings = [], isLoading: listingsLoading } = useResaleListings({ eventId, enabled: !!eventId });
+  const actions = useResaleActions();
   const [notFound, setNotFound] = useState(false);
   const [notifying, setNotifying] = useState(false);
-  // Live price intel for this event — used by the market-insight card and
-  // by the "best deal" badge on each listing card.
+  // Live price intel for this event, used by the market-insight card.
   const { intel } = useEventPriceIntel(eventId);
 
   useEffect(() => {
@@ -75,26 +67,11 @@ const EventTicketsMarketplace = () => {
       }
 
       setEvent(eventData as EventInfo);
-
-      // Fetch available tickets for this event directly
-      const { data: ticketData, error: ticketErr } = await supabase
-        .from("tickets")
-        .select("id, seller_id, selling_price, quantity, notes, created_at, seller:profiles(full_name)")
-        .eq("event_id", eventId)
-        .in("status", ["available", "reserved"])
-        .order("created_at", { ascending: false });
-
-      if (ticketErr) console.error("Ticket fetch error:", ticketErr);
-      setListings((ticketData as unknown as Listing[]) ?? []);
       setLoading(false);
     }
 
     fetchData();
   }, [eventId]);
-
-  const handleBuyTicket = (listingId: string) => {
-    navigate(`/checkout?listing_id=${listingId}`);
-  };
 
   const handleNotifyMe = async () => {
     if (!user) {
@@ -120,24 +97,7 @@ const EventTicketsMarketplace = () => {
     toast.success("Done! We'll email you the moment a ticket is listed for this event.");
   };
 
-  const handleMakeOffer = async (listing: Listing) => {
-    if (!user) {
-      navigate(authPathHere());
-      return;
-    }
-    if (user.id === listing.seller_id) {
-      toast.error("You can't make an offer on your own ticket");
-      return;
-    }
-    try {
-      const convId = await getOrCreateConversation(listing.id, user.id, listing.seller_id);
-      navigate(`/messages/${convId}`);
-    } catch {
-      toast.error("Failed to start conversation");
-    }
-  };
-
-  if (loading) {
+  if (loading || listingsLoading) {
     return (
       <>
         <SEOHead titleKey="nav.home" descriptionKey="hero.subtitle" />
@@ -356,120 +316,11 @@ const EventTicketsMarketplace = () => {
             <div className="mb-8 flex items-start gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3">
               <MessageSquare className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
               <p className="text-sm text-primary/90">
-                <span className="font-semibold">Not happy with the price?</span> Use <span className="font-semibold">"Make an Offer"</span> on any listing to chat directly with the seller and negotiate.
+                <span className="font-semibold">Not happy with the price?</span> Use <span className="font-semibold">"Make an offer"</span> on any listing to chat directly with the seller and negotiate.
               </p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {listings.map(listing => (
-                <Card key={listing.id} className="overflow-hidden hover:shadow-xl transition-all duration-300">
-                  <CardContent className="p-0">
-                    {/* Ticket Header */}
-                    <div className="bg-primary/10 p-6 border-b">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-2">
-                          <Badge variant="default">
-                            {listing.quantity} ticket{listing.quantity > 1 ? 's' : ''}
-                          </Badge>
-                          </div>
-                      </div>
-
-                      {(() => {
-                        const price = listing.selling_price ?? 0;
-                        const breakdown = calcBreakdown(price, 1);
-                        // Compare against the rolling avg from intel.
-                        // > 5 % below avg = "good deal" pill. Within 5 %
-                        // stays silent so we don't badge every listing.
-                        const avg = intel.avgSold;
-                        const savings = avg != null && price > 0 ? avg - price : null;
-                        const pctBelow = avg != null && price > 0 ? ((avg - price) / avg) * 100 : null;
-                        const isBestDeal = pctBelow != null && pctBelow >= 5;
-                        return (
-                          <div className="text-center">
-                            <p className="text-sm text-muted-foreground mb-1">Price per ticket</p>
-                            <p className="text-4xl font-bold text-primary">€{breakdown.buyerTotalEuros.toFixed(2)}</p>
-                            <div className="mt-2 text-xs text-muted-foreground space-y-0.5">
-                              <div className="flex items-center justify-center gap-1">
-                                <span>All-in price · fees included</span>
-                                <a
-                                  href="/how-it-works#pricing"
-                                  className="inline-flex text-muted-foreground hover:text-primary"
-                                  title="Why a fee?"
-                                  aria-label="Learn about the platform fee"
-                                  onClick={(e) => { e.stopPropagation(); }}
-                                >
-                                  <HelpCircle className="w-3.5 h-3.5" />
-                                </a>
-                              </div>
-                            </div>
-                            {isBestDeal && savings != null && (
-                              <div className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[11px] font-bold">
-                                <Sparkles className="w-3 h-3" />
-                                €{savings.toFixed(0)} below avg
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })()}
-                    </div>
-
-                    {/* Ticket Details */}
-                    <div className="p-6 space-y-4">
-                      {/* Seller Info */}
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                          <User className="w-5 h-5 text-primary" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm text-muted-foreground">Sold by</p>
-                          <p className="font-semibold truncate">{listing.seller?.full_name ?? "Anonymous"}</p>
-                        </div>
-                      </div>
-
-                      {/* Notes */}
-                      {listing.notes && (
-                        <div>
-                          <p className="text-sm text-muted-foreground mb-1">Notes</p>
-                          <p className="text-sm line-clamp-3">{listing.notes}</p>
-                        </div>
-                      )}
-
-                      {/* Posted Time */}
-                      <div>
-                        <p className="text-xs text-muted-foreground">
-                          Listed {new Date(listing.created_at).toLocaleDateString(dateLocale, {
-                            month: 'short',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </p>
-                      </div>
-
-                      {/* Action Buttons */}
-                      <div className="space-y-2">
-                        <Button
-                          variant="hero"
-                          size="lg"
-                          className="w-full"
-                          onClick={() => handleBuyTicket(listing.id)}
-                        >
-                          <ShoppingCart className="w-4 h-4 mr-2" />
-                          Buy Now
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="lg"
-                          className="w-full border-primary/40 text-primary hover:bg-primary/5 hover:border-primary"
-                          onClick={() => handleMakeOffer(listing)}
-                        >
-                          <MessageSquare className="w-4 h-4 mr-2" />
-                          Make an Offer — Chat with Seller
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+            <div className="max-w-2xl">
+              <ResaleListingList listings={listings} onOffer={actions.offer} offerBusy={actions.offerBusy} />
             </div>
 
             {/* Sell for this event — shown after the browse grid, not instead of it */}

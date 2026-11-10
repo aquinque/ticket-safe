@@ -124,14 +124,6 @@ const BuyTicket = () => {
                     {event.description}
                   </p>
 
-                  {listing.description && (
-                    <div className="mt-4 pt-4 border-t border-border">
-                      <h4 className="font-semibold text-sm mb-1">Seller's note</h4>
-                      <p className="text-sm text-muted-foreground leading-relaxed break-words">
-                        {listing.description}
-                      </p>
-                    </div>
-                  )}
                 </div>
 
                 {listing.files && listing.files.length > 0 && (

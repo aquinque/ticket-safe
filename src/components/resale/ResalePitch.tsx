@@ -10,15 +10,13 @@
  * Every claim here is what the product does today: the QR is checked before
  * a ticket is listed (submit-listing), the seller sets the price,
  * a resold TicketSafe ticket is reissued to the buyer with a new QR and the
- * seller's is marked transferred (stripe-connect-webhook), and the seller
- * fee comes from src/lib/fees.ts. No payout date is promised here.
+ * seller's is marked transferred (stripe-connect-webhook), and both fees (buyer
+ * service fee, seller commission) come from src/lib/fees.ts. No payout date is promised here.
  */
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowDown, ArrowRight, Banknote, Check, ScanLine, Ticket, X } from "lucide-react";
-import { SELLER_COMMISSION_RATE } from "@/lib/fees";
-
-const SELLER_FEE = `${Math.round(SELLER_COMMISSION_RATE * 100)}%`;
+import { RESALE_BUYER_FEE_COPY, RESALE_SELLER_COMMISSION_COPY } from "@/lib/fees";
 
 // ────────────────────────────────────────────────────────────────────────────
 // Hero
@@ -193,7 +191,7 @@ function QrGlyph() {
 const ROWS: { q: string; chat: string; us: string }[] = [
   { q: "Is the ticket real?", chat: "You trust a screenshot.", us: "The QR is checked before it can be listed." },
   { q: "Where does the money go?", chat: "Straight to someone you've never met.", us: "The buyer pays TicketSafe, not a stranger." },
-  { q: "What does it cost?", chat: "Hidden costs and deposits.", us: "The price is shown up front, with a 5% fee." },
+  { q: "What does it cost?", chat: "Hidden costs and deposits.", us: `Shown up front: the buyer pays a ${RESALE_BUYER_FEE_COPY} service fee, the seller a ${RESALE_SELLER_COMMISSION_COPY} commission.` },
   {
     q: "Can it be sold twice?",
     chat: "The same QR can go to five people.",

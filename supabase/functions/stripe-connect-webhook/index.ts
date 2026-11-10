@@ -8,14 +8,19 @@
  * same dual-secret pattern as the legacy stripe-webhook
  * (STRIPE_CONNECT_WEBHOOK_SECRET for the platform endpoint,
  * STRIPE_CONNECT_WEBHOOK_SECRET_CONNECTED for "events on connected accounts").
- * Studio sales are destination charges since 2026-10-06, so their
- * checkout.session.* / payment_intent.* / charge.* events arrive on the
- * PLATFORM endpoint; resale checkouts are still direct charges and arrive on
- * the connected-accounts endpoint, as do account.updated and payout.*.
+ * Studio sales are destination charges since 2026-10-06, and resale sales are
+ * charged on the platform account itself (stripe-connect-resale-checkout:
+ * separate charges and transfers, the seller is paid later by
+ * stripe-connect-payout-cron). So the checkout.session.* / payment_intent.* /
+ * charge.* events of both arrive on the PLATFORM endpoint. account.updated and
+ * payout.* (payouts made from connected accounts) arrive on the
+ * connected-accounts endpoint.
  *
  * Idempotency: reuses the existing stripe_webhook_events table (event_id
  * PK) — Stripe event ids are globally unique per account regardless of
- * which endpoint receives them.
+ * which endpoint receives them. When a resale completion or refund fails,
+ * its row is deleted before answering 500, so Stripe's retry runs it again
+ * (both SQL functions and the conflict refund are idempotent).
  *
  *  checkout.session.completed (metadata.source = stripe_connect_studio_sale)
  *    → order: pending -> paid, tier: reserved -> sold, tickets issued,
@@ -23,17 +28,33 @@
  *      duplicated here).
  *
  *  checkout.session.completed (metadata.source = stripe_connect_resale)
- *    → transaction: pending -> completed, listing: reserved -> sold,
- *      Studio-ticket transfer (old ticket -> transferred, new nominative
- *      ticket issued) exactly like revolut-webhook's resale branch,
- *      sendResaleCompletionEmails(transaction_id) called (the shared
- *      module extracted from revolut-webhook earlier this session).
+ *    → completeResaleCheckout (_shared/resaleCheckoutCompletion.ts):
+ *      complete_resale_purchase (SQL) marks the listing sold, transfers the
+ *      Studio ticket (old ticket -> transferred, new nominative ticket with
+ *      a QR signed here) and completes the transaction in one go, only if
+ *      this transaction still holds the listing; then
+ *      sendResaleCompletionEmails(transaction_id). If the ticket went
+ *      elsewhere (sold, hold taken over after expiry, withdrawn, Studio
+ *      ticket scanned), the buyer is refunded in full automatically and
+ *      emailed, and the admin is alerted.
  *
- *  checkout.session.expired / payment_intent.payment_failed
- *    → release reservation, cancel order/transaction.
+ *  checkout.session.expired → Studio: expire the order, release the seats.
+ *    Resale: release_resale_reservation(transaction), which only frees the
+ *    listing if this transaction still holds it.
+ *  payment_intent.payment_failed → log only: Stripe's page keeps the session
+ *    open so the buyer can try another card; expiry releases it.
  *
- *  charge.refunded → mark refunded, re-list ticket if it was a resale.
- *  charge.dispute.created → flag + notify admin, block the event's payout job.
+ *  charge.refunded → Studio order: refunded. Resale: record_resale_refund
+ *    (SQL) marks the transaction refunded and re-lists the ticket only if it
+ *    was this transaction's completed sale of an external listing. A refunded
+ *    Studio resale is not re-listed (the seller's ticket is already
+ *    transferred) and the admin is alerted.
+ *  charge.dispute.created → notify admin; Studio order: block the event's
+ *    payout job; resale: transaction -> 'disputed', which keeps it out of the
+ *    seller's payout, or, if the seller was already paid, flags it so the
+ *    admin recovers the money (_shared/resaleDispute.ts).
+ *  charge.dispute.closed → a won resale dispute puts the sale back to
+ *    'completed' so the seller is paid; a lost one stays 'disputed'.
  *  account.updated → sync stripe_connect_accounts.
  *  payout.paid / payout.failed → update stripe_connect_payout_jobs, notify.
  */
@@ -43,9 +64,14 @@ import Stripe from "npm:stripe@14.21.0";
 import { finalizeStudioOrder } from "../_shared/finalizeStudioOrder.ts";
 import { signStudioTicketJWT } from "../_shared/ticketJwt.ts";
 import { sendResaleCompletionEmails } from "../_shared/sendResaleCompletionEmails.ts";
-import { renderEmail, ctaButton, ticketSummary } from "../_shared/emailComponents.ts";
+import { renderEmail, ctaButton, ticketSummary, escapeHtml } from "../_shared/emailComponents.ts";
 import { emailTokens } from "../_shared/emailTokens.ts";
 import { formatMinor } from "../_shared/money.ts";
+import { holdResaleOnDispute, releaseResaleDispute, resaleDisputeAlert, type DisputeDbClient } from "../_shared/resaleDispute.ts";
+import { completeResaleCheckout, type CompleteResaleCheckoutDeps } from "../_shared/resaleCheckoutCompletion.ts";
+import { parseRefundRecordResult, refundNeedsAdminReview } from "../_shared/resaleReservation.ts";
+
+const ADMIN_EMAIL = "ticketsafe.friendly@gmail.com";
 
 async function sendEmail(resendKey: string, to: string, subject: string, html: string, text: string) {
   try {
@@ -55,6 +81,38 @@ async function sendEmail(resendKey: string, to: string, subject: string, html: s
       body: JSON.stringify({ from: "Ticket Safe <noreply@ticket-safe.eu>", to: [to], subject, html, text }),
     });
   } catch (e) { console.warn("[stripe-connect-webhook] email failed:", e); }
+}
+
+/** Admin alert from a plain-text body (one paragraph per line). */
+async function sendAdminAlert(resendKey: string | undefined, subject: string, text: string) {
+  if (!resendKey) { console.error(`[stripe-connect-webhook] admin alert (no RESEND_API_KEY): ${subject}\n${text}`); return; }
+  const bodyHtml = text.split("\n").filter((l) => l.trim()).map((l) => `<p style="margin:0 0 8px">${escapeHtml(l)}</p>`).join("");
+  const { html } = renderEmail({ eyebrow: "Resale", title: subject, bodyHtml, preheader: subject, text });
+  await sendEmail(resendKey, ADMIN_EMAIL, subject, html, text);
+}
+
+/** "Your payment was refunded": the resale ticket went to someone else before this payment completed. */
+function buyerRefundEmail(amountCents: number, eventTitle: string | null) {
+  const amount = formatMinor(amountCents, "eur", "prefix");
+  const what = eventTitle ? `the ticket for <strong>${escapeHtml(eventTitle)}</strong>` : "this ticket";
+  const whatText = eventTitle ? `the ticket for ${eventTitle}` : "this ticket";
+  const subject = "Your payment was refunded";
+  const bodyHtml = `
+    <p style="margin:0 0 4px">Hi,</p>
+    <p style="margin:0 0 4px">Sorry, ${what} sold a moment before your payment went through, so we couldn't complete your purchase.</p>
+    ${ticketSummary([["Refunded", amount, emailTokens.accent]])}
+    <p style="margin:0 0 24px;font-size:13px;color:${emailTokens.textMuted}">We've refunded you in full, to the card you paid with. It can take 5–10 days to appear on your statement.</p>
+    ${ctaButton("See other resale tickets", `${emailTokens.siteUrl}/marketplace/buy`)}
+  `;
+  const text = `Sorry, ${whatText} sold a moment before your payment went through, so we couldn't complete your purchase. We've refunded ${amount} in full, to the card you paid with. It can take 5–10 days to appear on your statement. Other resale tickets: ${emailTokens.siteUrl}/marketplace/buy`;
+  const { html } = renderEmail({ eyebrow: "Refund", title: subject, bodyHtml, preheader: `We've refunded ${amount} in full.`, text });
+  return { subject, html, text };
+}
+
+/** Forget this event so Stripe's retry of it is processed instead of skipped as a duplicate. */
+async function allowRetry(supabase: ReturnType<typeof createClient>, eventId: string) {
+  const { error } = await supabase.from("stripe_webhook_events").delete().eq("event_id", eventId);
+  if (error) console.error(`[stripe-connect-webhook] could not delete idempotency row for ${eventId}:`, error.message);
 }
 
 serve(async (req) => {
@@ -131,51 +189,37 @@ serve(async (req) => {
         // ── Resale ──
         if (session.metadata?.source === "stripe_connect_resale") {
           const transactionId = session.metadata.transaction_id;
-          const listingId = session.metadata.listing_id;
-          const buyerId = session.metadata.buyer_id;
-          if (!transactionId || !listingId) break;
+          if (!transactionId) break;
 
           const paymentIntentId = typeof session.payment_intent === "string" ? session.payment_intent : (session.payment_intent as Stripe.PaymentIntent)?.id ?? null;
 
-          const { data: txUpd } = await supabase
-            .from("transactions")
-            .update({ status: "completed", payment_intent_id: paymentIntentId })
-            .eq("id", transactionId).eq("status", "pending").select("id, ticket_id, buyer_id, seller_id");
-          if (!txUpd || txUpd.length === 0) break;
-
-          await supabase.from("tickets").update({ status: "sold", buyer_id: buyerId ?? null }).eq("id", listingId).in("status", ["available", "reserved"]);
-
-          // Studio-ticket transfer — identical logic to revolut-webhook's
-          // resale branch (old ticket -> transferred, new nominative ticket
-          // issued to the buyer).
           try {
-            const { data: xferListing } = await supabase.from("tickets").select("studio_ticket_id").eq("id", listingId).maybeSingle();
-            const studioTicketId = (xferListing as { studio_ticket_id?: string | null } | null)?.studio_ticket_id ?? null;
-            if (studioTicketId && buyerId) {
-              const { data: oldTicket } = await supabase.from("event_tickets").select("id, event_id, tier_id, order_id, status").eq("id", studioTicketId).maybeSingle();
-              if (oldTicket && oldTicket.status !== "transferred" && oldTicket.status !== "scanned") {
-                await supabase.from("event_tickets").update({ status: "transferred" }).eq("id", oldTicket.id);
-                const { data: buyerProfile } = await supabase.from("profiles").select("full_name, email").eq("id", buyerId).maybeSingle();
-                const { data: evForExp } = await supabase.from("events").select("date").eq("id", oldTicket.event_id).maybeSingle();
-                const expSeconds = evForExp?.date ? Math.floor(new Date(evForExp.date).getTime() / 1000) + 86_400 : Math.floor(Date.now() / 1000) + 30 * 86_400;
-                const newTicketId = crypto.randomUUID();
-                const signed = await signStudioTicketJWT({ ticket_id: newTicketId, event_id: oldTicket.event_id, exp_seconds: expSeconds });
-                const newQr = signed ?? crypto.randomUUID().replace(/-/g, "");
-                const fullName = ((buyerProfile as { full_name?: string } | null)?.full_name ?? "").trim();
-                const parts = fullName.split(/\s+/).filter(Boolean);
-                await supabase.from("event_tickets").insert({
-                  id: newTicketId, order_id: oldTicket.order_id, event_id: oldTicket.event_id, tier_id: oldTicket.tier_id,
-                  buyer_id: buyerId, qr_token: newQr,
-                  holder_first_name: parts[0] ?? null, holder_last_name: parts.length > 1 ? parts.slice(1).join(" ") : null,
-                  holder_email: (buyerProfile as { email?: string } | null)?.email ?? null, status: "valid",
-                });
-              }
-            }
-          } catch (err) { console.error("[stripe-connect-webhook] resale transfer failed:", err); }
-
-          if (resendKey) {
-            const result = await sendResaleCompletionEmails({ supabase, resendApiKey: resendKey, transactionId, provider: "stripe" });
-            console.log("[stripe-connect-webhook] resale emails:", JSON.stringify(result));
+            const result = await completeResaleCheckout({
+              supabase: supabase as unknown as CompleteResaleCheckoutDeps["supabase"],
+              stripe: { refunds: { create: (params, opts) => stripe.refunds.create(params, opts) } },
+              signQr: signStudioTicketJWT,
+              newId: () => crypto.randomUUID(),
+              nowMs: () => Date.now(),
+              sendCompletionEmails: async (txId) => {
+                if (!resendKey) return null;
+                const emails = await sendResaleCompletionEmails({ supabase, resendApiKey: resendKey, transactionId: txId, provider: "stripe" });
+                console.log("[stripe-connect-webhook] resale emails:", JSON.stringify(emails));
+                return emails;
+              },
+              sendBuyerRefundEmail: async ({ buyerId, amountCents, eventTitle }) => {
+                if (!resendKey) return;
+                const { data: buyerAuth } = await supabase.auth.admin.getUserById(buyerId);
+                const to = buyerAuth?.user?.email ?? null;
+                if (!to) return;
+                const { subject, html, text } = buyerRefundEmail(amountCents, eventTitle);
+                await sendEmail(resendKey, to, subject, html, text);
+              },
+              sendAdminAlert: (subject, text) => sendAdminAlert(resendKey, subject, text),
+            }, { transactionId, paymentIntentId });
+            console.log(`[stripe-connect-webhook] resale tx=${transactionId}: ${result.outcome}${result.refunded ? " (refunded)" : ""}`);
+          } catch (err) {
+            await allowRetry(supabase, event.id);
+            throw err;
           }
           break;
         }
@@ -191,10 +235,14 @@ serve(async (req) => {
           if (orderId) await supabase.from("event_orders").update({ status: "expired", cancelled_at: new Date().toISOString() }).eq("id", orderId).eq("status", "pending");
           if (tierId) await supabase.rpc("release_tier_reservation", { p_tier_id: tierId, p_qty: qty });
         } else if (session.metadata?.source === "stripe_connect_resale") {
-          const listingId = session.metadata.listing_id;
+          // Releases the listing only if this transaction still holds it (a
+          // later buyer may have taken over an expired hold).
           const transactionId = session.metadata.transaction_id;
-          if (listingId) await supabase.from("tickets").update({ status: "available" }).eq("id", listingId).eq("status", "reserved");
-          if (transactionId) await supabase.from("transactions").update({ status: "cancelled" }).eq("id", transactionId).eq("status", "pending");
+          if (transactionId) {
+            const { data: released, error: releaseErr } = await supabase.rpc("release_resale_reservation", { p_transaction_id: transactionId });
+            if (releaseErr) console.error("[stripe-connect-webhook] release_resale_reservation failed:", releaseErr.message);
+            else console.log(`[stripe-connect-webhook] resale session expired tx=${transactionId}: ${released ? "listing released" : "nothing held"}`);
+          }
         }
         break;
       }
@@ -209,10 +257,9 @@ serve(async (req) => {
           // stuck-orders cleanup release them if the buyer gives up.
           console.log(`[stripe-connect-webhook] payment attempt failed for order ${pi.metadata.order_id ?? "?"}: ${pi.last_payment_error?.message ?? "no detail"}`);
         } else if (pi.metadata?.source === "stripe_connect_resale") {
-          const listingId = pi.metadata.listing_id;
-          const transactionId = pi.metadata.transaction_id;
-          if (transactionId) await supabase.from("transactions").update({ status: "cancelled" }).eq("id", transactionId).eq("status", "pending");
-          if (listingId) await supabase.from("tickets").update({ status: "available" }).eq("id", listingId).eq("status", "reserved");
+          // Same as a Studio sale: the session stays open for another card,
+          // the hold stays, and checkout.session.expired releases it.
+          console.log(`[stripe-connect-webhook] payment attempt failed for resale tx ${pi.metadata.transaction_id ?? "?"}: ${pi.last_payment_error?.message ?? "no detail"}`);
         }
         break;
       }
@@ -228,10 +275,23 @@ serve(async (req) => {
         if (order) {
           await supabase.from("event_orders").update({ status: "refunded" }).eq("id", order.id);
         } else {
-          const { data: tx } = await supabase.from("transactions").select("id, ticket_id").eq("payment_intent_id", pi).maybeSingle();
-          if (tx) {
-            await supabase.from("transactions").update({ status: "refunded" }).eq("id", tx.id);
-            await supabase.from("tickets").update({ status: "available" }).eq("id", tx.ticket_id).eq("status", "sold");
+          // Resale: re-listed only when it was this transaction's completed
+          // sale of an external listing (never after a conflict refund).
+          try {
+            const { data: refundRows, error: refundErr } = await supabase.rpc("record_resale_refund", { p_payment_intent_id: pi });
+            if (refundErr) throw new Error("record_resale_refund failed: " + refundErr.message);
+            const refund = parseRefundRecordResult(refundRows);
+            console.log(`[stripe-connect-webhook] resale refund pi=${pi}: ${refund.outcome}${refund.relisted ? " (re-listed)" : ""}`);
+            if (refundNeedsAdminReview(refund)) {
+              await sendAdminAlert(
+                resendKey,
+                "Refunded resale not re-listed — check the buyer's ticket",
+                `A completed resale was refunded and its listing was not put back on sale. If it was a Ticket Studio resale, the buyer's new ticket is still valid and the seller's old one is transferred: cancel the buyer's ticket if needed.\n\nTransaction: ${refund.transactionId ?? "—"}\nPayment intent: ${pi}`,
+              );
+            }
+          } catch (err) {
+            await allowRetry(supabase, event.id);
+            throw err;
           }
         }
         break;
@@ -241,23 +301,45 @@ serve(async (req) => {
         const dispute = event.data.object as Stripe.Dispute;
         const pi = typeof dispute.payment_intent === "string" ? dispute.payment_intent : dispute.payment_intent?.id;
         console.error(`[stripe-connect-webhook] DISPUTE opened: ${dispute.id} amount=${dispute.amount} pi=${pi}`);
-        if (resendKey) {
-          // In the charge's currency: pounds for a London event (Stripe sends it lowercase, e.g. "gbp").
-          const disputeAmount = formatMinor(dispute.amount, dispute.currency, "prefix");
-          const bodyHtml = `<p style="margin:0 0 4px">A Stripe dispute (chargeback) was just opened.</p>${ticketSummary([["Dispute amount", disputeAmount, emailTokens.danger], ["Payment intent", pi ?? "—"], ["Reason", dispute.reason ?? "—"]])}<p style="margin:16px 0 0;font-size:13px;color:${emailTokens.textMuted}">Respond in the Stripe Dashboard before the evidence deadline. Any payout tied to this order should be held until resolved.</p>`;
-          const text = `Dispute opened: ${disputeAmount}, payment_intent ${pi}, reason: ${dispute.reason}`;
-          const { html } = renderEmail({ eyebrow: "Stripe dispute", title: "A payment was disputed", bodyHtml, preheader: `Dispute opened for ${disputeAmount}`, text });
-          await sendEmail(resendKey, "ticketsafe.friendly@gmail.com", `[URGENT] Stripe dispute opened — ${disputeAmount}`, html, text);
-        }
-        // Block any pending payout job for the order tied to this payment_intent.
+
+        // Studio order: block any pending payout job for its event.
+        // Resale: hold the sale out of the seller's payout, or flag it if the
+        // seller was already paid.
+        let resale: ReturnType<typeof resaleDisputeAlert> = null;
         if (pi) {
           const { data: order } = await supabase.from("event_orders").select("id, event_id").eq("stripe_payment_intent_id", pi).maybeSingle();
           if (order) {
             await supabase.from("stripe_connect_payout_jobs")
               .update({ status: "blocked", blocked_reason: `Dispute ${dispute.id} on event ${order.event_id}` })
               .eq("event_id", order.event_id).eq("status", "scheduled");
+          } else {
+            const hold = await holdResaleOnDispute(supabase as unknown as DisputeDbClient, { paymentIntentId: pi, disputeId: dispute.id });
+            console.log(`[stripe-connect-webhook] resale dispute ${dispute.id}: ${hold.kind}`);
+            resale = resaleDisputeAlert(hold);
           }
         }
+
+        if (resendKey) {
+          // In the charge's currency: pounds for a London event (Stripe sends it lowercase, e.g. "gbp").
+          const disputeAmount = formatMinor(dispute.amount, dispute.currency, "prefix");
+          const rows: [string, string, string?][] = [["Dispute amount", disputeAmount, emailTokens.danger], ["Payment intent", pi ?? "—"], ["Reason", dispute.reason ?? "—"]];
+          for (const [label, value] of resale?.rows ?? []) rows.push([label, value]);
+          const note = resale?.note ?? "Any payout tied to this order should be held until resolved.";
+          const bodyHtml = `<p style="margin:0 0 4px">A Stripe dispute (chargeback) was just opened.</p>${ticketSummary(rows)}<p style="margin:16px 0 0;font-size:13px;color:${emailTokens.textMuted}">Respond in the Stripe Dashboard before the evidence deadline. ${note}</p>`;
+          const text = `Dispute opened: ${disputeAmount}, payment_intent ${pi}, reason: ${dispute.reason}. ${(resale?.rows ?? []).map(([l, v]) => `${l}: ${v}`).join(". ")} ${note}`;
+          const subject = resale?.urgent
+            ? `[URGENT] Stripe dispute on a resale already paid out — ${disputeAmount}`
+            : `[URGENT] Stripe dispute opened — ${disputeAmount}`;
+          const { html } = renderEmail({ eyebrow: "Stripe dispute", title: "A payment was disputed", bodyHtml, preheader: `Dispute opened for ${disputeAmount}`, text });
+          await sendEmail(resendKey, "ticketsafe.friendly@gmail.com", subject, html, text);
+        }
+        break;
+      }
+
+      case "charge.dispute.closed": {
+        const dispute = event.data.object as Stripe.Dispute;
+        const result = await releaseResaleDispute(supabase as unknown as DisputeDbClient, { disputeId: dispute.id, disputeStatus: dispute.status });
+        console.log(`[stripe-connect-webhook] dispute ${dispute.id} closed (${dispute.status}): ${result.kind}`);
         break;
       }
 

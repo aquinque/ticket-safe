@@ -33,33 +33,8 @@ import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { authPathHere } from "@/lib/returnTo";
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
-interface PendingTicket {
-  id: string;
-  status: string;
-  verification_status: string;
-  selling_price: number;
-  quantity: number;
-  notes: string | null;
-  qr_verified: boolean;
-  created_at: string;
-  event: {
-    id: string;
-    title: string;
-    date: string;
-    location: string | null;
-    campus: string | null;
-  } | null;
-  seller: {
-    full_name: string;
-    email: string;
-    campus: string | null;
-  } | null;
-}
+import { callRpc } from "@/lib/supabaseRpc";
+import { fetchPendingListings, listingErrorMessage, type PendingListing } from "@/lib/sellerListings";
 
 // ---------------------------------------------------------------------------
 // Component
@@ -70,7 +45,7 @@ const ReviewTickets = () => {
   const { user, loading: authLoading } = useAuth();
 
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
-  const [tickets, setTickets] = useState<PendingTicket[]>([]);
+  const [tickets, setTickets] = useState<PendingListing[]>([]);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState<Record<string, string>>({});
@@ -102,22 +77,11 @@ const ReviewTickets = () => {
   const fetchPending = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("tickets")
-        .select(`
-          id, status, verification_status, selling_price, quantity,
-          notes, qr_verified, created_at,
-          event:events(id, title, date, location, campus),
-          seller:profiles(full_name, email, campus)
-        `)
-        .eq("verification_status", "pending")
-        .eq("status", "available")
-        .order("created_at", { ascending: true });
-
-      if (error) throw error;
-      setTickets((data as unknown as PendingTicket[]) ?? []);
+      // admin_pending_listings() checks the admin role server-side and returns the seller's name and
+      // notes, which the tickets table no longer exposes to the browser.
+      setTickets(await fetchPendingListings(callRpc));
     } catch (err) {
-      toast.error("Failed to load pending tickets");
+      toast.error(listingErrorMessage(err instanceof Error ? err.message : null, "Failed to load pending tickets"));
       console.error(err);
     } finally {
       setLoading(false);

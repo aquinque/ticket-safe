@@ -21,6 +21,49 @@ import { PageHeader } from "@/components/PageHeader";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { authPathHere } from "@/lib/returnTo";
+import { callRpc } from "@/lib/supabaseRpc";
+
+/** One row of my_purchased_listings(): a resale listing the signed-in user bought, with its event. */
+interface PurchasedListingRow {
+  listing_id: string;
+  quantity: number;
+  price_cents: number;
+  purchased_at: string;
+  event_id: string;
+  is_studio: boolean;
+  event_title: string | null;
+  event_date: string | null;
+  event_location: string | null;
+  event_slug: string | null;
+  event_banner_url: string | null;
+  event_primary_color: string | null;
+}
+
+const parsePurchasedListings = (data: unknown): PurchasedListingRow[] => {
+  if (!Array.isArray(data)) return [];
+  const textOrNull = (v: unknown): string | null => (typeof v === "string" ? v : null);
+  const out: PurchasedListingRow[] = [];
+  for (const row of data) {
+    if (typeof row !== "object" || row === null) continue;
+    const r = row as Record<string, unknown>;
+    if (typeof r.listing_id !== "string" || typeof r.event_id !== "string") continue;
+    out.push({
+      listing_id: r.listing_id,
+      quantity: typeof r.quantity === "number" ? r.quantity : 1,
+      price_cents: typeof r.price_cents === "number" ? r.price_cents : 0,
+      purchased_at: textOrNull(r.purchased_at) ?? new Date(0).toISOString(),
+      event_id: r.event_id,
+      is_studio: r.is_studio === true,
+      event_title: textOrNull(r.event_title),
+      event_date: textOrNull(r.event_date),
+      event_location: textOrNull(r.event_location),
+      event_slug: textOrNull(r.event_slug),
+      event_banner_url: textOrNull(r.event_banner_url),
+      event_primary_color: textOrNull(r.event_primary_color),
+    });
+  }
+  return out;
+};
 
 interface OrderCard {
   id: string;
@@ -65,12 +108,12 @@ const MyTicketsHub = () => {
     (async () => {
       setLoading(true);
       // Pull both Studio orders AND resale tickets the user bought in parallel.
-      // Resale tickets live in the `tickets` table (status='sold', buyer_id=me)
-      // and ship with the seller's original PDF/QR rather than a Ticket Safe
-      // generated QR, so the card renders slightly differently.
+      // Resale purchases come from my_purchased_listings() (the buyer can't read
+      // tickets.buyer_id directly) and ship with the seller's original PDF/QR
+      // rather than a Ticket Safe generated QR, so the card renders slightly differently.
       // 3 sources, queried in parallel:
       //   1. event_orders   — Studio primary buyers (their own order)
-      //   2. tickets        — resale buyers (external + Studio)
+      //   2. my_purchased_listings() — resale buyers (external + Studio)
       //   3. event_tickets  — buyers of a Studio RESALE: their new ticket
       //                       sits under the SELLER's order_id, so query (1)
       //                       misses it. We surface it as its own card here.
@@ -94,15 +137,7 @@ const MyTicketsHub = () => {
           // the user holds, so they never appear in My Tickets.
           .in("status", ["paid", "refunded"])
           .order("created_at", { ascending: false }),
-        supabase
-          .from("tickets")
-          .select(
-            `id, status, quantity, selling_price, file_url, notes, created_at, event_id, studio_ticket_id,
-             event:events(title, date, location, slug, banner_url, primary_color)`,
-          )
-          .eq("buyer_id", user.id)
-          .eq("status", "sold")
-          .order("created_at", { ascending: false }),
+        callRpc("my_purchased_listings", {}),
         supabase
           .from("event_tickets")
           .select(
@@ -126,48 +161,32 @@ const MyTicketsHub = () => {
       // Resale cards — show EXTERNAL resales only. Studio resales are
       // surfaced via the event_tickets query below so the buyer gets the
       // real QR view instead of a dead-end card.
-      const resaleCards: OrderCard[] = (resaleData ?? [])
-        .filter((row: { studio_ticket_id?: string | null }) => !row.studio_ticket_id)
-        .map(
-        (row: {
-          id: string;
-          status: string;
-          quantity: number;
-          selling_price: number | null;
-          file_url: string | null;
-          notes: string | null;
-          created_at: string;
-          event_id: string;
-          studio_ticket_id?: string | null;
-          event: { title?: string; date?: string; location?: string; slug?: string; banner_url?: string; primary_color?: string } | { title?: string; date?: string; location?: string; slug?: string; banner_url?: string; primary_color?: string }[] | null;
-        }) => {
-          const ev = Array.isArray(row.event) ? row.event[0] : row.event;
-          return {
-            id: `resale-${row.id}`,
-            status: "paid",
-            quantity: row.quantity ?? 1,
-            total_cents: Math.round((row.selling_price ?? 0) * 100 * (row.quantity ?? 1)),
-            paid_at: row.created_at,
-            created_at: row.created_at,
-            event_id: row.event_id,
-            event_title: ev?.title ?? "Resale ticket",
-            event_date: ev?.date ?? null,
-            event_location: ev?.location ?? null,
-            event_slug: ev?.slug ?? null,
-            event_banner_url: ev?.banner_url ?? null,
-            event_primary_color: ev?.primary_color ?? null,
-            tier_name: "Resale",
-            ticket_count: row.quantity ?? 1,
-            scanned_count: 0,
-            refunded_count: 0,
-            transferred_count: 0,
-            attendees: [],
-            sellableTicketId: null,
-            isResale: true,
-            isResold: true,
-          };
-        },
-      );
+      const resaleCards: OrderCard[] = parsePurchasedListings(resaleData)
+        .filter((row) => !row.is_studio)
+        .map((row) => ({
+          id: `resale-${row.listing_id}`,
+          status: "paid",
+          quantity: row.quantity,
+          total_cents: row.price_cents * row.quantity,
+          paid_at: row.purchased_at,
+          created_at: row.purchased_at,
+          event_id: row.event_id,
+          event_title: row.event_title ?? "Resale ticket",
+          event_date: row.event_date,
+          event_location: row.event_location,
+          event_slug: row.event_slug,
+          event_banner_url: row.event_banner_url,
+          event_primary_color: row.event_primary_color,
+          tier_name: "Resale",
+          ticket_count: row.quantity,
+          scanned_count: 0,
+          refunded_count: 0,
+          transferred_count: 0,
+          attendees: [],
+          sellableTicketId: null,
+          isResale: true,
+          isResold: true,
+        }));
 
       // Transferred cards — event_tickets the user owns that DON'T belong
       // to one of their own Studio orders. These are Studio resales that

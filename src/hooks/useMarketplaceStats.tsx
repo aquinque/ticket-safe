@@ -35,7 +35,7 @@ async function fetchStats(): Promise<MarketplaceStats> {
       .eq("status", "paid"),
     supabase
       .from("tickets")
-      .select("*", { count: "exact", head: true })
+      .select("id", { count: "exact", head: true })
       .eq("status", "available"),
     // Sold in the last 24h, by event — used to render the "X sold today" ribbon.
     // We join through tickets to get event_id; PostgREST embed handles that.

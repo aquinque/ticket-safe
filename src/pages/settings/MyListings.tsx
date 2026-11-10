@@ -44,9 +44,17 @@ import {
 } from "lucide-react";
 import { toast as sonnerToast } from "sonner";
 import { generatePayoutReceiptPDF } from "@/lib/payoutReceiptPdf";
-import { RESALE_BUYER_FEE_COPY } from "@/lib/fees";
+import { RESALE_BUYER_FEE_COPY, RESALE_SELLER_COMMISSION_COPY, calcBreakdown } from "@/lib/fees";
 import { Chip, WalletOverview } from "@/components/wallet/WalletOverview";
 import { authPathHere } from "@/lib/returnTo";
+import { callRpc } from "@/lib/supabaseRpc";
+import {
+  cancelMyListing,
+  fetchMyListings,
+  listingErrorMessage,
+  updateMyListingPrice,
+  type MyListingRow,
+} from "@/lib/sellerListings";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -71,7 +79,7 @@ interface RawListing {
   qr_verified?: boolean;
 }
 
-type StatusFilter = "all" | "available" | "sold" | "reserved";
+type StatusFilter = "all" | "available" | "sold" | "cancelled";
 type SortOption = "newest" | "oldest" | "price_high" | "price_low" | "active_first";
 
 // Featured-listing (boost) durations — prices must match the server
@@ -87,11 +95,17 @@ const BOOST_OPTIONS = [
 const STATUS_LABELS: Record<string, string> = {
   available: "Active",
   sold: "Sold",
-  reserved: "Cancelled",
+  cancelled: "Cancelled",
 };
+
+/** A listing in someone's checkout is still the seller's live listing: it counts as Active. */
+const isActive = (status: string) => status === "available" || status === "reserved";
+const matchesFilter = (status: string, filter: StatusFilter) =>
+  filter === "all" || (filter === "available" ? isActive(status) : status === filter);
 
 const StatusBadge = ({ status }: { status: string }) => {
   if (status === "available") return <Chip tone="good">Active</Chip>;
+  if (status === "reserved") return <Chip tone="accent">In checkout</Chip>;
   if (status === "sold") return <Chip tone="accent">Sold</Chip>;
   return <Chip>Cancelled</Chip>;
 };
@@ -198,26 +212,22 @@ const MyListings = () => {
     }
   }, [user, authLoading, navigate]);
 
-  // Fetch seller's listings — two separate queries to avoid events-table RLS issues
+  // Fetch seller's listings: my_listings() (own rows only, notes included; the tickets table itself no
+  // longer exposes seller_id or notes to the browser), then the events in a second query.
   const fetchListings = async () => {
     if (!user) return;
     setLoading(true);
 
-    // 1. Fetch the seller's own tickets (simple query, no join)
-    const { data: ticketRows, error: ticketsError } = await supabase
-      .from("tickets")
-      .select("id, event_id, selling_price, quantity, notes, status, created_at, boosted_until")
-      .eq("seller_id", user.id)
-      .order("created_at", { ascending: false });
-
-    if (ticketsError) {
-      console.error("Error fetching tickets:", ticketsError);
-      toast({ title: "Error loading listings", description: ticketsError.message, variant: "destructive" });
+    let rows: MyListingRow[];
+    try {
+      rows = await fetchMyListings(callRpc);
+    } catch (err) {
+      console.error("Error fetching listings:", err);
+      const raw = err instanceof Error ? err.message : null;
+      toast({ title: "Error loading listings", description: listingErrorMessage(raw, "Please try again in a moment."), variant: "destructive" });
       setLoading(false);
       return;
     }
-
-    const rows = ticketRows ?? [];
 
     if (rows.length === 0) {
       setListings([]);
@@ -226,7 +236,7 @@ const MyListings = () => {
     }
 
     // 2. Fetch event details for all unique event IDs
-    const eventIds = [...new Set(rows.map((r) => r.event_id).filter(Boolean))];
+    const eventIds = [...new Set(rows.map((r) => r.eventId))];
     const { data: eventRows } = await supabase
       .from("events")
       .select("id, title, date, location, category")
@@ -240,14 +250,14 @@ const MyListings = () => {
     // 3. Merge
     const merged: RawListing[] = rows.map((r) => ({
       id: r.id,
-      event_id: r.event_id,
-      selling_price: r.selling_price,
-      quantity: r.quantity ?? 1,
+      event_id: r.eventId,
+      selling_price: r.sellingPrice,
+      quantity: r.quantity,
       notes: r.notes,
-      status: r.status ?? "available",
-      created_at: r.created_at,
-      boosted_until: r.boosted_until ?? null,
-      event: eventsMap[r.event_id] ?? null,
+      status: r.status,
+      created_at: r.createdAt,
+      boosted_until: r.boostedUntil,
+      event: eventsMap[r.eventId] ?? null,
     }));
 
     setListings(merged);
@@ -260,9 +270,9 @@ const MyListings = () => {
 
   // ── Derived stats ──────────────────────────────────────────────────────────
   const stats = useMemo(() => {
-    const active = listings.filter((l) => l.status === "available").length;
+    const active = listings.filter((l) => isActive(l.status)).length;
     const sold = listings.filter((l) => l.status === "sold").length;
-    const cancelled = listings.filter((l) => l.status === "reserved").length;
+    const cancelled = listings.filter((l) => l.status === "cancelled").length;
     const earnings = listings
       .filter((l) => l.status === "sold")
       .reduce((sum, l) => sum + (l.selling_price ?? 0) * 0.95, 0); // 5% platform fee
@@ -275,7 +285,7 @@ const MyListings = () => {
 
     // Status filter
     if (statusFilter !== "all") {
-      list = list.filter((l) => l.status === statusFilter);
+      list = list.filter((l) => matchesFilter(l.status, statusFilter));
     }
 
     // Search
@@ -296,7 +306,7 @@ const MyListings = () => {
       if (sort === "price_high") return (b.selling_price ?? 0) - (a.selling_price ?? 0);
       if (sort === "price_low") return (a.selling_price ?? 0) - (b.selling_price ?? 0);
       if (sort === "active_first") {
-        const order = { available: 0, sold: 1, reserved: 2 };
+        const order = { available: 0, reserved: 0, sold: 1, cancelled: 2 };
         return (order[a.status as keyof typeof order] ?? 3) - (order[b.status as keyof typeof order] ?? 3);
       }
       return 0;
@@ -319,20 +329,16 @@ const MyListings = () => {
       return;
     }
     setEditLoading(true);
-    const { error } = await supabase
-      .from("tickets")
-      .update({ selling_price: price })
-      .eq("id", editingId)
-      .eq("seller_id", user!.id);
-
-    if (error) {
-      toast({ title: "Failed to update price", variant: "destructive" });
-    } else {
+    try {
+      await updateMyListingPrice(callRpc, editingId, price);
       setListings((prev) =>
         prev.map((l) => (l.id === editingId ? { ...l, selling_price: price } : l))
       );
       toast({ title: "Price updated", description: `New price: €${price.toFixed(2)}` });
       setEditingId(null);
+    } catch (err) {
+      const raw = err instanceof Error ? err.message : null;
+      toast({ title: "Failed to update price", description: listingErrorMessage(raw, "Please try again."), variant: "destructive" });
     }
     setEditLoading(false);
   };
@@ -341,18 +347,15 @@ const MyListings = () => {
   const confirmCancel = async () => {
     if (!cancelId) return;
     setCancelLoading(true);
-    const { error } = await supabase
-      .from("tickets")
-      .delete()
-      .eq("id", cancelId)
-      .eq("seller_id", user!.id);
-
-    if (error) {
-      toast({ title: "Failed to delete listing", variant: "destructive" });
-    } else {
-      setListings((prev) => prev.filter((l: RawListing) => l.id !== cancelId));
-      toast({ title: "Listing deleted", description: "Your ticket has been removed." });
+    try {
+      await cancelMyListing(callRpc, cancelId);
+      // The server deletes the listing, or marks it cancelled when payments refer to it: reload to show which.
+      await fetchListings();
+      toast({ title: "Listing withdrawn", description: "Your ticket is no longer on sale." });
       setCancelId(null);
+    } catch (err) {
+      const raw = err instanceof Error ? err.message : null;
+      toast({ title: "Couldn't withdraw the listing", description: listingErrorMessage(raw, "Please try again."), variant: "destructive" });
     }
     setCancelLoading(false);
   };
@@ -415,7 +418,7 @@ const MyListings = () => {
           <div className="flex flex-col md:flex-row gap-3 mb-6">
             {/* Status tabs */}
             <div className="flex gap-2 overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0" role="tablist" aria-label="Filter listings">
-              {(["all", "available", "sold", "reserved"] as StatusFilter[]).map((s) => (
+              {(["all", "available", "sold", "cancelled"] as StatusFilter[]).map((s) => (
                 <button
                   key={s}
                   role="tab"
@@ -431,7 +434,7 @@ const MyListings = () => {
                   <span className="tabular-nums opacity-70">
                     {s === "all"
                       ? listings.length
-                      : listings.filter((l) => l.status === s).length}
+                      : listings.filter((l) => matchesFilter(l.status, s)).length}
                   </span>
                 </button>
               ))}
@@ -667,7 +670,7 @@ const MyListings = () => {
             </div>
             {editPrice && parseFloat(editPrice) > 0 && (
               <p className="text-xs text-muted-foreground mt-2">
-                You will receive ~€{(parseFloat(editPrice) * 0.95).toFixed(2)} after the 5% platform fee.
+                You'll receive €{calcBreakdown(parseFloat(editPrice), 1).sellerPayoutEuros.toFixed(2)} ({RESALE_SELLER_COMMISSION_COPY} commission). The buyer pays a {RESALE_BUYER_FEE_COPY} service fee on top.
               </p>
             )}
           </div>
@@ -693,10 +696,10 @@ const MyListings = () => {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-destructive">
               <Trash2 className="w-5 h-5" />
-              Delete Listing
+              Withdraw listing
             </DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete this listing? It will be permanently removed. This action cannot be undone.
+              Withdraw this listing? It comes off sale right away. You can list the ticket again later.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">

@@ -11,6 +11,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:db": "bash scripts/test-db.sh",
     "import:campuslife-event": "node scripts/import-campuslife-event.mjs"
   },
   "dependencies": {

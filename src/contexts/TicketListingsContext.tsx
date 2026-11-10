@@ -1,15 +1,22 @@
 /**
  * TicketListingsContext
  *
- * Replaces the old in-memory store with a React Query backed fetch from
- * Supabase.  The query returns only status='available' tickets, joined
- * with their event and the seller's full_name.
+ * Legacy adapter over the resale listings query (src/hooks/useResaleListings.ts). Listings come from the
+ * `resale_listings` function, never a direct read of `tickets`, and share their cache with the Resale page;
+ * this maps them to the older TicketListing shape still used by GalaESCP and BuyTicket. Seller notes and
+ * names are not public, so they are not part of the shape.
  */
 
 import React, { createContext, useContext, ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import { EventData } from "@/data/eventsData";
+import { callRpc } from "@/lib/supabaseRpc";
+import {
+  fetchResaleListings,
+  RESALE_LISTINGS_QUERY_KEY,
+  resaleListingsQueryKey,
+  type ResaleListing,
+} from "@/lib/resaleListings";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -21,14 +28,16 @@ export interface TicketListing {
   event: EventData;
   sellingPrice: number;
   quantity: number;
-  description: string;
   files: { name: string; size: number; type: string }[];
-  sellerId: string;
+  /** Always "Verified seller": the seller's name and id are no longer public. */
   sellerName: string;
+  /** True when the signed-in user listed it. */
+  isOwn: boolean;
   timestamp: string;
   verified: boolean;
   ticketId: string;
-  qrHash: string;
+  /** Studio tier name, or null for a ticket from another platform. */
+  tierName: string | null;
   /** university name, e.g. "ESCP Business School" */
   university: string;
   /** campus name, e.g. "Paris", "London" — null for multi-campus events */
@@ -58,136 +67,49 @@ interface TicketListingsContextType {
 }
 
 // ---------------------------------------------------------------------------
-// Query key
+// Mapping
 // ---------------------------------------------------------------------------
 
-export const LISTINGS_QUERY_KEY = ["marketplace-listings"] as const;
-
-// ---------------------------------------------------------------------------
-// Fetch helper
-// ---------------------------------------------------------------------------
-
-// Shape of the joined tickets row returned by the select below. Supabase's
-// generated types model embedded relations awkwardly, so we describe the row
-// explicitly here instead of leaning on `any`.
-interface RawListingRow {
-  id: string;
-  event_id: string;
-  seller_id: string;
-  selling_price: number;
-  quantity: number;
-  notes: string | null;
-  qr_verified: boolean | null;
-  created_at: string;
-  boosted_until: string | null;
-  photo_url: string | null;
-  video_url: string | null;
-  event: {
-    id: string;
-    title: string;
-    date: string;
-    location: string;
-    category: string;
-    university: string;
-    campus: string | null;
-    base_price: number | null;
-    banner_url: string | null;
-    video_url: string | null;
-    organizer: { name: string } | null;
-  } | null;
-  seller: { full_name: string } | null;
+function toTicketListing(l: ResaleListing): TicketListing {
+  const ev = l.event;
+  const eventData: EventData = {
+    id: ev.id,
+    title: ev.title,
+    date: ev.date ?? "",
+    time: "",
+    location: ev.location ?? "",
+    organizer: ev.university ?? "",
+    description: "",
+    category: ev.category ?? "",
+    filterCategory: (ev.category ?? "").toLowerCase(),
+    image: ev.bannerUrl,
+    isPastEvent: ev.date ? new Date(ev.date) < new Date() : false,
+  };
+  return {
+    id: l.id,
+    eventId: l.eventId,
+    event: eventData,
+    sellingPrice: l.priceCents / 100,
+    quantity: l.quantity,
+    files: [],
+    sellerName: "Verified seller",
+    isOwn: l.isOwn,
+    timestamp: l.listedAt,
+    verified: true,
+    ticketId: l.id,
+    tierName: l.tierName,
+    university: ev.university ?? "",
+    campus: ev.campus,
+    basePrice: ev.basePrice,
+    boostedUntil: null,
+    photoUrl: l.photoUrl,
+    videoUrl: l.videoUrl,
+    eventBannerUrl: ev.bannerUrl,
+    eventVideoUrl: ev.videoUrl,
+  };
 }
 
-async function fetchAvailableListings(): Promise<TicketListing[]> {
-  const { data, error } = await supabase
-    .from("tickets")
-    .select(
-      `
-      id,
-      event_id,
-      seller_id,
-      selling_price,
-      quantity,
-      notes,
-      status,
-      qr_verified,
-      created_at,
-      boosted_until,
-      photo_url,
-      video_url,
-      event:events (
-        id,
-        title,
-        date,
-        location,
-        category,
-        university,
-        campus,
-        base_price,
-        banner_url,
-        video_url,
-        organizer:organizer_profiles (
-          name
-        )
-      ),
-      seller:profiles (
-        full_name
-      )
-    `
-    )
-    .in("status", ["available", "reserved"])
-    .eq("verification_status", "verified")
-    .order("created_at", { ascending: false });
-
-  if (error) throw error;
-
-  return (((data ?? []) as unknown) as RawListingRow[]).map((row) => {
-    const ev = row.event;
-    const seller = row.seller;
-
-    const eventData: EventData = {
-      id: ev?.id ?? row.event_id,
-      title: ev?.title ?? "Unknown Event",
-      date: ev?.date ?? "",
-      time: "",
-      location: ev?.location ?? "",
-      organizer: ev?.university || ev?.organizer?.name || "",
-      description: "",
-      category: ev?.category ?? "",
-      filterCategory: (ev?.category ?? "").toLowerCase(),
-      // Was hardcoded to "" — this is THE root cause of event photos never
-      // showing on the resale marketplace: the event's own banner was never
-      // read into the shared EventData shape, only a seller's own listing
-      // photo (photoUrl below, usually never set) was ever considered.
-      image: ev?.banner_url ?? null,
-      isPastEvent: ev?.date ? new Date(ev.date) < new Date() : false,
-    };
-
-    return {
-      id: row.id,
-      eventId: row.event_id,
-      event: eventData,
-      sellingPrice: row.selling_price,
-      quantity: row.quantity,
-      description: row.notes ?? "",
-      files: [],
-      sellerId: row.seller_id,
-      sellerName: seller?.full_name ?? "Anonymous",
-      timestamp: row.created_at,
-      verified: row.qr_verified ?? false,
-      ticketId: row.id,
-      qrHash: "", // never expose the real hash to clients
-      university: ev?.university ?? "",
-      campus: ev?.campus ?? null,
-      basePrice: ev?.base_price ?? null,
-      boostedUntil: row.boosted_until ?? null,
-      photoUrl: row.photo_url ?? null,
-      videoUrl: row.video_url ?? null,
-      eventBannerUrl: ev?.banner_url ?? null,
-      eventVideoUrl: ev?.video_url ?? null,
-    };
-  });
-}
+const toTicketListings = (rows: ResaleListing[]): TicketListing[] => rows.map(toTicketListing);
 
 // ---------------------------------------------------------------------------
 // Context + Provider
@@ -203,14 +125,16 @@ export const TicketListingsProvider: React.FC<{ children: ReactNode }> = ({
   const queryClient = useQueryClient();
 
   const { data: listings = [], isLoading } = useQuery({
-    queryKey: LISTINGS_QUERY_KEY,
-    queryFn: fetchAvailableListings,
+    queryKey: resaleListingsQueryKey(null),
+    queryFn: () => fetchResaleListings(callRpc, null),
+    select: toTicketListings,
     staleTime: 30_000,
     refetchOnWindowFocus: true,
   });
 
+  // Every resale listings query (all, per event, one listing) after a listing was added or removed.
   const refetchListings = () => {
-    queryClient.invalidateQueries({ queryKey: LISTINGS_QUERY_KEY });
+    queryClient.invalidateQueries({ queryKey: RESALE_LISTINGS_QUERY_KEY });
   };
 
   const addListing = (_listing: TicketListing) => {

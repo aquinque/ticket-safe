@@ -1,52 +1,43 @@
 import { useEffect, useState } from "react";
 import { ShieldCheck, BadgeCheck, CalendarDays, Lock } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-
-interface SellerStats {
-  full_name: string | null;
-  university: string | null;
-  campus: string | null;
-  member_since: string | null;
-  completed_sales: number;
-}
+import { callRpc } from "@/lib/supabaseRpc";
+import { parseSellerStats, type SellerPublicStats } from "@/lib/sellerListings";
 
 /**
- * Buyer-facing trust panel for a resale seller. Profiles are private (RLS), so
- * we read non-sensitive public stats through the `seller_public_stats` RPC:
- * display name, verified-student status, member-since year, completed sales.
+ * Buyer-facing trust panel for a resale seller. Profiles are private (RLS) and a listing's seller id is
+ * not public, so we read non-sensitive public stats by listing through the
+ * `seller_public_stats_for_listing` RPC: first name only, verified-student status, member-since year,
+ * completed sales.
  */
 export const SellerTrust = ({
-  sellerId,
+  listingId,
   fallbackName,
 }: {
-  sellerId: string;
+  listingId: string;
   fallbackName?: string;
 }) => {
-  const [stats, setStats] = useState<SellerStats | null>(null);
+  const [stats, setStats] = useState<SellerPublicStats | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
-      // seller_public_stats isn't in the generated types yet.
-      const { data, error } = await (supabase as unknown as {
-        rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>;
-      }).rpc("seller_public_stats", { p_seller_id: sellerId });
+      const { data, error } = await callRpc("seller_public_stats_for_listing", { p_listing_id: listingId });
       if (cancelled) return;
-      const row = Array.isArray(data) ? (data[0] as SellerStats | undefined) : null;
-      if (!error && row) setStats(row);
+      const row = error ? null : parseSellerStats(data);
+      if (row) setStats(row);
       setLoading(false);
     })();
     return () => {
       cancelled = true;
     };
-  }, [sellerId]);
+  }, [listingId]);
 
-  const name = stats?.full_name || fallbackName || "Verified student";
+  const name = stats?.firstName || fallbackName || "Verified student";
   const isVerifiedStudent = !!(stats?.university && /escp/i.test(stats.university));
-  const memberYear = stats?.member_since ? new Date(stats.member_since).getFullYear() : null;
-  const sales = stats?.completed_sales ?? 0;
+  const memberYear = stats?.memberSince ? new Date(stats.memberSince).getFullYear() : null;
+  const sales = stats?.completedSales ?? 0;
 
   return (
     <div className="rounded-xl border border-border bg-card p-4">

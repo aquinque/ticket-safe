@@ -8,7 +8,7 @@
  * so this page is purely informational.
  */
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import HeaderNight from "@/components/HeaderNight";
 import Footer from "@/components/Footer";
@@ -19,6 +19,11 @@ import { CheckCircle2, Sparkles, Mail, Ticket } from "lucide-react";
 import { SEOHead } from "@/components/SEOHead";
 import { GuestOrderTickets } from "@/components/guest/GuestOrderTickets";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+
+/** How long to watch a resale payment for an automatic refund (the webhook usually lands within seconds). */
+const RESALE_WATCH_MS = 20_000;
+const RESALE_POLL_MS = 2_500;
 
 /**
  * Fire a brand-blue confetti burst on mount. Loaded from esm.sh at runtime
@@ -79,6 +84,43 @@ const CheckoutSuccess = () => {
   // Order access link set at checkout: lets a buyer without an account see the QR right away.
   const orderToken = searchParams.get("t");
   const isBoost = !!boostId;
+  // Resale paid through Stripe: /checkout/success?tx=<transaction id>&provider=stripe.
+  const resaleTxId = searchParams.get("provider") === "stripe" ? searchParams.get("tx") : null;
+  const { user, loading: authLoading } = useAuth();
+  const userId = user?.id ?? null;
+  // The ticket sold to someone else a moment before this payment went through: the webhook refunds it in
+  // full and marks the transaction refunded (or cancelled while the refund is on its way).
+  const [resaleRefunded, setResaleRefunded] = useState(false);
+  // Only a signed-in buyer can read the transaction back; for them the celebration waits until it is completed.
+  const watchResale = !!resaleTxId && (authLoading || !!userId);
+  const [resaleCompleted, setResaleCompleted] = useState(false);
+
+  useEffect(() => {
+    if (!resaleTxId || !userId) return;
+    let stopped = false;
+    let timer: number | undefined;
+    const startedAt = Date.now();
+    const poll = async () => {
+      const { data } = await supabase.from("transactions").select("status").eq("id", resaleTxId).maybeSingle();
+      if (stopped) return;
+      const status = data?.status;
+      if (status === "refunded" || status === "cancelled") {
+        setResaleRefunded(true);
+        return;
+      }
+      if (status === "completed") {
+        setResaleCompleted(true);
+        return;
+      }
+      if (Date.now() - startedAt >= RESALE_WATCH_MS) return;
+      timer = window.setTimeout(poll, RESALE_POLL_MS);
+    };
+    void poll();
+    return () => {
+      stopped = true;
+      if (timer !== undefined) window.clearTimeout(timer);
+    };
+  }, [resaleTxId, userId]);
 
   // Returning from a boost payment → confirm it server-side (idempotent).
   // Best-effort: if it doesn't land, the seller can re-open it from My listings.
@@ -105,7 +147,8 @@ const CheckoutSuccess = () => {
   }, [boostId]);
 
   useEffect(() => {
-    // Skip celebration for prefers-reduced-motion users
+    // No celebration before a watched resale is completed, or for prefers-reduced-motion users
+    if (watchResale && !resaleCompleted) return;
     if (
       typeof window !== "undefined" &&
       window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
@@ -113,7 +156,36 @@ const CheckoutSuccess = () => {
       return;
     }
     void fireConfetti();
-  }, []);
+  }, [watchResale, resaleCompleted]);
+
+  if (resaleRefunded) {
+    return (
+      <div className="theme-night min-h-screen bg-background flex flex-col">
+        <SEOHead titleKey="common.appName" descriptionKey="common.appName" />
+        <HeaderNight />
+        <main className="flex-1 flex items-center justify-center pt-16 pb-12 md:pt-20 md:pb-16">
+          <div className="container mx-auto px-4 max-w-lg text-center">
+            <div role="status" className="bg-card border border-border rounded-2xl p-6 md:p-7 text-left">
+              <div className="text-[10px] md:text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground mb-2">
+                Payment refunded
+              </div>
+              <h1 className="text-2xl md:text-3xl font-bold tracking-tight mb-3">This ticket was already sold</h1>
+              <p className="text-sm text-foreground/85">
+                This ticket sold a moment before your payment went through. You've been refunded in full; it can take
+                5–10 days to appear.
+              </p>
+            </div>
+            <div className="mt-6 flex flex-col sm:flex-row gap-3 justify-center">
+              <Button variant="hero" asChild className="h-11 text-base font-semibold">
+                <Link to="/marketplace/buy">See other resale tickets</Link>
+              </Button>
+            </div>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="theme-night min-h-screen bg-background flex flex-col">

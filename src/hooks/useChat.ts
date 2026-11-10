@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import { callRpc } from "@/lib/supabaseRpc";
 
 export interface Message {
   id: string;
@@ -49,11 +50,11 @@ export function useConversations(enabled = true) {
     if (!user) return;
     setLoading(true);
 
-    // Participant display names come from the conversation_participant_names
-    // view, not a direct profiles embed — see
-    // 20260930100000_fix_profiles_counterparty_iban_leak.sql: profiles RLS no
-    // longer lets a chat counterparty read the other party's full row.
-    const [{ data }, { data: names }] = await Promise.all([
+    // Participant display names come from get_conversation_participant_names()
+    // (a definer function limited to the caller's own conversations), not a
+    // direct profiles embed: profiles RLS doesn't let a chat counterparty read
+    // the other party's row (20260930100000_fix_profiles_counterparty_iban_leak.sql).
+    const [{ data }, { data: namesData }] = await Promise.all([
       supabase
         .from("conversations")
         .select(
@@ -62,10 +63,10 @@ export function useConversations(enabled = true) {
         )
         .or(`buyer_id.eq.${user.id},seller_id.eq.${user.id}`)
         .order("last_message_at", { ascending: false }),
-      supabase.from("conversation_participant_names").select("conversation_id, buyer_name, seller_name"),
+      callRpc("get_conversation_participant_names", {}),
     ]);
 
-    const namesByConvo = new Map((names ?? []).map((n) => [n.conversation_id, n]));
+    const namesByConvo = new Map(parseParticipantNames(namesData).map((n) => [n.conversation_id, n]));
     const merged = (data ?? []).map((c) => ({
       ...c,
       buyer_name: namesByConvo.get(c.id)?.buyer_name ?? null,
@@ -83,31 +84,41 @@ export function useConversations(enabled = true) {
   return { conversations, loading, refresh: fetchConvos };
 }
 
-/** Get or create a conversation for a specific ticket + buyer */
-export async function getOrCreateConversation(
-  ticketId: string,
-  buyerId: string,
-  sellerId: string
-): Promise<string> {
-  // Check if conversation already exists
-  const { data: existing } = await supabase
-    .from("conversations")
-    .select("id")
-    .eq("ticket_id", ticketId)
-    .eq("buyer_id", buyerId)
-    .maybeSingle();
+export interface ParticipantNames {
+  conversation_id: string;
+  buyer_name: string | null;
+  seller_name: string | null;
+}
 
-  if (existing) return existing.id;
+/** Rows of get_conversation_participant_names(), typed; anything malformed is dropped. */
+export function parseParticipantNames(data: unknown): ParticipantNames[] {
+  if (!Array.isArray(data)) return [];
+  const out: ParticipantNames[] = [];
+  for (const row of data) {
+    if (typeof row !== "object" || row === null) continue;
+    const r = row as Record<string, unknown>;
+    if (typeof r.conversation_id !== "string") continue;
+    out.push({
+      conversation_id: r.conversation_id,
+      buyer_name: typeof r.buyer_name === "string" ? r.buyer_name : null,
+      seller_name: typeof r.seller_name === "string" ? r.seller_name : null,
+    });
+  }
+  return out;
+}
 
-  // Create new conversation
-  const { data: created, error } = await supabase
-    .from("conversations")
-    .insert({ ticket_id: ticketId, buyer_id: buyerId, seller_id: sellerId })
-    .select("id")
-    .single();
-
-  if (error) throw error;
-  return created.id;
+/**
+ * The signed-in buyer's conversation about a listing, created on first use. Goes through the
+ * start_listing_conversation function, which takes the seller from the listing itself (the client never
+ * names the seller) and refuses the seller's own listing (OWN_LISTING) or one no longer on sale
+ * (LISTING_NOT_AVAILABLE). Throws with the database message on failure.
+ */
+export async function getOrCreateConversation(listingId: string): Promise<string> {
+  const { data, error } = await callRpc("start_listing_conversation", { p_listing_id: listingId });
+  if (error) throw new Error(error.message);
+  const id = Array.isArray(data) ? data[0] : data;
+  if (typeof id !== "string" || !id) throw new Error("start_listing_conversation returned no id");
+  return id;
 }
 
 /** Real-time messages + offers for a conversation */

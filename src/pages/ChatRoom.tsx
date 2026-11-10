@@ -18,7 +18,8 @@ import {
   MessageSquare,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { useChatRoom } from "@/hooks/useChat";
+import { useChatRoom, parseParticipantNames } from "@/hooks/useChat";
+import { callRpc } from "@/lib/supabaseRpc";
 import { supabase } from "@/integrations/supabase/client";
 import { SEOHead } from "@/components/SEOHead";
 import { toast } from "sonner";
@@ -69,10 +70,10 @@ const ChatRoom = () => {
     }
   }, [user, authLoading, navigate]);
 
-  // Fetch conversation metadata. Participant display names come from the
-  // conversation_participant_names view (not a direct profiles embed) — see
-  // 20260930100000_fix_profiles_counterparty_iban_leak.sql: profiles RLS no
-  // longer lets a chat counterparty read the other party's full row.
+  // Fetch conversation metadata. Participant display names come from
+  // get_conversation_participant_names() (not a direct profiles embed):
+  // profiles RLS doesn't let a chat counterparty read the other party's row
+  // (20260930100000_fix_profiles_counterparty_iban_leak.sql).
   useEffect(() => {
     if (!conversationId) return;
     Promise.all([
@@ -84,12 +85,9 @@ const ChatRoom = () => {
         )
         .eq("id", conversationId)
         .single(),
-      supabase
-        .from("conversation_participant_names")
-        .select("buyer_name, seller_name")
-        .eq("conversation_id", conversationId)
-        .maybeSingle(),
-    ]).then(([{ data, error }, { data: names }]) => {
+      callRpc("get_conversation_participant_names", { p_conversation_id: conversationId }),
+    ]).then(([{ data, error }, { data: namesData }]) => {
+      const names = parseParticipantNames(namesData)[0];
       if (error) console.error("Conversation fetch error:", error);
       setMeta(
         data
