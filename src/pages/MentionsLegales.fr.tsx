@@ -303,20 +303,6 @@ export const LegalNoticeBodyFr = () => (
                       </a>
                     </p>
                   </div>
-                  <p className="text-sm">
-                    L'utilisateur consommateur peut également recourir à la
-                    plateforme européenne de Règlement en Ligne des Litiges
-                    (RLL) :{" "}
-                    <a
-                      href="https://ec.europa.eu/consumers/odr"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary hover:underline"
-                    >
-                      ec.europa.eu/consumers/odr
-                    </a>
-                    .
-                  </p>
                 </div>
               </section>
 

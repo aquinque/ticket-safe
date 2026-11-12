@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { CheckoutLegalNote } from "@/components/checkout/CheckoutLegalNote";
 import HeaderNight from "@/components/HeaderNight";
 import Footer from "@/components/Footer";
 import { useThemeMode } from "@/hooks/useThemeMode";
@@ -407,6 +408,8 @@ const Checkout = () => {
                   </>
                 )}
               </Button>
+
+              <CheckoutLegalNote resale />
 
               <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
                 <ShieldCheck className="w-3.5 h-3.5" />

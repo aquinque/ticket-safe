@@ -4,10 +4,10 @@
  */
 export const LEGAL_UPDATED = {
   privacy: "2026-11-01",
-  terms: "2026-11-01",
-  cookies: "2026-11-01",
+  terms: "2026-11-12",
+  cookies: "2026-11-12",
   refunds: "2026-11-01",
-  legalNotice: "2026-11-01",
+  legalNotice: "2026-11-12",
 } as const;
 
 /** "22 October 2026" or "22 octobre 2026", the same for every visitor whatever their time zone. */

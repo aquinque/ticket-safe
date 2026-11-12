@@ -6,9 +6,10 @@ import { BackButton } from "@/components/BackButton";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { SEOHead } from "@/components/SEOHead";
-import { Cookie, Shield, Settings, Info } from "lucide-react";
+import { Cookie, Settings, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LEGAL_UPDATED, formatLegalDate } from "@/lib/legalDates";
+import { OPEN_COOKIE_SETTINGS_EVENT } from "@/components/CookieConsent";
 
 const CookiePolicy = () => {
   const location = useLocation();
@@ -24,11 +25,7 @@ const CookiePolicy = () => {
     }
   }, [location]);
 
-  const handleManageCookies = () => {
-    // This will trigger the cookie consent banner to reappear
-    localStorage.removeItem('ticketsafe_cookie_consent');
-    window.location.reload();
-  };
+  const handleManageCookies = () => window.dispatchEvent(new Event(OPEN_COOKIE_SETTINGS_EVENT));
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -83,7 +80,7 @@ const CookiePolicy = () => {
                       Cookies are small text files that are placed on your device (computer, smartphone, or tablet) when you visit a website. They are widely used to make websites work more efficiently and provide information to website owners.
                     </p>
                     <p>
-                      TicketSafe uses cookies and similar technologies (such as local storage, session storage, and pixels) to enhance your experience, improve our services, and understand how our platform is used.
+                      Ticket Safe uses a few similar technologies (local storage and session storage) so the site works: they are listed in full below.
                     </p>
                     <p>
                       <strong className="text-foreground">Legal framework:</strong> In the European Union, cookies are governed by the ePrivacy Directive (2002/58/EC), implemented in France by article 82 of the French Data Protection Act. In the United Kingdom, they are governed by the Privacy and Electronic Communications (EC Directive) Regulations 2003 ("PECR"). Under both, strictly necessary cookies can be used without consent, but every other cookie or similar technology (functional, analytics, marketing) is only set once you have given your consent, and you can withdraw that consent at any time. Where cookies involve personal data, the EU GDPR or the UK GDPR also applies (see our Privacy Policy).
@@ -101,162 +98,61 @@ const CookiePolicy = () => {
                   </div>
                   <div className="space-y-3 text-muted-foreground">
                     <p>
-                      We use cookies for the following purposes:
+                      Ticket Safe only stores what the site needs to work: keeping you signed in, protecting accounts and
+                      payments against fraud, and remembering the choices you make (language, theme, this cookie notice).
                     </p>
-                    <ul className="list-disc pl-6 space-y-2">
-                      <li><strong>Essential functionality:</strong> To enable core features like authentication, security, and payment processing</li>
-                      <li><strong>User preferences:</strong> To remember your settings, language preferences, and theme choices</li>
-                      <li><strong>Analytics:</strong> To understand how users interact with our platform and improve our services</li>
-                      <li><strong>Security:</strong> To detect and prevent fraudulent activity and protect user accounts</li>
-                      <li><strong>Performance:</strong> To optimise page load times and user experience</li>
-                    </ul>
+                    <p>
+                      Under article 82 of the French Data Protection Act and the CNIL's guidelines, and under PECR in the
+                      United Kingdom, these strictly necessary trackers do not need your consent. That is why our banner
+                      only informs you and has no "Accept" or "Refuse" button: there is nothing optional to accept.
+                    </p>
+                    <p>
+                      <strong className="text-foreground">We do not use</strong> audience measurement (no Google
+                      Analytics or similar), advertising cookies, social-media pixels (Meta, TikTok, Snapchat) or any
+                      tracking across other websites. If we ever add one, it will only load after you have said yes, and
+                      we will update this page first.
+                    </p>
                   </div>
                 </section>
 
                 <Separator />
 
-                {/* Types of Cookies */}
+                {/* What we store */}
                 <section id="types">
-                  <h2 className="text-2xl font-semibold mb-4">3. Types of Cookies We Use</h2>
-
-                  <div className="space-y-6">
-                    {/* Strictly Necessary */}
-                    <div className="border-l-4 border-red-500 pl-4">
-                      <h3 className="font-semibold text-foreground text-lg mb-2">
-                        3.1 Strictly Necessary Cookies (Always Active)
-                      </h3>
-                      <p className="text-muted-foreground mb-3">
-                        These cookies are essential for the website to function and cannot be disabled. Without these cookies, services you have requested (like authentication or payment processing) cannot be provided.
-                      </p>
-                      <div className="bg-muted/50 rounded-lg p-4">
-                        <table className="w-full text-sm">
-                          <thead>
-                            <tr className="border-b">
-                              <th className="text-left py-2 font-semibold">Cookie Name</th>
-                              <th className="text-left py-2 font-semibold">Purpose</th>
-                              <th className="text-left py-2 font-semibold">Duration</th>
-                            </tr>
-                          </thead>
-                          <tbody className="text-muted-foreground">
-                            <tr className="border-b">
-                              <td className="py-2 font-mono text-xs">auth_token</td>
-                              <td className="py-2">User authentication & session management</td>
-                              <td className="py-2">Session</td>
-                            </tr>
-                            <tr className="border-b">
-                              <td className="py-2 font-mono text-xs">sb-*-auth-token</td>
-                              <td className="py-2">Supabase authentication (database access)</td>
-                              <td className="py-2">7 days</td>
-                            </tr>
-                            <tr className="border-b">
-                              <td className="py-2 font-mono text-xs">csrf_token</td>
-                              <td className="py-2">Security - prevents cross-site request forgery</td>
-                              <td className="py-2">Session</td>
-                            </tr>
-                            <tr>
-                              <td className="py-2 font-mono text-xs">cookie_consent</td>
-                              <td className="py-2">Stores your cookie preferences</td>
-                              <td className="py-2">1 year</td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-
-                    {/* Functional Cookies */}
-                    <div className="border-l-4 border-blue-500 pl-4">
-                      <h3 className="font-semibold text-foreground text-lg mb-2">
-                        3.2 Functional Cookies
-                      </h3>
-                      <p className="text-muted-foreground mb-3">
-                        These cookies enable enhanced functionality and personalisation, such as remembering your preferences and settings.
-                      </p>
-                      <div className="bg-muted/50 rounded-lg p-4">
-                        <table className="w-full text-sm">
-                          <thead>
-                            <tr className="border-b">
-                              <th className="text-left py-2 font-semibold">Cookie Name</th>
-                              <th className="text-left py-2 font-semibold">Purpose</th>
-                              <th className="text-left py-2 font-semibold">Duration</th>
-                            </tr>
-                          </thead>
-                          <tbody className="text-muted-foreground">
-                            <tr className="border-b">
-                              <td className="py-2 font-mono text-xs">theme_preference</td>
-                              <td className="py-2">Remembers dark/light mode setting</td>
-                              <td className="py-2">1 year</td>
-                            </tr>
-                            <tr className="border-b">
-                              <td className="py-2 font-mono text-xs">language</td>
-                              <td className="py-2">Stores language preference (EN/FR)</td>
-                              <td className="py-2">1 year</td>
-                            </tr>
-                            <tr>
-                              <td className="py-2 font-mono text-xs">viewed_listings</td>
-                              <td className="py-2">Tracks recently viewed tickets</td>
-                              <td className="py-2">30 days</td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-
-                    {/* Analytics Cookies */}
-                    <div className="border-l-4 border-green-500 pl-4">
-                      <h3 className="font-semibold text-foreground text-lg mb-2">
-                        3.3 Analytics & Performance Cookies
-                      </h3>
-                      <p className="text-muted-foreground mb-3">
-                        These cookies help us understand how visitors use our platform, which pages are most popular, and how we can improve user experience. All data collected is anonymised.
-                      </p>
-                      <div className="bg-muted/50 rounded-lg p-4">
-                        <table className="w-full text-sm">
-                          <thead>
-                            <tr className="border-b">
-                              <th className="text-left py-2 font-semibold">Cookie Name</th>
-                              <th className="text-left py-2 font-semibold">Purpose</th>
-                              <th className="text-left py-2 font-semibold">Duration</th>
-                            </tr>
-                          </thead>
-                          <tbody className="text-muted-foreground">
-                            <tr className="border-b">
-                              <td className="py-2 font-mono text-xs">_ga</td>
-                              <td className="py-2">Google Analytics - distinguishes users</td>
-                              <td className="py-2">2 years</td>
-                            </tr>
-                            <tr className="border-b">
-                              <td className="py-2 font-mono text-xs">_gid</td>
-                              <td className="py-2">Google Analytics - distinguishes users</td>
-                              <td className="py-2">24 hours</td>
-                            </tr>
-                            <tr>
-                              <td className="py-2 font-mono text-xs">_gat</td>
-                              <td className="py-2">Google Analytics - throttle request rate</td>
-                              <td className="py-2">1 minute</td>
-                            </tr>
-                          </tbody>
-                        </table>
-                        <p className="text-xs text-muted-foreground mt-3">
-                          Note: Analytics cookies are only set if you accept them, in the EU and in the UK alike. You can withdraw your consent via our cookie settings.
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Marketing Cookies */}
-                    <div className="border-l-4 border-purple-500 pl-4">
-                      <h3 className="font-semibold text-foreground text-lg mb-2">
-                        3.4 Marketing & Advertising Cookies
-                      </h3>
-                      <p className="text-muted-foreground mb-3">
-                        Currently, TicketSafe does not use marketing or advertising cookies. We do not track you across other websites or display targeted ads.
-                      </p>
-                      <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
-                        <p className="text-sm text-green-900 dark:text-green-100">
-                          <Shield className="w-4 h-4 inline mr-1" />
-                          We respect your privacy and do not sell your data to third parties for advertising purposes.
-                        </p>
-                      </div>
-                    </div>
+                  <h2 className="text-2xl font-semibold mb-4">3. Everything We Store on Your Device</h2>
+                  <p className="text-muted-foreground mb-4">
+                    Ticket Safe uses your browser's local storage and session storage rather than classic cookies. They
+                    work the same way in law, so they are all listed here. Session storage is cleared when you close the
+                    tab; local storage stays until you sign out, clear it, or the duration shown.
+                  </p>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left py-2 pr-3 font-semibold">Name</th>
+                          <th className="text-left py-2 pr-3 font-semibold">Purpose</th>
+                          <th className="text-left py-2 font-semibold">Kept</th>
+                        </tr>
+                      </thead>
+                      <tbody className="text-muted-foreground">
+                        {[
+                          ["sb-…-auth-token", "Keeps you signed in to your account (Supabase)", "Until you sign out"],
+                          ["csrf_token", "Security: blocks forged requests sent from other sites", "Until the tab is closed"],
+                          ["secure_* and its key", "Encrypts sensitive data kept in your browser", "Until the tab is closed"],
+                          ["lang", "The language you chose", "Until you change it"],
+                          ["theme", "Light or dark mode, if you chose one", "Until you change it"],
+                          ["notifications", "Your notification settings", "Until you change them"],
+                          ["ts.interest.<event>", "Counts you once in an event's “interested” number; no identifier is sent", "Until the tab is closed"],
+                          ["ticketsafe_cookie_consent", "Remembers that you've seen this notice", "13 months"],
+                        ].map(([name, purpose, kept]) => (
+                          <tr key={name} className="border-b last:border-0 align-top">
+                            <td className="py-2 pr-3 font-mono text-xs whitespace-nowrap">{name}</td>
+                            <td className="py-2 pr-3">{purpose}</td>
+                            <td className="py-2 whitespace-nowrap">{kept}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 </section>
 
@@ -264,34 +160,34 @@ const CookiePolicy = () => {
 
                 {/* Third-Party Cookies */}
                 <section id="third-party">
-                  <h2 className="text-2xl font-semibold mb-4">4. Third-Party Cookies</h2>
-                  <div className="space-y-3 text-muted-foreground">
-                    <p>
-                      Some cookies are placed by third-party services that appear on our pages. We use the following trusted third-party services:
-                    </p>
-                    <div className="space-y-4">
-                      <div className="bg-muted/50 p-4 rounded-lg">
-                        <h4 className="font-semibold text-foreground mb-2">Supabase (Database & Authentication)</h4>
-                        <p className="text-sm mb-2">Purpose: User authentication, data storage, and real-time features</p>
-                        <p className="text-xs">Privacy Policy: <a href="https://supabase.com/privacy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">https://supabase.com/privacy</a></p>
-                      </div>
-
-                      <div className="bg-muted/50 p-4 rounded-lg">
-                        <h4 className="font-semibold text-foreground mb-2">Stripe (Payment Processing)</h4>
-                        <p className="text-sm mb-2">Purpose: Secure payment processing and fraud prevention. On the checkout page Stripe sets its own cookies (such as __stripe_mid and __stripe_sid) to recognise a device across the payment and detect fraud.</p>
-                        <p className="text-xs">
-                          Stripe Privacy: <a href="https://stripe.com/privacy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">stripe.com/privacy</a>
-                          {" · "}Stripe Cookies: <a href="https://stripe.com/cookies-policy/legal" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">stripe.com/cookies-policy/legal</a>
-                        </p>
-                        <p className="text-xs mt-2">Orders placed before October 2026 were processed by Revolut Payments UAB (<a href="https://www.revolut.com/legal/privacy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">revolut.com/legal/privacy</a>).</p>
-                      </div>
-
-                      <div className="bg-muted/50 p-4 rounded-lg">
-                        <h4 className="font-semibold text-foreground mb-2">Google Analytics (Optional)</h4>
-                        <p className="text-sm mb-2">Purpose: Website analytics and user behaviour insights (anonymised)</p>
-                        <p className="text-xs">Privacy Policy: <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">policies.google.com/privacy</a></p>
-                        <p className="text-xs mt-2 text-foreground">You can opt out of Google Analytics via our cookie settings.</p>
-                      </div>
+                  <h2 className="text-2xl font-semibold mb-4">4. Third-Party Services</h2>
+                  <div className="space-y-4 text-muted-foreground">
+                    <div className="border border-border rounded-lg p-4">
+                      <h4 className="font-semibold text-foreground mb-2">Stripe (payment)</h4>
+                      <p className="text-sm mb-2">
+                        When you pay, you are sent to Stripe's secure payment page. Stripe sets its own cookies there
+                        (such as __stripe_mid and __stripe_sid) to prevent fraud. They are needed for the payment and
+                        are governed by Stripe's own policy. Some events use Revolut's payment page instead, which applies its own cookies in the same way.
+                      </p>
+                      <p className="text-xs">
+                        <a href="https://stripe.com/privacy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">stripe.com/privacy</a>
+                        {" · "}
+                        <a href="https://stripe.com/cookies-policy/legal" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">stripe.com/cookies-policy/legal</a>
+                      </p>
+                    </div>
+                    <div className="border border-border rounded-lg p-4">
+                      <h4 className="font-semibold text-foreground mb-2">Supabase (accounts and data)</h4>
+                      <p className="text-sm mb-2">Hosts our database and sign-in. It sets no cookie of its own; the sign-in entry above is stored by our site.</p>
+                      <p className="text-xs">
+                        <a href="https://supabase.com/privacy" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">supabase.com/privacy</a>
+                      </p>
+                    </div>
+                    <div className="border border-border rounded-lg p-4">
+                      <h4 className="font-semibold text-foreground mb-2">Links to other sites</h4>
+                      <p className="text-sm">
+                        Links such as "Open in Google Maps" take you to another site, which applies its own cookies.
+                        Nothing from Google is loaded on Ticket Safe itself. Our fonts are served from our own site.
+                      </p>
                     </div>
                   </div>
                 </section>
@@ -307,7 +203,7 @@ const CookiePolicy = () => {
                   <div className="space-y-3 text-muted-foreground">
                     <h3 className="font-semibold text-foreground text-lg">5.1 TicketSafe Cookie Settings</h3>
                     <p>
-                      You can manage your cookie preferences using our Cookie Settings tool. Click the button at the top of this page to adjust your preferences.
+                      The “Cookie Settings” button at the top of this page, and the “Cookie settings” link at the bottom of every page, show what Ticket Safe stores. There is nothing optional to switch off, because only strictly necessary storage is used.
                     </p>
 
                     <h3 className="font-semibold text-foreground text-lg mt-4">5.2 Browser Settings</h3>
@@ -388,7 +284,7 @@ const CookiePolicy = () => {
           </Card>
 
           <div className="text-center text-sm text-muted-foreground mb-8">
-            <p>Strictly necessary cookies are used as described in this policy. Other cookies are only used with the consent you give through our cookie banner or Cookie Settings, which you can change at any time.</p>
+            <p>Ticket Safe only uses the strictly necessary storage listed above. No analytics, advertising or tracking cookies are used.</p>
           </div>
         </div>
       </main>

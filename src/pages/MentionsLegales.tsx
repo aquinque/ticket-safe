@@ -327,14 +327,6 @@ const MentionsLegales = () => {
                       </a>
                     </p>
                   </div>
-                  <p className="text-sm">
-                    Consumers may also use the European Online Dispute
-                    Resolution (ODR) platform:{" "}
-                    <a href="https://ec.europa.eu/consumers/odr" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-                      ec.europa.eu/consumers/odr
-                    </a>
-                    .
-                  </p>
                 </div>
               </section>
 

@@ -38,6 +38,7 @@ import { ProtectionBadge } from "@/components/common/ProtectionBadge";
 import { useAuth } from "@/hooks/useAuth";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { readPromoterRef, trackPromoterVisit } from "@/lib/promoterLinks";
+import { CheckoutLegalNote } from "@/components/checkout/CheckoutLegalNote";
 import { eventEnd, isPastEvent } from "@/lib/eventTime";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -746,6 +747,7 @@ const EventPublic = () => {
                 </>
               )}
             </button>
+            <div className="mt-2.5"><CheckoutLegalNote free={grandCents === 0} /></div>
             {readyCount < qty && !buying && (
               <p className="text-[11px] text-muted-foreground text-center mt-2.5">
                 {qty === 1 ? "Fill in the name and email first." : `${qty - readyCount} ticket${qty - readyCount > 1 ? "s" : ""} still need a name and email.`}

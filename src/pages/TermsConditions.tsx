@@ -404,11 +404,6 @@ const TermsConditions = () => {
                     <p>
                       If you are a consumer, the choice of French law does not deprive you of the protection of the mandatory consumer laws of the country where you live. If you live in the European Union, you may also bring proceedings in the courts of your country of residence. If you live in the United Kingdom, you keep the protection of mandatory UK consumer law (including the Consumer Rights Act 2015 and the Consumer Contracts Regulations 2013), and you may bring a claim in the courts of the part of the UK where you live (England and Wales, Scotland or Northern Ireland).
                     </p>
-
-                    <h3 className="font-semibold text-foreground text-lg mt-4">10.3 EU Online Dispute Resolution</h3>
-                    <p>
-                      EU consumers may access the European Commission's Online Dispute Resolution platform at: https://ec.europa.eu/consumers/odr
-                    </p>
                   </div>
                 </section>
 
