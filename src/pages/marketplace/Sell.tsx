@@ -1680,7 +1680,9 @@ const Sell = () => {
                           {priceAboveCap ? "Above the maximum resale price" : "Maximum resale price"}:{" "}
                           <span className="tabular-nums">€{(resaleCap.capCents / 100).toFixed(2)}</span> per ticket
                           {resaleCap.source === "face_value_markup" && resaleCap.faceCents
-                            ? ` (face value €${(resaleCap.faceCents / 100).toFixed(2)} + ${Math.round((resaleCap.capCents / resaleCap.faceCents - 1) * 100)}%)`
+                            ? resaleCap.capCents <= resaleCap.faceCents
+                              ? " (the ticket's face value: tickets can't be resold for profit)"
+                              : ` (face value €${(resaleCap.faceCents / 100).toFixed(2)} + ${Math.round((resaleCap.capCents / resaleCap.faceCents - 1) * 100)}%)`
                             : " (set by the organizer)"}.
                           {priceAboveCap && " Lower your price to list this ticket."}
                         </p>
