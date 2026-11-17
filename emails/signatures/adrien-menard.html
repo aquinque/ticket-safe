@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Adrien Menard — Email signature</title>
+<style>
+  body { margin: 0; padding: 40px 16px; background: #f6f7fa; font-family: -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; color: #0b1024; }
+  .wrap { max-width: 640px; margin: 0 auto; }
+  .card { background: #fff; border: 1px solid #e4e7f0; padding: 28px; }
+  .hint { font-size: 13px; color: #5b6480; margin: 16px 0 0; line-height: 1.5; }
+  button { margin-top: 16px; background: #3a5fe6; color: #fff; border: 0; padding: 10px 18px; font-size: 14px; font-weight: 600; cursor: pointer; }
+  button:hover { background: #2440b6; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <!-- ===== SIGNATURE START ===== -->
+    <div id="signature">
+      <table cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;font-family:Helvetica,Arial,sans-serif;">
+        <tr>
+          <td valign="top" style="padding:0 16px 0 0;">
+            <a href="https://ticket-safe.eu" style="text-decoration:none;">
+              <img src="https://ticket-safe.eu/email-assets/icon-navy@2x.png" width="64" height="59" alt="Ticket Safe" style="display:block;border:0;border-radius:6px;">
+            </a>
+          </td>
+          <td valign="top" style="padding:0 0 0 16px;border-left:2px solid #3a5fe6;">
+            <div style="font-size:16px;line-height:20px;font-weight:700;color:#0b1024;">Adrien Menard</div>
+            <div style="font-size:13px;line-height:18px;color:#5b6480;padding-top:2px;">Co-founder · <span style="color:#1a2744;font-weight:600;">Ticket Safe</span></div>
+            <div style="font-size:13px;line-height:18px;padding-top:10px;">
+              <a href="mailto:adrien@ticket-safe.eu" style="color:#3a5fe6;text-decoration:none;">adrien@ticket-safe.eu</a>
+              <span style="color:#c3c8d6;">&nbsp;|&nbsp;</span>
+              <a href="https://ticket-safe.eu" style="color:#3a5fe6;text-decoration:none;">ticket-safe.eu</a>
+            </div>
+            <div style="font-size:12px;line-height:16px;color:#5b6480;padding-top:4px;">Billetterie sécurisée anti-fraude · Paris</div>
+          </td>
+        </tr>
+      </table>
+    </div>
+    <!-- ===== SIGNATURE END ===== -->
+  </div>
+  <button type="button" id="copy">Copy signature</button>
+  <p class="hint">Click “Copy signature”, then paste into Gmail → Settings → See all settings → Signature. In Apple Mail / Outlook, paste the same way into the signature editor.</p>
+</div>
+<script>
+  document.getElementById('copy').addEventListener('click', async () => {
+    const el = document.getElementById('signature');
+    const btn = document.getElementById('copy');
+    try {
+      await navigator.clipboard.write([new ClipboardItem({
+        'text/html': new Blob([el.innerHTML], { type: 'text/html' }),
+        'text/plain': new Blob([el.innerText], { type: 'text/plain' })
+      })]);
+    } catch (e) {
+      const r = document.createRange(); r.selectNode(el);
+      const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+      document.execCommand('copy'); s.removeAllRanges();
+    }
+    btn.textContent = 'Copied ✓';
+    setTimeout(() => (btn.textContent = 'Copy signature'), 1800);
+  });
+</script>
+</body>
+</html>
