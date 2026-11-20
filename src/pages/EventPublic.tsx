@@ -152,7 +152,7 @@ const EventPublic = () => {
   const [selectedTier, setSelectedTier] = useState<string | null>(null);
   const tierFeeCents = useTierServiceFee(selectedTier);
   // The fee the standard rule gives for that price. The summary only names the rule
-  // ("4% + €0.80 per ticket") when this ticket's fee is that one, not a negotiated amount.
+  // ("4% + €0.60 per ticket") when this ticket's fee is that one, not a negotiated amount.
   // Every tier of an event shares its currency (the database keeps them equal): pounds in London.
   const currency = toCurrency(tiers[0]?.currency);
   const standardFeeCents = useServiceFeeForPrice(tiers.find((t) => t.tier_id === selectedTier)?.price_cents ?? null, currency);
