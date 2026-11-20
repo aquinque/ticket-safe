@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 /**
  * Service fee per ticket, read from the database function that every checkout
- * uses (get_studio_commission_cents: 4 % + 0,80 €, min 0,70 €; 4 % + £0.70,
+ * uses (get_studio_commission_cents: 4 % + 0,60 €, min 0,70 €; 4 % + £0.70,
  * min £0.60 for an event in pounds; no maximum; or the event's negotiated
  * fee). The site never computes a fee itself; these hooks only show what the
  * server will charge. null while loading.
