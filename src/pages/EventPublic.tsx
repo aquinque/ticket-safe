@@ -879,7 +879,7 @@ const EventPublic = () => {
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className={`font-medium ${notYet ? "text-muted-foreground" : soldOut ? "text-muted-foreground line-through decoration-muted-foreground/60" : "text-foreground"}`}>{t.name}</span>
                   {upcoming ? (
-                    <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.12em] text-primary bg-primary/15 border border-primary/30 rounded-full px-2 py-0.5">
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.12em] text-cta bg-cta/15 border border-cta/30 rounded-full px-2 py-0.5">
                       <Clock className="w-3 h-3" strokeWidth={2.5} /> Next drop
                     </span>
                   ) : closed ? (
@@ -899,7 +899,7 @@ const EventPublic = () => {
                 </div>
                 {t.description && <span className={`block text-sm mt-0.5 line-clamp-2 ${soldOut ? "text-muted-foreground/60" : "text-muted-foreground"}`}>{t.description}</span>}
                 {notYet ? (
-                  <span className={`block text-xs mt-2 ${upcoming ? "font-medium text-primary" : "text-muted-foreground"}`}>{dropLabel(release)}</span>
+                  <span className={`block text-xs mt-2 ${upcoming ? "font-medium text-cta" : "text-muted-foreground"}`}>{dropLabel(release)}</span>
                 ) : soldOut ? (
                   <span className="block text-xs text-muted-foreground mt-2">
                     No more tickets in this category.{resaleCount > 0 ? " Some are on resale below." : ""}
