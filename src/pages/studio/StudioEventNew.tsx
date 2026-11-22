@@ -374,7 +374,27 @@ const StudioEventNew = () => {
   const addTier = () => {
     setTiers((t) => [...t, makeTier({ name: "", priceEuros: "30", totalQty: "50" })]);
   };
-  const removeTier = (i: number) => setTiers((t) => t.filter((_, idx) => idx !== i));
+  // A drop: a new ticket type that opens by itself when the last one sells out (same price, editable).
+  const addDrop = () =>
+    setTiers((t) => {
+      const last = t[t.length - 1];
+      return [...t, makeTier({ name: `Drop ${t.length + 1}`, priceEuros: last?.priceEuros ?? "20", totalQty: "50", opensAfterIndex: t.length - 1 })];
+    });
+  // Removing a tier keeps the drops pointing at the right one (indices shift down; a drop of the removed tier opens right away).
+  const removeTier = (i: number) =>
+    setTiers((t) =>
+      t
+        .filter((_, idx) => idx !== i)
+        .map((row) =>
+          row.opensAfterIndex === null
+            ? row
+            : row.opensAfterIndex === i
+              ? { ...row, opensAfterIndex: null }
+              : row.opensAfterIndex > i
+                ? { ...row, opensAfterIndex: row.opensAfterIndex - 1 }
+                : row,
+        ),
+    );
   const updateTier = (i: number, patch: Partial<TierDraft>) =>
     setTiers((t) => t.map((row, idx) => (idx === i ? { ...row, ...patch } : row)));
 
@@ -578,10 +598,24 @@ const StudioEventNew = () => {
         kind: t.kind,
         capacity_per_unit: t.kind === "table" ? Math.max(1, Number(t.capacityPerUnit) || 1) : 1,
       }));
-      const { error: tErr } = await supabase.from("event_tiers").insert(tierRows);
+      const { data: insertedTiers, error: tErr } = await supabase.from("event_tiers").insert(tierRows).select("id, sort_order");
       if (tErr) {
         console.error("[studio-event-new] insert tiers:", tErr);
         throw new Error("Event saved but tiers failed: " + tErr.message);
+      }
+
+      // Drops: a tier that opens when another one sells out. Linked once both exist (the ids come from the insert).
+      const idByIndex = new Map((insertedTiers ?? []).map((r) => [r.sort_order, r.id]));
+      for (const [i, t] of tiers.entries()) {
+        if (t.opensAfterIndex === null || t.opensAfterIndex === i) continue;
+        const childId = idByIndex.get(i);
+        const parentId = idByIndex.get(t.opensAfterIndex);
+        if (!childId || !parentId) continue;
+        const { error: dErr } = await supabase.from("event_tiers").update({ opens_after_tier_id: parentId }).eq("id", childId);
+        if (dErr) {
+          console.error("[studio-event-new] link drop:", dErr);
+          throw new Error(`Event saved but the drop "${t.name.trim()}" could not be linked: ${dErr.message}`);
+        }
       }
 
       // The event now exists in the database; the browser draft has done its job.
@@ -901,6 +935,30 @@ const StudioEventNew = () => {
                         </div>
                       </div>
 
+                      {/* Drop: open this ticket type only when an earlier one sells out. */}
+                      {i > 0 && (
+                        <div className="mt-3 pt-3 border-t border-border">
+                          <label className="text-xs font-bold text-muted-foreground mb-1 block">Opening</label>
+                          <select
+                            value={t.opensAfterIndex === null ? "" : String(t.opensAfterIndex)}
+                            onChange={(e) => updateTier(i, { opensAfterIndex: e.target.value === "" ? null : Number(e.target.value) })}
+                            className="ts-input max-w-sm"
+                          >
+                            <option value="">On sale right away</option>
+                            {tiers.slice(0, i).map((p, j) => (
+                              <option key={j} value={j}>
+                                When {p.name.trim() || `ticket type ${j + 1}`} sells out
+                              </option>
+                            ))}
+                          </select>
+                          {t.opensAfterIndex !== null && (
+                            <p className="text-[10px] text-muted-foreground mt-1">
+                              Buyers see it as "Opens when {tiers[t.opensAfterIndex]?.name.trim() || "the previous ticket"} sells out", then it goes on sale by itself.
+                            </p>
+                          )}
+                        </div>
+                      )}
+
                       {/* Advanced — schedulable sales window + per-tier purchase cap. */}
                       <details className="mt-3 pt-3 border-t border-border group">
                         <summary className="cursor-pointer list-none inline-flex items-center gap-1.5 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors select-none">
@@ -916,7 +974,7 @@ const StudioEventNew = () => {
                               onChange={(e) => updateTier(i, { salesStartAt: e.target.value })}
                               className="ts-input"
                             />
-                            <p className="text-[10px] text-muted-foreground mt-1">Tier hidden before this date.</p>
+                            <p className="text-[10px] text-muted-foreground mt-1">Shown as "Opens …" until then, on sale from this moment.</p>
                           </div>
                           <div>
                             <label className="text-xs font-bold text-muted-foreground mb-1 block">Sales end (optional)</label>
@@ -982,6 +1040,15 @@ const StudioEventNew = () => {
                   >
                     <Plus className="w-4 h-4" />
                     Add another ticket type
+                  </button>
+                  <button
+                    type="button"
+                    onClick={addDrop}
+                    className="ml-2 inline-flex items-center gap-2 px-4 min-h-[44px] rounded-xl font-bold border border-dashed border-border text-foreground hover:border-primary/40 hover:text-primary hover:bg-primary/5 transition-colors"
+                    title="A ticket type that opens by itself when the last one sells out"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add next drop
                   </button>
 
                   {/* Per-buyer ticket limit (great for high-demand events) */}

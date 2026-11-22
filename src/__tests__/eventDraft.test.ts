@@ -114,6 +114,14 @@ describe("event draft autosave", () => {
     expect(parsed!.tiers).toEqual([makeTier({ name: "VIP", kind: "ticket" })]);
   });
 
+  it("keeps a drop (a tier that opens when an earlier one sells out) and drops a malformed one", () => {
+    const d = { ...filled(), tiers: [makeTier({ name: "Drop 1" }), makeTier({ name: "Drop 2", opensAfterIndex: 0 })] };
+    saveEventDraft(USER, d);
+    expect(loadEventDraft(USER, STEPS)!.tiers[1].opensAfterIndex).toBe(0);
+    const parsed = parseEventDraft(JSON.stringify({ ...filled(), tiers: [{ name: "A", opensAfterIndex: "0" }, { name: "B", opensAfterIndex: -1 }] }), STEPS);
+    expect(parsed!.tiers.map((t) => t.opensAfterIndex)).toEqual([null, null]);
+  });
+
   it("keeps an explicitly empty tier list (the organizer removed every tier)", () => {
     const parsed = parseEventDraft(JSON.stringify({ ...filled(), tiers: [] }), STEPS);
     expect(parsed!.tiers).toEqual([]);

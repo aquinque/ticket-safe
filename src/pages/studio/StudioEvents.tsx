@@ -232,15 +232,34 @@ const StudioEvents = () => {
 
       const { data: sourceTiers } = await supabase
         .from("event_tiers")
-        .select("name, description, price_cents, currency, total_qty, sort_order, is_active, sales_start_at, sales_end_at, max_per_order, kind, capacity_per_unit, source")
+        .select("id, opens_after_tier_id, name, description, price_cents, currency, total_qty, sort_order, is_active, sales_start_at, sales_end_at, max_per_order, kind, capacity_per_unit, source")
         .eq("event_id", eventId)
         .neq("source", "external");
 
       if (sourceTiers && sourceTiers.length > 0) {
+        // Each copy gets a fresh id up front so drops can be re-pointed at the copied tiers, not the original event's.
+        const newIdOf = new Map(sourceTiers.map((t) => [t.id, crypto.randomUUID()]));
         const { error: tierErr } = await supabase.from("event_tiers").insert(
-          sourceTiers.map((t) => ({ ...t, event_id: newEvent.id, sold_qty: 0, reserved_qty: 0 })),
+          sourceTiers.map(({ id, opens_after_tier_id: _drop, ...t }) => ({
+            ...t,
+            id: newIdOf.get(id),
+            event_id: newEvent.id,
+            sold_qty: 0,
+            reserved_qty: 0,
+          })),
         );
         if (tierErr) console.warn("[StudioEvents] tier duplication partially failed:", tierErr);
+        else {
+          for (const t of sourceTiers) {
+            const parent = t.opens_after_tier_id ? newIdOf.get(t.opens_after_tier_id) : undefined;
+            if (!parent) continue;
+            const { error: dErr } = await supabase
+              .from("event_tiers")
+              .update({ opens_after_tier_id: parent })
+              .eq("id", newIdOf.get(t.id) as string);
+            if (dErr) console.warn("[StudioEvents] drop link not copied:", dErr);
+          }
+        }
       }
 
       toast.success("Event duplicated — opening the draft.");

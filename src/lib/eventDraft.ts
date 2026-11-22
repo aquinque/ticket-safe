@@ -28,6 +28,8 @@ export interface TierDraft {
    * capacityPerUnit is purely a buyer-facing hint ("Table for 6"). */
   kind: "ticket" | "table";
   capacityPerUnit: string;
+  /** Drop: index (in the wizard's tier list) of the tier that must sell out before this one opens; null = no wait. */
+  opensAfterIndex: number | null;
 }
 
 export const makeTier = (over: Partial<TierDraft> = {}): TierDraft => ({
@@ -40,6 +42,7 @@ export const makeTier = (over: Partial<TierDraft> = {}): TierDraft => ({
   maxPerOrder: "",
   kind: "ticket",
   capacityPerUnit: "1",
+  opensAfterIndex: null,
   ...over,
 });
 
@@ -112,6 +115,8 @@ const sanitizeTier = (raw: unknown): TierDraft | null => {
     maxPerOrder: str(r.maxPerOrder, base.maxPerOrder),
     kind: r.kind === "table" ? "table" : "ticket",
     capacityPerUnit: str(r.capacityPerUnit, base.capacityPerUnit),
+    opensAfterIndex:
+      typeof r.opensAfterIndex === "number" && Number.isInteger(r.opensAfterIndex) && r.opensAfterIndex >= 0 ? r.opensAfterIndex : null,
   };
 };
 

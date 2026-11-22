@@ -37,6 +37,7 @@ import { currencySymbol } from "@/lib/money";
 import { fmtMoney } from "@/lib/studioFormat";
 import { eventPhase } from "@/lib/eventTime";
 import { isArchivedEvent } from "@/lib/eventStatus";
+import { dropParentOptions, isUpcomingDrop, studioDropStatus, tierReleaseState, type DropTier } from "@/lib/tierDrops";
 import { ImageCropDialog } from "@/components/ImageCropDialog";
 import { PromoVideo } from "@/components/PromoVideo";
 import { SEOHead } from "@/components/SEOHead";
@@ -110,6 +111,10 @@ interface TierRow {
   source: "platform" | "external" | null;
   kind: "ticket" | "table";
   capacity_per_unit: number;
+  /** Drop: opens when this tier (same event) sells out. See src/lib/tierDrops.ts. */
+  opens_after_tier_id?: string | null;
+  /** Drop: when it opened (set by the database when the tier above sold out, or by "Open now"). */
+  released_at?: string | null;
 }
 
 interface OrderRow {
@@ -392,6 +397,32 @@ const StudioEventEdit = () => {
     });
     if (error) toast.error(error.message);
     else load();
+  };
+
+  // A drop: a new tier that opens by itself when the last tier sells out. Same price as that tier, editable after.
+  const addDrop = async () => {
+    if (!event) return;
+    if (readOnly) {
+      toast.error(TIERS_ENDED_MESSAGE);
+      return;
+    }
+    const native = tiers.filter((t) => t.source !== "external");
+    const last = native[native.length - 1];
+    if (!last) return addTier();
+    const { error } = await supabase.from("event_tiers").insert({
+      event_id: event.id,
+      name: `Drop ${native.length + 1}`,
+      price_cents: last.price_cents,
+      total_qty: 50,
+      sort_order: tiers.length,
+      is_active: true,
+      opens_after_tier_id: last.id,
+    });
+    if (error) toast.error(error.message);
+    else {
+      toast.success(`Drop ${native.length + 1} added. It opens by itself when ${last.name} sells out.`);
+      load();
+    }
   };
 
   const updateTier = async (tierId: string, patch: Partial<TierRow>) => {
@@ -983,13 +1014,25 @@ const StudioEventEdit = () => {
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold">Ticket tiers</h2>
               {!readOnly && (
-                <button
-                  onClick={addTier}
-                  className="inline-flex items-center gap-1.5 text-sm font-bold text-primary hover:underline"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add tier
-                </button>
+                <div className="flex items-center gap-4">
+                  {tiers.some((t) => t.source !== "external") && (
+                    <button
+                      onClick={addDrop}
+                      className="inline-flex items-center gap-1.5 text-sm font-bold text-primary hover:underline"
+                      title="A new tier that opens by itself when the last tier sells out"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add next drop
+                    </button>
+                  )}
+                  <button
+                    onClick={addTier}
+                    className="inline-flex items-center gap-1.5 text-sm font-bold text-primary hover:underline"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add tier
+                  </button>
+                </div>
               )}
             </div>
 
@@ -1022,6 +1065,7 @@ const StudioEventEdit = () => {
                   <TierEditor
                     key={t.id}
                     tier={t}
+                    allTiers={tiers.filter((x) => x.source !== "external")}
                     onChange={(patch) => updateTier(t.id, patch)}
                     onRemove={() => removeTier(t.id)}
                   />
@@ -2411,12 +2455,19 @@ const EntryTimesCard = ({
   );
 };
 
+type ReleaseMode = "now" | "after" | "date";
+
+const releaseModeOf = (tier: TierRow): ReleaseMode =>
+  tier.opens_after_tier_id ? "after" : tier.sales_start_at ? "date" : "now";
+
 const TierEditor = ({
   tier,
+  allTiers,
   onChange,
   onRemove,
 }: {
   tier: TierRow;
+  allTiers: TierRow[];
   onChange: (patch: Partial<TierRow>) => void;
   onRemove: () => void;
 }) => {
@@ -2426,6 +2477,8 @@ const TierEditor = ({
     price_cents: tier.price_cents,
     total_qty: tier.total_qty,
     is_active: tier.is_active,
+    release: releaseModeOf(tier),
+    opens_after_tier_id: tier.opens_after_tier_id ?? "",
     sales_start_at: toLocalInput(tier.sales_start_at),
     sales_end_at: toLocalInput(tier.sales_end_at),
     entry_until: toLocalInput(tier.entry_until ?? null),
@@ -2439,6 +2492,8 @@ const TierEditor = ({
     draft.price_cents !== tier.price_cents ||
     draft.total_qty !== tier.total_qty ||
     draft.is_active !== tier.is_active ||
+    draft.release !== releaseModeOf(tier) ||
+    draft.opens_after_tier_id !== (tier.opens_after_tier_id ?? "") ||
     draft.sales_start_at !== toLocalInput(tier.sales_start_at) ||
     draft.sales_end_at !== toLocalInput(tier.sales_end_at) ||
     draft.entry_until !== toLocalInput(tier.entry_until ?? null) ||
@@ -2448,19 +2503,100 @@ const TierEditor = ({
 
   const available = tier.total_qty - tier.sold_qty - tier.reserved_qty;
 
+  // Drop state, as buyers see it right now (the database enforces the same rule at checkout).
+  const dropTier = (t: TierRow): DropTier => ({
+    id: t.id,
+    name: t.name,
+    is_active: t.is_active,
+    total_qty: t.total_qty,
+    sold_qty: t.sold_qty,
+    reserved_qty: t.reserved_qty,
+    sales_start_at: t.sales_start_at,
+    sales_end_at: t.sales_end_at,
+    opens_after_tier_id: t.opens_after_tier_id ?? null,
+    released_at: t.released_at ?? null,
+  });
+  const state = tierReleaseState(dropTier(tier), allTiers);
+  const upcoming = isUpcomingDrop(state);
+  const parentOptions = dropParentOptions(
+    tier.id,
+    allTiers.map((t) => ({ id: t.id, name: t.name, opens_after_tier_id: t.opens_after_tier_id ?? null })),
+  );
+  const chosenParent = allTiers.find((t) => t.id === draft.opens_after_tier_id);
+  const missingParent = draft.release === "after" && !draft.opens_after_tier_id;
+  const missingDate = draft.release === "date" && !draft.sales_start_at;
+
+  const openNow = () => {
+    if (state.kind === "waiting") onChange({ released_at: new Date().toISOString() });
+    else if (state.kind === "scheduled") onChange({ sales_start_at: null });
+  };
+
+  const save = () => {
+    if (missingParent) {
+      toast.error("Choose which ticket has to sell out first.");
+      return;
+    }
+    if (missingDate) {
+      toast.error("Choose the date and time sales open.");
+      return;
+    }
+    onChange({
+      name: draft.name,
+      description: draft.description || null,
+      price_cents: draft.price_cents,
+      total_qty: draft.total_qty,
+      is_active: draft.is_active,
+      opens_after_tier_id: draft.release === "after" ? draft.opens_after_tier_id : null,
+      sales_start_at: draft.release === "date" ? fromLocalInput(draft.sales_start_at) : null,
+      sales_end_at: fromLocalInput(draft.sales_end_at),
+      entry_until: fromLocalInput(draft.entry_until),
+      // max_per_order is NOT NULL in the DB (default 10) — fall back to
+      // 10 when cleared rather than null, which would be rejected.
+      max_per_order: draft.max_per_order.trim()
+        ? Math.max(1, Math.min(50, Number(draft.max_per_order)))
+        : 10,
+      kind: draft.kind,
+      capacity_per_unit: draft.kind === "table" ? Math.max(1, Number(draft.capacity_per_unit) || 1) : 1,
+    });
+  };
+
+  const releaseChoices: { id: ReleaseMode; label: string }[] = [
+    { id: "now", label: "On sale now" },
+    { id: "after", label: "When another ticket sells out" },
+    { id: "date", label: "At a date & time" },
+  ];
+
   return (
     <div className="bg-muted/40 border border-border rounded-xl p-4">
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
         <span className="text-xs uppercase tracking-wider font-bold text-muted-foreground">
           {tier.sold_qty} sold · {available} available
         </span>
-        <button
-          onClick={onRemove}
-          className="inline-flex items-center gap-1 text-xs text-destructive font-bold"
-        >
-          <Trash2 className="w-3.5 h-3.5" />
-          Remove
-        </button>
+        <div className="flex items-center gap-3">
+          <span
+            className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+              upcoming ? "bg-warning/15 text-warning" : state.kind === "open" ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"
+            }`}
+          >
+            {studioDropStatus(state, tier.released_at ?? null)}
+          </span>
+          {upcoming && (
+            <button
+              onClick={openNow}
+              className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline"
+              title="Put this tier on sale right now"
+            >
+              Open now
+            </button>
+          )}
+          <button
+            onClick={onRemove}
+            className="inline-flex items-center gap-1 text-xs text-destructive font-bold"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            Remove
+          </button>
+        </div>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">
         <div className="md:col-span-2">
@@ -2498,24 +2634,81 @@ const TierEditor = ({
           />
         </div>
       </div>
-      {/* Advanced — scheduled sales window + per-order cap.
-          Hidden in a disclosure so the basic editor stays uncluttered. */}
-      <details className="mt-3 pt-3 border-t border-border group">
-        <summary className="cursor-pointer list-none inline-flex items-center gap-1.5 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors select-none">
-          <span className="inline-block transition-transform group-open:rotate-90">›</span>
-          Advanced — sales window, entry time & per-order cap
-        </summary>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
-          <div>
-            <label className="text-xs font-bold text-muted-foreground mb-1 block">Sales start (optional)</label>
+
+      {/* Opening: a drop can open by itself when another tier sells out, at a date, or right away. */}
+      <div className="pt-3 border-t border-border">
+        <span className="text-xs font-bold text-muted-foreground mb-1.5 block">Opening</span>
+        <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="When this ticket goes on sale">
+          {releaseChoices.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              role="radio"
+              aria-checked={draft.release === c.id}
+              onClick={() =>
+                setDraft((d) => ({
+                  ...d,
+                  release: c.id,
+                  opens_after_tier_id:
+                    c.id === "after" && !d.opens_after_tier_id ? (parentOptions[parentOptions.length - 1]?.id ?? "") : d.opens_after_tier_id,
+                }))
+              }
+              className={`px-3 min-h-[36px] rounded-full text-sm font-semibold border transition-colors ${
+                draft.release === c.id
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-background text-foreground border-border hover:border-primary/50"
+              }`}
+            >
+              {c.label}
+            </button>
+          ))}
+        </div>
+        {draft.release === "after" && (
+          <div className="mt-3 max-w-sm">
+            <label className="text-xs font-bold text-muted-foreground mb-1 block">Opens when this ticket sells out</label>
+            {parentOptions.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Add another tier first (for example "Drop 1").</p>
+            ) : (
+              <select
+                value={draft.opens_after_tier_id}
+                onChange={(e) => setDraft((d) => ({ ...d, opens_after_tier_id: e.target.value }))}
+                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm"
+              >
+                <option value="" disabled>Choose a ticket…</option>
+                {parentOptions.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            )}
+            <p className="text-[10px] text-muted-foreground mt-1">
+              {chosenParent
+                ? `Buyers see "${draft.name || "this ticket"}" as "Opens when ${chosenParent.name} sells out", then it goes on sale by itself the moment ${chosenParent.name} is sold out.`
+                : "It goes on sale by itself the moment that ticket is sold out."}
+            </p>
+          </div>
+        )}
+        {draft.release === "date" && (
+          <div className="mt-3 max-w-xs">
+            <label className="text-xs font-bold text-muted-foreground mb-1 block">Sales open at</label>
             <input
               type="datetime-local"
               value={draft.sales_start_at}
               onChange={(e) => setDraft((d) => ({ ...d, sales_start_at: e.target.value }))}
               className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm"
             />
-            <p className="text-[10px] text-muted-foreground mt-1">Tier hidden before this date.</p>
+            <p className="text-[10px] text-muted-foreground mt-1">Shown as "Opens …" until then, and on sale from this moment.</p>
           </div>
+        )}
+      </div>
+
+      {/* Advanced — sales end, entry time & per-order cap.
+          Hidden in a disclosure so the basic editor stays uncluttered. */}
+      <details className="mt-3 pt-3 border-t border-border group">
+        <summary className="cursor-pointer list-none inline-flex items-center gap-1.5 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors select-none">
+          <span className="inline-block transition-transform group-open:rotate-90">›</span>
+          Advanced — sales end, entry time & per-order cap
+        </summary>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
           <div>
             <label className="text-xs font-bold text-muted-foreground mb-1 block">Sales end (optional)</label>
             <input
@@ -2592,25 +2785,7 @@ const TierEditor = ({
         </label>
         {dirty && (
           <button
-            onClick={() =>
-              onChange({
-                name: draft.name,
-                description: draft.description || null,
-                price_cents: draft.price_cents,
-                total_qty: draft.total_qty,
-                is_active: draft.is_active,
-                sales_start_at: fromLocalInput(draft.sales_start_at),
-                sales_end_at: fromLocalInput(draft.sales_end_at),
-                entry_until: fromLocalInput(draft.entry_until),
-                // max_per_order is NOT NULL in the DB (default 10) — fall back to
-                // 10 when cleared rather than null, which would be rejected.
-                max_per_order: draft.max_per_order.trim()
-                  ? Math.max(1, Math.min(50, Number(draft.max_per_order)))
-                  : 10,
-                kind: draft.kind,
-                capacity_per_unit: draft.kind === "table" ? Math.max(1, Number(draft.capacity_per_unit) || 1) : 1,
-              })
-            }
+            onClick={save}
             className="inline-flex items-center gap-1.5 px-3 min-h-[36px] rounded-lg text-sm font-bold bg-primary text-primary-foreground"
           >
             <Save className="w-3.5 h-3.5" />
