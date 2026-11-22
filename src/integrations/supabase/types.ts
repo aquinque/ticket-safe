@@ -1214,7 +1214,9 @@ export type Database = {
           kind: string
           max_per_order: number
           name: string
+          opens_after_tier_id: string | null
           price_cents: number
+          released_at: string | null
           resale_max_price_cents: number | null
           reserved_qty: number
           sales_end_at: string | null
@@ -1237,7 +1239,9 @@ export type Database = {
           kind?: string
           max_per_order?: number
           name: string
+          opens_after_tier_id?: string | null
           price_cents: number
+          released_at?: string | null
           resale_max_price_cents?: number | null
           reserved_qty?: number
           sales_end_at?: string | null
@@ -1260,7 +1264,9 @@ export type Database = {
           kind?: string
           max_per_order?: number
           name?: string
+          opens_after_tier_id?: string | null
           price_cents?: number
+          released_at?: string | null
           resale_max_price_cents?: number | null
           reserved_qty?: number
           sales_end_at?: string | null
@@ -1273,6 +1279,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "event_tiers_opens_after_tier_id_fkey"
+            columns: ["opens_after_tier_id"]
+            isOneToOne: false
+            referencedRelation: "event_tiers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "event_tiers_event_id_fkey"
             columns: ["event_id"]
@@ -2737,9 +2750,14 @@ export type Database = {
           description: string | null
           event_id: string | null
           is_active: boolean | null
+          is_open: boolean | null
           name: string | null
+          opens_after_tier_id: string | null
           price_cents: number | null
+          released_at: string | null
           reserved_qty: number | null
+          sales_end_at: string | null
+          sales_start_at: string | null
           sold_qty: number | null
           sort_order: number | null
           tier_id: string | null

@@ -825,6 +825,55 @@ CREATE VIEW public.tier_inventory WITH (security_invoker = on) AS
      JOIN events e ON e.id = et.event_id
   WHERE e.status = 'published'::text AND e.is_active = true;
 
+-- Tier stock functions, as on production on 2026-11-22 (they predate the migrations folder).
+CREATE OR REPLACE FUNCTION public.reserve_tier(p_tier_id uuid, p_qty integer)
+ RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_available INTEGER;
+BEGIN
+  IF p_qty IS NULL OR p_qty < 1 OR p_qty > 100 THEN RETURN FALSE; END IF;
+
+  SELECT (total_qty - sold_qty - reserved_qty) INTO v_available
+  FROM public.event_tiers
+  WHERE id = p_tier_id AND is_active = TRUE
+  FOR UPDATE;
+
+  IF v_available IS NULL OR v_available < p_qty THEN RETURN FALSE; END IF;
+
+  UPDATE public.event_tiers
+  SET reserved_qty = reserved_qty + p_qty
+  WHERE id = p_tier_id;
+
+  RETURN TRUE;
+END;
+$function$;
+CREATE OR REPLACE FUNCTION public.finalize_tier_sale(p_tier_id uuid, p_qty integer)
+ RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public'
+AS $function$
+BEGIN
+  UPDATE public.event_tiers
+  SET reserved_qty = GREATEST(0, reserved_qty - p_qty),
+      sold_qty = sold_qty + p_qty
+  WHERE id = p_tier_id;
+END;
+$function$;
+CREATE OR REPLACE FUNCTION public.release_tier_reservation(p_tier_id uuid, p_qty integer)
+ RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public'
+AS $function$
+BEGIN
+  UPDATE public.event_tiers
+  SET reserved_qty = GREATEST(0, reserved_qty - p_qty)
+  WHERE id = p_tier_id;
+END;
+$function$;
+REVOKE EXECUTE ON FUNCTION public.reserve_tier(uuid, integer) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.finalize_tier_sale(uuid, integer) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.release_tier_reservation(uuid, integer) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.reserve_tier(uuid, integer) TO service_role;
+GRANT EXECUTE ON FUNCTION public.finalize_tier_sale(uuid, integer) TO service_role;
+GRANT EXECUTE ON FUNCTION public.release_tier_reservation(uuid, integer) TO service_role;
+
 CREATE VIEW public.seller_earnings WITH (security_invoker = on) AS
  WITH revenue AS (
          SELECT t.seller_id,

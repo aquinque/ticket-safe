@@ -94,13 +94,14 @@ for m in \
   20261103130000_resale_disputes_and_price_cap.sql \
   20261104120000_views_security_invoker_and_write_revokes.sql \
   20261108090000_resale_reservations_and_listing_rpcs.sql \
-  20261108090100_tickets_column_privileges_and_drop_participant_view.sql; do
+  20261108090100_tickets_column_privileges_and_drop_participant_view.sql \
+  20261122120000_ticket_drops.sql; do
   run_file "migration $m" "$MIG/$m"
 done
 
 # ── SQL test files ─────────────────────────────────────────────────────────
 shopt -s nullglob
-for f in "$TESTS"/resale_*.test.sql; do
+for f in "$TESTS"/resale_*.test.sql "$TESTS"/ticket_drops.test.sql; do
   run_file "$(basename "$f")" "$f"
 done
 
