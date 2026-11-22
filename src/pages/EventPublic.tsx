@@ -21,6 +21,7 @@ import {
   Users,
   Navigation,
   ChevronDown,
+  Clock,
   X,
 } from "lucide-react";
 import { SEOHead } from "@/components/SEOHead";
@@ -47,6 +48,7 @@ import { countdown } from "@/lib/eventCountdown";
 import { eventShareUrl } from "@/lib/shareUrl";
 import { EventResaleListings } from "@/components/resale/EventResaleListings";
 import { useResaleListings } from "@/hooks/useResaleListings";
+import { dropLabel, isUpcomingDrop, tierReleaseState } from "@/lib/tierDrops";
 
 interface PublicEvent {
   id: string;
@@ -133,6 +135,11 @@ interface TierAvailability {
   sort_order: number;
   description?: string | null;
   is_active: boolean;
+  // Drops (20261122120000_ticket_drops.sql); absent on an older database, which reads as "open".
+  sales_start_at?: string | null;
+  sales_end_at?: string | null;
+  opens_after_tier_id?: string | null;
+  released_at?: string | null;
 }
 
 const EventPublic = () => {
@@ -327,6 +334,20 @@ const EventPublic = () => {
       supabase.removeChannel(ch);
     };
   }, [event?.id, refreshTiers]);
+
+  // A drop still waiting (for an earlier tier to sell out, or for its start time): re-read the tiers every ~15 s so it
+  // shows up on its own the moment it opens, without counting on realtime.
+  const dropWaiting = tiers.some(
+    (t) => t.is_active && ((t.opens_after_tier_id && !t.released_at) || (t.sales_start_at && Date.parse(t.sales_start_at) > nowTs)),
+  );
+  useEffect(() => {
+    if (!event?.id || !dropWaiting) return;
+    const eventId = event.id;
+    const id = window.setInterval(() => {
+      if (document.visibilityState === "visible") void refreshTiers(eventId);
+    }, 12_000 + Math.random() * 6_000);
+    return () => window.clearInterval(id);
+  }, [event?.id, dropWaiting, refreshTiers]);
 
   // Whether the signed-in user already follows this event's organizer.
   useEffect(() => {
@@ -549,27 +570,52 @@ const EventPublic = () => {
   const feeIsStandard = feeUnitCents > 0 && feeUnitCents === standardFeeCents;
   const feeCents = feeUnitCents * qty;
   const grandCents = totalCents + feeCents;
+  // Where each tier stands for a buyer right now: on sale, sold out, or a drop that has not opened yet
+  // (src/lib/tierDrops.ts; the checkout enforces the same rule in reserve_tier()).
+  const dropNames = tiers.map((t) => ({ id: t.tier_id, name: t.name }));
+  const releaseOf = (t: TierAvailability) =>
+    tierReleaseState(
+      {
+        id: t.tier_id,
+        name: t.name,
+        is_active: t.is_active,
+        total_qty: t.total_qty,
+        sold_qty: t.sold_qty,
+        reserved_qty: Math.max(0, t.total_qty - t.sold_qty - t.available_qty),
+        sales_start_at: t.sales_start_at ?? null,
+        sales_end_at: t.sales_end_at ?? null,
+        opens_after_tier_id: t.opens_after_tier_id ?? null,
+        released_at: t.released_at ?? null,
+      },
+      dropNames,
+      nowTs,
+    );
+  const onSale = (t: TierAvailability) => releaseOf(t).kind === "open";
+  const nextDropComing = tiers.some((t) => isUpcomingDrop(releaseOf(t)));
   // Lowest available price, for the summary placeholder.
-  const availablePrices = tiers.filter((t) => t.available_qty > 0).map((t) => t.price_cents);
+  const availablePrices = tiers.filter(onSale).map((t) => t.price_cents);
   const minPriceCents = availablePrices.length ? Math.min(...availablePrices) : null;
   const categoryLabel = event.category
     ? event.category.charAt(0).toUpperCase() + event.category.slice(1)
     : null;
 
   // ── Derived buyer-facing status ───────────────────────────────────────────
-  const anyAvailable = tiers.some((t) => t.available_qty > 0);
-  const eventSoldOut = tiers.length > 0 && !anyAvailable;
+  const anyAvailable = tiers.some(onSale);
+  // Not sold out while a drop is still to come: the tier list stays, with the drop shown as "Opens …".
+  const eventSoldOut = tiers.length > 0 && !anyAvailable && !nextDropComing;
   // Over once the event has ended (ends_at, or 8 h after the start): the same rule as the Studio and the
   // checkout, which refuses an order for an ended event. Re-read on every tick of the clock.
   const isPast = isPastEvent(event, new Date(nowTs));
   const sellingFast =
     !eventSoldOut &&
-    tiers.some((t) => t.available_qty > 0 && t.total_qty > 0 && t.available_qty / t.total_qty < 0.3);
+    tiers.some((t) => onSale(t) && t.total_qty > 0 && t.available_qty / t.total_qty < 0.3);
   // Text-only status mark (no pill background) — colour carries the meaning.
   const statusText: { label: string; colorClass: string; pulse?: boolean } = isPast
     ? { label: "Ended", colorClass: "text-muted-foreground" }
     : eventSoldOut
     ? { label: "Sold out", colorClass: "text-rose-400" }
+    : !anyAvailable && nextDropComing
+    ? { label: "Next drop soon", colorClass: "text-primary", pulse: true }
     : sellingFast
     ? { label: "Selling fast", colorClass: "text-primary", pulse: true }
     : { label: "On sale", colorClass: "text-emerald-400" };
@@ -650,7 +696,9 @@ const EventPublic = () => {
             </p>
           )}
           <p className="text-sm text-muted-foreground mb-5">
-            Pick a ticket to see the total and continue.
+            {!anyAvailable && nextDropComing
+              ? "The next drop is not open yet. This page updates by itself when it opens."
+              : "Pick a ticket to see the total and continue."}
           </p>
           <div className="pt-5 border-t border-border">
             <ProtectionBadge />
@@ -778,7 +826,12 @@ const EventPublic = () => {
     <div className="space-y-2.5" role="radiogroup" aria-label="Ticket type">
       {tiers.map((t, i) => {
         const isSelected = selectedTier === t.tier_id;
-        const soldOut = t.available_qty <= 0;
+        const release = releaseOf(t);
+        // A drop that has not opened yet, or a tier whose sales have ended: shown, not selectable.
+        const upcoming = isUpcomingDrop(release);
+        const closed = release.kind === "closed";
+        const notYet = upcoming || closed;
+        const soldOut = t.available_qty <= 0 || notYet;
         // Buyers never see exact stock counts (Studio-only): only a proportion, once under 30%.
         const remaining = t.total_qty > 0 ? t.available_qty / t.total_qty : 1;
         const fewLeft = !soldOut && t.total_qty > 0 && remaining < 0.3;
@@ -824,8 +877,16 @@ const EventPublic = () => {
               </span>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className={`font-medium ${soldOut ? "text-muted-foreground line-through decoration-muted-foreground/60" : "text-foreground"}`}>{t.name}</span>
-                  {soldOut && (
+                  <span className={`font-medium ${notYet ? "text-muted-foreground" : soldOut ? "text-muted-foreground line-through decoration-muted-foreground/60" : "text-foreground"}`}>{t.name}</span>
+                  {upcoming ? (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.12em] text-primary bg-primary/15 border border-primary/30 rounded-full px-2 py-0.5">
+                      <Clock className="w-3 h-3" strokeWidth={2.5} /> Next drop
+                    </span>
+                  ) : closed ? (
+                    <span className="inline-flex items-center text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground bg-muted/40 border border-border rounded-full px-2 py-0.5">
+                      Sales closed
+                    </span>
+                  ) : soldOut && (
                     <span className="inline-flex items-center text-[10px] font-bold uppercase tracking-[0.12em] text-rose-400 bg-rose-500/15 border border-rose-500/30 rounded-full px-2 py-0.5">
                       Sold out
                     </span>
@@ -837,7 +898,9 @@ const EventPublic = () => {
                   )}
                 </div>
                 {t.description && <span className={`block text-sm mt-0.5 line-clamp-2 ${soldOut ? "text-muted-foreground/60" : "text-muted-foreground"}`}>{t.description}</span>}
-                {soldOut ? (
+                {notYet ? (
+                  <span className={`block text-xs mt-2 ${upcoming ? "font-medium text-primary" : "text-muted-foreground"}`}>{dropLabel(release)}</span>
+                ) : soldOut ? (
                   <span className="block text-xs text-muted-foreground mt-2">
                     No more tickets in this category.{resaleCount > 0 ? " Some are on resale below." : ""}
                   </span>
@@ -872,7 +935,7 @@ const EventPublic = () => {
                 )}
               </div>
               <div className="text-right shrink-0">
-                <div className={`font-semibold tabular-nums transition-all ${isSelected ? "text-xl" : "text-base"} ${soldOut ? "text-muted-foreground/60 line-through" : t.price_cents === 0 ? "text-emerald-400" : "text-foreground"}`}>{t.price_cents === 0 ? "Free" : fmtPrice(t.price_cents)}</div>
+                <div className={`font-semibold tabular-nums transition-all ${isSelected ? "text-xl" : "text-base"} ${notYet ? "text-muted-foreground" : soldOut ? "text-muted-foreground/60 line-through" : t.price_cents === 0 ? "text-emerald-400" : "text-foreground"}`}>{t.price_cents === 0 ? "Free" : fmtPrice(t.price_cents)}</div>
                 {isSelected && !soldOut && qty > 1 && (
                   <div className="text-xs text-muted-foreground tabular-nums mt-0.5 motion-safe:animate-fade-in">× {qty} = {fmtPrice(t.price_cents * qty)}</div>
                 )}
