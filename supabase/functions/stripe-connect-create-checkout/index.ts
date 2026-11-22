@@ -17,7 +17,7 @@
  * (stripe-connect-payout-cron). Refunds: _shared/stripeRefund.ts.
  *
  * Fee model: the service fee comes from get_studio_commission_cents (4 % +
- * 0,80 € per ticket, min 0,70 €; 4 % + £0.70, min £0.60 in pounds; no
+ * 0,60 € per ticket, min 0,70 €; 4 % + £0.70, min £0.60 in pounds; no
  * maximum; or the event's override); it is
  * not defined here. Tickets are issued by stripe-connect-webhook on
  * checkout.session.completed.

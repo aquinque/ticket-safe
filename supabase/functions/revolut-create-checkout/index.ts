@@ -6,7 +6,7 @@
  *
  * Fee model:
  *   Buyer pays the listed ticket price + a service fee PER TICKET, computed in
- *   the database by get_studio_commission_cents (4 % + 0,80 €, min 0,70 €;
+ *   the database by get_studio_commission_cents (4 % + 0,60 €, min 0,70 €;
  *   4 % + £0.70, min £0.60 for a London event in pounds; no maximum; or the
  *   event's negotiated override). That's the only fee
  *   anywhere in this flow — Ticket Safe takes no fee from the organizer; they
