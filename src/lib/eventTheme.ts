@@ -23,7 +23,7 @@ export interface EventDesign {
 
 /** The night theme (src/index.css `.theme-night`), as hex, for the defaults. */
 export const NIGHT = {
-  background: "#1A2744",
+  background: "#0A1430",
   text: "#EEF2F8",
   primary: "#3A5FE6",
 } as const;

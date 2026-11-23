@@ -169,40 +169,39 @@
   }
 
   /* ===== .theme-night — unified public/student-facing theme (Home,
-     /tickets, /resale, event pages, checkout, account, auth…). Brighter
-     navy, not black — one surface tone up for cards/panels, a light-blue
+     /tickets, /resale, event pages, checkout, account, auth…). Deep navy,
+     not black — one surface tone up for cards/panels, a light-blue
      border at low opacity, brand blue as the sole accent. No shadows:
      separation comes from a single border tone, never glow. */
   .theme-night {
-    --background: 221 45% 18%;       /* #1a2744 — navy, not near-black */
+    --background: 224.2 65.5% 11.4%; /* #0a1430 — deep navy */
     --foreground: 216 42% 95%;       /* #eef2f8 — off-white */
 
-    --card: 222 43% 25%;             /* #24345a — one step lighter than bg */
+    --card: 225.3 59% 16.3%;             /* #111d42 — one step lighter than bg */
     --card-foreground: 216 42% 95%;
 
-    --popover: 222 43% 25%;
+    --popover: 225.3 59% 16.3%;
     --popover-foreground: 216 42% 95%;
 
     --primary: 227 77% 56%;          /* brand-500 stays identical across themes */
     --primary-foreground: 0 0% 100%;
     --primary-hover: 228 67% 48%;
 
-    --secondary: 222 43% 25%;        /* surface-2, same tone as card */
+    --secondary: 225.3 59% 16.3%;        /* surface-2, same tone as card */
     --secondary-foreground: 216 42% 95%;
 
-    --accent: 222 40% 29%;           /* neutral hover surface, a touch lighter than card */
+    --accent: 226 56% 20%;           /* #16234f — neutral hover surface, a touch lighter than card */
     --accent-foreground: 216 42% 95%;
 
-    --muted: 222 43% 25%;
+    --muted: 225.3 59% 16.3%;
     --muted-foreground: 217 31% 71%; /* #9fb0cc — secondary text */
 
-    /* Spec gives the border as rgba(147,197,253,0.15) over the new
-       background. Flattened to an opaque HSL triplet (light-blue-15%-over-
-       #1a2744, composited) so it stays a plain token Tailwind's
-       opacity-modifier syntax can still apply to if needed, instead of
-       double-nesting alpha inside `hsl()`. */
-    --border: 218 37% 27%;
-    --input: 222 43% 25%;
+    /* The border is rgba(147,197,253,0.14) over the background, flattened to
+       an opaque HSL triplet (#1d2d4d) so it stays a plain token Tailwind's
+       opacity-modifier syntax can still apply to, instead of double-nesting
+       alpha inside `hsl()`. */
+    --border: 220 45% 21%;
+    --input: 225.3 59% 16.3%;
     --ring: 227 77% 56%;
 
     --destructive: 349 100% 65%;
