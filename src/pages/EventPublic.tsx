@@ -504,7 +504,7 @@ const EventPublic = () => {
     return (
       <div className="theme-night min-h-screen bg-background">
         <HeaderNight />
-        <div className="mx-auto w-full max-w-3xl pt-16 md:pt-20 lg:max-w-[1200px] lg:px-6 lg:grid lg:grid-cols-[minmax(0,520px)_minmax(0,1fr)] lg:gap-14 lg:items-start">
+        <div className="mx-auto w-full max-w-3xl pt-16 md:pt-20 lg:max-w-[1200px] lg:px-6 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-12 lg:items-start">
           <div className="sm:px-4 sm:pt-4 lg:p-0 lg:pt-10">
             <div className="w-full aspect-[16/9] bg-white/5 animate-pulse" />
           </div>
@@ -1058,12 +1058,20 @@ const EventPublic = () => {
           right: who runs it, the title, the facts, then tickets and the story under a row of section links.
           On a phone the poster comes first, full width, and the rest follows in one column. ===== */}
       <main className="ev-page flex-1 pt-16 md:pt-20 pb-32">
-        <div className="mx-auto w-full max-w-3xl lg:max-w-[1200px] lg:px-6 lg:pt-10 lg:grid lg:grid-cols-[minmax(0,520px)_minmax(0,1fr)] lg:gap-14 lg:items-start">
+        <div className="mx-auto w-full max-w-3xl lg:max-w-[1200px] lg:px-6 lg:pt-10 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-12 lg:items-start">
           {/* ===== Poster: the organizer's photo, sharp and whole, in the 16:9 frame the Studio cropped it to.
-              Nothing is written on it. ===== */}
+              Nothing is written on it. On a wide screen it is the top of a taller card: the date and the place
+              sit under it, over the same photo blurred and darkened, so the block fills its column. ===== */}
           <div className="lg:sticky lg:top-28">
             <div className="sm:px-4 sm:pt-4 lg:p-0">
-              <div className="relative w-full aspect-[16/9] overflow-hidden lg:shadow-[0_40px_80px_-30px_rgba(0,0,0,0.8),0_0_0_1px_rgba(174,198,255,0.12)]" style={{ background: accent }}>
+              <div className="relative lg:overflow-hidden lg:bg-card lg:shadow-[0_40px_80px_-30px_rgba(0,0,0,0.8),0_0_0_1px_rgba(174,198,255,0.12)]">
+              {event.banner_url && (
+                <>
+                  <img src={event.banner_url} alt="" aria-hidden className="hidden lg:block absolute inset-0 w-full h-full object-cover scale-150 blur-3xl saturate-[1.15]" decoding="async" />
+                  <div aria-hidden className="hidden lg:block absolute inset-0 bg-background/60" />
+                </>
+              )}
+              <div className="relative w-full aspect-[16/9] overflow-hidden" style={{ background: accent }}>
                 {heroVideo ? (
                   <PromoVideo src={heroVideo} poster={event.banner_url} className="absolute inset-0 w-full h-full object-cover" />
                 ) : event.banner_url ? (
@@ -1102,17 +1110,49 @@ const EventPublic = () => {
                   </button>
                 </div>
               </div>
-            </div>
-            {/* Wide screen: share and calendar sit under the poster */}
-            <div className="hidden lg:flex gap-2 mt-3.5">
-              <button type="button" onClick={shareEvent} className="ev-act">
-                <Share2 className="w-4 h-4" strokeWidth={1.75} /> Share
-              </button>
-              {!clock.over && (
-                <button type="button" onClick={() => downloadIcs(event)} className="ev-act">
-                  <CalendarPlus className="w-4 h-4" strokeWidth={1.75} /> Add to calendar
-                </button>
-              )}
+              {/* Wide screen: when and where, then share and calendar, in the lower half of the card */}
+              <div className="hidden lg:block relative px-6 pt-6 pb-6">
+                <div className="flex items-start gap-4">
+                  <div className="w-[62px] shrink-0 text-center border border-white/15 bg-black/25 py-2">
+                    <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/70">{startDate.toLocaleDateString("en-GB", { month: "short" })}</div>
+                    <div className="ev-display text-[28px] font-bold leading-none text-white">{startDate.getDate()}</div>
+                    <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/70">{startDate.toLocaleDateString("en-GB", { weekday: "short" })}</div>
+                  </div>
+                  <div className="min-w-0 flex-1 grid gap-1.5 text-[15px] text-white/80">
+                    <div className="ev-display text-lg font-bold text-white">{startDate.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</div>
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-white/55 shrink-0" strokeWidth={1.75} />
+                      <span>
+                        {startDate.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
+                        {event.ends_at && <> – {new Date(event.ends_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</>}
+                        {!clock.over && <span className="text-white/55"> · {clock.label}</span>}
+                      </span>
+                    </div>
+                    {event.location && (
+                      <a
+                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 hover:text-white transition-colors"
+                      >
+                        <MapPin className="w-4 h-4 text-white/55 shrink-0" strokeWidth={1.75} />
+                        <span className="min-w-0 truncate">{event.location}</span>
+                      </a>
+                    )}
+                  </div>
+                </div>
+                <div className="flex gap-2 mt-6">
+                  <button type="button" onClick={shareEvent} className="ev-act">
+                    <Share2 className="w-4 h-4" strokeWidth={1.75} /> Share
+                  </button>
+                  {!clock.over && (
+                    <button type="button" onClick={() => downloadIcs(event)} className="ev-act">
+                      <CalendarPlus className="w-4 h-4" strokeWidth={1.75} /> Add to calendar
+                    </button>
+                  )}
+                </div>
+              </div>
+              </div>
             </div>
           </div>
 
@@ -1141,7 +1181,7 @@ const EventPublic = () => {
             <h1 className="mt-4 text-[clamp(2.4rem,11vw,3.5rem)] lg:text-[clamp(2.75rem,4.6vw,4.5rem)] leading-[0.95] font-bold text-foreground text-balance motion-safe:animate-slide-up">
               {event.title}
             </h1>
-            <div className="mt-5 grid gap-2 text-[15px] text-foreground/80 motion-safe:animate-fade-in" style={{ animationDelay: "120ms", animationFillMode: "both" }}>
+            <div className="lg:hidden mt-5 grid gap-2 text-[15px] text-foreground/80 motion-safe:animate-fade-in" style={{ animationDelay: "120ms", animationFillMode: "both" }}>
               <div className="flex items-center gap-2.5">
                 <Calendar className="w-[18px] h-[18px] text-muted-foreground shrink-0" strokeWidth={1.75} />
                 {startDate.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
@@ -1418,10 +1458,10 @@ const EventPublic = () => {
         .ev-page [id^="resale-heading"] { scroll-margin-top: 10.5rem; }
         .ev-act {
           flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 42px;
-          background: rgba(255, 255, 255, 0.06); color: hsl(var(--foreground) / 0.8); font-size: 13.5px; font-weight: 600;
+          background: rgba(255, 255, 255, 0.1); color: hsl(var(--foreground) / 0.9); font-size: 13.5px; font-weight: 600;
           transition: background 200ms, color 200ms;
         }
-        .ev-act:hover { background: rgba(255, 255, 255, 0.1); color: hsl(var(--foreground)); }
+        .ev-act:hover { background: rgba(255, 255, 255, 0.17); color: hsl(var(--foreground)); }
         .ts-field-input {
           width: 100%;
           padding: 11px 12px;
