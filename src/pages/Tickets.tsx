@@ -18,7 +18,6 @@ import {
 } from "lucide-react";
 import HeaderNight from "@/components/HeaderNight";
 import Footer from "@/components/Footer";
-import { BackButton } from "@/components/BackButton";
 import { SEOHead } from "@/components/SEOHead";
 import EventCardShared, { EventCardSkeleton as SharedEventCardSkeleton } from "@/components/EventCard";
 import {
@@ -29,26 +28,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
 import { useThemeMode } from "@/hooks/useThemeMode";
 import { fetchPublishedEvents, toEventData, type PublishedEvent } from "@/lib/publishedEvents";
 
-type Category = "all" | "gala" | "party" | "conference" | "sports";
-
-const categories: { id: Category; label: string }[] = [
-  { id: "all", label: "All events" },
-  { id: "gala", label: "Galas" },
-  { id: "party", label: "Parties" },
-  { id: "conference", label: "Conferences" },
-  { id: "sports", label: "Sports" },
-];
-
-// ── Near you ────────────────────────────────────────────────────────────────
+// ── Cities ──────────────────────────────────────────────────────────────────
 // Events carry a city (events.campus, derived from the organiser when it is
-// not set). The page shows the viewer's city only: from the phone's position
-// when they allow it, else from their profile, else from a city they pick.
-// "All cities" lifts the filter, and that choice is remembered so the page
-// doesn't put them back in a city on its own.
+// not set). Everyone lands on all cities and all organisers; the page only
+// narrows to one city when the visitor picks it, or asks for their location.
 
 const CITIES = [
   { id: "paris", label: "Paris", lat: 48.8566, lng: 2.3522 },
@@ -58,10 +44,6 @@ const CITIES = [
   { id: "turin", label: "Turin", lat: 45.0703, lng: 7.6869 },
 ] as const;
 type CityId = (typeof CITIES)[number]["id"];
-const NEAR_KEY = "ts.nearCity";
-/** Saved under NEAR_KEY when the viewer picked "All cities". */
-const ALL_CITIES = "all";
-
 function nearestCity(lat: number, lng: number): CityId {
   const d2 = (a: { lat: number; lng: number }) => {
     const dLat = ((a.lat - lat) * Math.PI) / 180;
@@ -72,35 +54,16 @@ function nearestCity(lat: number, lng: number): CityId {
   return [...CITIES].sort((a, b) => d2(a) - d2(b))[0].id;
 }
 
-function useNearCity(userId: string | undefined) {
-  const [city, setCity] = useState<CityId | null>(() => {
-    try {
-      const saved = localStorage.getItem(NEAR_KEY);
-      return CITIES.some((c) => c.id === saved) ? (saved as CityId) : null;
-    } catch {
-      return null;
-    }
-  });
-  const [allChosen, setAllChosen] = useState<boolean>(() => {
-    try { return localStorage.getItem(NEAR_KEY) === ALL_CITIES; } catch { return false; }
-  });
-  const [source, setSource] = useState<"gps" | "profile" | "manual" | null>(city ? "manual" : null);
+function useNearCity() {
+  const [city, setCity] = useState<CityId | null>(null);
   const [locating, setLocating] = useState(false);
-
-  const remember = (id: CityId | typeof ALL_CITIES) => {
-    try { localStorage.setItem(NEAR_KEY, id); } catch { /* private mode */ }
-  };
 
   const locate = useCallback(() => {
     if (typeof navigator === "undefined" || !navigator.geolocation) return;
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        const id = nearestCity(pos.coords.latitude, pos.coords.longitude);
-        setCity(id);
-        setSource("gps");
-        setAllChosen(false);
-        remember(id);
+        setCity(nearestCity(pos.coords.latitude, pos.coords.longitude));
         setLocating(false);
       },
       () => setLocating(false),
@@ -108,29 +71,9 @@ function useNearCity(userId: string | undefined) {
     );
   }, []);
 
-  // If the browser already allowed location on an earlier visit, use it
-  // without asking again. Never pops the permission prompt on its own.
-  useEffect(() => {
-    if (allChosen || typeof navigator === "undefined" || !navigator.permissions?.query) return;
-    navigator.permissions.query({ name: "geolocation" as PermissionName })
-      .then((p) => { if (p.state === "granted") locate(); })
-      .catch(() => undefined);
-    // Only on arrival: a later "All cities" must not be undone by this.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [locate]);
-
-  // Signed in and nothing known yet: their profile campus is a fine guess.
-  useEffect(() => {
-    if (city || allChosen || !userId) return;
-    supabase.from("profiles").select("campus").eq("id", userId).maybeSingle().then(({ data }) => {
-      const match = CITIES.find((c) => c.label.toLowerCase() === ((data?.campus as string | null) ?? "").toLowerCase());
-      if (match) { setCity(match.id); setSource("profile"); }
-    });
-  }, [userId, city, allChosen]);
-
-  const choose = (id: CityId) => { setCity(id); setSource("manual"); setAllChosen(false); remember(id); };
-  const showAll = () => { setCity(null); setSource("manual"); setAllChosen(true); remember(ALL_CITIES); };
-  return { city, source, locating, locate, choose, showAll };
+  const choose = (id: CityId) => setCity(id);
+  const showAll = () => setCity(null);
+  return { city, locating, locate, choose, showAll };
 }
 
 // Every event is listed exactly once, in the one grid below, soonest first, so what is happening
@@ -140,11 +83,9 @@ const Tickets = () => {
   const navigate = useNavigate();
   // null = no organization filter (the dropdown reads "Select").
   const [selectedOrg, setSelectedOrg] = useState<string | null>(null);
-  const [category, setCategory] = useState<Category>("all");
   const [query, setQuery] = useState("");
   const [allEvents, setAllEvents] = useState<PublishedEvent[]>([]);
-  const { user } = useAuth();
-  const near = useNearCity(user?.id);
+  const near = useNearCity();
   const nearCity = CITIES.find((c) => c.id === near.city) ?? null;
 
   // Organizations come from the real Ticket Studio accounts behind the
@@ -193,10 +134,9 @@ const Tickets = () => {
     const q = query.trim().toLowerCase();
     return allEvents
       .filter((e) => (selectedOrg ? e.organizerId === selectedOrg : true))
-      .filter((e) => (category === "all" ? true : e.category === category))
       .filter((e) => (q ? (e.title + e.organizer + e.venue).toLowerCase().includes(q) : true))
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  }, [allEvents, selectedOrg, category, query]);
+  }, [allEvents, selectedOrg, query]);
 
   const filteredEvents = useMemo(
     () => (nearCity ? matchingEvents.filter(isNear) : matchingEvents),
@@ -212,7 +152,6 @@ const Tickets = () => {
     [matchingEvents, nearCity],
   );
 
-  const chip = "shrink-0 inline-flex items-center gap-1.5 px-3.5 min-h-[40px] text-xs font-semibold border transition-colors";
 
   return (
     <div className="theme-night min-h-screen flex flex-col bg-background">
@@ -224,21 +163,15 @@ const Tickets = () => {
 
       <main className="flex-1 pt-16 md:pt-20">
         {/* ===================== HERO — near you, this week ===================== */}
-        <section className="relative overflow-hidden border-b border-border">
-          <div className="absolute inset-0 pointer-events-none" aria-hidden>
-            <div className="absolute inset-0" style={{ background: "linear-gradient(120deg, hsl(var(--primary) / 0.35) 0%, hsl(var(--background)) 55%, hsl(var(--background)) 100%)" }} />
-            <div className="absolute -top-24 -left-20 w-[28rem] h-[28rem] rounded-full blur-3xl opacity-40" style={{ background: "hsl(var(--primary))" }} />
-            <div className="absolute -bottom-32 right-[-6rem] w-[22rem] h-[22rem] rounded-full blur-3xl opacity-25" style={{ background: "hsl(var(--cta))" }} />
-          </div>
+        <section className="border-b border-border">
           <div className="relative container mx-auto px-4 py-7 md:py-10">
-            <div className="mb-4"><BackButton /></div>
             <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-5">
               <div className="min-w-0">
                 <h1 className="font-display font-bold text-4xl md:text-6xl text-foreground leading-[0.98] text-balance motion-safe:animate-slide-up" style={{ letterSpacing: "-0.02em" }}>
-                  Events{nearCity ? <> near <span className="text-primary">{nearCity.label}</span></> : " near you"}
+                  {nearCity ? <>Events near <span className="text-primary">{nearCity.label}</span></> : "All events"}
                 </h1>
                 <p className="text-sm md:text-base text-muted-foreground mt-3 max-w-xl motion-safe:animate-fade-in" style={{ animationDelay: "120ms", animationFillMode: "both" }}>
-                  Tickets sold directly by the organisers and associations behind them. Closest to you first.
+                  Tickets sold directly by the organisers and associations behind them.
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2 motion-safe:animate-fade-in" style={{ animationDelay: "200ms", animationFillMode: "both" }}>
@@ -288,7 +221,7 @@ const Tickets = () => {
                     ) : (
                       <Building2 className="w-4 h-4 text-primary" />
                     )}
-                    <span className="max-w-[120px] truncate">{activeOrg?.label ?? "Organiser"}</span>
+                    <span className="max-w-[120px] truncate">{activeOrg?.label ?? "All organisers"}</span>
                     <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
                   </button>
                 </DropdownMenuTrigger>
@@ -312,19 +245,6 @@ const Tickets = () => {
                   {organizations.length === 0 && <div className="px-2 py-1.5 text-xs text-muted-foreground">No organisers yet</div>}
                 </DropdownMenuContent>
               </DropdownMenu>
-
-              <div className="ts-chips order-3 w-full sm:order-none sm:w-auto sm:flex-1 flex gap-1.5 overflow-x-auto min-w-0 -mx-4 px-4 sm:mx-0 sm:px-0">
-                {categories.map((c) => (
-                  <button
-                    key={c.id}
-                    type="button"
-                    onClick={() => setCategory(c.id)}
-                    className={`${chip} ${category === c.id ? "bg-primary text-primary-foreground border-primary" : "bg-card text-muted-foreground border-border hover:border-primary/40 hover:text-foreground"}`}
-                  >
-                    {c.label}
-                  </button>
-                ))}
-              </div>
 
               <div className="relative flex-1 sm:flex-none sm:w-56 md:w-72 min-w-0">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -351,7 +271,7 @@ const Tickets = () => {
             ) : filteredEvents.length === 0 && nearCity && matchingEvents.length > 0 ? (
               <CityEmptyState city={nearCity.label} otherCities={otherCities} onChoose={near.choose} onShowAll={near.showAll} />
             ) : filteredEvents.length === 0 ? (
-              <EmptyState query={query} category={category} hasAnyEvent={allEvents.length > 0} />
+              <EmptyState query={query} hasAnyEvent={allEvents.length > 0} />
             ) : (
               <>
                 <div className="flex items-center gap-3 mb-4">
@@ -409,7 +329,7 @@ const Tickets = () => {
               ].map(({ step, icon: Icon, title, body }) => (
                 <li key={step} className="relative rounded-2xl bg-card border border-border p-5 md:p-6 hover:border-primary/30 transition-all">
                   <div className="flex items-center justify-between mb-4">
-                    <div className="w-11 h-11 md:w-12 md:h-12 rounded-xl flex items-center justify-center text-white" style={{ background: "var(--gradient-hero)" }}>
+                    <div className="w-11 h-11 md:w-12 md:h-12 rounded-xl flex items-center justify-center text-white bg-primary">
                       <Icon className="w-5 h-5 md:w-6 md:h-6" />
                     </div>
                     <span className="text-[10px] md:text-xs font-black tracking-[0.18em] text-muted-foreground">{step}</span>
@@ -426,7 +346,7 @@ const Tickets = () => {
               </Link>
             </div>
             <div className="mt-6 md:mt-8 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 rounded-2xl border border-border bg-card px-5 py-4">
-              <div className="w-10 h-10 rounded-lg flex items-center justify-center text-white shrink-0" style={{ background: "var(--gradient-hero)" }}>
+              <div className="w-10 h-10 rounded-lg flex items-center justify-center text-white shrink-0 bg-primary">
                 <Repeat2 className="w-5 h-5" />
               </div>
               <div className="flex-1 min-w-0">
@@ -465,15 +385,11 @@ const Tickets = () => {
       </main>
 
       <Footer />
-      <style>{`
-        .ts-chips { scrollbar-width: none; }
-        .ts-chips::-webkit-scrollbar { display: none; }
-      `}</style>
     </div>
   );
 };
 
-const EmptyState = ({ query, category, hasAnyEvent }: { query: string; category: Category; hasAnyEvent: boolean }) => (
+const EmptyState = ({ query, hasAnyEvent }: { query: string; hasAnyEvent: boolean }) => (
   <div className="max-w-lg mx-auto my-8 md:my-12 rounded-2xl border border-border bg-card px-6 py-12 text-center">
     <div className="inline-flex w-16 h-16 rounded-2xl bg-primary/15 items-center justify-center mb-4">
       <PartyPopper className="w-7 h-7 text-primary" />
@@ -482,7 +398,7 @@ const EmptyState = ({ query, category, hasAnyEvent }: { query: string; category:
     <p className="text-sm text-muted-foreground mb-5 max-w-sm mx-auto">
       {hasAnyEvent
         ? query
-          ? <>No match for "<span className="font-semibold text-foreground">{query}</span>". Try another word or category.</>
+          ? <>No match for "<span className="font-semibold text-foreground">{query}</span>". Try another word.</>
           : category !== "all"
           ? "No events in this category yet. Try another one."
           : "Nothing on right now. Check back soon."

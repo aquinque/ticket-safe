@@ -303,10 +303,6 @@ const Organizers = () => {
                               <div><div className="p-label">Scanned in</div><div className="kpi sm" style={{ color: "var(--fg-3)" }}>0 <small style={{ fontSize: 14 }}>/ 800</small></div></div>
                             </div>
                             <svg viewBox="0 0 800 250" preserveAspectRatio="none">
-                              <defs>
-                                <linearGradient id="ol-lg" x1="0" x2="1"><stop offset="0" stopColor="#3a5fe6" /><stop offset="1" stopColor="#aec6ff" /></linearGradient>
-                                <linearGradient id="ol-ag" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stopColor="#3a5fe6" stopOpacity=".35" /><stop offset="1" stopColor="#3a5fe6" stopOpacity="0" /></linearGradient>
-                              </defs>
                               <line className="gl" x1="0" x2="800" y1="40" y2="40" /><line className="gl" x1="0" x2="800" y1="120" y2="120" /><line className="gl" x1="0" x2="800" y1="200" y2="200" />
                               <text x="0" y="34">€20k</text><text x="0" y="114">€10k</text><text x="0" y="194">€0</text>
                               <path className="ar" d="M40,198 L120,192 L200,184 L280,170 L360,160 L440,138 L520,120 L600,96 L680,74 L760,54 L760,200 L40,200Z" />
