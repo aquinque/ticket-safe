@@ -25,6 +25,7 @@ import {
   X,
 } from "lucide-react";
 import { SEOHead } from "@/components/SEOHead";
+import { EventSectionTabs, type SectionTab } from "@/components/event/EventSectionTabs";
 import { PromoVideo } from "@/components/PromoVideo";
 import { TeaserVideo, useVideoShape } from "@/components/event/TeaserVideo";
 import { useServiceFeeForPrice, useTierServiceFee } from "@/hooks/useServiceFee";
@@ -503,22 +504,19 @@ const EventPublic = () => {
     return (
       <div className="theme-night min-h-screen bg-background">
         <HeaderNight />
-        <div className="bg-background pt-16 md:pt-20">
-          <div className="container mx-auto max-w-5xl sm:px-4 sm:pt-6">
+        <div className="mx-auto w-full max-w-3xl pt-16 md:pt-20 lg:max-w-[1200px] lg:px-6 lg:grid lg:grid-cols-[minmax(0,520px)_minmax(0,1fr)] lg:gap-14 lg:items-start">
+          <div className="sm:px-4 sm:pt-4 lg:p-0 lg:pt-10">
             <div className="w-full aspect-[16/9] bg-white/5 animate-pulse" />
           </div>
-        </div>
-        <div className="container mx-auto max-w-5xl px-4 pt-8 space-y-5">
-          <div className="h-4 w-24 bg-muted animate-pulse" />
-          <div className="h-10 w-3/4 bg-muted animate-pulse" />
-          <div className="h-5 w-1/2 bg-muted animate-pulse" />
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-10 pt-6">
-            <div className="space-y-3">
+          <div className="px-4 pt-6 space-y-5 lg:px-0 lg:pt-10">
+            <div className="h-4 w-32 bg-muted animate-pulse" />
+            <div className="h-12 w-3/4 bg-muted animate-pulse" />
+            <div className="h-5 w-1/2 bg-muted animate-pulse" />
+            <div className="space-y-3 pt-6">
               {[0, 1, 2].map((i) => (
-                <div key={i} className="h-16 bg-muted animate-pulse" />
+                <div key={i} className="h-20 bg-muted animate-pulse" />
               ))}
             </div>
-            <div className="h-64 bg-muted animate-pulse" />
           </div>
         </div>
       </div>
@@ -654,6 +652,17 @@ const EventPublic = () => {
     } catch { /* share sheet dismissed */ }
   };
   const scrollToTickets = () => document.getElementById("tickets")?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+  // Some blocks are mounted twice (wide screen and phone): scroll to the copy that is on screen.
+  const scrollToShown = (ids: string[]) =>
+    ids.map((id) => document.getElementById(id)).find((el) => el && el.getClientRects().length > 0)?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+  // The section links under the title: only the sections this event has.
+  const sectionTabs: SectionTab[] = [
+    { key: "tickets", label: "Tickets", targets: ["tickets"] },
+    ...(resaleOpen && resaleListings.length > 0 ? [{ key: "resale", label: "Resale", targets: ["resale-heading-desktop", "resale-heading-mobile"] }] : []),
+    ...(event.description ? [{ key: "about", label: "About", targets: ["about"] }] : []),
+    { key: "venue", label: "When & where", targets: ["venue"] },
+    ...(event.organizer ? [{ key: "organiser", label: "Organiser", targets: ["organiser"] }] : []),
+  ];
   const longAbout = (event.description ?? "").length > 280;
 
   // Order summary, rendered both in the desktop sticky rail (with CTA) and as a
@@ -757,7 +766,7 @@ const EventPublic = () => {
             <button
               type="button"
               onClick={() => setShowPromoInput(true)}
-              className="text-xs font-medium text-primary hover:underline"
+              className="text-xs font-semibold text-cta hover:underline"
             >
               Have a promo code?
             </button>
@@ -850,54 +859,49 @@ const EventPublic = () => {
             onClick={choose}
             onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); choose(); } }}
             style={{ animationDelay: `${i * 60}ms`, animationFillMode: "both" }}
-            className={`relative motion-safe:animate-fade-in border rounded-2xl transition-all duration-200 ${
-              soldOut
-                ? "cursor-not-allowed border-dashed border-border bg-card/30"
+            className={`relative motion-safe:animate-fade-in border transition-all duration-200 ${
+              upcoming
+                ? "cursor-not-allowed border-dashed border-cta/30 bg-card/60"
+                : soldOut
+                ? "cursor-not-allowed border-border bg-card/70 opacity-60"
                 : isSelected
                 ? "cursor-pointer border-primary bg-primary/10 shadow-[inset_0_0_0_1px_hsl(var(--primary))]"
-                : "cursor-pointer border-border bg-card/60 hover:border-foreground/40 hover:bg-card motion-safe:active:scale-[0.99]"
+                : "cursor-pointer border-border bg-card hover:border-foreground/40 motion-safe:active:scale-[0.99]"
             }`}
           >
-            <div className="flex items-start gap-3.5 p-4">
-              <span
-                aria-hidden
-                className={`mt-0.5 w-5 h-5 rounded-full border shrink-0 flex items-center justify-center transition-colors ${
-                  soldOut
-                    ? "border-border bg-muted/40"
-                    : isSelected
-                    ? "bg-primary border-primary text-primary-foreground"
-                    : "border-muted-foreground/50"
-                }`}
-              >
-                {soldOut ? (
-                  <X className="w-3 h-3 text-muted-foreground" strokeWidth={2.5} />
-                ) : (
-                  isSelected && <Check className="w-3 h-3 motion-safe:animate-scale-in" strokeWidth={3} />
-                )}
-              </span>
-              <div className="flex-1 min-w-0">
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3.5 p-4 sm:py-[18px] sm:pl-5 sm:pr-[18px]">
+              <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className={`font-medium ${notYet ? "text-muted-foreground" : soldOut ? "text-muted-foreground line-through decoration-muted-foreground/60" : "text-foreground"}`}>{t.name}</span>
+                  <span className={`text-base font-semibold ${soldOut ? "text-muted-foreground" : "text-foreground"}`}>{t.name}</span>
                   {upcoming ? (
-                    <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.12em] text-cta bg-cta/15 border border-cta/30 rounded-full px-2 py-0.5">
+                    <span className="inline-flex items-center gap-1 h-[22px] text-[11px] font-bold tracking-[0.02em] text-cta bg-cta/15 rounded-full px-2">
                       <Clock className="w-3 h-3" strokeWidth={2.5} /> Next drop
                     </span>
                   ) : closed ? (
-                    <span className="inline-flex items-center text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground bg-muted/40 border border-border rounded-full px-2 py-0.5">
+                    <span className="inline-flex items-center h-[22px] text-[11px] font-bold tracking-[0.02em] text-muted-foreground bg-white/[0.1] rounded-full px-2">
                       Sales closed
                     </span>
                   ) : soldOut && (
-                    <span className="inline-flex items-center text-[10px] font-bold uppercase tracking-[0.12em] text-rose-400 bg-rose-500/15 border border-rose-500/30 rounded-full px-2 py-0.5">
+                    <span className="inline-flex items-center h-[22px] text-[11px] font-bold tracking-[0.02em] text-foreground/80 bg-white/[0.1] rounded-full px-2">
                       Sold out
                     </span>
                   )}
                   {popular && (
-                    <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.12em] text-primary bg-primary/15 rounded-full px-2 py-0.5">
+                    <span className="inline-flex items-center gap-1 h-[22px] text-[11px] font-bold tracking-[0.02em] text-cta bg-cta/15 rounded-full px-2">
                       <Flame className="w-3 h-3" strokeWidth={2} /> Most popular
                     </span>
                   )}
                 </div>
-                {t.description && <span className={`block text-sm mt-0.5 line-clamp-2 ${soldOut ? "text-muted-foreground/60" : "text-muted-foreground"}`}>{t.description}</span>}
+                {t.description && <span className="block text-[13.5px] mt-0.5 line-clamp-2 text-muted-foreground">{t.description}</span>}
+                <span className={`ev-display block mt-2 text-lg font-bold tabular-nums ${soldOut ? "text-muted-foreground" : t.price_cents === 0 ? "text-emerald-400" : "text-foreground"}`}>
+                  {t.price_cents === 0 ? "Free" : fmtPrice(t.price_cents)}
+                  {isSelected && !soldOut && feeUnitCents > 0 && (
+                    <small className="ml-1.5 font-sans text-[12.5px] font-medium tracking-normal text-muted-foreground">+ {formatMoney(feeUnitCents, currency)} fee</small>
+                  )}
+                </span>
+                {isSelected && !soldOut && qty > 1 && (
+                  <span className="block text-xs text-muted-foreground tabular-nums mt-0.5 motion-safe:animate-fade-in">× {qty} = {fmtPrice(t.price_cents * qty)}</span>
+                )}
                 {notYet ? (
                   <span className={`block text-xs mt-2 ${upcoming ? "font-medium text-cta" : "text-muted-foreground"}`}>{dropLabel(release)}</span>
                 ) : soldOut ? (
@@ -906,40 +910,50 @@ const EventPublic = () => {
                   </span>
                 ) : fewLeft ? (
                   <div className="mt-2.5">
-                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-primary">
-                      <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                    <span className="inline-flex items-center gap-1.5 text-xs font-medium text-cta">
+                      <span className="w-1.5 h-1.5 rounded-full bg-cta animate-pulse" />
                       Almost gone
                     </span>
                     <div className="h-1 w-32 bg-border rounded-full mt-1.5 overflow-hidden" aria-hidden>
-                      <div className="h-full bg-primary rounded-full motion-safe:transition-[width] motion-safe:duration-700" style={{ width: `${Math.max(6, Math.round(remaining * 100))}%` }} />
+                      <div className="h-full bg-cta rounded-full motion-safe:transition-[width] motion-safe:duration-700" style={{ width: `${Math.max(6, Math.round(remaining * 100))}%` }} />
                     </div>
                   </div>
                 ) : null}
-                {isSelected && !soldOut && (
-                  <div className="mt-3.5 pt-3.5 border-t border-primary/30 flex items-center justify-between gap-3 motion-safe:animate-fade-in" onClick={(e) => e.stopPropagation()}>
-                    <span className="text-sm text-muted-foreground">How many?</span>
-                    <QtyStepper
-                      qty={qty}
-                      onDecrease={() => setQty((n) => Math.max(1, n - 1))}
-                      onIncrease={() =>
-                        setQty((n) => {
-                          const hardCap = Math.min(10, t.available_qty);
-                          const finalCap = maxPerBuyer ? Math.min(hardCap, maxPerBuyer) : hardCap;
-                          return Math.min(finalCap, n + 1);
-                        })
-                      }
-                      disableDecrease={qty <= 1}
-                      disableIncrease={qty >= Math.min(10, t.available_qty) || (maxPerBuyer != null && qty >= maxPerBuyer)}
-                    />
-                  </div>
-                )}
               </div>
-              <div className="text-right shrink-0">
-                <div className={`font-semibold tabular-nums transition-all ${isSelected ? "text-xl" : "text-base"} ${notYet ? "text-muted-foreground" : soldOut ? "text-muted-foreground/60 line-through" : t.price_cents === 0 ? "text-emerald-400" : "text-foreground"}`}>{t.price_cents === 0 ? "Free" : fmtPrice(t.price_cents)}</div>
-                {isSelected && !soldOut && qty > 1 && (
-                  <div className="text-xs text-muted-foreground tabular-nums mt-0.5 motion-safe:animate-fade-in">× {qty} = {fmtPrice(t.price_cents * qty)}</div>
-                )}
-              </div>
+              {/* On the right: the quantity once picked, a "+" to pick, or the way to resale when it is sold out. */}
+              {soldOut ? (
+                !notYet && resaleCount > 0 ? (
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); scrollToShown(["resale-heading-desktop", "resale-heading-mobile"]); }}
+                    className="shrink-0 cursor-pointer text-[13px] font-semibold text-cta whitespace-nowrap hover:underline"
+                  >
+                    See resale
+                  </button>
+                ) : (
+                  <span aria-hidden />
+                )
+              ) : isSelected ? (
+                <div className="shrink-0 motion-safe:animate-fade-in" onClick={(e) => e.stopPropagation()}>
+                  <QtyStepper
+                    qty={qty}
+                    onDecrease={() => setQty((n) => Math.max(1, n - 1))}
+                    onIncrease={() =>
+                      setQty((n) => {
+                        const hardCap = Math.min(10, t.available_qty);
+                        const finalCap = maxPerBuyer ? Math.min(hardCap, maxPerBuyer) : hardCap;
+                        return Math.min(finalCap, n + 1);
+                      })
+                    }
+                    disableDecrease={qty <= 1}
+                    disableIncrease={qty >= Math.min(10, t.available_qty) || (maxPerBuyer != null && qty >= maxPerBuyer)}
+                  />
+                </div>
+              ) : (
+                <span aria-hidden className="shrink-0 inline-flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                  <Plus className="w-[18px] h-[18px]" strokeWidth={2.25} />
+                </span>
+              )}
             </div>
           </div>
         );
@@ -1013,17 +1027,6 @@ const EventPublic = () => {
     );
   };
 
-  const InfoChip = ({ icon: Icon, children, onClick, href, tone = "default" }: { icon: typeof Calendar; children: React.ReactNode; onClick?: () => void; href?: string; tone?: "default" | "live" | "accent" }) => {
-    const cls = `snap-start shrink-0 inline-flex items-center gap-1.5 h-9 pl-3 pr-3.5 rounded-full border text-sm whitespace-nowrap transition-colors ${
-      tone === "live" ? "border-emerald-400/40 bg-emerald-400/10 text-emerald-300" : tone === "accent" ? "border-primary/50 bg-primary/15 text-foreground" : "border-border bg-card/70 text-foreground"
-    } ${onClick || href ? "hover:border-foreground/50" : ""}`;
-    const inner = <><Icon className={`w-4 h-4 ${tone === "live" ? "text-emerald-400" : "text-primary"}`} strokeWidth={1.75} />{children}</>;
-    if (href) return <a href={href} target="_blank" rel="noopener noreferrer" className={cls}>{inner}</a>;
-    if (onClick) return <button type="button" onClick={onClick} className={cls}>{inner}</button>;
-    return <span className={cls}>{inner}</span>;
-  };
-
-
   return (
     <div className="theme-night min-h-screen flex flex-col bg-background" style={themeVars as React.CSSProperties}>
       <HeaderNight />
@@ -1051,298 +1054,379 @@ const EventPublic = () => {
         }}
       />
 
-      {/* ===== Poster: the organizer's photo, sharp and whole, in the 16:9 frame the Studio cropped it to.
-          Nothing is written on it; the title comes right after. Full-bleed on a phone, a rounded card on
-          larger screens. ===== */}
-      <section className="pt-16 md:pt-20">
-        <div className="sm:container sm:mx-auto sm:max-w-5xl sm:px-4 sm:pt-4">
-          <div className="relative w-full aspect-[16/9] overflow-hidden sm:rounded-2xl" style={{ background: accent }}>
-            {heroVideo ? (
-              <PromoVideo src={heroVideo} poster={event.banner_url} className="absolute inset-0 w-full h-full object-cover" />
-            ) : event.banner_url ? (
-              <img
-                src={event.banner_url}
-                alt={`${event.title} poster`}
-                className={`absolute inset-0 w-full h-full ${event.banner_fit === "contain" ? "object-contain" : "object-cover"}`}
-                fetchPriority="high"
-                decoding="async"
-              />
-            ) : (
-              <div className="absolute inset-0 flex items-center justify-center" style={{ background: `radial-gradient(120% 80% at 30% 20%, ${accent} 0%, var(--event-bg) 85%)` }}>
-                {(event.logo_url ?? event.organizer?.logo_url) && (
-                  <img src={event.logo_url ?? event.organizer?.logo_url ?? ""} alt="" className="w-24 h-24 md:w-32 md:h-32 rounded-2xl object-cover shadow-lg" />
-                )}
-              </div>
-            )}
-
-            {/* Back / Share: two small round controls in the corners, the only thing over the photo */}
-            <div className="absolute top-3 inset-x-3 flex items-center justify-between">
-              <button
-                type="button"
-                onClick={() => { if (location.key && location.key !== "default") { allowNextHistoryBack(); navigate(-1); } else navigate("/tickets"); }}
-                aria-label="Back"
-                className="w-10 h-10 rounded-full bg-black/45 text-white backdrop-blur-sm flex items-center justify-center hover:bg-black/60 transition-colors"
-              >
-                <ArrowLeft className="w-5 h-5" strokeWidth={1.75} />
-              </button>
-              <button
-                type="button"
-                onClick={shareEvent}
-                aria-label="Share"
-                className="w-10 h-10 rounded-full bg-black/45 text-white backdrop-blur-sm flex items-center justify-center hover:bg-black/60 transition-colors"
-              >
-                <Share2 className="w-5 h-5" strokeWidth={1.75} />
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* ===== Title, right under the poster, then the facts ===== */}
-        <div className="container mx-auto max-w-5xl px-4 pt-5 md:pt-7">
-          <div className="flex items-center gap-2.5 flex-wrap text-[11px] font-bold uppercase tracking-[0.12em] motion-safe:animate-fade-in">
-            <span className={`inline-flex items-center gap-1.5 ${statusText.colorClass}`}>
-              {statusText.pulse && <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />}
-              {statusText.label}
-            </span>
-            {categoryLabel && <span className="text-muted-foreground">· {categoryLabel}</span>}
-          </div>
-          <h1 className="mt-2 text-[2.2rem] leading-[1.02] sm:text-5xl md:text-6xl font-semibold tracking-tight text-foreground text-balance motion-safe:animate-slide-up">
-            {event.title}
-          </h1>
-          {event.organizer && (
-            <div className="mt-3.5 inline-flex items-center gap-2 text-sm text-foreground/90 motion-safe:animate-fade-in" style={{ animationDelay: "120ms", animationFillMode: "both" }}>
-              {event.organizer.logo_url ? (
-                <img src={event.organizer.logo_url} alt="" className="w-7 h-7 rounded-full object-cover border border-border" />
-              ) : (
-                <span className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-primary-foreground bg-primary">{event.organizer.name[0]?.toUpperCase()}</span>
-              )}
-              <span className="font-medium">{event.organizer.name}</span>
-              <BadgeCheck className="w-4 h-4 text-primary" strokeWidth={1.75} aria-label="Verified organiser" />
-            </div>
-          )}
-
-          {/* Chips: the facts, swipeable on a phone */}
-          <div className="ts-chips flex gap-2 overflow-x-auto snap-x pt-4 pb-1 -mx-4 px-4 sm:mx-0 sm:px-0 motion-safe:animate-fade-in" style={{ animationDelay: "200ms", animationFillMode: "both" }}>
-            <InfoChip icon={Calendar}>{startDate.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })} · {startDate.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</InfoChip>
-            {event.location && (
-              <InfoChip icon={MapPin} href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`}>
-                <span className="max-w-[180px] truncate">{event.location}</span>
-              </InfoChip>
-            )}
-            {interestedLabel && !clock.over && <InfoChip icon={Users}>{interestedLabel}</InfoChip>}
-            {minPriceCents != null && !eventSoldOut && !isPast && (
-              <InfoChip icon={Ticket} tone="accent" onClick={scrollToTickets}>{minPriceCents === 0 ? "Free" : `From ${fmtPrice(minPriceCents)}`}</InfoChip>
-            )}
-          </div>
-          {/* Countdown: one quiet line under the date, gone once the event is over. */}
-          {!clock.over && (
-            <p className="mt-2.5 flex items-center gap-2 text-sm text-muted-foreground">
-              <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />
-              {clock.label}
-            </p>
-          )}
-        </div>
-      </section>
-
-      <main className="flex-1 pb-32 lg:pb-16">
-        <div className="container mx-auto px-4 max-w-5xl">
-          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,440px)_1fr] gap-8 lg:gap-12 lg:items-start mt-5 md:mt-8">
-            {/* ===== LEFT (desktop): tickets, then who's coming, then the checkout ===== */}
-            <aside className="hidden lg:block space-y-4">
-              <section className="rounded-2xl border border-border bg-card/50 p-5">
-                <div className="flex items-baseline justify-between mb-4">
-                  <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Tickets</h2>
-                  {tiers.length > 1 && <span className="text-[11px] text-muted-foreground">{tiers.length} options</span>}
-                </div>
-                {isPast ? (
-                  <p className="text-sm text-muted-foreground py-4">This event has ended.</p>
-                ) : tiers.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-4">Tickets will be on sale soon. Check back shortly.</p>
-                ) : eventSoldOut ? (
-                  renderSummary(true)
+      {/* ===== The page: the poster on the left (it stays in view on a wide screen), everything else on the
+          right: who runs it, the title, the facts, then tickets and the story under a row of section links.
+          On a phone the poster comes first, full width, and the rest follows in one column. ===== */}
+      <main className="ev-page flex-1 pt-16 md:pt-20 pb-32">
+        <div className="mx-auto w-full max-w-3xl lg:max-w-[1200px] lg:px-6 lg:pt-10 lg:grid lg:grid-cols-[minmax(0,520px)_minmax(0,1fr)] lg:gap-14 lg:items-start">
+          {/* ===== Poster: the organizer's photo, sharp and whole, in the 16:9 frame the Studio cropped it to.
+              Nothing is written on it. ===== */}
+          <div className="lg:sticky lg:top-28">
+            <div className="sm:px-4 sm:pt-4 lg:p-0">
+              <div className="relative w-full aspect-[16/9] overflow-hidden lg:shadow-[0_40px_80px_-30px_rgba(0,0,0,0.8),0_0_0_1px_rgba(174,198,255,0.12)]" style={{ background: accent }}>
+                {heroVideo ? (
+                  <PromoVideo src={heroVideo} poster={event.banner_url} className="absolute inset-0 w-full h-full object-cover" />
+                ) : event.banner_url ? (
+                  <img
+                    src={event.banner_url}
+                    alt={`${event.title} poster`}
+                    className={`absolute inset-0 w-full h-full ${event.banner_fit === "contain" ? "object-contain" : "object-cover"}`}
+                    fetchPriority="high"
+                    decoding="async"
+                  />
                 ) : (
-                  renderTiers()
-                )}
-              </section>
-              {selected && !eventSoldOut && !isPast && (
-                <section className="rounded-2xl border border-border bg-card/50 p-5">
-                  {renderAttendees()}
-                </section>
-              )}
-              {selected && !eventSoldOut && !isPast && <div className="lg:sticky lg:top-24">{renderSummary(true)}</div>}
-              {!isPast && <EventResaleListings eventId={event.id} headingId="resale-heading-desktop" logErrors />}
-              {teaserVideo && <TeaserVideo src={teaserVideo} poster={event.banner_url} title={event.title} />}
-            </aside>
-
-            {/* ===== RIGHT: the story (on a phone: tickets first, then the story) ===== */}
-            <div className="min-w-0 space-y-4">
-              <section id="tickets" className="lg:hidden rounded-2xl border border-border bg-card/50 p-4 scroll-mt-20">
-                <div className="flex items-baseline justify-between mb-3">
-                  <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">Tickets</h2>
-                  {tiers.length > 1 && <span className="text-[11px] text-muted-foreground">{tiers.length} options</span>}
-                </div>
-                {isPast ? (
-                  <p className="text-sm text-muted-foreground py-4">This event has ended.</p>
-                ) : tiers.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-4">Tickets will be on sale soon. Check back shortly.</p>
-                ) : eventSoldOut ? (
-                  renderSummary(true)
-                ) : (
-                  renderTiers()
-                )}
-              </section>
-              {selected && !eventSoldOut && !isPast && (
-                <section className="lg:hidden rounded-2xl border border-border bg-card/50 p-4 motion-safe:animate-fade-in">
-                  {renderAttendees()}
-                </section>
-              )}
-              {selected && !eventSoldOut && !isPast && <div id="checkout" className="lg:hidden scroll-mt-20">{renderSummary(true)}</div>}
-              {!isPast && <EventResaleListings eventId={event.id} headingId="resale-heading-mobile" className="lg:hidden" />}
-              {teaserVideo && <div className="lg:hidden"><TeaserVideo src={teaserVideo} poster={event.banner_url} title={event.title} /></div>}
-              {event.description && (
-                <section className="rounded-2xl border border-border bg-card/50 p-5">
-                  <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground mb-3">About</h2>
-                  <p
-                    className={`text-[15px] text-foreground/90 leading-relaxed whitespace-pre-line ${!aboutOpen && longAbout ? "line-clamp-5" : ""}`}
-                    style={{ fontFamily: descriptionFontFamily(event.description_font) }}
-                  >
-                    {event.description}
-                  </p>
-                  {longAbout && (
-                    <button type="button" onClick={() => setAboutOpen((v) => !v)} className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline">
-                      {aboutOpen ? "Show less" : "Read more"}
-                      <ChevronDown className={`w-4 h-4 transition-transform ${aboutOpen ? "rotate-180" : ""}`} />
-                    </button>
-                  )}
-                </section>
-              )}
-
-              {/* When & where */}
-              <section className="rounded-2xl border border-border bg-card/50 p-5">
-                <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground mb-4">When & where</h2>
-                <div className="flex items-start gap-4">
-                  <div className="w-14 shrink-0 text-center rounded-xl border border-border bg-background/60 py-1.5">
-                    <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">{startDate.toLocaleDateString("en-GB", { month: "short" })}</div>
-                    <div className="text-2xl font-semibold leading-none text-foreground">{startDate.getDate()}</div>
-                    <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">{startDate.toLocaleDateString("en-GB", { weekday: "short" })}</div>
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm text-foreground">
-                      {startDate.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
-                      {event.ends_at && <> – {new Date(event.ends_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</>}
-                      <span className="text-muted-foreground"> · {clock.label}</span>
-                    </div>
-                    {event.location && <div className="text-sm text-foreground mt-1">{event.location}</div>}
-                    <div className="flex flex-wrap gap-2 mt-3">
-                      {!clock.over && (
-                        <button type="button" onClick={() => downloadIcs(event)} className="inline-flex items-center gap-1.5 min-h-[44px] px-4 rounded-full border border-border text-sm text-foreground hover:bg-muted transition-colors">
-                          <CalendarPlus className="w-4 h-4" strokeWidth={1.75} /> Add to calendar
-                        </button>
-                      )}
-                      {event.location && (
-                        <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 min-h-[44px] px-4 rounded-full border border-border text-sm text-foreground hover:bg-muted transition-colors">
-                          <Navigation className="w-4 h-4" strokeWidth={1.75} /> Open in Maps
-                        </a>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </section>
-
-              {/* Organiser */}
-              {event.organizer && (
-                <section className="rounded-2xl border border-border bg-card/50 p-5" style={{ borderLeft: `3px solid ${organizerAccent}` }}>
-                  <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground mb-4">Organised by</h2>
-                  <div className="flex items-center gap-4">
-                    {event.organizer.logo_url ? (
-                      <img src={event.organizer.logo_url} alt={event.organizer.name} className="w-14 h-14 rounded-xl object-cover shrink-0" />
-                    ) : (
-                      <div className="w-14 h-14 rounded-xl flex items-center justify-center text-xl font-bold text-primary-foreground bg-primary shrink-0">{event.organizer.name[0]?.toUpperCase()}</div>
+                  <div className="absolute inset-0 flex items-center justify-center" style={{ background: `radial-gradient(120% 80% at 30% 20%, ${accent} 0%, var(--event-bg) 85%)` }}>
+                    {(event.logo_url ?? event.organizer?.logo_url) && (
+                      <img src={event.logo_url ?? event.organizer?.logo_url ?? ""} alt="" className="w-24 h-24 md:w-32 md:h-32 rounded-2xl object-cover shadow-lg" />
                     )}
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium text-foreground inline-flex items-center gap-1.5">
-                        {event.organizer.name}
-                        <BadgeCheck className="w-4 h-4 text-primary" strokeWidth={1.75} aria-label="Verified organiser" />
-                      </div>
-                      <div className="text-xs text-muted-foreground">Verified organiser{interestedLabel ? ` · ${interestedLabel} in this event` : ""}</div>
-                      {event.organizer.website && (
-                        <a href={event.organizer.website} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">{event.organizer.website.replace(/^https?:\/\//, "")}</a>
-                      )}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleToggleFollow}
-                      disabled={followBusy}
-                      aria-pressed={following}
-                      className={`shrink-0 h-10 px-4 rounded-full text-sm font-medium border transition-colors disabled:opacity-60 ${following ? "border-border text-foreground hover:bg-muted" : "border-primary bg-primary text-primary-foreground hover:bg-primary-hover"}`}
-                    >
-                      {following ? "Following" : "Follow"}
-                    </button>
                   </div>
-                </section>
+                )}
+
+                {/* Back / Share: two small round controls in the corners, the only thing over the photo */}
+                <div className="absolute top-3 inset-x-3 flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => { if (location.key && location.key !== "default") { allowNextHistoryBack(); navigate(-1); } else navigate("/tickets"); }}
+                    aria-label="Back"
+                    className="w-10 h-10 rounded-full bg-black/45 text-white backdrop-blur-sm flex items-center justify-center hover:bg-black/60 transition-colors"
+                  >
+                    <ArrowLeft className="w-5 h-5" strokeWidth={1.75} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={shareEvent}
+                    aria-label="Share"
+                    className="lg:hidden w-10 h-10 rounded-full bg-black/45 text-white backdrop-blur-sm flex items-center justify-center hover:bg-black/60 transition-colors"
+                  >
+                    <Share2 className="w-5 h-5" strokeWidth={1.75} />
+                  </button>
+                </div>
+              </div>
+            </div>
+            {/* Wide screen: share and calendar sit under the poster */}
+            <div className="hidden lg:flex gap-2 mt-3.5">
+              <button type="button" onClick={shareEvent} className="ev-act">
+                <Share2 className="w-4 h-4" strokeWidth={1.75} /> Share
+              </button>
+              {!clock.over && (
+                <button type="button" onClick={() => downloadIcs(event)} className="ev-act">
+                  <CalendarPlus className="w-4 h-4" strokeWidth={1.75} /> Add to calendar
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="min-w-0 px-4 pt-5 lg:px-0 lg:pt-0">
+            {/* ===== Who runs it, the title, the facts ===== */}
+            {event.organizer && (
+              <div className="flex items-center gap-2.5 text-sm text-foreground/80 motion-safe:animate-fade-in">
+                {event.organizer.logo_url ? (
+                  <img src={event.organizer.logo_url} alt="" className="w-[30px] h-[30px] rounded-full object-cover border border-border shrink-0" />
+                ) : (
+                  <span className="w-[30px] h-[30px] rounded-full flex items-center justify-center text-xs font-bold text-primary-foreground bg-primary shrink-0">{event.organizer.name[0]?.toUpperCase()}</span>
+                )}
+                <span className="min-w-0 truncate">By <b className="font-semibold text-foreground">{event.organizer.name}</b></span>
+                <BadgeCheck className="w-4 h-4 text-cta shrink-0" strokeWidth={1.75} aria-label="Verified organiser" />
+                <button
+                  type="button"
+                  onClick={handleToggleFollow}
+                  disabled={followBusy}
+                  aria-pressed={following}
+                  className={`ml-auto shrink-0 h-8 px-3.5 rounded-full border border-border text-[13px] font-semibold text-foreground transition-colors disabled:opacity-60 ${following ? "bg-white/[0.1]" : "hover:bg-white/[0.1]"}`}
+                >
+                  {following ? "Following" : "Follow"}
+                </button>
+              </div>
+            )}
+            <h1 className="mt-4 text-[clamp(2.4rem,11vw,3.5rem)] lg:text-[clamp(2.75rem,4.6vw,4.5rem)] leading-[0.95] font-bold text-foreground text-balance motion-safe:animate-slide-up">
+              {event.title}
+            </h1>
+            <div className="mt-5 grid gap-2 text-[15px] text-foreground/80 motion-safe:animate-fade-in" style={{ animationDelay: "120ms", animationFillMode: "both" }}>
+              <div className="flex items-center gap-2.5">
+                <Calendar className="w-[18px] h-[18px] text-muted-foreground shrink-0" strokeWidth={1.75} />
+                {startDate.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+              </div>
+              <div className="flex items-center gap-2.5">
+                <Clock className="w-[18px] h-[18px] text-muted-foreground shrink-0" strokeWidth={1.75} />
+                <span>
+                  {startDate.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
+                  {event.ends_at && <> – {new Date(event.ends_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</>}
+                  {!clock.over && <span className="text-muted-foreground"> · {clock.label}</span>}
+                </span>
+              </div>
+              {event.location && (
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2.5 hover:text-foreground transition-colors"
+                >
+                  <MapPin className="w-[18px] h-[18px] text-muted-foreground shrink-0" strokeWidth={1.75} />
+                  <span className="min-w-0 truncate">{event.location}</span>
+                </a>
+              )}
+            </div>
+
+            {/* Chips: where sales stand, the kind of event, who is interested */}
+            <div className="flex flex-wrap gap-2 mt-5 motion-safe:animate-fade-in" style={{ animationDelay: "200ms", animationFillMode: "both" }}>
+              <span className={`inline-flex items-center gap-1.5 h-[30px] px-3 rounded-full text-[12.5px] font-semibold ${statusText.pulse ? "bg-cta/15 text-cta" : `bg-white/[0.06] ${statusText.colorClass}`}`}>
+                {statusText.pulse && <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />}
+                {statusText.label}
+              </span>
+              {categoryLabel && <span className="inline-flex items-center h-[30px] px-3 rounded-full bg-white/[0.06] text-[12.5px] font-semibold text-foreground/80">{categoryLabel}</span>}
+              {interestedLabel && !clock.over && (
+                <span className="inline-flex items-center gap-1.5 h-[30px] px-3 rounded-full bg-white/[0.06] text-[12.5px] font-semibold text-foreground/80">
+                  <Users className="w-3.5 h-3.5 text-muted-foreground" strokeWidth={2} /> {interestedLabel}
+                </span>
+              )}
+            </div>
+
+            {/* Wide screen: the price to start from and the way to the tickets (a phone has the bar at the bottom) */}
+            {minPriceCents != null && !eventSoldOut && !isPast && (
+              <div className="hidden lg:flex mt-7 items-center justify-between gap-4 border border-border bg-card py-3.5 pl-[22px] pr-3.5">
+                <div>
+                  <small className="block text-xs text-muted-foreground">Tickets from</small>
+                  <b className="ev-display text-2xl font-bold tabular-nums">{minPriceCents === 0 ? "Free" : fmtPrice(minPriceCents)}</b>
+                </div>
+                <button
+                  type="button"
+                  onClick={scrollToTickets}
+                  className="group inline-flex items-center gap-2 h-[50px] px-[26px] bg-primary text-primary-foreground text-[15px] font-bold whitespace-nowrap transition-colors hover:bg-primary-hover motion-safe:active:scale-[0.98]"
+                >
+                  Get tickets <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+                </button>
+              </div>
+            )}
+
+            <EventSectionTabs tabs={sectionTabs} reduceMotion={reduceMotion} />
+
+            {/* ===== Tickets. Mounted twice, a wide-screen copy and a phone copy sharing the same state: pick,
+                then who's coming, then the checkout, then resale and the teaser. ===== */}
+            <div id="tickets" className="scroll-mt-36 pt-8">
+              <div className="flex items-baseline justify-between gap-3">
+                <h2 className="ev-h2">Tickets</h2>
+                {tiers.length > 1 && <span className="text-xs text-muted-foreground">{tiers.length} options</span>}
+              </div>
+              {!isPast && tiers.length > 0 && !eventSoldOut && (
+                <p className="mt-1.5 text-sm text-muted-foreground">The total, service fee included, is shown before you pay.</p>
               )}
 
-              {/* How it works */}
-              <section className="rounded-2xl border border-border bg-card/50 p-5">
-                <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground mb-4">How it works</h2>
-                <ul className="grid gap-3 sm:grid-cols-2">
-                  {[
-                    { icon: CreditCard, text: <>Pay by card, Apple Pay or Google Pay through {paymentProvider === "stripe" ? "Stripe" : "Revolut"}. Your card never touches Ticket Safe.</> },
-                    { icon: Mail, text: <>Your QR ticket lands in your inbox within a minute, as an image and a PDF.</> },
-                    { icon: QrCode, text: <>Show the QR at the door. It's also in <Link to="/my-tickets" className="font-medium text-primary hover:underline">My Tickets</Link>.</> },
-                    { icon: ShieldCheck, text: <>Automatic refund if the organiser cancels.</> },
-                  ].map((s, i) => {
-                    const Icon = s.icon;
-                    return (
-                      <li key={i} className="flex items-start gap-3 text-sm text-foreground/85">
-                        <span className="w-8 h-8 rounded-full bg-primary/15 text-primary flex items-center justify-center shrink-0"><Icon className="w-4 h-4" strokeWidth={1.75} /></span>
-                        <span className="pt-1.5">{s.text}</span>
-                      </li>
-                    );
-                  })}
-                </ul>
-                <div className="mt-4 pt-4 border-t border-border"><ProtectionBadge /></div>
-              </section>
+              <aside className="hidden lg:block space-y-4 mt-5">
+                {isPast ? (
+                  <p className="text-sm text-muted-foreground py-4">This event has ended.</p>
+                ) : tiers.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-4">Tickets will be on sale soon. Check back shortly.</p>
+                ) : eventSoldOut ? (
+                  renderSummary(true)
+                ) : (
+                  renderTiers()
+                )}
+                {selected && !eventSoldOut && !isPast && (
+                  <section id="details-desktop" className="scroll-mt-40 border border-border bg-card p-5">
+                    {renderAttendees()}
+                  </section>
+                )}
+                {/* In its own box, so it stays in the flow under the form instead of sticking under the section links. */}
+                {selected && !eventSoldOut && !isPast && <div className="bg-card"><div className="lg:sticky lg:top-24">{renderSummary(true)}</div></div>}
+                {!isPast && <EventResaleListings eventId={event.id} headingId="resale-heading-desktop" logErrors />}
+                {teaserVideo && <TeaserVideo src={teaserVideo} poster={event.banner_url} title={event.title} />}
+              </aside>
 
-              <div className="pt-4 pb-2 text-center text-xs text-muted-foreground">
-                Powered by <Link to="/" className="font-medium text-foreground hover:underline">Ticket Safe</Link>
-                {" · "}<Link to="/terms" className="hover:underline">Terms</Link>
-                {" · "}<Link to="/privacy" className="hover:underline">Privacy</Link>
+              <div className="lg:hidden space-y-4 mt-4">
+                {isPast ? (
+                  <p className="text-sm text-muted-foreground py-4">This event has ended.</p>
+                ) : tiers.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-4">Tickets will be on sale soon. Check back shortly.</p>
+                ) : eventSoldOut ? (
+                  renderSummary(true)
+                ) : (
+                  renderTiers()
+                )}
+                {selected && !eventSoldOut && !isPast && (
+                  <section className="border border-border bg-card p-4 motion-safe:animate-fade-in">
+                    {renderAttendees()}
+                  </section>
+                )}
+                {selected && !eventSoldOut && !isPast && <div id="checkout" className="scroll-mt-32 bg-card">{renderSummary(true)}</div>}
+                {!isPast && <EventResaleListings eventId={event.id} headingId="resale-heading-mobile" className="lg:hidden" />}
+                {teaserVideo && <div className="lg:hidden"><TeaserVideo src={teaserVideo} poster={event.banner_url} title={event.title} /></div>}
               </div>
             </div>
 
+            {/* ===== The story ===== */}
+            {event.description && (
+              <section id="about" className="scroll-mt-36 pt-10">
+                <h2 className="ev-h2">About the event</h2>
+                <p
+                  className={`mt-3.5 max-w-[62ch] text-[15px] text-foreground/85 leading-relaxed whitespace-pre-line ${!aboutOpen && longAbout ? "line-clamp-5" : ""}`}
+                  style={{ fontFamily: descriptionFontFamily(event.description_font) }}
+                >
+                  {event.description}
+                </p>
+                {longAbout && (
+                  <button type="button" onClick={() => setAboutOpen((v) => !v)} className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-cta hover:underline">
+                    {aboutOpen ? "Show less" : "Read more"}
+                    <ChevronDown className={`w-4 h-4 transition-transform ${aboutOpen ? "rotate-180" : ""}`} />
+                  </button>
+                )}
+              </section>
+            )}
+
+            {/* When & where */}
+            <section id="venue" className="scroll-mt-36 pt-10">
+              <h2 className="ev-h2">When & where</h2>
+              <div className="mt-4 flex items-start gap-4 border border-border bg-card p-5">
+                <div className="w-14 shrink-0 text-center border border-border bg-background/60 py-1.5">
+                  <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">{startDate.toLocaleDateString("en-GB", { month: "short" })}</div>
+                  <div className="ev-display text-2xl font-bold leading-none text-foreground">{startDate.getDate()}</div>
+                  <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">{startDate.toLocaleDateString("en-GB", { weekday: "short" })}</div>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm text-foreground">
+                    {startDate.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
+                    {event.ends_at && <> – {new Date(event.ends_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</>}
+                    <span className="text-muted-foreground"> · {clock.label}</span>
+                  </div>
+                  {event.location && <div className="text-base font-semibold text-foreground mt-1">{event.location}</div>}
+                  <div className="flex flex-wrap gap-2 mt-3.5">
+                    {!clock.over && (
+                      <button type="button" onClick={() => downloadIcs(event)} className="inline-flex items-center gap-1.5 min-h-[44px] px-4 bg-white/[0.08] text-sm font-semibold text-foreground hover:bg-white/[0.13] transition-colors">
+                        <CalendarPlus className="w-4 h-4" strokeWidth={1.75} /> Add to calendar
+                      </button>
+                    )}
+                    {event.location && (
+                      <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(event.location)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 min-h-[44px] px-4 bg-white/[0.08] text-sm font-semibold text-foreground hover:bg-white/[0.13] transition-colors">
+                        <Navigation className="w-4 h-4" strokeWidth={1.75} /> Open in Maps
+                      </a>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* Organiser */}
+            {event.organizer && (
+              <section id="organiser" className="scroll-mt-36 pt-10">
+                <h2 className="ev-h2">Organiser</h2>
+                <div className="mt-4 flex flex-wrap items-center gap-4 border border-border bg-card p-5" style={{ borderLeft: `3px solid ${organizerAccent}` }}>
+                  {event.organizer.logo_url ? (
+                    <img src={event.organizer.logo_url} alt={event.organizer.name} className="w-14 h-14 rounded-full object-cover shrink-0" />
+                  ) : (
+                    <div className="w-14 h-14 rounded-full flex items-center justify-center text-xl font-bold text-primary-foreground bg-primary shrink-0">{event.organizer.name[0]?.toUpperCase()}</div>
+                  )}
+                  <div className="flex-1 min-w-[180px]">
+                    <div className="ev-display text-lg font-bold text-foreground inline-flex items-center gap-1.5">
+                      {event.organizer.name}
+                      <BadgeCheck className="w-4 h-4 text-cta" strokeWidth={1.75} aria-label="Verified organiser" />
+                    </div>
+                    <div className="text-[13.5px] text-muted-foreground">Verified organiser{interestedLabel ? ` · ${interestedLabel} in this event` : ""}</div>
+                    {event.organizer.website && (
+                      <a href={event.organizer.website} target="_blank" rel="noopener noreferrer" className="text-xs text-cta hover:underline">{event.organizer.website.replace(/^https?:\/\//, "")}</a>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleToggleFollow}
+                    disabled={followBusy}
+                    aria-pressed={following}
+                    className={`shrink-0 h-10 px-4 rounded-full text-sm font-semibold border transition-colors disabled:opacity-60 ${following ? "border-border text-foreground hover:bg-muted" : "border-primary bg-primary text-primary-foreground hover:bg-primary-hover"}`}
+                  >
+                    {following ? "Following" : "Follow"}
+                  </button>
+                </div>
+              </section>
+            )}
+
+            {/* How it works */}
+            <section className="pt-10">
+              <h2 className="ev-h2">How it works</h2>
+              <ul className="mt-4 grid gap-2.5 sm:grid-cols-2">
+                {[
+                  { icon: CreditCard, text: <>Pay by card, Apple Pay or Google Pay through {paymentProvider === "stripe" ? "Stripe" : "Revolut"}. Your card never touches Ticket Safe.</> },
+                  { icon: Mail, text: <>Your QR ticket lands in your inbox within a minute, as an image and a PDF.</> },
+                  { icon: QrCode, text: <>Show the QR at the door. It's also in <Link to="/my-tickets" className="font-medium text-cta hover:underline">My Tickets</Link>.</> },
+                  { icon: ShieldCheck, text: <>Automatic refund if the organiser cancels.</> },
+                ].map((s, i) => {
+                  const Icon = s.icon;
+                  return (
+                    <li key={i} className="flex items-start gap-3 border border-border bg-card p-4 text-[13.5px] leading-relaxed text-foreground/85">
+                      <Icon className="w-[18px] h-[18px] mt-0.5 text-cta shrink-0" strokeWidth={1.75} />
+                      <span>{s.text}</span>
+                    </li>
+                  );
+                })}
+              </ul>
+              <div className="mt-4"><ProtectionBadge /></div>
+            </section>
+
+            <div className="pt-10 pb-2 text-center text-xs text-muted-foreground lg:text-left">
+              Powered by <Link to="/" className="font-medium text-foreground hover:underline">Ticket Safe</Link>
+              {" · "}<Link to="/terms" className="hover:underline">Terms</Link>
+              {" · "}<Link to="/privacy" className="hover:underline">Privacy</Link>
+            </div>
           </div>
         </div>
       </main>
 
-      {/* ===== Phone: a bar only once a ticket is picked, taking you to the checkout ===== */}
+      {/* ===== The bar at the bottom. Once a ticket is picked: the total and the way to pay, on every screen.
+          Before that, on a phone: the price to start from and the way to the tickets. ===== */}
       {selected && !eventSoldOut && !isPast && (
-        <div className="lg:hidden fixed bottom-0 inset-x-0 z-40 border-t border-border bg-background/90 backdrop-blur px-4 pt-3 pb-[calc(0.75rem_+_env(safe-area-inset-bottom))] motion-safe:animate-slide-up">
-          <div className="flex items-center gap-3">
+        <div className="fixed bottom-0 inset-x-0 z-40 border-t border-border bg-background/90 backdrop-blur px-4 pt-3 pb-[calc(0.75rem_+_env(safe-area-inset-bottom))] motion-safe:animate-slide-up lg:px-0">
+          <div className="mx-auto flex w-full max-w-3xl items-center gap-3 lg:max-w-[1200px] lg:px-6">
             <div className="flex-1 min-w-0">
-              <div className="text-[11px] text-muted-foreground truncate">{qty} × {selected.name}{readyCount < qty ? ` · ${qty - readyCount} to fill in` : ""}</div>
-              <div className="text-lg font-semibold tabular-nums leading-tight text-foreground"><AnimatedNumber value={grandCents / 100} prefix={currencySymbol(currency)} durationMs={150} /></div>
+              <div className="text-[11px] text-muted-foreground truncate lg:text-xs">{qty} × {selected.name}{readyCount < qty ? ` · ${qty - readyCount} to fill in` : ""}</div>
+              <div className="ev-display text-lg font-bold tabular-nums leading-tight text-foreground lg:text-[22px]"><AnimatedNumber value={grandCents / 100} prefix={currencySymbol(currency)} durationMs={150} /></div>
             </div>
             <button
               type="button"
-              onClick={() => (readyCount < qty ? document.getElementById("checkout")?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" }) : handleBuy())}
+              onClick={() => (readyCount < qty ? scrollToShown(["details-desktop", "checkout"]) : handleBuy())}
               disabled={buying}
-              className="shrink-0 inline-flex items-center justify-center gap-1.5 min-h-[48px] px-6 rounded-full bg-primary text-primary-foreground font-semibold text-sm disabled:opacity-60 transition-colors hover:bg-primary-hover motion-safe:active:scale-[0.98]"
+              className="shrink-0 inline-flex items-center justify-center gap-1.5 min-h-[48px] px-6 bg-primary text-primary-foreground font-bold text-sm disabled:opacity-60 transition-colors hover:bg-primary-hover motion-safe:active:scale-[0.98] lg:px-7 lg:text-[15px]"
             >
               {buying ? <Loader2 className="w-4 h-4 animate-spin" /> : <>{readyCount < qty ? "Fill in details" : grandCents === 0 ? "Get my ticket" : "Pay"} <ArrowRight className="w-4 h-4" /></>}
             </button>
           </div>
         </div>
       )}
+      {!selected && minPriceCents != null && !eventSoldOut && !isPast && (
+        <div className="lg:hidden fixed bottom-0 inset-x-0 z-40 border-t border-border bg-background/90 backdrop-blur px-4 pt-3 pb-[calc(0.75rem_+_env(safe-area-inset-bottom))]">
+          <div className="mx-auto flex w-full max-w-3xl items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-[11px] text-muted-foreground">Tickets from</div>
+              <div className="ev-display text-lg font-bold tabular-nums leading-tight text-foreground">{minPriceCents === 0 ? "Free" : fmtPrice(minPriceCents)}</div>
+            </div>
+            <button
+              type="button"
+              onClick={scrollToTickets}
+              className="shrink-0 inline-flex items-center justify-center gap-1.5 min-h-[48px] px-6 bg-primary text-primary-foreground font-bold text-sm transition-colors hover:bg-primary-hover motion-safe:active:scale-[0.98]"
+            >
+              Get tickets <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       <style>{`
-        .ts-chips { scrollbar-width: none; }
-        .ts-chips::-webkit-scrollbar { display: none; }
+        .theme-night .ev-page h1, .theme-night .ev-page h2.ev-h2, .theme-night .ev-display {
+          font-family: "Space Grotesk", "Inter", system-ui, sans-serif;
+        }
+        .theme-night .ev-page h1 { letter-spacing: -0.045em; }
+        .theme-night .ev-page h2.ev-h2 { font-size: 26px; line-height: 1.1; font-weight: 700; letter-spacing: -0.03em; color: hsl(var(--foreground)); }
+        .theme-night .ev-display { letter-spacing: -0.02em; }
+        .ev-tabs { scrollbar-width: none; }
+        .ev-tabs::-webkit-scrollbar { display: none; }
+        .ev-page [id^="resale-heading"] { scroll-margin-top: 10.5rem; }
+        .ev-act {
+          flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 42px;
+          background: rgba(255, 255, 255, 0.06); color: hsl(var(--foreground) / 0.8); font-size: 13.5px; font-weight: 600;
+          transition: background 200ms, color 200ms;
+        }
+        .ev-act:hover { background: rgba(255, 255, 255, 0.1); color: hsl(var(--foreground)); }
         .ts-field-input {
           width: 100%;
           padding: 11px 12px;
           border: 1px solid hsl(var(--border));
-          border-radius: 10px;
+          border-radius: 0;
           background: hsl(var(--input));
           color: hsl(var(--foreground));
           font-size: 16px;
@@ -1375,7 +1459,7 @@ const Field = ({ label, children }: { label: string; children: React.ReactNode }
   </label>
 );
 
-/** Square −/+ quantity control. */
+/** Round −/+ quantity control. */
 const QtyStepper = ({
   qty,
   onDecrease,
@@ -1389,22 +1473,22 @@ const QtyStepper = ({
   disableDecrease: boolean;
   disableIncrease: boolean;
 }) => (
-  <div className="inline-flex items-center gap-2">
+  <div className="inline-flex items-center gap-1 rounded-full bg-white/[0.07] p-1">
     <button
       type="button"
       onClick={onDecrease}
       disabled={disableDecrease}
-      className="w-10 h-10 border border-border flex items-center justify-center hover:bg-muted active:scale-95 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+      className="w-9 h-9 rounded-full flex items-center justify-center text-foreground hover:bg-white/[0.1] active:scale-95 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
       aria-label="Remove a ticket"
     >
       <Minus className="w-4 h-4" strokeWidth={1.75} />
     </button>
-    <span key={qty} className="w-8 text-center text-base font-semibold tabular-nums text-foreground motion-safe:animate-scale-in" aria-live="polite">{qty}</span>
+    <span key={qty} className="ev-display w-7 text-center text-base font-semibold tabular-nums text-foreground motion-safe:animate-scale-in" aria-live="polite">{qty}</span>
     <button
       type="button"
       onClick={onIncrease}
       disabled={disableIncrease}
-      className="w-10 h-10 border border-border flex items-center justify-center hover:bg-muted active:scale-95 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+      className="w-9 h-9 rounded-full flex items-center justify-center bg-primary text-primary-foreground hover:bg-primary-hover active:scale-95 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
       aria-label="Add a ticket"
     >
       <Plus className="w-4 h-4" strokeWidth={1.75} />
