@@ -660,7 +660,7 @@ const EventPublic = () => {
     { key: "tickets", label: "Tickets", targets: ["tickets"] },
     ...(resaleOpen && resaleListings.length > 0 ? [{ key: "resale", label: "Resale", targets: ["resale-heading-desktop", "resale-heading-mobile"] }] : []),
     ...(event.description ? [{ key: "about", label: "About", targets: ["about"] }] : []),
-    { key: "venue", label: "When & where", targets: ["venue"] },
+    { key: "venue", label: "Venue", targets: ["venue"] },
     ...(event.organizer ? [{ key: "organiser", label: "Organiser", targets: ["organiser"] }] : []),
   ];
   const longAbout = (event.description ?? "").length > 280;
@@ -806,12 +806,12 @@ const EventPublic = () => {
             </button>
             <div className="mt-2.5"><CheckoutLegalNote free={grandCents === 0} /></div>
             {readyCount < qty && !buying && (
-              <p className="text-[11px] text-muted-foreground text-center mt-2.5">
+              <p className="text-[11px] leading-normal text-muted-foreground text-center mt-2.5">
                 {qty === 1 ? "Fill in the name and email first." : `${qty - readyCount} ticket${qty - readyCount > 1 ? "s" : ""} still need a name and email.`}
               </p>
             )}
             {!user && (
-              <p className="text-[11px] text-muted-foreground text-center mt-2.5">
+              <p className="text-[11px] leading-normal text-muted-foreground text-center mt-2.5">
                 No account needed — the ticket goes straight to the email above.
               </p>
             )}
@@ -821,11 +821,6 @@ const EventPublic = () => {
           </>
         )}
 
-        {maxPerBuyer != null && qty >= maxPerBuyer && (
-          <p className="text-[11px] text-muted-foreground text-center mt-3">
-            Limit reached — {maxPerBuyer} ticket{maxPerBuyer > 1 ? "s" : ""} per person.
-          </p>
-        )}
       </div>
     );
   };
@@ -934,7 +929,11 @@ const EventPublic = () => {
                   <span aria-hidden />
                 )
               ) : isSelected ? (
-                <div className="shrink-0 motion-safe:animate-fade-in" onClick={(e) => e.stopPropagation()}>
+                <div
+                  className="col-span-2 flex items-center justify-between gap-3 border-t border-primary/30 pt-3 motion-safe:animate-fade-in sm:col-span-1 sm:shrink-0 sm:border-0 sm:pt-0"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <span className="text-sm text-muted-foreground sm:hidden">How many?</span>
                   <QtyStepper
                     qty={qty}
                     onDecrease={() => setQty((n) => Math.max(1, n - 1))}
@@ -1283,7 +1282,7 @@ const EventPublic = () => {
                   renderTiers()
                 )}
                 {selected && !eventSoldOut && !isPast && (
-                  <section className="border border-border bg-card p-4 motion-safe:animate-fade-in">
+                  <section id="details-mobile" className="scroll-mt-32 border border-border bg-card p-4 motion-safe:animate-fade-in">
                     {renderAttendees()}
                   </section>
                 )}
@@ -1354,7 +1353,7 @@ const EventPublic = () => {
                   ) : (
                     <div className="w-14 h-14 rounded-full flex items-center justify-center text-xl font-bold text-primary-foreground bg-primary shrink-0">{event.organizer.name[0]?.toUpperCase()}</div>
                   )}
-                  <div className="flex-1 min-w-[180px]">
+                  <div className="flex-1 min-w-0 basis-[160px]">
                     <div className="ev-display text-lg font-bold text-foreground inline-flex items-center gap-1.5">
                       {event.organizer.name}
                       <BadgeCheck className="w-4 h-4 text-cta" strokeWidth={1.75} aria-label="Verified organiser" />
@@ -1369,7 +1368,7 @@ const EventPublic = () => {
                     onClick={handleToggleFollow}
                     disabled={followBusy}
                     aria-pressed={following}
-                    className={`shrink-0 h-10 px-4 rounded-full text-sm font-semibold border transition-colors disabled:opacity-60 ${following ? "border-border text-foreground hover:bg-muted" : "border-primary bg-primary text-primary-foreground hover:bg-primary-hover"}`}
+                    className={`w-full sm:w-auto shrink-0 h-11 sm:h-10 px-4 rounded-full text-sm font-semibold border transition-colors disabled:opacity-60 ${following ? "border-border text-foreground hover:bg-muted" : "border-primary bg-primary text-primary-foreground hover:bg-primary-hover"}`}
                   >
                     {following ? "Following" : "Follow"}
                   </button>
@@ -1419,7 +1418,7 @@ const EventPublic = () => {
             </div>
             <button
               type="button"
-              onClick={() => (readyCount < qty ? scrollToShown(["details-desktop", "checkout"]) : handleBuy())}
+              onClick={() => (readyCount < qty ? scrollToShown(["details-desktop", "details-mobile"]) : handleBuy())}
               disabled={buying}
               className="shrink-0 inline-flex items-center justify-center gap-1.5 min-h-[48px] px-6 bg-primary text-primary-foreground font-bold text-sm disabled:opacity-60 transition-colors hover:bg-primary-hover motion-safe:active:scale-[0.98] lg:px-7 lg:text-[15px]"
             >

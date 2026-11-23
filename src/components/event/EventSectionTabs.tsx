@@ -62,7 +62,7 @@ export const EventSectionTabs = ({ tabs, reduceMotion }: { tabs: SectionTab[]; r
     <nav
       ref={barRef}
       aria-label="Event sections"
-      className="ev-tabs sticky top-16 md:top-20 z-20 -mx-4 mt-6 flex gap-1 overflow-x-auto border-b border-border bg-background px-4 lg:mx-0 lg:mt-7 lg:px-0"
+      className="ev-tabs sticky top-16 md:top-20 z-20 -mx-4 mt-6 flex gap-1 overflow-x-auto border-b border-border bg-background px-1 lg:mx-0 lg:mt-7 lg:px-0"
     >
       {tabs.map((tab) => {
         const on = tab.key === active;
