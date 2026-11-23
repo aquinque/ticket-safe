@@ -11,7 +11,7 @@ import ProtectedAdminRoute from "@/components/ProtectedAdminRoute";
 import { StudioAccessGate } from "@/components/studio/StudioAccessGate";
 
 // Eager: landing + 404 + auth (most likely first-paint targets)
-import Home from "./pages/Home";
+import Organizers from "./pages/organizers/Organizers";
 import NotFound from "./pages/NotFound";
 import Auth from "./pages/Auth";
 
@@ -49,7 +49,8 @@ const GalaESCP = lazy(() => import("./pages/GalaESCP"));
 const Chat = lazy(() => import("./pages/Chat"));
 const Messages = lazy(() => import("./pages/Messages"));
 const ChatRoom = lazy(() => import("./pages/ChatRoom"));
-const Organizers = lazy(() => import("./pages/organizers/Organizers"));
+// The former front page (the buyers' carousel). The site now opens on the organizers page; this one stays at /home.
+const Home = lazy(() => import("./pages/Home"));
 const OrganizerApply = lazy(() => import("./pages/organizers/OrganizerApply"));
 const PromoterInvite = lazy(() => import("./pages/PromoterInvite"));
 const PromoterDashboard = lazy(() => import("./pages/PromoterDashboard"));
@@ -99,7 +100,9 @@ const App = () => (
     <BackToHomeGuard />
     <Suspense fallback={<RouteFallback />}>
       <Routes>
-        <Route path="/" element={<Home />} />
+        {/* The front page is the organizers page; "Our events" in the header leads to /tickets. */}
+        <Route path="/" element={<Organizers />} />
+        <Route path="/home" element={<Home />} />
         <Route path="/tickets" element={<Tickets />} />
         <Route path="/resale" element={<Navigate to="/marketplace/buy" replace />} />
         <Route path="/marketplace" element={<Navigate to="/tickets" replace />} />

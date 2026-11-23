@@ -37,6 +37,15 @@ const NAV_LINKS = [
   { key: "organizers", to: "/organizers", labelKey: "nav.organizers" as const },
 ];
 
+/**
+ * The switch in the middle of the header: the two sides of the site. "Organisers" is the front page (the pitch
+ * for people who run events), "Our events" the list of what is on sale. Each side stays lit on its own pages.
+ */
+const SWITCH = [
+  { key: "organisers", to: "/", labelKey: "nav.switchOrganisers" as const, on: (path: string) => path === "/" || path.startsWith("/organizers") },
+  { key: "events", to: "/tickets", labelKey: "nav.switchEvents" as const, on: (path: string) => path === "/tickets" || path.startsWith("/e/") },
+];
+
 const LANGUAGES: { code: "fr" | "en" | "es"; label: string }[] = [
   { code: "fr", label: "Français" },
   { code: "en", label: "English" },
@@ -111,6 +120,12 @@ const HeaderNight = () => {
   // signed out, the sign-in page brings them back there.
   const promoterHref = user ? "/promoter" : authPath("/promoter");
   const organizersLink = navLinks.find((link) => link.key === "organizers");
+  // Beside the switch on a wide screen: resale, and for an approved organizer the way straight into Studio
+  // (the "Organisers" side of the switch is the public page for everyone).
+  const secondaryLinks = [
+    { key: "resale", to: "/resale", label: t("nav.resale") },
+    ...(isStudioOrganizer ? [{ key: "studio", to: "/studio", label: "Studio" }] : []),
+  ];
 
   return (
     <>
@@ -120,23 +135,44 @@ const HeaderNight = () => {
         }`}
       >
         <div className="container mx-auto px-4 h-16 md:h-20 flex items-center justify-between gap-4">
-          <Link to="/" className="shrink-0 flex items-center hover:opacity-90 transition-opacity">
-            <Logo height={30} variant="light" />
+          {/* On a phone the switch needs the room: the logo keeps its mark and drops the word. */}
+          <Link to="/" aria-label="TicketSafe home" className="shrink-0 flex items-center hover:opacity-90 transition-opacity">
+            <span className="md:hidden flex"><Logo height={30} variant="light" iconOnly /></span>
+            <span className="hidden md:flex"><Logo height={30} variant="light" /></span>
           </Link>
 
-          <nav className="hidden md:flex items-center gap-1">
-            {navLinks.map((link) => (
-              <Link
-                key={link.key}
-                to={link.to}
-                className={`px-3.5 py-2 rounded-md text-sm font-semibold transition-colors ${
-                  isActive(link.to) ? "text-foreground" : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {t(link.labelKey)}
-              </Link>
-            ))}
-          </nav>
+          <div className="flex min-w-0 items-center gap-1 md:gap-2">
+            <nav aria-label="TicketSafe" className="flex shrink-0 rounded-full bg-white/[0.08] p-[3px]">
+              {SWITCH.map((side) => {
+                const on = side.on(location.pathname);
+                return (
+                  <Link
+                    key={side.key}
+                    to={side.to}
+                    aria-current={on ? "page" : undefined}
+                    className={`whitespace-nowrap rounded-full px-3 py-[7px] text-[13px] font-semibold leading-none transition-colors duration-200 md:px-3.5 md:text-[13.5px] ${
+                      on ? "bg-foreground text-background" : "text-foreground/75 hover:text-foreground"
+                    }`}
+                  >
+                    {t(side.labelKey)}
+                  </Link>
+                );
+              })}
+            </nav>
+            <nav aria-label="More" className="hidden md:flex items-center gap-1">
+              {secondaryLinks.map((link) => (
+                <Link
+                  key={link.key}
+                  to={link.to}
+                  className={`px-3.5 py-2 rounded-md text-sm font-semibold transition-colors ${
+                    isActive(link.to) ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </nav>
+          </div>
 
           <div className="hidden md:flex items-center gap-2">
             <DropdownMenu>
