@@ -47,6 +47,7 @@ import { authPathHere } from "@/lib/returnTo";
 import { countdown } from "@/lib/eventCountdown";
 import { eventShareUrl } from "@/lib/shareUrl";
 import { EventResaleListings } from "@/components/resale/EventResaleListings";
+import { EventResellCta } from "@/components/resale/EventResellCta";
 import { useResaleListings } from "@/hooks/useResaleListings";
 import { dropLabel, isUpcomingDrop, tierReleaseState } from "@/lib/tierDrops";
 
@@ -1171,6 +1172,7 @@ const EventPublic = () => {
               )}
               {selected && !eventSoldOut && !isPast && <div className="lg:sticky lg:top-24">{renderSummary(true)}</div>}
               {!isPast && <EventResaleListings eventId={event.id} headingId="resale-heading-desktop" logErrors />}
+              {!isPast && <EventResellCta eventId={event.id} />}
               {teaserVideo && <TeaserVideo src={teaserVideo} poster={event.banner_url} title={event.title} />}
             </aside>
 
@@ -1198,6 +1200,7 @@ const EventPublic = () => {
               )}
               {selected && !eventSoldOut && !isPast && <div id="checkout" className="lg:hidden scroll-mt-20">{renderSummary(true)}</div>}
               {!isPast && <EventResaleListings eventId={event.id} headingId="resale-heading-mobile" className="lg:hidden" />}
+              {!isPast && <EventResellCta eventId={event.id} className="lg:hidden" />}
               {teaserVideo && <div className="lg:hidden"><TeaserVideo src={teaserVideo} poster={event.banner_url} title={event.title} /></div>}
               {event.description && (
                 <section className="rounded-2xl border border-border bg-card/50 p-5">

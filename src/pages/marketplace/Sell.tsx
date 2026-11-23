@@ -123,6 +123,8 @@ const Sell = () => {
   const { refetchListings } = useTicketListings();
   const [searchParams] = useSearchParams();
   const studioTicketParam = searchParams.get("studio_ticket");
+  // From the "Resell my ticket" button of an event page: /marketplace/sell?event=<id> opens on that event.
+  const eventParam = searchParams.get("event");
 
   // Studio-resale fast path: when ?studio_ticket=<id> is present we know
   // the seller's QR is one we issued (JWT-signed event_ticket). No upload
@@ -490,6 +492,32 @@ const Sell = () => {
     })();
     return () => { cancelled = true; };
   }, [user, studioTicketParam, navigate]);
+
+  // Arriving from an event page: choose that event straight away, so the seller lands on their tickets for it
+  // (or on the upload step when its tickets were not issued by TicketSafe) instead of searching for it.
+  useEffect(() => {
+    if (!user || studioTicketParam || !eventParam) return;
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(eventParam)) return;
+    let cancelled = false;
+    supabase
+      .from("events")
+      .select("id, title, description, date, location, category, university, campus, image_url, is_active, base_price, created_at, updated_at")
+      .eq("id", eventParam)
+      .maybeSingle()
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error || !data) {
+          if (error) console.error("[sell] event from link:", error);
+          return;
+        }
+        const ev = data as unknown as Event;
+        setSelectedEvent(ev);
+        setFormData((prev) => ({ ...prev, eventId: ev.id, sellingPrice: "" }));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user, studioTicketParam, eventParam]);
 
   // Debounced event search
   useEffect(() => {
