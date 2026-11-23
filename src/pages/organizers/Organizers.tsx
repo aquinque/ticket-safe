@@ -223,6 +223,7 @@ const Organizers = () => {
       <SEOHead
         title="TicketSafe Studio — Sell out your event. Keep every euro."
         description="Ticketing for every kind of event: ticket tiers, secure QR tickets, door scanning, safe resale and a live dashboard. 0% organizer fee."
+        url={`${window.location.origin}/`}
       />
 
       <HeaderNight />
