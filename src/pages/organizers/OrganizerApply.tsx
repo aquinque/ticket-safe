@@ -507,7 +507,7 @@ const OrganizerApply = () => {
       />
       <HeaderNight />
 
-      <main className="flex-1 relative pt-16 md:pt-20">
+      <main className="flex-1 relative overflow-x-clip pt-16 md:pt-20">
         {/* Subtle ambient blue */}
         <div
           className="pointer-events-none absolute -top-32 -left-32 w-[36rem] h-[36rem] rounded-full opacity-15 blur-3xl"

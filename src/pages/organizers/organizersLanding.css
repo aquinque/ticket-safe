@@ -167,7 +167,7 @@
 .theme-night .org-landing .newev { display: flex; justify-content: center; align-items: center; height: 36px; background: var(--accent); color: #fff; font-size: 12.5px; font-weight: 600; }
 .theme-night .org-landing .dmain { padding: 22px 26px; display: grid; grid-template-columns: 1fr 320px; grid-template-rows: auto 1fr; gap: 18px; overflow: hidden; }
 .theme-night .org-landing .ev-head { grid-column: 1 / -1; display: flex; align-items: center; gap: 16px; }
-.theme-night .org-landing .ev-cover { width: 54px; height: 54px; background: #24345a linear-gradient(165deg, #2440b6 0%, #3a5fe6 55%, #7f9cf5 100%); }
+.theme-night .org-landing .ev-cover { width: 54px; height: 54px; background: #24345a url("./event-example.jpg") 48% 30%/cover; }
 .theme-night .org-landing .ev-head h4 { margin: 0; font-family: var(--display); font-size: 22px; letter-spacing: -0.02em; }
 .theme-night .org-landing .ev-head p { margin: 0; color: var(--fg-3); font-size: 13px; }
 .theme-night .org-landing .ev-head .live { margin-left: auto; display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 600; color: var(--money); background: var(--money-soft); padding: 6px 11px; }
@@ -223,7 +223,7 @@
 .theme-night .org-landing .tk-back { position: absolute; width: 340px; height: 500px; background: var(--accent); transform: rotate(7deg) translate(30px, 8px); }
 .theme-night .org-landing .tk-back::after { content: "TicketSafe"; position: absolute; right: 16px; bottom: 14px; font: 700 13px var(--display); color: rgba(255,255,255,.7); }
 .theme-night .org-landing .tk-top { position: relative; background: var(--paper); transform: translateY(calc(var(--tear) * -10px)) rotate(calc(var(--tear) * -2deg)); transform-origin: 20% 100%; box-shadow: 0 30px 60px -24px rgba(0,0,0,.6); }
-.theme-night .org-landing .tk-photo { height: 150px; background: #24345a linear-gradient(165deg, #2440b6 0%, #3a5fe6 55%, #7f9cf5 100%); position: relative; }
+.theme-night .org-landing .tk-photo { height: 150px; background: #24345a url("./event-example.jpg") center 30%/cover; position: relative; }
 .theme-night .org-landing .tk-tag { position: absolute; left: 14px; top: 14px; background: var(--ink); color: #fff; font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; padding: 5px 8px; }
 .theme-night .org-landing .tk-body { padding: 20px 22px 22px; display: grid; gap: 16px; }
 .theme-night .org-landing .tk-ev { font: 700 30px/1 var(--display); letter-spacing: -0.035em; }
