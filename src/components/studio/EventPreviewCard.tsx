@@ -85,7 +85,7 @@ const EventPreviewCard = ({
         <div className="pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-black/25 to-transparent" />
 
         {/* Verified pill — the trust marker buyers look for */}
-        <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-bold text-foreground shadow-soft">
+        <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-white/95 px-2.5 py-1 text-[11px] font-bold text-background shadow-soft">
           <ShieldCheck className="h-3 w-3 text-primary" />
           Verified
         </span>
@@ -97,7 +97,7 @@ const EventPreviewCard = ({
         )}
 
         {price && (
-          <span className="absolute bottom-3 left-3 inline-flex items-center rounded-full bg-white/95 px-3 py-1 text-xs font-black text-foreground shadow-soft">
+          <span className="absolute bottom-3 left-3 inline-flex items-center rounded-full bg-white/95 px-3 py-1 text-xs font-black text-background shadow-soft">
             {price === "Free" ? "Free" : <>From {price}</>}
           </span>
         )}

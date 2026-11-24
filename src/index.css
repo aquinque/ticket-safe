@@ -144,28 +144,34 @@
      Explicit alias of :root so components can opt in deliberately instead of
      relying on the implicit default. */
   .theme-studio {
-    --background: 228 38% 97%;
-    --foreground: 228 53% 9%;
-    --card: 0 0% 100%;
-    --card-foreground: 228 53% 9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 228 53% 9%;
+    /* The same deep navy as the public site (.theme-night), so the Studio an organizer
+       opens is the one the home page shows. The sidebar sits one step darker than the page. */
+    --background: 224.2 65.5% 11.4%;
+    --foreground: 216 42% 95%;
+    --card: 225.3 59% 16.3%;
+    --card-foreground: 216 42% 95%;
+    --popover: 225.3 59% 16.3%;
+    --popover-foreground: 216 42% 95%;
     --primary: 227 77% 56%;
     --primary-foreground: 0 0% 100%;
-    --primary-hover: 228 67% 43%;
-    --secondary: 228 67% 43%;
-    --secondary-foreground: 0 0% 100%;
-    --accent: 225 29% 92%;
-    --accent-foreground: 228 53% 9%;
-    --muted: 225 29% 95%;
-    --muted-foreground: 225 17% 43%;
-    --border: 225 29% 92%;
-    --input: 225 29% 92%;
-    --ring: 227 77% 56%;
-    --shadow-soft: 0 1px 2px 0 hsl(228 53% 9% / 0.05);
-    --shadow-card: 0 1px 3px 0 hsl(228 53% 9% / 0.08), 0 1px 2px -1px hsl(228 53% 9% / 0.06);
-    --shadow-hover: 0 4px 12px -2px hsl(228 53% 9% / 0.12);
-    --shadow-glow: 0 0 0 3px hsl(227 77% 56% / 0.15);
+    --primary-hover: 228 67% 48%;
+    --secondary: 226 56% 20%;
+    --secondary-foreground: 216 42% 95%;
+    --accent: 226 56% 20%;
+    --accent-foreground: 216 42% 95%;
+    --muted: 226 52% 19%;
+    --muted-foreground: 217 31% 71%;
+    --border: 220 45% 23%;
+    --input: 220 45% 27%;
+    --ring: 222 100% 72%;
+    --destructive: 349 100% 65%;
+    --destructive-foreground: 0 0% 100%;
+    --studio-rail: 224.5 68% 8.5%;
+    --shadow-soft: none;
+    --shadow-card: none;
+    --shadow-hover: 0 12px 32px -12px hsl(224 80% 4% / 0.7);
+    --shadow-glow: 0 0 0 3px hsl(227 77% 56% / 0.3);
+    color-scheme: dark;
   }
 
   /* ===== .theme-night — unified public/student-facing theme (Home,
@@ -319,7 +325,11 @@
 .theme-night h2,
 .theme-night h3,
 .theme-night h4,
-.theme-night .font-checkout-display {
+.theme-night .font-checkout-display,
+.theme-studio h1,
+.theme-studio h2,
+.theme-studio h3,
+.theme-studio h4 {
   font-family: "Instrument Sans", "Inter", system-ui, sans-serif;
   letter-spacing: -0.01em;
 }
@@ -659,3 +669,44 @@
   .home-hero .home-slide[data-state] { transition-duration: var(--fade-ms) !important; }
   .home-hero .home-copy[data-state] { transition-duration: calc(var(--fade-ms) * 0.5) !important; }
 }
+
+
+/* ===== Studio on the night theme =====
+   Status colours were written for a white page (amber-50 panels, emerald-700 text). On navy they are
+   remapped here, in one place, to a tinted panel with light text, so every Studio page keeps its
+   meaning (amber = needs attention, green = good, red = problem, grey = over) without a white box. */
+.theme-studio :is(.bg-amber-50, .bg-amber-100) { background-color: hsl(38 92% 50% / 0.12); }
+.theme-studio :is(.bg-emerald-50, .bg-emerald-100) { background-color: hsl(152 69% 45% / 0.13); }
+.theme-studio :is(.bg-red-50, .bg-red-100) { background-color: hsl(349 100% 65% / 0.13); }
+.theme-studio .bg-slate-100 { background-color: hsl(var(--muted)); }
+.theme-studio :is(.border-amber-200, .border-amber-300) { border-color: hsl(38 92% 55% / 0.35); }
+.theme-studio .border-emerald-200 { border-color: hsl(152 69% 50% / 0.35); }
+.theme-studio :is(.border-red-200, .border-rose-200) { border-color: hsl(349 100% 68% / 0.38); }
+.theme-studio .border-slate-200 { border-color: hsl(var(--border)); }
+.theme-studio :is(.text-amber-600, .text-amber-700, .text-amber-800, .text-amber-900) { color: hsl(40 96% 68%); }
+.theme-studio :is(.text-emerald-600, .text-emerald-700, .text-green-700) { color: hsl(152 68% 62%); }
+.theme-studio :is(.text-red-600, .text-red-700, .text-rose-700) { color: hsl(350 100% 76%); }
+.theme-studio .text-blue-700 { color: hsl(222 100% 80%); }
+.theme-studio .text-slate-600 { color: hsl(var(--muted-foreground)); }
+
+/* The page behind the content: a faint blue light from the top, as on the home page. */
+.studio-main {
+  background:
+    radial-gradient(1100px 420px at 70% -140px, hsl(227 77% 56% / 0.16), transparent 70%),
+    hsl(var(--background));
+}
+/* Each page settles in: 10px up and a fade, once. */
+@keyframes studio-enter { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: no-preference) {
+  .studio-enter { animation: studio-enter 420ms cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+}
+/* The marker beside the current page in the sidebar. */
+.studio-nav-on { position: relative; background: hsl(227 77% 56% / 0.16); color: hsl(var(--foreground)); }
+.studio-nav-on::before {
+  content: ""; position: absolute; left: -8px; top: 8px; bottom: 8px; width: 3px; border-radius: 0 3px 3px 0;
+  background: hsl(222 100% 72%); box-shadow: 0 0 12px hsl(227 90% 62% / 0.9);
+}
+/* Brand blue as text is too dim on navy (about 3:1): links and highlighted figures use the lighter
+   blue the public site uses for its accents. Filled buttons keep the brand blue. */
+.theme-studio :is(.text-primary, .hover\:text-primary:hover) { color: hsl(222 100% 80%); }
+.theme-studio .text-primary-foreground { color: hsl(var(--primary-foreground)); }

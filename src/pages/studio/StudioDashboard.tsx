@@ -755,7 +755,7 @@ const NextUp = ({ event, phase, pace, checkedIn, days }: { event: StudioEvent; p
     } catch { /* user cancelled the share sheet */ }
   };
 
-  const btnPrimary = "inline-flex items-center justify-center gap-2 px-4 min-h-[44px] font-bold text-sm bg-white text-foreground hover:bg-white/90 transition-colors";
+  const btnPrimary = "inline-flex items-center justify-center gap-2 px-4 min-h-[44px] font-bold text-sm bg-white text-background hover:bg-white/90 transition-colors";
   const btnGhost = "inline-flex items-center justify-center gap-2 px-4 min-h-[44px] font-bold text-sm text-white border border-white/40 hover:bg-white/10 transition-colors";
 
   return (

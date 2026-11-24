@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Download, ExternalLink, Loader2, RefreshCw, Search } from "lucide-react";
-import Header from "@/components/Header";
+import HeaderNight from "@/components/HeaderNight";
 import { SEOHead } from "@/components/SEOHead";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useThemeMode } from "@/hooks/useThemeMode";
@@ -318,7 +318,7 @@ export function AdminEventsView({
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <SEOHead title="Admin · Ticket Safe" description="Admin overview of Ticket Safe" />
-      <Header />
+      <HeaderNight />
       <main className="flex-1 pt-2 pb-16">
         <div className="container mx-auto px-4 max-w-6xl">
           {/* Title, refresh, then the tabs */}
