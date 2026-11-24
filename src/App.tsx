@@ -19,6 +19,7 @@ import Auth from "./pages/Auth";
 const Tickets = lazy(() => import("./pages/Tickets"));
 // The Studio dashboard with sample numbers, for local development only: not in production builds.
 const StudioDemo = import.meta.env.DEV ? lazy(() => import("./pages/studio/StudioDemo")) : null;
+const StudioDemoStart = import.meta.env.DEV ? lazy(() => import("./pages/studio/StudioDemoStart")) : null;
 const EventTicketsMarketplace = lazy(() => import("./pages/EventTicketsMarketplace"));
 const Sell = lazy(() => import("./pages/Sell"));
 const MarketplaceBuy = lazy(() => import("./pages/marketplace/Buy"));
@@ -148,7 +149,8 @@ const App = () => (
         <Route path="/messages/:conversationId" element={<ChatRoom />} />
         <Route path="/organizers" element={<Organizers />} />
         <Route path="/organizers/apply" element={<OrganizerApply />} />
-        {StudioDemo && <Route path="/studio/demo" element={<StudioDemo />} />}
+        {StudioDemo && <Route path="/studio/demo/sample" element={<StudioDemo />} />}
+        {StudioDemoStart && <Route path="/studio/demo" element={<StudioDemoStart />} />}
         <Route path="/studio" element={<StudioAccessGate><StudioDashboard /></StudioAccessGate>} />
         <Route path="/studio/sales" element={<StudioAccessGate><StudioSales /></StudioAccessGate>} />
         <Route path="/studio/sales/:id" element={<StudioAccessGate><StudioSaleDetail /></StudioAccessGate>} />

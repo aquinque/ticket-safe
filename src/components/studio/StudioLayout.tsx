@@ -21,6 +21,7 @@ import Logo from "@/components/Logo";
 import { BackButton } from "@/components/BackButton";
 import { useAuth } from "@/hooks/useAuth";
 import { useThemeMode } from "@/hooks/useThemeMode";
+import { isStudioDemo, stopStudioDemo } from "@/lib/studioDemo";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -246,6 +247,19 @@ export const StudioLayout = ({
           </DropdownMenu>
           </div>
         </header>
+
+        {import.meta.env.DEV && isStudioDemo() && (
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b border-dashed border-border bg-primary/10 px-4 md:px-6 py-2 text-xs text-muted-foreground">
+            <span><strong className="text-foreground">Demo.</strong> Sample data on this computer only. Nothing is saved, sent or charged.</span>
+            <button
+              type="button"
+              onClick={() => { stopStudioDemo(); window.location.href = "/"; }}
+              className="font-semibold text-foreground underline underline-offset-2 hover:no-underline"
+            >
+              Exit demo
+            </button>
+          </div>
+        )}
 
         {/* Room for the phone tab bar, so nothing ends up hidden behind it */}
         <main className="flex-1 min-w-0 pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0"><div className="studio-enter">{children}</div></main>
