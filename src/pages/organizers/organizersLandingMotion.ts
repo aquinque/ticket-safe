@@ -71,7 +71,7 @@ export function mountOrganizersLanding(root: HTMLElement, opts: { feeEuros: numb
   const phQr = $<HTMLCanvasElement>("phQr");
   const phScreen = $("phScreen");
   const unit = EXAMPLE_PRICE + opts.feeEuros;
-  const buyers: [string, number][] = [["Camille R.", 2], ["Hugo M.", 1], ["Inès B.", 3], ["Lucas D.", 2], ["Sarah K.", 1], ["Nathan P.", 4]];
+  const buyers: [string, number][] = [["Maxime R.", 2], ["Hugo M.", 1], ["Inès B.", 3], ["Lucas D.", 2], ["Sarah K.", 1], ["Nathan P.", 4]];
   let bi = 0;
   const tapAt = (el: HTMLElement) => {
     const sr = phScreen.getBoundingClientRect();
@@ -204,7 +204,7 @@ export function mountOrganizersLanding(root: HTMLElement, opts: { feeEuros: numb
         tk.classList.toggle("admitted", s >= 2);
       }
       state.className = "state" + ["", " re", " ok", " used"][s];
-      state.textContent = ["Valid · scans once", "Re-issued to Sarah K.", "Admitted · 23:12", "Used · 23:12"][s];
+      state.textContent = ["Valid · scans once", "Re-issued to Maxime Requin", "Admitted · 23:12", "Used · 23:12"][s];
       fake.classList.toggle("on", s === 3);
     }
     tk.style.setProperty("--tear", s === 3 ? ease(clamp(local * 1.6)).toFixed(3) : "0");
