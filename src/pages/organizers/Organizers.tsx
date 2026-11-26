@@ -382,7 +382,7 @@ const Organizers = () => {
                 </div>
               </div>
               <div className="tk-stage" aria-hidden="true">
-                <div className="toast" data-ol="toast"><Icon name="swap" /><span><s>Camille R.</s> → <b>Sarah K.</b> · €25 · old QR cancelled</span></div>
+                <div className="toast" data-ol="toast"><Icon name="swap" /><span><s>Maxime Requin</s> → <b>Sarah K.</b> · €25 · old QR cancelled</span></div>
                 <div className="tk-back" />
                 <div className="tk" data-ol="tk">
                   <div className="tk-top">
@@ -395,7 +395,7 @@ const Organizers = () => {
                         <div><small>Tier</small><b>Regular</b></div>
                         <div><small>Price</small><b>€25</b></div>
                       </div>
-                      <div><small>Name on ticket</small><span className="nm"><b className="n1">Camille R.</b><b className="n2">Sarah K.</b></span></div>
+                      <div><small>Name on ticket</small><span className="nm"><b className="n1">Maxime Requin</b><b className="n2">Sarah K.</b></span></div>
                     </div>
                     <div className="tk-perf" />
                   </div>
